@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp________create_document",
+      "mcp________search_documents",
+      "mcp________update_document",
+      "Read(//c/Users/test/.claude/plugins/**)"
+    ]
+  }
+}
