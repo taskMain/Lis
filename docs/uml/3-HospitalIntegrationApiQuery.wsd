@@ -1,0 +1,132 @@
+' 查询图：医院 HIS 调用互认平台的外部纯查询 API；仅包含 F06 引用详情获取。
+@startuml HospitalIntegrationApiQuery
+!include ddd_lib.puml
+
+Person('HospitalHisSystem','医院 HIS')
+
+Enum('MedicalReportTypeEnum')[
+    报告类型
+    --属性--
+    检验(Laboratory 1)
+    检查(Examination 2)
+]
+
+Enum('VisitTypeEnum')[
+    就诊类型
+    --属性--
+    门诊(Outpatient 1)
+    急诊(Emergency 2)
+    住院(Inpatient 3)
+    体检(PhysicalExam 4)
+    其他(Other 5)
+]
+
+Enum('LaboratoryAbnormalFlagEnum')[
+    检验异常标志
+    --属性--
+    正常(Normal 1)
+    偏高(High 2)
+    偏低(Low 3)
+    其他异常(OtherAbnormal 4)
+]
+
+Enum('SourceImageStatusEnum')[
+    来源影像状态
+    --属性--
+    有影像(Available 1)
+    无影像(None 2)
+    未知(Unknown 3)
+]
+
+ReadModel('LaboratoryResultReadModel')[
+    检验结果明细
+    --属性--
+    展示序号(DisplayOrder Integer)
+    检验项目名称(ItemName String)
+    来源结果原文(SourceResultValue Text)
+    单位(Unit String?)
+    来源参考范围(SourceReferenceRange Text?)
+    异常标志(AbnormalFlag LaboratoryAbnormalFlag?)
+    危急值标志(CriticalValueFlag Boolean?)
+]
+
+ReadModel('LaboratoryCandidateContentReadModel')[
+    检验候选项目内容
+    --属性--
+    标本类型名称(SpecimenTypeName String)
+    结果明细(Results LaboratoryResultReadModel[])
+]
+
+ReadModel('ExaminationBodyPartReadModel')[
+    检查部位
+    --属性--
+    来源部位编码(SourceBodyPartCode String?)
+    部位名称(BodyPartName String)
+]
+
+ReadModel('ExaminationCitationContentReadModel')[
+    检查引用内容
+    --属性--
+    检查部位(BodyParts ExaminationBodyPartReadModel[])
+    检查所见(Findings Text)
+    检查结论(Conclusion Text)
+    来源影像状态(SourceImageStatus SourceImageStatus)
+    影像调阅地址(ImageAccessUrl String?)
+    --规则--
+    1.影像地址按医院原始外部 HTTPS 地址返回，平台不测试、代理、缓存或保证可用性，不接收 DICOM
+]
+
+ReadModel('RecognitionCitationDetailReadModel')[
+    互认引用详情
+    --属性--
+    候选提供组ID(CandidateProviderGroupId Guid)
+    候选项目ID(CandidateItemId Guid)
+    互认项目编码(RecognitionItemCode String)
+    互认项目名称(RecognitionItemName String)
+    项目类型(ItemType MedicalReportType)
+    来源医院编码(SourceHospitalCode String)
+    来源医院名称(SourceHospitalName String)
+    来源院区编码(SourceBranchCode String)
+    来源院区名称(SourceBranchName String)
+    报告单号(ReportNo String)
+    来源报告名称(SourceReportName String)
+    检查或检验时间(ServiceTime DateTime)
+    报告时间(ReportTime DateTime)
+    来源申请医生姓名(ApplicationDoctorName String)
+    来源审核医生姓名(ReviewDoctorName String)
+    PDF文件标识(PdfFileId String)
+    PDF下载入口(PdfDownloadUrl String)
+    PDF原始文件名(OriginalPdfFileName String)
+    检验引用内容(LaboratoryContent LaboratoryCandidateContentReadModel?)
+    检查引用内容(ExaminationContent ExaminationCitationContentReadModel?)
+    --规则--
+    1.返回同次就诊下各候选提供组仍有效的采纳项目，并保留组 ID 和项目 ID
+    2.检验按互认项目返回结果集合，检查可返回整份报告的检查所见和检查结论
+    3.PDF 入口不携带 Token、Base64 或存储地址；调用时使用 Authorization 请求头并返回 application/pdf 文件流
+    4.获取详情不形成引用结果、引用次数或新的互认处理
+]
+
+Query('GetRecognitionCitationDetailApi')[
+    医院 HIS 获取引用详情
+    --入参--
+    证件类型代码(IdentityDocumentTypeCode String)
+    证件号码(IdentityDocumentNo String)
+    本次来源就诊类型(VisitType VisitType)
+    本次院内就诊流水号(VisitSerialNo String)
+    --规则--
+    1.接收医院和院区来自可信调用身份上下文，不接收候选提供组 ID、候选项目 ID 或互认时间
+    2.按同次就诊查询各组仍有效的采纳项目；各组从首次决定成功保存时间独立计算有效期
+    3.每次请求读取当前全平台统一正整数分钟参数，默认 720 分钟，经过时间小于或等于有效时长时允许返回
+    4.自然超过可互认时间不影响已采纳详情；后续报告版本或作废使旧版本详情失效
+    5.详情超期不使此前取得的下载入口单独过期，报告版本失效则停止旧版本下载
+    6.多个有效采纳绑定同一报告版本和互认项目时，只返回平台成功保存时间最近的一条并保留其他历史事实
+]
+
+Aggregate('MedicalRecognitionReportAggregate','互认报告')
+
+' 关系集中后置；外部调用方仅连接其查询，Query 不连接 Entity。
+HospitalHisSystem --> GetRecognitionCitationDetailApi
+GetRecognitionCitationDetailApi .. RecognitionCitationDetailReadModel
+GetRecognitionCitationDetailApi .. MedicalRecognitionReportAggregate
+
+@enduml

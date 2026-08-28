@@ -1,0 +1,123 @@
+﻿@startuml BranchLabItemMapping
+!include ddd_lib.puml
+' 聚合根：BranchLabItemMappingAggregate；业务范围：院区本地项目与标准医疗项目的中性编码映射维护和启停用；不表达承接能力，不包含 API 查询。
+
+Person('InitiatorUser','发起机构用户')
+Person('ReceiverUser','接收方用户')
+Person('PlatformOperator','平台运营人员')
+
+Enum('MedicalStandardItemCurrentStatusEnum')[
+    标准医疗项目当前状态
+    --属性--
+    当前有效(CurrentEffective 1)
+    已不可用(Unavailable 2)
+]
+
+Enum('BranchLabItemMappingOperationTypeEnum')[
+    院区项目对照最近操作类型
+    --属性--
+    新增(Created 1)
+    修改标准医疗项目(UpdatedMedicalStandardItem 2)
+    启用(Enabled 3)
+    停用(Disabled 4)
+]
+
+Command('CreateBranchLabItemMappingCommand')[
+    新增院区项目对照
+    --入参--
+    医院编码(HospitalCode String)
+    院区编码(BranchCode String)
+    院区项目编码(BranchItemCode String)
+    院区项目名称(BranchItemName String)
+    标准医疗项目编码(MedicalStandardItemCode String)
+    标准医疗项目名称(MedicalStandardItemName String)
+    标准医疗项目分类名称(MedicalStandardCategoryName String?)
+    标准医疗项目分组名称(MedicalStandardGroupName String?)
+    备注(Remark String?)
+    --规则--
+    1.同一医院院区内院区项目编码最多一条启用对照
+    2.同一医院院区内同一个标准医疗项目编码最多一条启用对照
+    3.标准医疗项目必须属于标准医疗项目类型 0-检验且当前有效
+    4.标准医疗项目名称、分类、分组由标准医疗项目目录匹配后保存
+]
+DomainEvent('BranchLabItemMappingCreatedEvent','院区项目对照已创建')
+InitiatorUser --> CreateBranchLabItemMappingCommand
+ReceiverUser --> CreateBranchLabItemMappingCommand
+PlatformOperator --> CreateBranchLabItemMappingCommand
+CreateBranchLabItemMappingCommand ..> BranchLabItemMappingCreatedEvent : send
+
+Command('UpdateBranchLabItemMappingMedicalStandardItemCommand')[
+    修改院区项目对照标准医疗项目
+    --入参--
+    ID
+    ..
+    院区项目名称(BranchItemName String?)
+    标准医疗项目编码(MedicalStandardItemCode String)
+    标准医疗项目名称(MedicalStandardItemName String)
+    标准医疗项目分类名称(MedicalStandardCategoryName String?)
+    标准医疗项目分组名称(MedicalStandardGroupName String?)
+    备注(Remark String?)
+    --规则--
+    1.标准医疗项目必须属于标准医疗项目类型 0-检验且当前有效
+    2.标准医疗项目名称、分类、分组由标准医疗项目目录匹配后保存
+]
+DomainEvent('BranchLabItemMappingMedicalStandardItemUpdatedEvent','院区项目对照标准医疗项目已修改')
+InitiatorUser --> UpdateBranchLabItemMappingMedicalStandardItemCommand
+ReceiverUser --> UpdateBranchLabItemMappingMedicalStandardItemCommand
+PlatformOperator --> UpdateBranchLabItemMappingMedicalStandardItemCommand
+UpdateBranchLabItemMappingMedicalStandardItemCommand ..> BranchLabItemMappingMedicalStandardItemUpdatedEvent : send
+
+Command('EnableBranchLabItemMappingCommand')[
+    启用院区项目对照
+    --入参--
+    ID
+]
+DomainEvent('BranchLabItemMappingEnabledEvent','院区项目对照已启用')
+InitiatorUser --> EnableBranchLabItemMappingCommand
+ReceiverUser --> EnableBranchLabItemMappingCommand
+PlatformOperator --> EnableBranchLabItemMappingCommand
+EnableBranchLabItemMappingCommand ..> BranchLabItemMappingEnabledEvent : send
+
+Command('DisableBranchLabItemMappingCommand')[
+    停用院区项目对照
+    --入参--
+    ID
+    ..
+    停用原因(DisableReason String)
+]
+DomainEvent('BranchLabItemMappingDisabledEvent','院区项目对照已停用')
+InitiatorUser --> DisableBranchLabItemMappingCommand
+ReceiverUser --> DisableBranchLabItemMappingCommand
+PlatformOperator --> DisableBranchLabItemMappingCommand
+DisableBranchLabItemMappingCommand ..> BranchLabItemMappingDisabledEvent : send
+
+Aggregate('BranchLabItemMappingAggregate')[
+    院区项目对照
+    --属性--
+    ID(Id Guid)
+    ..
+    医院编码(HospitalCode String)
+    院区编码(BranchCode String)
+    院区项目编码(BranchItemCode String)
+    院区项目名称(BranchItemName String)
+    标准医疗项目编码(MedicalStandardItemCode String)
+    标准医疗项目名称(MedicalStandardItemName String)
+    标准医疗项目分类名称(MedicalStandardCategoryName String?)
+    标准医疗项目分组名称(MedicalStandardGroupName String?)
+    标准医疗项目当前状态(MedicalStandardItemCurrentStatus MedicalStandardItemCurrentStatus)
+    是否启用(IsValid Boolean)
+    停用原因(DisableReason String?)
+    创建人(CreatedOperatorName String)
+    创建时间(CreatedTime DateTime)
+    最近操作人(LastOperatorName String)
+    最近操作时间(LastOperTime DateTime)
+    最近操作类型(LastOperationType BranchLabItemMappingOperationType)
+    备注(Remark String?)
+]
+
+CreateBranchLabItemMappingCommand .. BranchLabItemMappingAggregate
+UpdateBranchLabItemMappingMedicalStandardItemCommand .. BranchLabItemMappingAggregate
+EnableBranchLabItemMappingCommand .. BranchLabItemMappingAggregate
+DisableBranchLabItemMappingCommand .. BranchLabItemMappingAggregate
+
+@enduml

@@ -1,0 +1,181 @@
+' 查询图：互认平台读取外部依赖系统；不表达医院 HIS 对外 API，也不表达 UI 查询。
+@startuml MedicalRecognitionExternalSystemQuery
+!include ddd_lib.puml
+
+Person('StandardProjectManagementSystem','标准项目管理系统')
+Person('LaboratoryCollaborationSystem','检验协同系统')
+Person('ExaminationCollaborationSystem','检查协同系统')
+Person('PlatformIdentitySystem','平台权限体系')
+Person('PlatformSystemParameterSystem','平台系统参数系统')
+
+Enum('MedicalItemTypeEnum')[
+    医疗项目类型
+    --属性--
+    检验(Laboratory 1)
+    检查(Examination 2)
+]
+
+Enum('MappingSynchronizationSourceEnum')[
+    对照同步来源
+    --属性--
+    检验协同(LaboratoryCollaboration 1)
+    检查协同(ExaminationCollaboration 2)
+]
+
+ReadModel('StandardMedicalProjectCatalogReadModel')[
+    当前有效标准医疗项目目录项
+    --属性--
+    标准项目编码(StandardMedicalItemCode String)
+    标准项目名称(StandardMedicalItemName String)
+    项目类型(ItemType MedicalItemType)
+    标准项目类别编码(StandardCategoryCode String?)
+    标准项目类别名称(StandardCategoryName String?)
+    标准项目分组编码(StandardGroupCode String?)
+    标准项目分组名称(StandardGroupName String?)
+    是否最细层项目(IsLeafItem Boolean)
+    --规则--
+    1.标准项目编码稳定标识项目
+    2.目录获取不完整或失败时不得覆盖互认平台既有标准目录状态
+]
+
+ReadModel('CollaborationProjectMappingReadModel')[
+    协同系统当前启用项目对照
+    --属性--
+    同步来源(Source MappingSynchronizationSource)
+    医院编码(HospitalCode String)
+    院区编码(BranchCode String)
+    标准项目编码(StandardMedicalItemCode String)
+    本院项目编码(BranchItemCode String)
+    本院项目名称(BranchItemName String)
+    --规则--
+    1.只读取指定医院、院区当前启用的对照
+    2.互认平台只按标准项目编码和本院项目编码定位及比对，不按名称推断关系
+]
+
+ReadModel('PlatformDepartmentProfileReadModel')[
+    平台科室资料
+    --属性--
+    科室ID(DeptId Guid)
+    科室名称(DeptName String)
+    医院编码(HospitalCode String)
+    院区编码(BranchCode String)
+    是否有效(IsValid Boolean)
+]
+
+ReadModel('PlatformDoctorProfileReadModel')[
+    平台医生资料
+    --属性--
+    医生ID(DoctorId Guid)
+    医生姓名(DoctorName String)
+    医院编码(HospitalCode String)
+    院区编码(BranchCode String)
+    是否有效(IsValid Boolean)
+]
+
+ReadModel('OwnHospitalCandidateParameterReadModel')[
+    本院报告候选参数
+    --属性--
+    是否允许本院报告(AllowOwnHospitalReports Boolean)
+    本院报告排除时长小时(OwnHospitalExclusionHours Integer)
+    --规则--
+    1.全局开关默认关闭
+    2.开关开启后读取全局排除时长，默认四十八小时且只允许非负整数
+    3.排除时长为零表示不增加额外等待时间
+    4.参数调整只影响后续候选查询
+]
+
+ReadModel('CitationDetailValidityParameterReadModel')[
+    引用详情有效时长参数
+    --属性--
+    有效时长分钟(ValidityDurationMinutes Integer)
+    --规则--
+    1.使用全平台统一值，不使用组织级覆盖
+    2.默认七百二十分钟且只允许正整数分钟
+    3.参数缺失、非法或读取失败时调用方不得使用代码兜底
+    4.每个候选提供组从该组决定首次成功保存时间独立起算，结束边界包含
+]
+
+Query('QueryCurrentStandardMedicalProjectCatalog')[
+    查询当前有效标准医疗项目目录
+    --规则--
+    1.用于互认项目页面自动刷新、手动刷新和标准目录状态核对
+    2.只使用完整成功结果更新标准目录状态
+]
+
+Query('QueryEnabledLaboratoryProjectMappings')[
+    查询检验协同当前启用项目对照
+    --入参--
+    医院编码(HospitalCode String)
+    院区编码(BranchCode String)
+    --规则--
+    1.仅用于当前页面同步预填和比对
+]
+
+Query('QueryEnabledExaminationProjectMappings')[
+    查询检查协同当前启用项目对照
+    --入参--
+    医院编码(HospitalCode String)
+    院区编码(BranchCode String)
+    --规则--
+    1.仅用于当前页面同步预填和比对
+]
+
+Query('GetPlatformDepartmentProfile')[
+    查询平台科室资料
+    --入参--
+    科室ID(DeptId Guid)
+    --规则--
+    1.用于校验存在性、医院院区归属、停用状态并取得当次名称
+]
+
+Query('GetPlatformDoctorProfile')[
+    查询平台医生资料
+    --入参--
+    医生ID(DoctorId Guid)
+    --规则--
+    1.用于校验存在性、医院院区归属、停用状态并取得当次名称
+]
+
+Query('QueryOwnHospitalCandidateParameters')[
+    查询本院报告候选规则参数
+    --规则--
+    1.每次候选查询读取当前全局参数
+    2.开关关闭时不使用排除时长放行本院报告
+]
+
+Query('QueryCitationDetailValidityDurationParameter')[
+    查询引用详情有效时长参数
+    --规则--
+    1.每次获取引用详情时按参数编码读取当前值
+    2.只接受合法正整数分钟
+    3.自然超过可互认时间不影响已采纳项目的引用详情有效性
+]
+
+Aggregate('MedicalRecognitionReportAggregate','互认报告')
+
+' 关系集中后置；Person 表示被互认平台读取的外部依赖系统。
+QueryCurrentStandardMedicalProjectCatalog --> StandardProjectManagementSystem
+QueryEnabledLaboratoryProjectMappings --> LaboratoryCollaborationSystem
+QueryEnabledExaminationProjectMappings --> ExaminationCollaborationSystem
+GetPlatformDepartmentProfile --> PlatformIdentitySystem
+GetPlatformDoctorProfile --> PlatformIdentitySystem
+QueryOwnHospitalCandidateParameters --> PlatformSystemParameterSystem
+QueryCitationDetailValidityDurationParameter --> PlatformSystemParameterSystem
+
+QueryCurrentStandardMedicalProjectCatalog .. StandardMedicalProjectCatalogReadModel
+QueryEnabledLaboratoryProjectMappings .. CollaborationProjectMappingReadModel
+QueryEnabledExaminationProjectMappings .. CollaborationProjectMappingReadModel
+GetPlatformDepartmentProfile .. PlatformDepartmentProfileReadModel
+GetPlatformDoctorProfile .. PlatformDoctorProfileReadModel
+QueryOwnHospitalCandidateParameters .. OwnHospitalCandidateParameterReadModel
+QueryCitationDetailValidityDurationParameter .. CitationDetailValidityParameterReadModel
+
+QueryCurrentStandardMedicalProjectCatalog .. MedicalRecognitionReportAggregate
+QueryEnabledLaboratoryProjectMappings .. MedicalRecognitionReportAggregate
+QueryEnabledExaminationProjectMappings .. MedicalRecognitionReportAggregate
+GetPlatformDepartmentProfile .. MedicalRecognitionReportAggregate
+GetPlatformDoctorProfile .. MedicalRecognitionReportAggregate
+QueryOwnHospitalCandidateParameters .. MedicalRecognitionReportAggregate
+QueryCitationDetailValidityDurationParameter .. MedicalRecognitionReportAggregate
+
+@enduml

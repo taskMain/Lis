@@ -1,0 +1,284 @@
+' 查询图：配置管理 UI 模块查询；业务范围：院区项目对照、院区可承接项目、院区协作授权查询；不包含外部 API 查询。
+@startuml ConfigurationUiQuery
+!include ddd_lib.puml
+
+Person('InitiatorUser','发起机构用户')
+Person('ReceiverUser','接收方用户')
+Person('PlatformOperator','平台运营人员')
+
+UserInterface('BranchLabItemMappingModule','院区项目对照管理模块')
+UserInterface('ReceiverBranchLabItemCapabilityAdminModule','可承接项目管理')
+UserInterface('CurrentReceiverBranchLabItemCapabilityModule','院区可承接项目管理')
+UserInterface('CurrentReceiverBranchLabItemCapabilityReadonlyModule','院区可承接项目')
+UserInterface('BranchCollaborationAdminModule','院区协作关系管理模块')
+UserInterface('BranchAuthorizationTab','本院区协作关系-授权配置')
+UserInterface('AvailableReceiverTab','本院区协作关系-可申请院区')
+
+PlatformOperator --> BranchLabItemMappingModule
+InitiatorUser --> BranchLabItemMappingModule
+ReceiverUser --> BranchLabItemMappingModule
+PlatformOperator --> ReceiverBranchLabItemCapabilityAdminModule
+ReceiverUser --> CurrentReceiverBranchLabItemCapabilityModule
+ReceiverUser --> CurrentReceiverBranchLabItemCapabilityReadonlyModule
+PlatformOperator --> BranchCollaborationAdminModule
+ReceiverUser --> BranchAuthorizationTab
+InitiatorUser --> AvailableReceiverTab
+
+Enum('MedicalStandardItemCurrentStatusEnum')[
+    标准医疗项目当前状态
+    --属性--
+    当前有效(CurrentEffective 1)
+    已不可用(Unavailable 2)
+]
+
+Enum('BranchCollaborationStatusEnum')[
+    院区协作授权状态
+    --属性--
+    启用(Enabled 1)
+    停用(Disabled 2)
+]
+
+Enum('ReceiverBranchLabItemCapabilityStatusEnum')[
+    院区可承接项目配置状态
+    --属性--
+    启用(Enabled 1)
+    停用(Disabled 2)
+]
+
+Enum('ReceiverBranchLabItemCapabilityBatchIssueCodeEnum')[
+    承接项目候选问题类型
+    --属性--
+    标准医疗项目失效(StandardItemUnavailable 1)
+    已有启用配置(CapabilityAlreadyEnabled 2)
+    已有停用配置(CapabilityDisabledExists 3)
+    接收项目对照缺失(ReceiverMappingMissing 4)
+    接收项目对照不唯一(ReceiverMappingAmbiguous 5)
+]
+
+ReadModel('BranchLabItemMappingReadModel')[
+    院区项目对照列表项
+    --属性--
+    医院编码(HospitalCode String)
+    院区编码(BranchCode String)
+    院区项目编码(BranchItemCode String)
+    院区项目名称(BranchItemName String)
+    标准医疗项目编码(MedicalStandardItemCode String)
+    标准医疗项目名称(MedicalStandardItemName String)
+    标准医疗项目分类名称(MedicalStandardCategoryName String?)
+    标准医疗项目分组名称(MedicalStandardGroupName String?)
+    标准医疗项目当前状态(MedicalStandardItemCurrentStatus MedicalStandardItemCurrentStatus)
+    是否启用(IsValid Boolean)
+    停用原因(DisableReason String?)
+    创建人(CreatedOperatorName String)
+    创建时间(CreatedTime DateTime)
+    最近操作人(LastOperatorName String)
+    最近操作时间(LastOperTime DateTime)
+    最近操作类型(LastOperationType String)
+]
+
+ReadModel('ReceiverBranchLabItemCapabilityReadModel')[
+    院区可承接项目列表项
+    --属性--
+    ID(Id Guid)
+    接收医院编码(ReceiverHospitalCode String)
+    接收医院名称(ReceiverHospitalName String?)
+    接收院区编码(ReceiverBranchCode String)
+    接收院区名称(ReceiverBranchName String?)
+    标准医疗项目编码(MedicalStandardItemCode String)
+    标准医疗项目名称(MedicalStandardItemName String?)
+    配置状态(Status ReceiverBranchLabItemCapabilityStatus)
+    是否实际可用(IsActuallyAvailable Boolean)
+    不可用原因(UnavailableReason String?)
+    接收院区项目编码(ReceiverItemCode String?)
+    接收院区项目名称(ReceiverItemName String?)
+    接收方有效项目对照数量(ReceiverEffectiveMappingCount Integer)
+    标准医疗项目当前状态(MedicalStandardItemCurrentStatus MedicalStandardItemCurrentStatus)
+    停用原因(DisableReason String?)
+    --规则--
+    1.配置状态与实际可用性分别返回
+    2.配置启用后项目对照异常或标准医疗项目失效时保留配置，并返回暂不可用及原因
+    3.配置停用时实际不可用，并返回人工停用对应的不可用原因
+    4.页面只展示接收医院和院区名称，名称为空时显示统一空值，不回退显示组织编码
+    5.标准医疗项目编码和接收院区项目编码继续作为业务核对信息展示
+]
+
+ReadModel('ReceiverBranchLabItemCapabilityCandidateReadModel')[
+    院区可承接项目新增候选项
+    --属性--
+    标准医疗项目分类名称(MedicalStandardCategoryName String?)
+    标准医疗项目分组名称(MedicalStandardGroupName String?)
+    标准医疗项目编码(MedicalStandardItemCode String)
+    标准医疗项目名称(MedicalStandardItemName String)
+    是否可新增(CanCreate Boolean)
+    项目问题(Issues ReceiverBranchLabItemCapabilityBatchIssueCode[])
+    校验原因(ValidationMessage String?)
+    --规则--
+    1.只查询标准医疗项目类型0-检验
+    2.分类和分组均作为独立目录层级返回
+    3.已有配置、项目对照异常或目录失效时明确标记且不可选择
+]
+
+ReadModel('BranchCollaborationReadModel')[
+    院区协作授权列表项
+    --属性--
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    状态(Status BranchCollaborationStatus)
+    停用原因(DisableReason String?)
+    最近操作人(LastOperatorName String)
+    最近操作时间(LastOperTime DateTime)
+]
+
+ReadModel('AvailableReceiverBranchReadModel')[
+    可申请接收院区列表项
+    --属性--
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    接收医院名称(ReceiverHospitalName String)
+    接收院区名称(ReceiverBranchName String)
+]
+
+Query('QueryBranchLabItemMappingList')[
+    查询院区项目对照列表
+    --入参--
+    医院编码(HospitalCode String?)
+    院区编码(BranchCode String?)
+    启用状态(IsValid Boolean?)
+    标准医疗项目当前状态(MedicalStandardItemCurrentStatus MedicalStandardItemCurrentStatus?)
+    院区项目编码(BranchItemCode String?)
+    院区项目名称(BranchItemName String?)
+]
+BranchLabItemMappingModule --> QueryBranchLabItemMappingList
+QueryBranchLabItemMappingList .. BranchLabItemMappingReadModel
+
+Query('QueryReceiverBranchLabItemCapabilityList')[
+    管理员查询院区可承接项目列表
+    --入参--
+    接收医院编码(ReceiverHospitalCode String?)
+    接收院区编码(ReceiverBranchCode String?)
+    标准医疗项目关键字(MedicalStandardItemKeyword String?)
+    配置状态(Status ReceiverBranchLabItemCapabilityStatus?)
+    是否实际可用(IsActuallyAvailable Boolean?)
+    --规则--
+    1.管理员可查询所有接收医院和接收院区
+    2.传入医院和院区时校验组织存在且院区属于对应医院
+]
+ReceiverBranchLabItemCapabilityAdminModule --> QueryReceiverBranchLabItemCapabilityList
+QueryReceiverBranchLabItemCapabilityList .. ReceiverBranchLabItemCapabilityReadModel
+
+Query('QueryCurrentReceiverBranchLabItemCapabilityList')[
+    查询当前院区可承接项目维护列表
+    --入参--
+    标准医疗项目关键字(MedicalStandardItemKeyword String?)
+    配置状态(Status ReceiverBranchLabItemCapabilityStatus?)
+    是否实际可用(IsActuallyAvailable Boolean?)
+    --规则--
+    1.接收医院和接收院区由后端当前组织上下文解析
+    2.页面允许具备当前院区维护权限的用户新增、启用和停用
+]
+CurrentReceiverBranchLabItemCapabilityModule --> QueryCurrentReceiverBranchLabItemCapabilityList
+QueryCurrentReceiverBranchLabItemCapabilityList .. ReceiverBranchLabItemCapabilityReadModel
+
+Query('QueryCurrentReceiverBranchLabItemCapabilityReadonlyList')[
+    查询当前院区可承接项目只读列表
+    --入参--
+    标准医疗项目关键字(MedicalStandardItemKeyword String?)
+    配置状态(Status ReceiverBranchLabItemCapabilityStatus?)
+    是否实际可用(IsActuallyAvailable Boolean?)
+    --规则--
+    1.接收医院和接收院区由后端当前组织上下文解析
+    2.页面只读展示配置状态、实际可用性和不可用原因，不提供维护操作
+]
+CurrentReceiverBranchLabItemCapabilityReadonlyModule --> QueryCurrentReceiverBranchLabItemCapabilityReadonlyList
+QueryCurrentReceiverBranchLabItemCapabilityReadonlyList .. ReceiverBranchLabItemCapabilityReadModel
+
+Query('QueryReceiverBranchLabItemCapabilityCandidates')[
+    管理员查询可承接项目新增候选
+    --入参--
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    --规则--
+    1.校验医院、院区真实存在且院区属于对应医院
+    2.一次组合当前目录、既有承接配置和启用接收项目对照
+]
+ReceiverBranchLabItemCapabilityAdminModule --> QueryReceiverBranchLabItemCapabilityCandidates
+QueryReceiverBranchLabItemCapabilityCandidates .. ReceiverBranchLabItemCapabilityCandidateReadModel
+
+Query('QueryCurrentReceiverBranchLabItemCapabilityCandidates')[
+    查询当前院区可承接项目新增候选
+    --规则--
+    1.接收医院和接收院区只由后端当前组织上下文解析
+    2.一次组合当前目录、既有承接配置和启用接收项目对照
+]
+CurrentReceiverBranchLabItemCapabilityModule --> QueryCurrentReceiverBranchLabItemCapabilityCandidates
+QueryCurrentReceiverBranchLabItemCapabilityCandidates .. ReceiverBranchLabItemCapabilityCandidateReadModel
+
+Query('QueryBranchCollaborationList')[
+    管理员查询院区协作授权列表
+    --入参--
+    发起医院编码(InitiatorHospitalCode String?)
+    发起院区编码(InitiatorBranchCode String?)
+    接收医院编码(ReceiverHospitalCode String?)
+    接收院区编码(ReceiverBranchCode String?)
+    状态(Status BranchCollaborationStatus?)
+]
+BranchCollaborationAdminModule --> QueryBranchCollaborationList
+QueryBranchCollaborationList .. BranchCollaborationReadModel
+
+Query('QueryCurrentBranchAuthorizationList')[
+    查询本院区授权配置列表
+    --入参--
+    授权对象医院编码(InitiatorHospitalCode String?)
+    授权对象院区编码(InitiatorBranchCode String?)
+    状态(Status BranchCollaborationStatus?)
+    --规则--
+    1.接收医院和接收院区由后端当前组织上下文解析
+]
+BranchAuthorizationTab --> QueryCurrentBranchAuthorizationList
+QueryCurrentBranchAuthorizationList .. BranchCollaborationReadModel
+
+Query('QueryAvailableReceiverBranches')[
+    查询可申请接收院区列表
+    --入参--
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    --规则--
+    1.仅返回启用授权
+]
+BranchCollaborationAdminModule --> QueryAvailableReceiverBranches
+QueryAvailableReceiverBranches .. AvailableReceiverBranchReadModel
+
+Query('QueryCurrentAvailableReceiverBranches')[
+    查询本院区可申请接收院区列表
+    --规则--
+    1.发起医院和发起院区由后端当前组织上下文解析
+    2.仅返回启用授权
+    3.页面只读，不提供新增、启用或停用操作
+]
+AvailableReceiverTab --> QueryCurrentAvailableReceiverBranches
+QueryCurrentAvailableReceiverBranches .. AvailableReceiverBranchReadModel
+
+' 建模口径：Query .. ReadModel 表示查询主返回读模型；Query .. Aggregate 表示查询来源/业务归属聚合引用，不计入主 ReadModel 数量。
+Aggregate('BranchLabItemMappingAggregate','院区项目对照聚合')
+Aggregate('ReceiverBranchLabItemCapabilityAggregate','院区可承接项目聚合')
+Aggregate('BranchCollaborationAggregate','院区协作关系聚合')
+
+QueryBranchLabItemMappingList .. BranchLabItemMappingAggregate
+QueryReceiverBranchLabItemCapabilityList .. ReceiverBranchLabItemCapabilityAggregate
+QueryReceiverBranchLabItemCapabilityList .. BranchLabItemMappingAggregate
+QueryCurrentReceiverBranchLabItemCapabilityList .. ReceiverBranchLabItemCapabilityAggregate
+QueryCurrentReceiverBranchLabItemCapabilityList .. BranchLabItemMappingAggregate
+QueryCurrentReceiverBranchLabItemCapabilityReadonlyList .. ReceiverBranchLabItemCapabilityAggregate
+QueryCurrentReceiverBranchLabItemCapabilityReadonlyList .. BranchLabItemMappingAggregate
+QueryReceiverBranchLabItemCapabilityCandidates .. ReceiverBranchLabItemCapabilityAggregate
+QueryReceiverBranchLabItemCapabilityCandidates .. BranchLabItemMappingAggregate
+QueryCurrentReceiverBranchLabItemCapabilityCandidates .. ReceiverBranchLabItemCapabilityAggregate
+QueryCurrentReceiverBranchLabItemCapabilityCandidates .. BranchLabItemMappingAggregate
+QueryBranchCollaborationList .. BranchCollaborationAggregate
+QueryCurrentBranchAuthorizationList .. BranchCollaborationAggregate
+QueryAvailableReceiverBranches .. BranchCollaborationAggregate
+QueryCurrentAvailableReceiverBranches .. BranchCollaborationAggregate
+
+@enduml

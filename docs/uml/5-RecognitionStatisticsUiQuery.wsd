@@ -1,0 +1,394 @@
+' 查询图：F08 统计分析与 F09 七类 Excel 导出；不包含配置 UI、医院接入 API 或外部系统查询。
+@startuml RecognitionStatisticsUiQuery
+!include ddd_lib.puml
+
+Person('PlatformAdministrator','平台管理员')
+Person('HospitalAdministrator','医院管理员')
+
+UserInterface('ReceivingHospitalRecognitionStatisticsModule','接收医院互认使用统计模块')
+UserInterface('SourceHospitalRecognitionStatisticsModule','来源医院被互认统计模块')
+
+Enum('MedicalItemTypeEnum')[
+    医疗项目类型
+    --属性--
+    检验(Laboratory 1)
+    检查(Examination 2)
+]
+
+Enum('RecognitionStatisticsScopeEnum')[
+    互认统计口径
+    --属性--
+    总体(Overall 1)
+    跨机构(CrossInstitution 2)
+]
+
+Enum('RecognitionNonAdoptionReasonEnum')[
+    不采纳原因
+    --属性--
+    病情变化不符(CurrentConditionMismatch 1)
+    疾病过程变化较快(RapidDiseaseProgression 2)
+    重大医疗措施前(BeforeMajorMedicalMeasure 3)
+    急诊急救状态(EmergencyCare 4)
+    司法伤残病退鉴定(ForensicOrDisabilityAssessment 5)
+    其他确需复查(OtherReviewRequired 6)
+]
+
+ReadModel('RecognitionUsageMetricsReadModel')[
+    接收侧互认使用指标
+    --属性--
+    统计口径(Scope RecognitionStatisticsScope)
+    提醒次数(ReminderCount Integer)
+    采纳次数(AdoptionCount Integer)
+    不采纳次数(NonAdoptionCount Integer)
+    引用次数(CitationCount Integer)
+    同期互认率(RecognitionRate Decimal(10,4)?)
+    预计节省金额(EstimatedSavingsAmount Decimal(18,2))
+    --规则--
+    1.提醒次数为零时同期互认率不计算
+    2.跨机构口径是总体口径的子集，不与总体相加
+]
+
+ReadModel('RecognitionUsageSummaryReadModel')[
+    接收侧互认使用汇总
+    --属性--
+    医院编码(HospitalCode String?)
+    医院名称(HospitalName String?)
+    院区编码(BranchCode String?)
+    院区名称(BranchName String?)
+    决定科室ID(DecisionDeptId Guid?)
+    决定科室名称(DecisionDeptName String?)
+    项目类型(ItemType MedicalItemType?)
+    标准项目类别名称(StandardCategoryName String?)
+    标准项目分组名称(StandardGroupName String?)
+    互认项目编码(RecognitionItemCode String?)
+    互认项目名称(RecognitionItemName String?)
+    总体指标(OverallMetrics RecognitionUsageMetricsReadModel)
+    跨机构指标(CrossInstitutionMetrics RecognitionUsageMetricsReadModel)
+]
+
+ReadModel('NonAdoptionReasonStatisticReadModel')[
+    不采纳原因统计项
+    --属性--
+    不采纳原因(Reason RecognitionNonAdoptionReason)
+    不采纳次数(NonAdoptionCount Integer)
+    原因占比(ReasonPercentage Decimal(10,4)?)
+    --规则--
+    1.分母为当前权限和查询条件下的不采纳总次数
+    2.不采纳总次数为零时占比不计算
+]
+
+ReadModel('RecognitionReminderDetailReadModel')[
+    提醒明细
+    --属性--
+    候选提供组生成时间(ProvidedTime DateTime)
+    接收医院名称(ReceivingHospitalName String)
+    接收院区名称(ReceivingBranchName String)
+    来源医院名称(SourceHospitalName String)
+    来源院区名称(SourceBranchName String)
+    患者姓名脱敏(MaskedPatientName String)
+    证件号码脱敏(MaskedIdentityDocumentNo String)
+    本次院内就诊流水号(VisitSerialNo String)
+    项目类型(ItemType MedicalItemType)
+    标准项目类别名称(StandardCategoryName String?)
+    标准项目分组名称(StandardGroupName String?)
+    互认项目编码(RecognitionItemCode String)
+    互认项目名称(RecognitionItemName String)
+    候选提供组ID(CandidateProviderGroupId Guid)
+    候选项目ID(CandidateItemId Guid)
+]
+
+ReadModel('RecognitionAdoptionDetailReadModel')[
+    采纳明细
+    --属性--
+    互认时间(RecognitionTime DateTime)
+    接收医院名称(ReceivingHospitalName String)
+    接收院区名称(ReceivingBranchName String)
+    来源医院名称(SourceHospitalName String)
+    来源院区名称(SourceBranchName String)
+    患者姓名脱敏(MaskedPatientName String)
+    证件号码脱敏(MaskedIdentityDocumentNo String)
+    本次院内就诊流水号(VisitSerialNo String)
+    决定科室ID(DecisionDeptId Guid)
+    决定科室名称(DecisionDeptName String)
+    决定医生ID(DecisionDoctorId Guid)
+    决定医生姓名(DecisionDoctorName String)
+    项目类型(ItemType MedicalItemType)
+    标准项目类别名称(StandardCategoryName String?)
+    标准项目分组名称(StandardGroupName String?)
+    互认项目编码(RecognitionItemCode String)
+    互认项目名称(RecognitionItemName String)
+    候选提供组ID(CandidateProviderGroupId Guid)
+    候选项目ID(CandidateItemId Guid)
+    预计节省金额(EstimatedSavingsAmount Decimal(18,2))
+]
+
+ReadModel('RecognitionNonAdoptionDetailReadModel')[
+    不采纳明细
+    --属性--
+    互认时间(RecognitionTime DateTime)
+    接收医院名称(ReceivingHospitalName String)
+    接收院区名称(ReceivingBranchName String)
+    来源医院名称(SourceHospitalName String)
+    来源院区名称(SourceBranchName String)
+    患者姓名脱敏(MaskedPatientName String)
+    证件号码脱敏(MaskedIdentityDocumentNo String)
+    本次院内就诊流水号(VisitSerialNo String)
+    决定科室ID(DecisionDeptId Guid)
+    决定科室名称(DecisionDeptName String)
+    决定医生ID(DecisionDoctorId Guid)
+    决定医生姓名(DecisionDoctorName String)
+    项目类型(ItemType MedicalItemType)
+    标准项目类别名称(StandardCategoryName String?)
+    标准项目分组名称(StandardGroupName String?)
+    互认项目编码(RecognitionItemCode String)
+    互认项目名称(RecognitionItemName String)
+    候选提供组ID(CandidateProviderGroupId Guid)
+    候选项目ID(CandidateItemId Guid)
+    不采纳原因(Reason RecognitionNonAdoptionReason)
+    其他原因补充说明(OtherReasonDescription Text?)
+]
+
+ReadModel('RecognitionCitationDetailReadModel')[
+    引用明细
+    --属性--
+    实际引用时间(CitationTime DateTime)
+    接收医院名称(ReceivingHospitalName String)
+    接收院区名称(ReceivingBranchName String)
+    来源医院名称(SourceHospitalName String)
+    来源院区名称(SourceBranchName String)
+    患者姓名脱敏(MaskedPatientName String)
+    证件号码脱敏(MaskedIdentityDocumentNo String)
+    本次院内就诊流水号(VisitSerialNo String)
+    引用科室ID(CitationDeptId Guid)
+    引用科室名称(CitationDeptName String)
+    引用医生ID(CitationDoctorId Guid)
+    引用医生姓名(CitationDoctorName String)
+    项目类型(ItemType MedicalItemType)
+    标准项目类别名称(StandardCategoryName String?)
+    标准项目分组名称(StandardGroupName String?)
+    互认项目编码(RecognitionItemCode String)
+    互认项目名称(RecognitionItemName String)
+    候选提供组ID(CandidateProviderGroupId Guid)
+    候选项目ID(CandidateItemId Guid)
+]
+
+ReadModel('SourceHospitalRecognitionSummaryReadModel')[
+    来源医院被互认汇总
+    --属性--
+    来源医院编码(SourceHospitalCode String?)
+    来源医院名称(SourceHospitalName String?)
+    来源院区编码(SourceBranchCode String?)
+    来源院区名称(SourceBranchName String?)
+    项目类型(ItemType MedicalItemType?)
+    标准项目类别名称(StandardCategoryName String?)
+    标准项目分组名称(StandardGroupName String?)
+    互认项目编码(RecognitionItemCode String?)
+    互认项目名称(RecognitionItemName String?)
+    被互认总体次数(OverallRecognitionCount Integer)
+    跨机构被互认次数(CrossInstitutionRecognitionCount Integer)
+    --规则--
+    1.来源医院侧只统计被互认次数和明细，不统计贡献金额
+    2.跨机构次数是总体次数的子集，不与总体相加
+]
+
+ReadModel('SourceHospitalRecognitionDetailReadModel')[
+    来源医院被互认明细
+    --属性--
+    互认时间(RecognitionTime DateTime)
+    来源医院名称(SourceHospitalName String)
+    来源院区名称(SourceBranchName String)
+    接收医院名称(ReceivingHospitalName String)
+    接收院区名称(ReceivingBranchName String)
+    决定科室名称(DecisionDeptName String)
+    决定医生姓名(DecisionDoctorName String)
+    患者姓名脱敏(MaskedPatientName String)
+    证件号码脱敏(MaskedIdentityDocumentNo String)
+    项目类型(ItemType MedicalItemType)
+    标准项目类别名称(StandardCategoryName String?)
+    标准项目分组名称(StandardGroupName String?)
+    互认项目编码(RecognitionItemCode String)
+    互认项目名称(RecognitionItemName String)
+    候选提供组ID(CandidateProviderGroupId Guid)
+    候选项目ID(CandidateItemId Guid)
+]
+
+ReadModel('RecognitionStatisticsExportFileReadModel')[
+    统计导出文件
+    --属性--
+    文件名称(FileName String)
+    文件扩展名(FileExtension String)
+    文件获取地址(FileAccessUrl String)
+    导出记录数(ExportedRecordCount Integer)
+    --规则--
+    1.文件扩展名固定为 xlsx
+    2.无匹配记录时不生成文件
+    3.导出继承页面当前查询条件、数据权限和脱敏规则
+]
+
+Query('QueryRecognitionUsageSummary')[
+    查询接收侧互认使用汇总
+    --入参--
+    开始日期(DateFrom DateTime)
+    结束日期(DateTo DateTime)
+    医院编码(HospitalCode String?)
+    院区编码(BranchCode String?)
+    决定科室ID(DecisionDeptId Guid?)
+    项目类型(ItemType MedicalItemType?)
+    标准项目类别编码(StandardCategoryCode String?)
+    标准项目分组编码(StandardGroupCode String?)
+    互认项目编码(RecognitionItemCode String?)
+    --规则--
+    1.分别返回总体和跨机构子集口径
+    2.不生成按日、小时或分钟的趋势图
+]
+
+Query('QueryRecognitionReminderDetails')[
+    查询提醒明细
+    --入参--
+    查询条件(Conditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?])
+]
+
+Query('QueryRecognitionAdoptionDetails')[
+    查询采纳明细
+    --入参--
+    查询条件(Conditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?])
+]
+
+Query('QueryRecognitionNonAdoptionDetails')[
+    查询不采纳明细
+    --入参--
+    查询条件(Conditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?])
+    不采纳原因(Reason RecognitionNonAdoptionReason?)
+]
+
+Query('QueryRecognitionCitationDetails')[
+    查询引用明细
+    --入参--
+    查询条件(Conditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?])
+]
+
+Query('QueryNonAdoptionReasonStatistics')[
+    查询不采纳原因统计
+    --入参--
+    查询条件(Conditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?])
+]
+
+Query('QuerySourceHospitalRecognitionSummary')[
+    查询来源医院被互认汇总
+    --入参--
+    查询条件(Conditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?])
+    来源医院编码(SourceHospitalCode String?)
+    来源院区编码(SourceBranchCode String?)
+    --规则--
+    1.医院管理员仅查询本院提供报告形成的数据
+    2.不返回来源医院贡献金额
+]
+
+Query('QuerySourceHospitalRecognitionDetails')[
+    查询来源医院被互认明细
+    --入参--
+    查询条件(Conditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?])
+    来源医院编码(SourceHospitalCode String?)
+    来源院区编码(SourceBranchCode String?)
+]
+
+Query('ExportRecognitionUsageSummary')[
+    导出互认使用汇总
+    --入参--
+    当前查询条件(CurrentConditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?])
+]
+
+Query('ExportRecognitionReminderDetails')[
+    导出提醒明细
+    --入参--
+    当前查询条件(CurrentConditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?])
+]
+
+Query('ExportRecognitionAdoptionDetails')[
+    导出采纳明细
+    --入参--
+    当前查询条件(CurrentConditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?])
+]
+
+Query('ExportRecognitionNonAdoptionDetails')[
+    导出不采纳明细
+    --入参--
+    当前查询条件(CurrentConditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?, Reason RecognitionNonAdoptionReason?])
+]
+
+Query('ExportRecognitionCitationDetails')[
+    导出引用明细
+    --入参--
+    当前查询条件(CurrentConditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?])
+]
+
+Query('ExportSourceHospitalRecognitionSummary')[
+    导出来源医院被互认汇总
+    --入参--
+    当前查询条件(CurrentConditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?, SourceHospitalCode String?, SourceBranchCode String?])
+]
+
+Query('ExportSourceHospitalRecognitionDetails')[
+    导出来源医院被互认明细
+    --入参--
+    当前查询条件(CurrentConditions [DateFrom DateTime, DateTo DateTime, HospitalCode String?, BranchCode String?, DecisionDeptId Guid?, DecisionDoctorId Guid?, ItemType MedicalItemType?, StandardCategoryCode String?, StandardGroupCode String?, RecognitionItemCode String?, SourceHospitalCode String?, SourceBranchCode String?])
+]
+
+Aggregate('MedicalRecognitionReportAggregate','互认报告')
+
+' 关系集中后置；七个导出 Query 分别代表 SRS F09 的七类 Excel 导出。
+PlatformAdministrator --> QueryRecognitionUsageSummary
+PlatformAdministrator --> QuerySourceHospitalRecognitionSummary
+HospitalAdministrator --> QueryRecognitionUsageSummary
+HospitalAdministrator --> QuerySourceHospitalRecognitionSummary
+
+ReceivingHospitalRecognitionStatisticsModule --> QueryRecognitionUsageSummary
+ReceivingHospitalRecognitionStatisticsModule --> QueryRecognitionReminderDetails
+ReceivingHospitalRecognitionStatisticsModule --> QueryRecognitionAdoptionDetails
+ReceivingHospitalRecognitionStatisticsModule --> QueryRecognitionNonAdoptionDetails
+ReceivingHospitalRecognitionStatisticsModule --> QueryRecognitionCitationDetails
+ReceivingHospitalRecognitionStatisticsModule --> QueryNonAdoptionReasonStatistics
+ReceivingHospitalRecognitionStatisticsModule --> ExportRecognitionUsageSummary
+ReceivingHospitalRecognitionStatisticsModule --> ExportRecognitionReminderDetails
+ReceivingHospitalRecognitionStatisticsModule --> ExportRecognitionAdoptionDetails
+ReceivingHospitalRecognitionStatisticsModule --> ExportRecognitionNonAdoptionDetails
+ReceivingHospitalRecognitionStatisticsModule --> ExportRecognitionCitationDetails
+
+SourceHospitalRecognitionStatisticsModule --> QuerySourceHospitalRecognitionSummary
+SourceHospitalRecognitionStatisticsModule --> QuerySourceHospitalRecognitionDetails
+SourceHospitalRecognitionStatisticsModule --> ExportSourceHospitalRecognitionSummary
+SourceHospitalRecognitionStatisticsModule --> ExportSourceHospitalRecognitionDetails
+
+QueryRecognitionUsageSummary .. RecognitionUsageSummaryReadModel
+QueryRecognitionReminderDetails .. RecognitionReminderDetailReadModel
+QueryRecognitionAdoptionDetails .. RecognitionAdoptionDetailReadModel
+QueryRecognitionNonAdoptionDetails .. RecognitionNonAdoptionDetailReadModel
+QueryRecognitionCitationDetails .. RecognitionCitationDetailReadModel
+QueryNonAdoptionReasonStatistics .. NonAdoptionReasonStatisticReadModel
+QuerySourceHospitalRecognitionSummary .. SourceHospitalRecognitionSummaryReadModel
+QuerySourceHospitalRecognitionDetails .. SourceHospitalRecognitionDetailReadModel
+ExportRecognitionUsageSummary .. RecognitionStatisticsExportFileReadModel
+ExportRecognitionReminderDetails .. RecognitionStatisticsExportFileReadModel
+ExportRecognitionAdoptionDetails .. RecognitionStatisticsExportFileReadModel
+ExportRecognitionNonAdoptionDetails .. RecognitionStatisticsExportFileReadModel
+ExportRecognitionCitationDetails .. RecognitionStatisticsExportFileReadModel
+ExportSourceHospitalRecognitionSummary .. RecognitionStatisticsExportFileReadModel
+ExportSourceHospitalRecognitionDetails .. RecognitionStatisticsExportFileReadModel
+
+QueryRecognitionUsageSummary .. MedicalRecognitionReportAggregate
+QueryRecognitionReminderDetails .. MedicalRecognitionReportAggregate
+QueryRecognitionAdoptionDetails .. MedicalRecognitionReportAggregate
+QueryRecognitionNonAdoptionDetails .. MedicalRecognitionReportAggregate
+QueryRecognitionCitationDetails .. MedicalRecognitionReportAggregate
+QueryNonAdoptionReasonStatistics .. MedicalRecognitionReportAggregate
+QuerySourceHospitalRecognitionSummary .. MedicalRecognitionReportAggregate
+QuerySourceHospitalRecognitionDetails .. MedicalRecognitionReportAggregate
+ExportRecognitionUsageSummary .. MedicalRecognitionReportAggregate
+ExportRecognitionReminderDetails .. MedicalRecognitionReportAggregate
+ExportRecognitionAdoptionDetails .. MedicalRecognitionReportAggregate
+ExportRecognitionNonAdoptionDetails .. MedicalRecognitionReportAggregate
+ExportRecognitionCitationDetails .. MedicalRecognitionReportAggregate
+ExportSourceHospitalRecognitionSummary .. MedicalRecognitionReportAggregate
+ExportSourceHospitalRecognitionDetails .. MedicalRecognitionReportAggregate
+
+@enduml

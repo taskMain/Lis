@@ -1,0 +1,1044 @@
+@startuml MedicalRecognitionReport
+!include ddd_lib.puml
+' 唯一聚合边界：MedicalRecognitionReportAggregate；MedicalRecognitionReportEntity 承载报告根业务状态。
+' 所有 Entity 仅与聚合根连线；父子归属只由各 Entity 的 ID 字段表达，不建立 Entity 间连线。
+
+'============================================= 参与者 =============================================
+Person('PlatformAdministrator','平台管理员')
+Person('HospitalAdministrator','医院管理员')
+Person('HospitalCollectionService','医院侧采集服务')
+Person('HospitalHisSystem','医院 HIS')
+
+'============================================= 枚举 =============================================
+Enum('MedicalReportTypeEnum')[
+    报告类型
+    --属性--
+    检验(Laboratory 1)
+    检查(Examination 2)
+]
+
+Enum('MedicalReportLifecycleStatusEnum')[
+    报告生命周期状态
+    --属性--
+    当前有效(CurrentEffective 1)
+    已作废(Voided 2)
+]
+
+Enum('MedicalReportVersionStatusEnum')[
+    报告版本状态
+    --属性--
+    当前版本(Current 1)
+    历史版本(Historical 2)
+]
+
+Enum('VisitTypeEnum')[
+    就诊类型
+    --属性--
+    门诊(Outpatient 1)
+    急诊(Emergency 2)
+    住院(Inpatient 3)
+    体检(PhysicalExam 4)
+    其他(Other 5)
+]
+
+Enum('LaboratoryResultTypeEnum')[
+    检验结果类型
+    --属性--
+    数值型(Numeric 1)
+    定性型(Qualitative 2)
+    文本型(Textual 3)
+]
+
+Enum('LaboratoryAbnormalFlagEnum')[
+    检验异常标志
+    --属性--
+    正常(Normal 1)
+    偏高(High 2)
+    偏低(Low 3)
+    其他异常(OtherAbnormal 4)
+]
+
+Enum('BacterialDetectionStatusEnum')[
+    细菌检出状态
+    --属性--
+    检出(Detected 1)
+    未检出(NotDetected 2)
+]
+
+Enum('SourceImageStatusEnum')[
+    来源影像状态
+    --属性--
+    有影像(Available 1)
+    无影像(None 2)
+    未知(Unknown 3)
+]
+
+Enum('RecognitionDecisionResultEnum')[
+    互认决定
+    --属性--
+    采纳(Adopted 1)
+    不采纳(NotAdopted 2)
+]
+
+Enum('RecognitionNonAdoptionReasonEnum')[
+    不采纳原因
+    --属性--
+    病情变化不符(CurrentConditionMismatch 1)
+    疾病过程变化较快(RapidDiseaseProgression 2)
+    重大医疗措施前(BeforeMajorMedicalMeasure 3)
+    急诊急救状态(EmergencyCare 4)
+    司法伤残病退鉴定(ForensicOrDisabilityAssessment 5)
+    其他确需复查(OtherReviewRequired 6)
+]
+
+Enum('MutualRecognitionItemStatusEnum')[
+    互认项目启停状态
+    --属性--
+    启用(Enabled 1)
+    停用(Disabled 2)
+]
+
+Enum('MutualRecognitionItemCatalogStatusEnum')[
+    互认项目标准目录状态
+    --属性--
+    标准项目有效(Effective 1)
+    标准项目不可用(Unavailable 2)
+]
+
+Enum('BranchMedicalItemMappingStatusEnum')[
+    院区项目编码对照启停状态
+    --属性--
+    启用(Enabled 1)
+    停用(Disabled 2)
+]
+
+'============================================= F01 互认项目管理 =============================================
+Command('CreateMutualRecognitionItemCommand')[
+    创建互认项目
+    --入参--
+    标准项目编码(StandardMedicalItemCode String)
+    标准项目名称(StandardMedicalItemName String)
+    可互认时间天数(RecognitionDurationDays Integer)
+    --规则--
+    1.引用当前有效标准目录中的最细层标准医疗项目
+    2.同一标准项目编码只允许存在一个互认项目，不按名称或相似度替代
+    3.可互认时间以天为单位，只允许正整数且最小为 1
+    4.一天按连续 24 小时计算，经过时间小于或等于配置值时仍在候选窗口内
+    5.新增后默认启用且标准目录状态有效，不提供物理删除
+]
+
+DomainEvent('MutualRecognitionItemCreatedEvent','互认项目已创建')
+
+Command('UpdateMutualRecognitionItemDurationCommand')[
+    修改互认项目可互认时间
+    --入参--
+    ID
+    ..
+    可互认时间天数(RecognitionDurationDays Integer)
+    --规则--
+    1.可互认时间只允许正整数且最小为 1
+    2.一天按连续 24 小时计算，结束边界包含在有效范围内
+    3.修改即时影响已有报告的后续候选查询，不倒改已有业务事实
+]
+
+DomainEvent('MutualRecognitionItemDurationUpdatedEvent','互认项目可互认时间已修改')
+
+Command('EnableMutualRecognitionItemCommand')[
+    启用互认项目
+    --入参--
+    ID
+    --规则--
+    1.只有标准项目来源当前有效时才允许启用
+]
+
+DomainEvent('MutualRecognitionItemEnabledEvent','互认项目已启用')
+
+Command('DisableMutualRecognitionItemCommand')[
+    停用互认项目
+    --入参--
+    ID
+    --规则--
+    1.停用保留互认项目、编码对照、报告和历史业务事实
+]
+
+DomainEvent('MutualRecognitionItemDisabledEvent','互认项目已停用')
+
+Command('SynchronizeMutualRecognitionItemCatalogStatusesCommand')[
+    同步互认项目标准目录状态
+    --入参--
+    当前有效标准项目编码列表(StandardMedicalItemCodes String[])
+    --规则--
+    1.仅在完整获取当前有效标准项目目录成功后按标准项目编码同步标准目录状态
+    2.目录获取失败或返回不完整时保留原有同步结果和标准目录状态
+]
+
+DomainEvent('MutualRecognitionItemCatalogStatusesSynchronizedEvent','互认项目标准目录状态已同步')
+
+'============================================= F02 项目编码对照 =============================================
+Command('SaveBranchMedicalItemMappingsCommand')[
+    保存全部院区项目编码对照
+    --入参--
+    医院ID(HosId String)
+    院区ID(BranchId String)
+    保存项列表(Items BranchMedicalItemMappingSaveItemRequest[])
+    --出参--
+    行处理结果(Results BranchMedicalItemMappingSaveResultDto[])
+    --规则--
+    1.单行保存时保存项列表只包含一项，不设置独立的单行保存能力
+    2.按行校验、按行在独立事务中保存；失败行不回滚其他互不冲突的成功行
+    3.相互违反一对一关系的全部冲突行均失败，不任意保留其中一行
+    4.每行根据实际变化执行创建、修改对照信息或调整对应互认项目；同步预填但未提交的行不参与保存
+    5.医院和院区必须来自医院管理员可信登录范围
+    6.同步已有对照只形成页面预填和比对，未明确保存时不产生项目编码对照或同步历史
+    7.医院、院区和院内项目编码创建后不可修改；新增对照默认启用且不提供物理删除
+    8.互认项目必须当前启用且标准目录状态有效；当前价格必填、不得小于 0、最多两位小数且不得静默四舍五入
+    9.新增或调整后必须满足当前医院和院区内启用对照在院内项目与互认项目两侧的一对一关系
+    10.价格调整不重算历史预计节省金额；调整互认项目不重写已接收报告关系
+]
+
+DomainEvent('BranchMedicalItemMappingsSavedEvent','院区项目编码对照已保存')
+
+Command('EnableBranchMedicalItemMappingCommand')[
+    启用院区项目编码对照
+    --入参--
+    ID
+    --规则--
+    1.当前价格必须有效，互认项目必须当前启用且标准目录状态有效
+    2.启用必须满足当前医院和院区内启用对照的一对一关系
+]
+
+DomainEvent('BranchMedicalItemMappingEnabledEvent','院区项目编码对照已启用')
+
+Command('DisableBranchMedicalItemMappingCommand')[
+    停用院区项目编码对照
+    --入参--
+    ID
+    --规则--
+    1.停用保留对照和历史业务数据，不物理删除
+    2.医院管理员可停用本院有权院区的对照；平台管理员仅按权限异常停用
+]
+
+DomainEvent('BranchMedicalItemMappingDisabledEvent','院区项目编码对照已停用')
+
+'============================================= F03 检验报告生命周期 =============================================
+FacadeCommand('SubmitCompleteLaboratoryReportCommand')[
+    提交完整检验报告
+    --入参--
+    完整报告(Report LaboratoryReportVersionRequest)
+    --出参--
+    处理结果(Result MedicalReportSubmissionResultDto)
+    --规则--
+    1.一次只处理一份审核完成的完整检验报告；医院和院区来自可信调用身份，报告类型由本能力确定
+    2.平台以可信医院、院区、检验类型和报告单号组合业务标识，医院不提交平台报告 ID 或组合标识
+    3.先查询全部历史版本的源端报告修改时间；命中任一历史版本即幂等成功且不生成新版本
+    4.未命中历史时，报告不存在则创建首版；当前有效且时间严格晚于当前版则形成完整新版本；更早或等于当前版则顺序冲突；已作废则拒绝
+    5.首版至少一条普通结果具有当前有效对码；后续完整版本即使无有效对码也必须保存并替代旧版，但不形成候选
+    6.结构化报告和 PDF 文件流原子保存；保存上传原始文件名，无效时回退“报告单号.pdf”，不从 PDF 元数据推断
+    7.不比较报告内容，不计算内容指纹或 PDF 摘要，不使用医院版本号或更正原因
+    8.后续版本的证件类型、证件号码、姓名、性别和出生日期必须仍解析到原患者，否则拒绝
+]
+
+DomainEvent('CompleteLaboratoryReportSubmittedEvent','完整检验报告已提交')
+
+Command('VoidLaboratoryReportCommand')[
+    作废检验报告
+    --入参--
+    作废请求(Request MedicalReportVoidRequest)
+    --出参--
+    处理结果(Result MedicalReportSubmissionResultDto)
+    --规则--
+    1.医院和院区来自可信调用身份，报告类型由本能力确定，只按报告单号定位报告
+    2.报告不存在时拒绝且不创建占位；作废时间不得早于当前版本修改时间，等于允许
+    3.相同作废时间和原因重传幂等成功，不同作废事实冲突；作废不生成内容版本且不可恢复
+]
+
+DomainEvent('LaboratoryReportVoidedEvent','检验报告已作废')
+
+'============================================= F03 检查报告生命周期 =============================================
+FacadeCommand('SubmitCompleteExaminationReportCommand')[
+    提交完整检查报告
+    --入参--
+    完整报告(Report ExaminationReportVersionRequest)
+    --出参--
+    处理结果(Result MedicalReportSubmissionResultDto)
+    --规则--
+    1.一次只处理一份审核完成的完整检查报告；医院和院区来自可信调用身份，报告类型由本能力确定
+    2.平台以可信医院、院区、检查类型和报告单号组合业务标识，医院不提交平台报告 ID 或组合标识
+    3.先查询全部历史版本的源端报告修改时间；命中任一历史版本即幂等成功且不生成新版本
+    4.未命中历史时，报告不存在则创建首版；当前有效且时间严格晚于当前版则形成完整新版本；更早或等于当前版则顺序冲突；已作废则拒绝
+    5.首版至少一个检查项目具有当前有效对码；后续完整版本即使无有效对码也必须保存并替代旧版，但不形成候选
+    6.结构化报告和 PDF 文件流原子保存；保存上传原始文件名，无效时回退“报告单号.pdf”，不从 PDF 元数据推断
+    7.不比较报告内容，不计算内容指纹或 PDF 摘要，不使用医院版本号或更正原因
+    8.后续版本的证件类型、证件号码、姓名、性别和出生日期必须仍解析到原患者，否则拒绝
+]
+
+DomainEvent('CompleteExaminationReportSubmittedEvent','完整检查报告已提交')
+
+Command('VoidExaminationReportCommand')[
+    作废检查报告
+    --入参--
+    作废请求(Request MedicalReportVoidRequest)
+    --出参--
+    处理结果(Result MedicalReportSubmissionResultDto)
+    --规则--
+    1.医院和院区来自可信调用身份，报告类型由本能力确定，只按报告单号定位报告
+    2.报告不存在时拒绝且不创建占位；作废时间不得早于当前版本修改时间，等于允许
+    3.相同作废时间和原因重传幂等成功，不同作废事实冲突；作废不生成内容版本且不可恢复
+]
+
+DomainEvent('ExaminationReportVoidedEvent','检查报告已作废')
+
+'============================================= F03 内部结构命令 =============================================
+Command('CreateMedicalRecognitionReportCommand')[
+    创建互认报告
+    --入参--
+    来源医院编码(SourceHospitalCode String)
+    来源院区编码(SourceBranchCode String)
+    报告类型(ReportType MedicalReportType)
+    报告单号(ReportNo String)
+    当前版本ID(CurrentVersionId Guid)
+    --规则--
+    1.来源医院、来源院区、报告类型和报告单号共同构成报告业务标识
+]
+
+DomainEvent('MedicalRecognitionReportCreatedEvent','互认报告已创建')
+
+Command('UpdateMedicalRecognitionReportCurrentVersionCommand')[
+    更新互认报告当前版本
+    --入参--
+    报告ID(ReportId Guid)
+    ..
+    原报告版本ID(PreviousReportVersionId Guid)
+    当前报告版本ID(CurrentReportVersionId Guid)
+    --规则--
+    1.后续完整版本形成后报告根保持当前有效，当前版本指向新版本
+]
+
+DomainEvent('MedicalRecognitionReportCurrentVersionUpdatedEvent','互认报告当前版本已更新')
+
+Command('SupersedeMedicalReportVersionCommand')[
+    标记原报告版本为历史版本
+    --入参--
+    报告版本ID(ReportVersionId Guid)
+    ..
+    新报告版本ID(NewReportVersionId Guid)
+    --规则--
+    1.只在严格更新的完整报告形成新版本时将原当前版本标记为历史版本
+    2.历史版本内容保持不可变并停止参与后续候选、引用详情和新的引用
+]
+
+DomainEvent('MedicalReportVersionSupersededEvent','原报告版本已被替代')
+
+Command('AppendMedicalReportVersionCommand')[
+    追加报告版本
+    --入参--
+    报告ID(ReportId Guid)
+    报告版本(ReportVersion MedicalReportVersionRequest)
+    报告PDF文件标识(PdfFileId String)
+    PDF文件名(PdfFileName String)
+    --规则--
+    1.首次完整提交追加首版；后续严格更新追加完整且不可变的新版本并保留原版本关系
+    2.内部版本序号按成功形成顺序由平台生成，不接收或保存更正原因、版本变更原因或医院版本号
+    3.优先保存上传文件名，缺失或无效时使用安全处理后的“报告单号.pdf”
+    4.报告版本只能随首次或后续完整报告提交产生，不允许独立追加
+]
+
+Command('RecordLaboratoryReportContentCommand')[
+    记录检验报告专项内容
+    --入参--
+    报告版本ID(ReportVersionId Guid)
+    检验报告内容(Content LaboratoryReportContentRequest)
+    --规则--
+    1.检验报告专项内容必须随完整报告整体保存，不允许独立提交
+]
+
+Command('AddLaboratoryResultItemCommand')[
+    添加单条普通检验结果
+    --入参--
+    报告版本ID(ReportVersionId Guid)
+    普通结果(Item LaboratoryResultItemRequest)
+    --规则--
+    1.同一报告版本内展示序号唯一，提供的来源明细标识不得重复
+    2.完整保存已对码和未对码结果，仅已对码结果参与候选
+]
+
+Command('AddBacterialIdentificationResultCommand')[
+    添加单条细菌鉴定结果
+    --入参--
+    报告版本ID(ReportVersionId Guid)
+    细菌鉴定结果(Item BacterialIdentificationResultRequest)
+    --规则--
+    1.细菌鉴定结果是检验报告补充结果，不独立进行互认项目对码
+]
+
+Command('AddDrugSusceptibilityResultCommand')[
+    添加单条药敏结果
+    --入参--
+    报告版本ID(ReportVersionId Guid)
+    细菌鉴定结果ID(BacterialIdentificationResultId Guid)
+    药敏结果(Item DrugSusceptibilityResultRequest)
+    --规则--
+    1.每条药敏结果必须关联同一报告版本中的细菌鉴定结果
+    2.同一细菌鉴定结果下展示序号唯一
+]
+
+Command('RecordExaminationReportContentCommand')[
+    记录检查报告专项内容
+    --入参--
+    报告版本ID(ReportVersionId Guid)
+    检查报告内容(Content ExaminationReportContentRequest)
+    --规则--
+    1.检查报告专项内容必须随完整报告整体保存，不允许独立提交
+]
+
+Command('AddExaminationItemCommand')[
+    添加单个检查项目
+    --入参--
+    报告版本ID(ReportVersionId Guid)
+    检查项目(Item ExaminationItemRequest)
+    --规则--
+    1.完整保存已对码和未对码项目，仅已对码项目参与候选
+    2.检查项目不采集业务展示序号
+]
+
+Command('AddExaminationSiteCommand')[
+    添加单个检查部位
+    --入参--
+    报告版本ID(ReportVersionId Guid)
+    检查项目ID(ExaminationItemId Guid)
+    检查部位(Site ExaminationSiteRequest)
+    --规则--
+    1.每个部位必须归属于同一报告版本中的具体检查项目
+]
+
+DomainEvent('MedicalReportVersionAppendedEvent','报告版本已追加')
+
+DomainEvent('LaboratoryReportContentRecordedEvent','检验报告专项内容已记录')
+
+DomainEvent('LaboratoryResultItemAddedEvent','普通检验结果已添加')
+
+DomainEvent('BacterialIdentificationResultAddedEvent','细菌鉴定结果已添加')
+
+DomainEvent('DrugSusceptibilityResultAddedEvent','药敏结果已添加')
+
+DomainEvent('ExaminationReportContentRecordedEvent','检查报告专项内容已记录')
+
+DomainEvent('ExaminationItemAddedEvent','检查项目已添加')
+
+DomainEvent('ExaminationSiteAddedEvent','检查部位已添加')
+
+'============================================= F04 互认候选 =============================================
+FacadeCommand('ProvideRecognitionCandidatesCommand')[
+    提供互认候选
+    --入参--
+    证件类型代码(IdentityDocumentTypeCode String)
+    证件号码(IdentityDocumentNo String)
+    本次来源就诊类型(VisitType VisitType)
+    本次院内就诊流水号(VisitSerialNo String)
+    拟开院内项目(ProposedItems RecognitionCandidateProposedItemRequest[])
+    --出参--
+    候选提供组ID(CandidateProviderGroupId Guid?)
+    报告分组(ReportGroups RecognitionCandidateReportGroupDto[])
+    --规则--
+    1.整批校验全部去重拟开项目；任一未对码、对照停用或互认项目不可用时整次失败且不生成提供组
+    2.配置全部正确但没有报告时成功返回空集合且不生成提供组
+    3.每次非空查询生成新的候选提供组 ID 和候选项目 ID；平台成功生成组即形成提醒，响应超时重试仍生成新组和新 ID
+    4.报告分组只用于响应展示，不形成实体或新的业务层级
+    5.候选返回 PDF 文件标识、平台下载入口和原始文件名；入口不携带 Token、Base64 或存储地址，下载以 Authorization 请求头鉴权并返回 application/pdf 文件流
+]
+
+DomainEvent('RecognitionCandidatesProvidedEvent','互认候选已提供')
+
+Command('QueryRecognitionCandidatesCommand')[
+    查询互认候选
+    --入参--
+    证件类型代码(IdentityDocumentTypeCode String)
+    证件号码(IdentityDocumentNo String)
+    本次来源就诊类型(VisitType VisitType)
+    本次院内就诊流水号(VisitSerialNo String)
+    拟开院内项目(ProposedItems RecognitionCandidateProposedItemRequest[])
+    --出参--
+    报告分组(ReportGroups RecognitionCandidateReportGroupDto[])
+    --规则--
+    1.同一次查询重复提供相同院内项目时只处理一次，并整批验证全部项目配置
+    2.每个去重互认项目最多返回最近一份当前有效报告；全部配置正确但无报告时返回空集合
+    3.本命令返回 DTO 供外观命令组装，不创建跨查询稳定引用或恢复旧候选组
+]
+
+DomainEvent('RecognitionCandidatesQueriedEvent','互认候选已查询')
+
+Command('CreateRecognitionCandidateProviderGroupCommand')[
+    创建候选提供组
+    --入参--
+    候选提供组ID(CandidateProviderGroupId Guid)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    证件类型代码(IdentityDocumentTypeCode String)
+    证件号码(IdentityDocumentNo String)
+    本次来源就诊类型(CurrentVisitType VisitType)
+    本次院内就诊流水号(CurrentVisitSerialNo String)
+    提供时间(ProvidedTime DateTime)
+    --规则--
+    1.仅在候选非空时创建，每次成功查询均使用新的候选提供组 ID
+    2.组一旦创建即代表提醒事实已经形成，不因响应超时删除或恢复旧组
+]
+
+DomainEvent('RecognitionCandidateProviderGroupCreatedEvent','候选提供组已创建')
+
+Command('AddRecognitionCandidateItemCommand')[
+    添加候选项目
+    --入参--
+    候选项(Item RecognitionCandidateItemSaveRequest)
+    --规则--
+    1.每个候选项目使用新的候选项目 ID，并保存本次拟开院内项目类型与编码快照，绑定本次提供组、报告版本和互认项目
+]
+
+DomainEvent('RecognitionCandidateItemAddedEvent','候选项目已添加')
+
+'============================================= F05 互认决定 =============================================
+FacadeCommand('SubmitRecognitionDecisionsCommand')[
+    提交互认决定
+    --入参--
+    候选提供组ID(CandidateProviderGroupId Guid)
+    互认时间(RecognitionTime DateTime)
+    决定科室ID(DecisionDeptId Guid)
+    决定医生ID(DecisionDoctorId Guid)
+    决定项列表(Items RecognitionDecisionSubmitRequest[])
+    --规则--
+    1.决定数组必须恰好覆盖指定提供组内全部候选项目，不得缺少、重复或包含组外项目
+    2.先校验整批并在同一事务内原子保存；任一决定项失败时整批零写入，不返回逐项结果
+    3.决定仅允许采纳或不采纳；不采纳必须使用固定原因代码，其他原因必须补充说明
+    4.首次成功后整组结果不可更正、撤销、删除、覆盖；相同完整请求幂等，不同内容冲突
+    5.采纳时按决定成功保存时接收医院、院区当前有效对照价格形成预计节省金额
+    6.组级首次成功保存时间是该组引用详情有效期的独立起点，幂等重试不刷新
+    7.互认时间、科室和医生适用于整组；互认时间不得早于组生成时间或晚于请求接收时间
+    8.提交时报告后来形成新版本或作废，不拒绝医院明确反馈的既有互认决定事实
+]
+
+DomainEvent('RecognitionDecisionsSavedEvent','互认决定已保存')
+
+Command('SaveRecognitionDecisionCommand')[
+    保存单个互认决定
+    --入参--
+    决定项(Item RecognitionDecisionSubmitRequest)
+    --规则--
+    1.决定项绑定候选提供组和候选项目，只能随整组原子提交首次保存
+    2.保存后不可更正、撤销、删除或覆盖
+]
+
+DomainEvent('RecognitionDecisionSavedEvent','互认决定已保存')
+
+Command('MarkRecognitionCandidateProviderGroupDecidedCommand')[
+    标记候选提供组已处理
+    --入参--
+    候选提供组ID(CandidateProviderGroupId Guid)
+    互认时间(RecognitionTime DateTime)
+    决定科室ID(DecisionDeptId Guid)
+    决定科室名称(DecisionDeptName String)
+    决定医生ID(DecisionDoctorId Guid)
+    决定医生名称(DecisionDoctorName String)
+    决定首次保存时间(DecisionSavedTime DateTime)
+    --规则--
+    1.仅在整组决定首次成功后记录起算时间，相同完整请求幂等时不刷新
+]
+
+DomainEvent('RecognitionCandidateProviderGroupDecidedEvent','候选提供组已处理')
+
+' F06 获取引用详情是对当前采纳决定和当前有效报告版本的只读校验，不声明 Query 或状态变更命令。
+' 引用详情读取全平台统一的正整数分钟系统参数，默认 720 分钟；各组有效期从该组决定首次成功保存时独立起算，幂等重试不刷新。
+
+'============================================= F07 引用事实 =============================================
+FacadeCommand('SubmitRecognitionReferencesCommand')[
+    提交互认引用结果
+    --入参--
+    候选提供组ID(CandidateProviderGroupId Guid)
+    引用项列表(Items RecognitionReferenceSubmitRequest[])
+    --规则--
+    1.数组只包含本组中实际写入病历的采纳项目，可以少于本组全部采纳项目，但不得包含未采纳或组外项目
+    2.整批校验引用科室、医生及项目并在同一事务内原子保存；任一项失败时整批零写入，不返回逐项结果
+    3.每个候选项目的引用事实首次成功后不可更正、撤销、删除或覆盖；相同事实幂等，既存项目字段不同则冲突
+    4.同一组可在后来实际引用其他采纳项目后再次提交新增事实；每次数组独立整批原子
+    5.实际引用时间不得早于组级互认时间或晚于本次请求接收时间
+    6.不设提交期限，不受可互认时间或引用详情有效期限制；报告后来失效时仍接收既有引用事实的明确反馈
+]
+
+Command('AddRecognitionReferenceCommand')[
+    添加互认引用事实
+    --入参--
+    候选提供组ID(CandidateProviderGroupId Guid)
+    候选项目ID(CandidateItemId Guid)
+    实际引用时间(ReferencedTime DateTime)
+    引用科室ID(ReferenceDeptId Guid)
+    引用科室名称(ReferenceDeptName String)
+    引用医生ID(ReferenceDoctorId Guid)
+    引用医生名称(ReferenceDoctorName String)
+    --规则--
+    1.引用粒度为候选提供组中的具体候选项目，不细分到普通检验展示明细
+    2.引用事实只能随整批提交互认引用结果原子产生，不允许独立新增或后续修改
+]
+
+DomainEvent('RecognitionReferencesRecordedEvent','互认引用结果已记录')
+
+DomainEvent('RecognitionReferenceAddedEvent','互认引用事实已添加')
+
+
+'============================================= 聚合与实体 =============================================
+Aggregate('MedicalRecognitionReportAggregate')
+
+Entity('MedicalRecognitionReportEntity')[
+    医疗结果互认报告
+    --属性--
+    ID(Id Guid)
+    ..
+    来源医院编码(SourceHospitalCode String)
+    来源院区编码(SourceBranchCode String)
+    报告类型(ReportType MedicalReportType)
+    报告单号(ReportNo String)
+    当前版本ID(CurrentVersionId Guid)
+    报告生命周期状态(LifecycleStatus MedicalReportLifecycleStatus)
+    作废时间(VoidedTime DateTime?)
+    作废原因(VoidReason Text?)
+    --规则--
+    1.来源医院、来源院区、报告类型和报告单号共同构成一份来源报告的业务标识，一个业务标识对应一个聚合实例
+    2.检验报告只能拥有检验专项内容和明细；检查报告只能拥有检查专项内容、项目和部位，两类结构互斥
+    3.首次及后续完整提交形成不可变版本，后续版本更新当前版本；作废不生成内容版本
+    4.医院不提交操作类型；作废后不得通过完整提交或历史版本恢复
+    5.后续版本或作废限制旧版本继续形成候选、引用详情和下载，不否定已发生的决定或引用事实
+    6.总体数据保留期限待后续合规确认，MVP 保留已接收报告及全部历史版本
+]
+
+Entity('RecognitionProjectEntity')[
+    互认项目
+    --属性--
+    ID(Id Guid)
+    ..
+    标准项目编码(StandardMedicalItemCode String)
+    标准项目名称(StandardMedicalItemName String)
+    可互认时间天数(RecognitionDurationDays Integer)
+    启停状态(Status MutualRecognitionItemStatus)
+    标准目录状态(CatalogStatus MutualRecognitionItemCatalogStatus)
+    --规则--
+    1.标准项目编码创建后不可替换；替代项目必须新建互认项目并重新调整对照
+    2.可互认时间只用于候选查询，不用于报告接收校验或报告保存期限
+    3.可互认时间为正整数且最小为 1 天，一天为连续 24 小时，结束边界包含在有效范围内
+    4.停用或标准项目不可用时保留既有业务数据，阻止新对照和候选；已有报告的后续完整版本仍必须保存
+]
+
+Entity('BranchMedicalItemMappingEntity')[
+    院区项目编码对照
+    --属性--
+    ID(Id Guid)
+    ..
+    医院ID(HosId String)
+    院区ID(BranchId String)
+    互认项目ID(RecognitionProjectId Guid)
+    院内项目编码(BranchMedicalItemCode String)
+    院内项目名称(BranchMedicalItemName String)
+    当前价格(CurrentPrice Decimal(18,2))
+    启停状态(Status BranchMedicalItemMappingStatus)
+    备注(Remark String?)
+    --规则--
+    1.同步候选只用于页面预填和比对，医院管理员明确保存后才形成项目编码对照
+    2.医院、院区和院内项目编码创建后不可修改
+    3.同一医院和院区内，一个启用院内项目只对照一个互认项目，一个互认项目也只对应一个启用院内项目
+    4.当前价格以人民币元计，0 为有效值；缺少价格或价格无效时不得启用或参与后续业务
+    5.只保留当前价格，不建立独立价格版本、同步记录或同步历史
+]
+
+Entity('MedicalReportVersionEntity')[
+    报告版本
+    --属性--
+    ID(Id Guid)
+    报告ID(ReportId Guid)
+    原版本ID(PreviousVersionId Guid?)
+    内部版本序号(VersionNumber Integer)
+    来源报告名称(SourceReportName String)
+    患者姓名(PatientName String)
+    患者性别代码(PatientGenderCode String)
+    患者出生日期(PatientBirthDate DateTime)
+    证件类型代码(IdentityDocumentTypeCode String)
+    证件号码(IdentityDocumentNo String)
+    患者联系电话(PatientPhoneNumber String?)
+    报告时年龄(AgeAtReport String?)
+    就诊类型(VisitType VisitType)
+    院内就诊流水号(VisitSerialNo String)
+    住院号(InpatientNo String?)
+    病区(WardName String?)
+    病房(RoomName String?)
+    床位(BedNo String?)
+    申请科室ID(ApplicationDeptId Guid)
+    申请科室名称(ApplicationDeptName String)
+    申请医生ID(ApplicationDoctorId Guid)
+    申请医生名称(ApplicationDoctorName String)
+    执行科室ID(ExecutionDeptId Guid)
+    执行科室名称(ExecutionDeptName String)
+    报告科室ID(ReportDeptId Guid)
+    报告科室名称(ReportDeptName String)
+    报告医生ID(ReportDoctorId Guid)
+    报告医生名称(ReportDoctorName String)
+    审核医生ID(ReviewDoctorId Guid)
+    审核医生名称(ReviewDoctorName String)
+    申请时间(ApplicationTime DateTime)
+    报告时间(ReportTime DateTime)
+    审核时间(ReviewTime DateTime?)
+    源端报告修改时间(SourceModifiedTime DateTime)
+    平台接收时间(ReceivedTime DateTime)
+    来源保密标识(SourceConfidentialFlag String?)
+    报告PDF文件标识(PdfFileId String)
+    PDF文件名(PdfFileName String)
+    版本状态(VersionStatus MedicalReportVersionStatus)
+    --规则--
+    1.版本按平台成功形成顺序生成内部版本序号并完整、不可变保存
+    2.医院不提交更正原因、版本变更原因或医院版本号；管理端按内部版本序号追溯
+    3.不同真实版本的源端报告修改时间必须严格递增，相同时间只表示同一完整提交重传
+    4.PDF 文件名缺失或无效时回退为安全处理后的“报告单号.pdf”，不参与报告身份、版本或幂等判断
+    5.不保存或计算完整内容指纹、PDF 摘要及医院版本号
+]
+
+Entity('LaboratoryReportContentEntity')[
+    检验报告专项内容
+    --属性--
+    ID(Id Guid)
+    报告版本ID(ReportVersionId Guid)
+    报告类别编码(ReportCategoryCode String?)
+    报告类别名称(ReportCategoryName String?)
+    报告备注(ReportRemark Text?)
+    整体异常标识(OverallAbnormalFlag String?)
+    来源医嘱流水号(SourceOrderSerialNo String?)
+    院内标本号(SourceSpecimenNo String)
+    标本类型编码(SpecimenTypeCode String)
+    标本类型名称(SpecimenTypeName String)
+    标本采集时间(SpecimenCollectedTime DateTime?)
+    标本送检时间(SpecimenSubmittedTime DateTime?)
+    检验科接收时间(LaboratoryReceivedTime DateTime?)
+    检测完成时间(TestingCompletedTime DateTime)
+    检验人ID(InspectorId Guid)
+    检验人名称(InspectorName String)
+]
+
+Entity('LaboratoryResultItemEntity')[
+    普通检验结果
+    --属性--
+    ID(Id Guid)
+    报告版本ID(ReportVersionId Guid)
+    来源明细标识(SourceDetailKey String?)
+    院内项目编码(HospitalItemCode String)
+    院内项目名称(HospitalItemName String)
+    互认项目编码(RecognitionItemCode String?)
+    互认项目名称(RecognitionItemName String?)
+    来源结果原文(SourceResultText Text)
+    结果类型(ResultType LaboratoryResultType)
+    LOINC编码(LoincCode String?)
+    单位(Unit String?)
+    参考范围(ReferenceRange Text?)
+    检测方法(TestingMethod String?)
+    仪器编号(InstrumentCode String?)
+    仪器名称(InstrumentName String?)
+    展示序号(DisplayOrder Integer)
+    来源检验收费项目编码(LaboratoryChargeItemCode String?)
+    医保收费项目编码(InsuranceChargeItemCode String?)
+    异常标志(AbnormalFlag LaboratoryAbnormalFlag?)
+    危急值标志(CriticalValueFlag Boolean?)
+    检测人ID(InspectorId Guid?)
+    检测人名称(InspectorName String?)
+    明细审核人ID(ItemReviewerId Guid?)
+    明细审核人名称(ItemReviewerName String?)
+]
+
+Entity('BacterialIdentificationResultEntity')[
+    细菌鉴定结果
+    --属性--
+    ID(Id Guid)
+    报告版本ID(ReportVersionId Guid)
+    来源明细标识(SourceDetailKey String?)
+    检出状态(DetectionStatus BacterialDetectionStatus)
+    来源菌种编码(SourceOrganismCode String?)
+    来源菌种名称(SourceOrganismName String?)
+    来源结果文字(SourceResultText Text)
+    菌落计数(ColonyCount String?)
+    培养基(CultureMedium String?)
+    培养时间(CultureTime String?)
+    培养条件(CultureCondition String?)
+    发现方式(DetectionMethod String?)
+    检测结论(DetectionConclusion Text)
+    详细描述(Description Text?)
+    仪器编号(InstrumentCode String?)
+    仪器名称(InstrumentName String?)
+    试验板编号(TestPanelCode String?)
+    试验板名称(TestPanelName String?)
+    检测人ID(InspectorId Guid?)
+    检测人名称(InspectorName String?)
+    明细审核人ID(ItemReviewerId Guid?)
+    明细审核人名称(ItemReviewerName String?)
+]
+
+Entity('DrugSusceptibilityResultEntity')[
+    药敏结果
+    --属性--
+    ID(Id Guid)
+    报告版本ID(ReportVersionId Guid)
+    细菌鉴定结果ID(BacterialIdentificationResultId Guid)
+    来源明细标识(SourceDetailKey String?)
+    受试药物编码(DrugCode String?)
+    受试药物名称(DrugName String)
+    药敏代码(SusceptibilityCode String?)
+    来源结论文字(SourceConclusionText Text)
+    抗药结果代码(ResistanceResultCode String?)
+    纸片含药量(DiskContent String?)
+    最小抑菌浓度(MicValue String?)
+    抑菌环直径(InhibitionZoneDiameter String?)
+    参考值(ReferenceValue String?)
+    展示序号(DisplayOrder Integer)
+    检测方法(TestingMethod String?)
+    试验板序号(TestPanelOrder String?)
+    检测人ID(InspectorId Guid?)
+    检测人名称(InspectorName String?)
+    明细审核人ID(ItemReviewerId Guid?)
+    明细审核人名称(ItemReviewerName String?)
+]
+
+Entity('ExaminationReportContentEntity')[
+    检查报告专项内容
+    --属性--
+    ID(Id Guid)
+    报告版本ID(ReportVersionId Guid)
+    来源检查类型编码(SourceExaminationTypeCode String?)
+    来源检查类型名称(SourceExaminationTypeName String?)
+    报告备注(ReportRemark Text?)
+    检查所见(Findings Text)
+    检查结论(Conclusion Text)
+    整体异常标识(OverallAbnormalFlag String?)
+    来源临床诊断编码(SourceDiagnosisCode String?)
+    来源临床诊断名称(SourceDiagnosisName String)
+    病情描述(ConditionDescription Text?)
+    检查目的(ExaminationPurpose Text?)
+    实际检查时间(ExaminationTime DateTime)
+    检查方法(ExaminationMethod String?)
+    设备编号(DeviceCode String?)
+    设备名称(DeviceName String?)
+    检查医生ID(ExaminerId Guid)
+    检查医生名称(ExaminerName String)
+    来源影像状态(SourceImageStatus SourceImageStatus)
+    影像调阅地址(ImageAccessUrl String?)
+    --规则--
+    1.影像地址按医院提交的外部 HTTPS 地址原样保存，平台不测试、代理、缓存或保证可用性，不接收 DICOM
+]
+
+Entity('ExaminationItemEntity')[
+    检查项目
+    --属性--
+    ID(Id Guid)
+    报告版本ID(ReportVersionId Guid)
+    院内项目编码(HospitalItemCode String)
+    院内项目名称(HospitalItemName String)
+    互认项目编码(RecognitionItemCode String?)
+    互认项目名称(RecognitionItemName String?)
+]
+
+Entity('ExaminationSiteEntity')[
+    检查部位
+    --属性--
+    ID(Id Guid)
+    检查项目ID(ExaminationItemId Guid)
+    来源部位编码(SourceSiteCode String?)
+    部位名称(SiteName String)
+]
+
+Entity('RecognitionCandidateProviderGroupEntity')[
+    候选提供组
+    --属性--
+    ID(Id Guid)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    证件类型代码(IdentityDocumentTypeCode String)
+    证件号码(IdentityDocumentNo String)
+    本次就诊类型(CurrentVisitType VisitType)
+    本次院内就诊流水号(CurrentVisitSerialNo String)
+    提供时间(ProvidedTime DateTime)
+    互认时间(RecognitionTime DateTime?)
+    决定科室ID(DecisionDeptId Guid?)
+    决定科室名称(DecisionDeptName String?)
+    决定医生ID(DecisionDoctorId Guid?)
+    决定医生名称(DecisionDoctorName String?)
+    决定首次保存时间(DecisionSavedTime DateTime?)
+    --规则--
+    1.仅非空候选生成提供组，每次查询使用新 ID；组生成本身形成提醒事实，响应超时不删除且重试不恢复旧组
+    2.决定首次成功保存时间是本组引用详情有效期的独立起点，幂等重试不刷新
+]
+
+Entity('RecognitionCandidateItemEntity')[
+    候选项目
+    --属性--
+    ID(Id Guid)
+    候选提供组ID(CandidateProviderGroupId Guid)
+    本次拟开院内项目类型(ItemType MedicalReportType)
+    本次拟开院内项目编码(BranchMedicalItemCode String)
+    报告ID(ReportId Guid)
+    报告版本ID(ReportVersionId Guid)
+    互认项目编码(RecognitionItemCode String)
+    互认项目名称(RecognitionItemName String)
+    --规则--
+    1.候选项目只属于一次候选提供组，并保存本次拟开院内项目、当时的报告版本和互认项目快照
+]
+
+Entity('RecognitionDecisionEntity')[
+    互认决定
+    --属性--
+    ID(Id Guid)
+    候选提供组ID(CandidateProviderGroupId Guid)
+    候选项目ID(CandidateItemId Guid)
+    报告ID(ReportId Guid)
+    报告版本ID(ReportVersionId Guid)
+    互认项目编码(RecognitionItemCode String)
+    决定结果(DecisionResult RecognitionDecisionResult)
+    不采纳原因(NonAdoptionReason RecognitionNonAdoptionReason?)
+    不采纳补充说明(NonAdoptionDescription Text?)
+    预计节省金额(EstimatedSavingAmount Decimal(18,2)?)
+    --规则--
+    1.候选提供组和候选项目构成业务唯一键，决定必须恰好覆盖组内全部项目并整批原子保存
+    2.首次成功保存后不可更正、撤销、删除或覆盖；相同完整组请求幂等，不同内容冲突
+    3.引用详情使用全平台统一的正整数分钟参数，默认 720 分钟，并从组级首次成功时间起算
+]
+
+Entity('RecognitionReferenceEntity')[
+    互认引用事实
+    --属性--
+    ID(Id Guid)
+    候选提供组ID(CandidateProviderGroupId Guid)
+    候选项目ID(CandidateItemId Guid)
+    报告ID(ReportId Guid)
+    报告版本ID(ReportVersionId Guid)
+    互认项目编码(RecognitionItemCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    本次就诊类型(CurrentVisitType VisitType)
+    本次院内就诊流水号(CurrentVisitSerialNo String)
+    实际引用时间(ReferencedTime DateTime)
+    引用科室ID(ReferenceDeptId Guid)
+    引用科室名称(ReferenceDeptName String)
+    引用医生ID(ReferenceDoctorId Guid)
+    引用医生名称(ReferenceDoctorName String)
+    --规则--
+    1.候选提供组和候选项目构成业务唯一键，只允许记录组内已采纳且实际写入病历的项目
+    2.每次数组整批原子保存；单个候选项目的首次引用事实不可更正、撤销、删除或覆盖
+    3.提交不设期限，报告后来失效也不拒绝既有引用事实的明确反馈
+]
+
+'============================================= 关系 =============================================
+PlatformAdministrator --> CreateMutualRecognitionItemCommand
+PlatformAdministrator --> UpdateMutualRecognitionItemDurationCommand
+PlatformAdministrator --> EnableMutualRecognitionItemCommand
+PlatformAdministrator --> DisableMutualRecognitionItemCommand
+PlatformAdministrator --> SynchronizeMutualRecognitionItemCatalogStatusesCommand
+HospitalAdministrator --> SaveBranchMedicalItemMappingsCommand
+HospitalAdministrator --> EnableBranchMedicalItemMappingCommand
+HospitalAdministrator --> DisableBranchMedicalItemMappingCommand
+PlatformAdministrator --> DisableBranchMedicalItemMappingCommand
+HospitalCollectionService --> SubmitCompleteLaboratoryReportCommand
+HospitalCollectionService --> VoidLaboratoryReportCommand
+HospitalCollectionService --> SubmitCompleteExaminationReportCommand
+HospitalCollectionService --> VoidExaminationReportCommand
+HospitalHisSystem --> ProvideRecognitionCandidatesCommand
+HospitalHisSystem --> SubmitRecognitionDecisionsCommand
+HospitalHisSystem --> SubmitRecognitionReferencesCommand
+
+CreateMutualRecognitionItemCommand ..> MutualRecognitionItemCreatedEvent : send
+UpdateMutualRecognitionItemDurationCommand ..> MutualRecognitionItemDurationUpdatedEvent : send
+EnableMutualRecognitionItemCommand ..> MutualRecognitionItemEnabledEvent : send
+DisableMutualRecognitionItemCommand ..> MutualRecognitionItemDisabledEvent : send
+SynchronizeMutualRecognitionItemCatalogStatusesCommand ..> MutualRecognitionItemCatalogStatusesSynchronizedEvent : send
+SaveBranchMedicalItemMappingsCommand ..> BranchMedicalItemMappingsSavedEvent : send
+EnableBranchMedicalItemMappingCommand ..> BranchMedicalItemMappingEnabledEvent : send
+DisableBranchMedicalItemMappingCommand ..> BranchMedicalItemMappingDisabledEvent : send
+SubmitCompleteLaboratoryReportCommand ..> CompleteLaboratoryReportSubmittedEvent : send
+VoidLaboratoryReportCommand ..> LaboratoryReportVoidedEvent : send
+SubmitCompleteExaminationReportCommand ..> CompleteExaminationReportSubmittedEvent : send
+VoidExaminationReportCommand ..> ExaminationReportVoidedEvent : send
+CreateMedicalRecognitionReportCommand ..> MedicalRecognitionReportCreatedEvent : send
+UpdateMedicalRecognitionReportCurrentVersionCommand ..> MedicalRecognitionReportCurrentVersionUpdatedEvent : send
+SupersedeMedicalReportVersionCommand ..> MedicalReportVersionSupersededEvent : send
+AppendMedicalReportVersionCommand ..> MedicalReportVersionAppendedEvent : send
+RecordLaboratoryReportContentCommand ..> LaboratoryReportContentRecordedEvent : send
+AddLaboratoryResultItemCommand ..> LaboratoryResultItemAddedEvent : send
+AddBacterialIdentificationResultCommand ..> BacterialIdentificationResultAddedEvent : send
+AddDrugSusceptibilityResultCommand ..> DrugSusceptibilityResultAddedEvent : send
+RecordExaminationReportContentCommand ..> ExaminationReportContentRecordedEvent : send
+AddExaminationItemCommand ..> ExaminationItemAddedEvent : send
+AddExaminationSiteCommand ..> ExaminationSiteAddedEvent : send
+ProvideRecognitionCandidatesCommand ..> RecognitionCandidatesProvidedEvent : send
+QueryRecognitionCandidatesCommand ..> RecognitionCandidatesQueriedEvent : send
+CreateRecognitionCandidateProviderGroupCommand ..> RecognitionCandidateProviderGroupCreatedEvent : send
+AddRecognitionCandidateItemCommand ..> RecognitionCandidateItemAddedEvent : send
+SubmitRecognitionDecisionsCommand ..> RecognitionDecisionsSavedEvent : send
+SaveRecognitionDecisionCommand ..> RecognitionDecisionSavedEvent : send
+MarkRecognitionCandidateProviderGroupDecidedCommand ..> RecognitionCandidateProviderGroupDecidedEvent : send
+SubmitRecognitionReferencesCommand ..> RecognitionReferencesRecordedEvent : send
+AddRecognitionReferenceCommand ..> RecognitionReferenceAddedEvent : send
+
+SubmitCompleteLaboratoryReportCommand --> CreateMedicalRecognitionReportCommand : 报告不存在且首版有效时调用
+SubmitCompleteLaboratoryReportCommand --> UpdateMedicalRecognitionReportCurrentVersionCommand : 后续完整版本形成时调用
+SubmitCompleteLaboratoryReportCommand --> SupersedeMedicalReportVersionCommand : 后续完整版本形成时调用
+SubmitCompleteLaboratoryReportCommand --> AppendMedicalReportVersionCommand : 新版本形成时调用
+SubmitCompleteLaboratoryReportCommand --> RecordLaboratoryReportContentCommand : 新版本形成时调用
+SubmitCompleteLaboratoryReportCommand --> AddLaboratoryResultItemCommand : 按普通结果逐条调用
+SubmitCompleteLaboratoryReportCommand --> AddBacterialIdentificationResultCommand : 按细菌鉴定结果逐条调用
+SubmitCompleteLaboratoryReportCommand --> AddDrugSusceptibilityResultCommand : 按药敏结果逐条调用
+SubmitCompleteExaminationReportCommand --> CreateMedicalRecognitionReportCommand : 报告不存在且首版有效时调用
+SubmitCompleteExaminationReportCommand --> UpdateMedicalRecognitionReportCurrentVersionCommand : 后续完整版本形成时调用
+SubmitCompleteExaminationReportCommand --> SupersedeMedicalReportVersionCommand : 后续完整版本形成时调用
+SubmitCompleteExaminationReportCommand --> AppendMedicalReportVersionCommand : 新版本形成时调用
+SubmitCompleteExaminationReportCommand --> RecordExaminationReportContentCommand : 新版本形成时调用
+SubmitCompleteExaminationReportCommand --> AddExaminationItemCommand : 按检查项目逐条调用
+SubmitCompleteExaminationReportCommand --> AddExaminationSiteCommand : 按检查部位逐条调用
+ProvideRecognitionCandidatesCommand --> QueryRecognitionCandidatesCommand : 查询并返回候选结果
+ProvideRecognitionCandidatesCommand --> CreateRecognitionCandidateProviderGroupCommand : 候选非空时调用一次
+ProvideRecognitionCandidatesCommand --> AddRecognitionCandidateItemCommand : 按候选项目逐条调用
+SubmitRecognitionDecisionsCommand --> SaveRecognitionDecisionCommand : 整批校验通过后逐项调用
+SubmitRecognitionDecisionsCommand --> MarkRecognitionCandidateProviderGroupDecidedCommand : 整组首次保存成功后调用
+SubmitRecognitionReferencesCommand --> AddRecognitionReferenceCommand : 整批校验通过后原子逐项保存
+
+CreateMutualRecognitionItemCommand .. RecognitionProjectEntity
+SynchronizeMutualRecognitionItemCatalogStatusesCommand .. RecognitionProjectEntity
+SaveBranchMedicalItemMappingsCommand .. BranchMedicalItemMappingEntity
+VoidLaboratoryReportCommand .. MedicalRecognitionReportEntity
+VoidExaminationReportCommand .. MedicalRecognitionReportEntity
+CreateMedicalRecognitionReportCommand .. MedicalRecognitionReportEntity
+UpdateMedicalRecognitionReportCurrentVersionCommand .. MedicalRecognitionReportEntity
+
+UpdateMutualRecognitionItemDurationCommand .. RecognitionProjectEntity
+EnableMutualRecognitionItemCommand .. RecognitionProjectEntity
+DisableMutualRecognitionItemCommand .. RecognitionProjectEntity
+EnableBranchMedicalItemMappingCommand .. BranchMedicalItemMappingEntity
+DisableBranchMedicalItemMappingCommand .. BranchMedicalItemMappingEntity
+SupersedeMedicalReportVersionCommand .. MedicalReportVersionEntity
+AppendMedicalReportVersionCommand .. MedicalReportVersionEntity
+RecordLaboratoryReportContentCommand .. LaboratoryReportContentEntity
+AddLaboratoryResultItemCommand .. LaboratoryResultItemEntity
+AddBacterialIdentificationResultCommand .. BacterialIdentificationResultEntity
+AddDrugSusceptibilityResultCommand .. DrugSusceptibilityResultEntity
+RecordExaminationReportContentCommand .. ExaminationReportContentEntity
+AddExaminationItemCommand .. ExaminationItemEntity
+AddExaminationSiteCommand .. ExaminationSiteEntity
+CreateRecognitionCandidateProviderGroupCommand .. RecognitionCandidateProviderGroupEntity
+AddRecognitionCandidateItemCommand .. RecognitionCandidateItemEntity
+SaveRecognitionDecisionCommand .. RecognitionDecisionEntity
+MarkRecognitionCandidateProviderGroupDecidedCommand .. RecognitionCandidateProviderGroupEntity
+AddRecognitionReferenceCommand .. RecognitionReferenceEntity
+
+MedicalRecognitionReportAggregate .. RecognitionProjectEntity
+MedicalRecognitionReportAggregate .. MedicalRecognitionReportEntity
+MedicalRecognitionReportAggregate .. BranchMedicalItemMappingEntity
+MedicalRecognitionReportAggregate .. MedicalReportVersionEntity
+MedicalRecognitionReportAggregate .. LaboratoryReportContentEntity
+MedicalRecognitionReportAggregate .. LaboratoryResultItemEntity
+MedicalRecognitionReportAggregate .. BacterialIdentificationResultEntity
+MedicalRecognitionReportAggregate .. DrugSusceptibilityResultEntity
+MedicalRecognitionReportAggregate .. ExaminationReportContentEntity
+MedicalRecognitionReportAggregate .. ExaminationItemEntity
+MedicalRecognitionReportAggregate .. ExaminationSiteEntity
+MedicalRecognitionReportAggregate .. RecognitionCandidateProviderGroupEntity
+MedicalRecognitionReportAggregate .. RecognitionCandidateItemEntity
+MedicalRecognitionReportAggregate .. RecognitionDecisionEntity
+MedicalRecognitionReportAggregate .. RecognitionReferenceEntity
+
+@enduml

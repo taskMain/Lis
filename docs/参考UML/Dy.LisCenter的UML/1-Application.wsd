@@ -1,0 +1,1421 @@
+@startuml Application
+!include ddd_lib.puml
+' 聚合根：ApplicationAggregate；业务范围：申请单、申请项目、样本、样本包、送出、接收、异常、报告和单据状态汇总；既有业务事件可作为其他聚合的触发来源，但本文件不定义外部推送记录或平台消息聚合。
+
+
+Person('InitiatorExternalSystem','发起方侧外部接入系统')
+Person('InitiatorUser','发起机构用户')
+Person('ReceiverUser','接收方用户')
+Person('ReceiverExternalSystem','接收方侧外部接入系统')
+Person('PlatformOperator','平台运营人员')
+
+' 对外写边界：I04-01 至 I04-19 的 JSON 写操作由 ExternalApplicationAppService 自动路由
+' /Api/ExternalApplication/{Method} 承载；其入口请求仅映射到下列 Command/FacadeCommand。
+' PDF 上传为 ExternalReportFileController 的 multipart 传输特例，仍调用 ExternalApplicationAppService；页面 AppService 不复用 External Request/Result/DTO。
+
+'============================================= 枚举 =============================================
+Enum('ApplicationStateEnum')[
+    申请单状态
+    --属性--
+    待审核(PendingReview 1)
+    已驳回(ReviewRejected 2)
+    审核通过(Approved 3)
+    部分送出(PartiallyDispatched 4)
+    全部送出(AllDispatched 5)
+    部分接收(PartiallyReceived 6)
+    全部接收(AllReceived 7)
+    检测中(Testing 8)
+    检测完成(Completed 9)
+    已关闭(Closed 10)
+    已取消(Cancelled 11)
+]
+
+Enum('ApplicationReviewResultEnum')[
+    申请审核结果
+    --属性--
+    审核通过(Approved 1)
+    驳回(Rejected 2)
+]
+
+Enum('BarcodeStatusEnum')[
+    样本有效状态
+    --属性--
+    有效(Valid 1)
+    已结束(Ended 2)
+]
+
+Enum('BarcodeEndTypeEnum')[
+    结束类型
+    --属性--
+    发起方终止(InitiatorTerminated 1)
+    样本无法继续检测(UnprocessableSpecimen 2)
+]
+
+Enum('BarcodeTerminationTypeEnum')[
+    终止类型
+    --属性--
+    未送出终止(BeforeDispatch 1)
+    送出后终止(AfterDispatch 2)
+]
+
+Enum('BarcodeTerminationReasonEnum')[
+    终止原因
+    --属性--
+    申请信息错误(ApplicationInfoError 1)
+    患者信息变更(PatientInfoChanged 2)
+    不再需要检测(NoLongerNeeded 3)
+    重复申请(DuplicateApplication 4)
+    费用或结算原因(FeeOrSettlement 5)
+    其他(Other 6)
+]
+
+Enum('ApplicationCancelReasonEnum')[
+    申请取消原因
+    --属性--
+    申请信息错误(ApplicationInfoError 1)
+    患者信息变更(PatientInfoChanged 2)
+    不再需要检测(NoLongerNeeded 3)
+    重复申请(DuplicateApplication 4)
+    费用或结算原因(FeeOrSettlement 5)
+    其他(Other 6)
+]
+
+Enum('SpecimenMainStatusEnum')[
+    样本主状态
+    --属性--
+    待送出(PendingDispatch 1)
+    已送出(Dispatched 2)
+    已接收(Received 3)
+    检测中(Testing 4)
+    检测完成(Completed 5)
+]
+
+Enum('DispatchRecordStatusEnum')[
+    送出记录状态
+    --属性--
+    已送出(Dispatched 1)
+    接收完成(ReceiptCompleted 2)
+    全部撤回(AllWithdrawn 3)
+    已撤销(Cancelled 4)
+]
+
+Enum('ReceiptResultEnum')[
+    接收处理结果
+    --属性--
+    正常接收(Normal 1)
+    异常接收(Exceptional 2)
+    未到货(NotArrived 3)
+]
+
+Enum('FinalReceiptConclusionEnum')[
+    最终接收结论
+    --属性--
+    正常接收(Normal 1)
+    异常接收(Exceptional 2)
+]
+
+Enum('SpecimenExceptionStatusEnum')[
+    异常状态
+    --属性--
+    待处理(Pending 1)
+    已关闭(Closed 2)
+]
+
+Enum('SpecimenExceptionSourceEnum')[
+    异常来源
+    --属性--
+    异常接收(ExceptionalReceipt 1)
+    未到货(NotArrived 2)
+    接收后页面登记(PostReceiptManual 3)
+]
+
+Enum('SpecimenExceptionProcessResultEnum')[
+    异常处理结果
+    --属性--
+    继续检测(ContinueTesting 1)
+    无法继续检测(Unprocessable 2)
+    关闭异常(CloseException 3)
+]
+
+Enum('LabReportStatusEnum')[
+    报告状态
+    --属性--
+    已发布(Published 1)
+    已作废(Voided 2)
+]
+
+Enum('LabResultTypeEnum')[
+    报告结果类型
+    --属性--
+    数值(Numeric 1)
+    定性(Qualitative 2)
+    文本(Text 3)
+]
+
+Enum('VisitTypeEnum')[
+    就诊类型
+    --属性--
+    门诊(Outpatient 1)
+    住院(Inpatient 2)
+    体检(PhysicalExam 3)
+    急诊(Emergency 4)
+    其他(Other 5)
+    未知(Unknown 6)
+]
+
+Enum('FeeStatusEnum')[
+    费用状态
+    --属性--
+    已收费(Charged 1)
+    未收费(Uncharged 2)
+    无需收费(NoChargeRequired 3)
+    未知(Unknown 4)
+]
+
+Enum('InsurancePaidStatusEnum')[
+    是否医保支付
+    --属性--
+    是(Yes 1)
+    否(No 2)
+    未知(Unknown 3)
+]
+
+Enum('InsuranceTypeEnum')[
+    医保类型
+    --属性--
+    职工医保(Employee 1)
+    居民医保(Resident 2)
+    商保(Commercial 3)
+    自费(SelfPay 4)
+    其他(Other 5)
+    未知(Unknown 6)
+]
+
+Enum('SpecimenPackageStatusEnum')[
+    包状态
+    --属性--
+    有效(Valid 1)
+    已作废(Voided 2)
+]
+
+Enum('PackageHandoverStatusEnum')[
+    包交接状态
+    --属性--
+    未送出(PendingDispatch 1)
+    已送出(Dispatched 2)
+    已接收(Received 3)
+]
+
+Enum('PackageAdjustActionEnum')[
+    包内样本调整动作
+    --属性--
+    加入样本(AddSpecimen 1)
+    移出样本(RemoveSpecimen 2)
+]
+
+Enum('PackageSpecimenSupplementReasonEnum')[
+    已送出包样本补录原因
+    --属性--
+    线下包内实物多于系统清单(PhysicalPackageExtraSpecimen 1)
+    系统漏登记(SystemOmission 2)
+    其他(Other 3)
+]
+
+Enum('SpecimenPackageVoidReasonEnum')[
+    包作废原因
+    --属性--
+    样本信息错误(SpecimenInfoError 1)
+    包内容变更(PackageContentChanged 2)
+    不再需要送出(NoLongerNeedDispatch 3)
+    其他(Other 4)
+]
+
+Enum('DispatchCancelReasonEnum')[
+    撤销包送出原因
+    --属性--
+    误操作送出(MistakenDispatch 1)
+    线下未实际发出(NotPhysicallySent 2)
+    包内容需调整(PackageContentNeedsAdjustment 3)
+    其他(Other 4)
+]
+
+'============================================= 创建申请 =============================================
+FacadeCommand('CreateApplicationCommand')[
+    创建患者级申请单
+    --入参--
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    患者姓名(PatientName String)
+    患者性别(PatientGender String)
+    患者出生日期(PatientBirthDate DateTime?)
+    发起方患者标识(InitiatorPatientKey String?)
+    证件号(PatientIdCardNo String?)
+    联系电话(PatientPhoneNumber String?)
+    就诊类型(VisitType VisitType)
+    发起方就诊标识(InitiatorVisitKey String?)
+    门诊号(OutpatientNo String?)
+    住院号(InpatientNo String?)
+    体检号(PhysicalExamNo String?)
+    病区编码(WardCode String?)
+    病区名称(WardName String?)
+    床号(BedNo String?)
+    就诊时间(VisitTime DateTime?)
+    开单时间(OrderingTime DateTime?)
+    发起科室ID(InitiatorDeptId Guid)
+    发起医生ID(InitiatorDoctorId Guid)
+    主诉(ChiefComplaint Text?)
+    既往史(PastHistory Text?)
+    诊断编码(DiagnosisCode String?)
+    诊断名称(Diagnosis String?)
+    诊断描述(DiagnosisDescription Text?)
+    临床备注(ClinicalRemark Text?)
+    是否绿色通道(IsGreenChannel Boolean)
+    绿色通道说明(GreenChannelDescription Text?)
+    申请项目明细(Items ApplicationItemCreateItem[])
+    备注(Remark String?)
+    --规则--
+    1.一次只创建一张患者级申请单，不做业务幂等
+    2.创建阶段不生成样本条码，不接收样本信息或样本条码
+    3.整单原子校验启用协作关系、全部发起方项目对照和全部接收院区可承接项目实际可用性；任一项目失败时不生成申请单及任何相关记录
+    4.对外请求只提交接收方和申请业务内容；发起医院、发起院区、发起科室和发起医生由 token 解析后写入本命令
+    5.创建成功后 ApplicationState=PendingReview
+    6.发起科室只保存 InitiatorDeptId，不保留开单科室、送检科室或发起科室编码
+    7.发起医生只保存 InitiatorDoctorId，不接收或保存医生编码、医生姓名
+    8.项目项只接收发起项目编码，发起项目名称由院区项目对照补齐
+    9.全部项目校验失败时逐项返回未通过项目和原因，不支持部分项目通过
+    10.创建时只保存发起方项目到标准医疗项目的匹配结果，不保存接收院区项目或承接配置快照
+    11.医院、院区和科室名称不持久化，查询时通过 IOrganizationAppService 解析最新名称
+]
+DomainEvent('ApplicationCreatedEvent')[
+    申请单已创建
+    --属性--
+    平台申请单号(ApplicationNo String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    当前单据状态(ApplicationState ApplicationState)
+    创建时间(CreatedTime DateTime)
+]
+InitiatorExternalSystem --> CreateApplicationCommand
+CreateApplicationCommand ..> ApplicationCreatedEvent : send
+
+'============================================= 申请取消 =============================================
+Command('CancelApplicationCommand')[
+    取消申请
+    --入参--
+    平台申请单号(ApplicationNo String)
+    取消原因(CancelReason ApplicationCancelReason)
+    取消说明(CancelDescription String?)
+    取消发起方(CancelledByOrg String)
+    取消时间(CancelTime DateTime)
+    --规则--
+    1.仅待审核且尚未形成样本条码的申请单可取消
+    2.发起医院和发起院区由有效Token中的HosId、BranchId解析，按平台申请单号查询后校验申请属于当前发起方，不接收调用方提交的发起组织身份字段
+    3.取消原因=其他时取消说明必填
+    4.成功后 ApplicationState=Cancelled，不生成样本条码，不调用接收方条码生成接口
+    5.已取消申请不得审核通过或驳回
+    6.审核通过并形成样本条码后不再支持申请单级取消，后续停止流转应执行样本终止或异常处理
+    7.取消申请不触发本阶段外部推送
+]
+DomainEvent('ApplicationCancelledEvent')[
+    申请单已取消
+    --属性--
+    平台申请单号(ApplicationNo String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    发起科室ID(InitiatorDeptId Guid?)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    取消原因(CancelReason ApplicationCancelReason)
+    取消说明(CancelDescription String?)
+    取消发起方(CancelledByOrg String)
+    取消时间(CancelTime DateTime)
+    当前单据状态(ApplicationState ApplicationState)
+]
+InitiatorExternalSystem --> CancelApplicationCommand
+InitiatorUser --> CancelApplicationCommand
+CancelApplicationCommand ..> ApplicationCancelledEvent : send
+
+'============================================= 审核与样本形成 =============================================
+FacadeCommand('ApproveApplicationCommand')[
+    审核通过并形成样本
+    --入参--
+    ID(Id Guid)
+    ..
+    审核备注(ReviewRemark String?)
+    审核人ID(ReviewerId String)
+    审核人(ReviewerName String)
+    审核时间(ReviewTime DateTime)
+    --规则--
+    1.仅 PendingReview 且未取消、未形成样本条码的申请单可审核通过
+    2.使用申请创建时保存的标准项目快照，一次匹配当前接收医院和接收院区的启用项目对照
+    3.每个标准项目必须唯一匹配编码和名称完整的接收方项目，否则在外部调用前失败
+    4.后端只发送接收方项目编码、名称和加急标识，审核页面和审核接口不提交条码结果
+    5.接口失败、超时、返回空、接收方项目覆盖未知重复遗漏或内容不合法时本命令失败
+    6.失败时申请单保持 PendingReview，不生成样本条码，不触发审核通过外部推送
+    7.成功时将接收方项目覆盖关系转换为申请项目覆盖关系，保存样本和样本覆盖项目明细
+    8.所有样本 BarcodeStatus=Valid、SpecimenMainStatus=PendingDispatch
+    9.成功后 ApplicationState=Approved
+]
+DomainEvent('ApplicationApprovedEvent')[
+    申请单审核通过
+    --属性--
+    申请单ID(ApplicationId Guid)
+    平台申请单号(ApplicationNo String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    发起科室ID(InitiatorDeptId Guid?)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    审核结果(ReviewResult ApplicationReviewResult)
+    审核人ID(ReviewerId String)
+    审核人(ReviewerName String)
+    审核时间(ReviewTime DateTime)
+    --规则--
+    1.事件表达申请单级审核通过事实，不承担条码清单通知职责
+    2.外部推送策略每次事件只形成一条申请单级通知，不携带样本条码或条码列表
+]
+ReceiverUser --> ApproveApplicationCommand
+ApproveApplicationCommand ..> ApplicationApprovedEvent : send
+
+Command('RejectApplicationCommand')[
+    驳回
+    --入参--
+    ID(Id Guid)
+    ..
+    驳回备注(ReviewRemark String)
+    审核人ID(ReviewerId String)
+    审核人(ReviewerName String)
+    审核时间(ReviewTime DateTime)
+    --规则--
+    1.仅 PendingReview 且未取消、未形成样本条码的申请单可驳回
+    2.审核备注必填，页面显示为驳回备注
+    3.成功后 ApplicationState=ReviewRejected，不生成样本条码，且不得再审核通过
+]
+DomainEvent('ApplicationRejectedEvent')[
+    申请单驳回
+    --属性--
+    申请单ID(ApplicationId Guid)
+    平台申请单号(ApplicationNo String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    发起科室ID(InitiatorDeptId Guid?)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    审核结果(ReviewResult ApplicationReviewResult)
+    审核人ID(ReviewerId String)
+    审核人(ReviewerName String)
+    驳回备注(ReviewRemark String)
+    审核时间(ReviewTime DateTime)
+]
+ReceiverUser --> RejectApplicationCommand
+RejectApplicationCommand ..> ApplicationRejectedEvent : send
+
+'============================================= 样本打包 =============================================
+FacadeCommand('CreateSpecimenPackageCommand')[
+    创建样本包
+    --入参--
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    包名称(PackageName String)
+    样本ID列表(SpecimenIds Guid[])
+    备注(Remark String?)
+    --规则--
+    1.一个包表示一次性运送的样本集合，只能包含同一发起医院、发起院区、接收医院、接收院区的样本
+    2.包内样本可以来自多个申请单，PackageSpecimenEntity 通过 ApplicationId 和 SpecimenId 关联来源单据与样本
+    3.样本条码是展示和外部识别字段，不作为聚合内部关联主键
+    4.只有有效且待送出的样本可入包
+    5.包编码可打印为二维码或条形码贴在线下实体包装上，用于接收方扫码查询和包接收确认
+]
+DomainEvent('SpecimenPackageCreatedEvent')[
+    样本包已创建
+    --属性--
+    包ID(PackageId Guid)
+    包编码(PackageCode String)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    样本ID列表(SpecimenIds Guid[])
+    创建时间(CreatedTime DateTime)
+]
+InitiatorUser --> CreateSpecimenPackageCommand
+InitiatorExternalSystem --> CreateSpecimenPackageCommand
+CreateSpecimenPackageCommand ..> SpecimenPackageCreatedEvent : send
+
+Command('AdjustSpecimenPackageCommand')[
+    更新当前包内样本清单
+    --入参--
+    包ID(PackageId Guid)
+    调整动作(AdjustAction PackageAdjustAction)
+    样本ID列表(SpecimenIds Guid[])
+    备注(Remark String?)
+    调整时间(AdjustedTime DateTime)
+    --规则--
+    1.仅有效且未送出的包允许调整
+    2.调整不修改样本业务状态
+    3.平台只保存调整后的当前有效包内样本清单，不维护包内样本调整记录
+]
+DomainEvent('SpecimenPackageAdjustedEvent','样本包已调整')
+InitiatorUser --> AdjustSpecimenPackageCommand
+InitiatorExternalSystem --> AdjustSpecimenPackageCommand
+AdjustSpecimenPackageCommand ..> SpecimenPackageAdjustedEvent : send
+
+FacadeCommand('DispatchSpecimenPackageCommand')[
+    按包送出
+    --入参--
+    包ID(PackageId Guid)
+    送出时间(DispatchTime DateTime)
+    送出备注(DispatchRemark String?)
+    --规则--
+    1.普通样本送出仅支持按包送出；单个样本也必须先创建仅包含该样本的包
+    2.包送出不接收样本条码列表作为入口入参，按包内当前有效样本清单执行
+    3.整包校验，任一样本不满足条件时整体失败
+    4.成功后锁定包内样本清单、包交接状态变为已送出、追加送出记录和送出样本明细，并将包内样本主状态推进为已送出
+    5.普通按包送出形成的送出样本明细 DispatchTime 等于送出记录 DispatchTime，IsSupplemented=false
+    6.已送出未接收包补录样本是原线下包漏登记纠错，不属于独立补送或按条码直接送出
+    7.包送出与样本状态推进、单据状态重算在同一主聚合内同步完成，不使用 DomainEvent + Policy 推进主流程
+]
+DomainEvent('SpecimenPackageDispatchedEvent')[
+    样本包已送出
+    --属性--
+    包ID(PackageId Guid)
+    包编码(PackageCode String)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    样本ID列表(SpecimenIds Guid[])
+    送出时间(DispatchTime DateTime)
+]
+InitiatorUser --> DispatchSpecimenPackageCommand
+InitiatorExternalSystem --> DispatchSpecimenPackageCommand
+DispatchSpecimenPackageCommand ..> SpecimenPackageDispatchedEvent : send
+
+Command('MarkSpecimenPackageDispatchedCommand')[
+    标记样本包已送出
+    --入参--
+    包ID(PackageId Guid)
+    送出时间(DispatchTime DateTime)
+]
+DomainEvent('SpecimenPackageMarkedDispatchedEvent','样本包交接状态已变为已送出')
+MarkSpecimenPackageDispatchedCommand ..> SpecimenPackageMarkedDispatchedEvent : send
+
+FacadeCommand('SupplementDispatchedPackageSpecimensCommand')[
+    已送出包补录样本
+    --入参--
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    包编码(PackageCode String)
+    样本条码列表(SpecimenBarcodes String[])
+    补录送出时间(SupplementDispatchTime DateTime?)
+    补录原因(SupplementReason PackageSpecimenSupplementReason)
+    补录说明(SupplementDescription String?)
+    补录时间(SupplementTime DateTime)
+    补录来源(SupplementSource String?)
+    --规则--
+    1.仅允许有效、已送出且未接收包补录样本，不回退包交接状态
+    2.按发起医院编码、发起院区编码和包编码定位包；外部接口不接收包ID或平台内部标识
+    3.样本必须有效且主状态为待送出，发起方和接收方与包一致，且不属于其他有效未送出包或有效已送出未接收包
+    4.样本不得已结束、已接收、检测中、检测完成或已形成报告
+    5.补录仅用于线下实体原包实际存在但系统漏登记的纠错，不用于补送
+    6.成功后追加包内样本引用和送出样本明细，补录样本进入该包当前应接收清单
+    7.补录样本的 DispatchSpecimen.DispatchTime 取 SupplementDispatchTime；未传时取 SupplementTime
+]
+DomainEvent('DispatchedPackageSpecimensSupplementedEvent')[
+    已送出包样本已补录
+    --属性--
+    包ID(PackageId Guid)
+    包编码(PackageCode String)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    样本条码列表(SpecimenBarcodes String[])
+    样本级送出时间(DispatchTime DateTime)
+    补录原因(SupplementReason PackageSpecimenSupplementReason)
+    补录时间(SupplementTime DateTime)
+    补录来源(SupplementSource String?)
+]
+InitiatorUser --> SupplementDispatchedPackageSpecimensCommand
+InitiatorExternalSystem --> SupplementDispatchedPackageSpecimensCommand
+SupplementDispatchedPackageSpecimensCommand ..> DispatchedPackageSpecimensSupplementedEvent : send
+
+Command('AddSupplementedPackageSpecimensCommand')[
+    添加已送出包补录样本引用
+    --入参--
+    包ID(PackageId Guid)
+    包编码(PackageCode String)
+    样本ID列表(SpecimenIds Guid[])
+    补录原因(SupplementReason PackageSpecimenSupplementReason)
+    补录说明(SupplementDescription String?)
+    补录时间(SupplementTime DateTime)
+    补录来源(SupplementSource String?)
+    --规则--
+    1.只追加补录样本引用，不修改原送出时已锁定的包内样本引用字段
+]
+DomainEvent('SupplementedPackageSpecimensAddedEvent','已送出包补录样本引用已添加')
+AddSupplementedPackageSpecimensCommand ..> SupplementedPackageSpecimensAddedEvent : send
+
+Command('VoidSpecimenPackageCommand')[
+    作废样本包
+    --入参--
+    包ID(PackageId Guid)
+    作废原因(VoidReason SpecimenPackageVoidReason)
+    作废说明(VoidDescription String?)
+    作废时间(VoidedTime DateTime)
+    --规则--
+    1.仅未送出包允许作废
+    2.包作废不改变包内样本状态和样本主状态
+]
+DomainEvent('SpecimenPackageVoidedEvent','样本包已作废')
+InitiatorUser --> VoidSpecimenPackageCommand
+InitiatorExternalSystem --> VoidSpecimenPackageCommand
+VoidSpecimenPackageCommand ..> SpecimenPackageVoidedEvent : send
+
+'============================================= 样本终止 =============================================
+FacadeCommand('TerminateSpecimenCommand')[
+    终止样本
+    --入参--
+    平台申请单号(ApplicationNo String)
+    样本条码(SpecimenBarcode String)
+    终止原因(TerminationReason BarcodeTerminationReason)
+    终止说明(TerminationDescription String?)
+    终止时间(TerminationTime DateTime)
+    --规则--
+    1.仅未接收前允许终止，样本已接收、检测中、检测完成或已有报告时拒绝
+    2.终止类型由当前样本主状态推导
+    3.未到货异常待处理时，同一事务关闭未到货异常
+    4.终止后 BarcodeStatus=Ended，按有效样本集合重算 ApplicationState；全部有效样本结束时 ApplicationState=Closed
+]
+DomainEvent('SpecimenTerminatedEvent')[
+    样本已终止
+    --属性--
+    申请单ID(ApplicationId Guid)
+    样本ID(SpecimenId Guid)
+    平台申请单号(ApplicationNo String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    发起科室ID(InitiatorDeptId Guid?)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    样本条码(SpecimenBarcode String)
+    终止类型(TerminationType BarcodeTerminationType)
+    终止原因(TerminationReason BarcodeTerminationReason)
+    终止时间(TerminationTime DateTime)
+]
+InitiatorExternalSystem --> TerminateSpecimenCommand
+InitiatorUser --> TerminateSpecimenCommand
+TerminateSpecimenCommand ..> SpecimenTerminatedEvent : send
+
+'============================================= 送出与撤回 =============================================
+FacadeCommand('CancelSpecimenPackageDispatchCommand')[
+    撤销包送出
+    --入参--
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    包编码(PackageCode String)
+    撤销原因(CancelReason DispatchCancelReason)
+    撤销说明(CancelDescription String?)
+    撤销时间(CancelTime DateTime)
+    操作人(OperId Guid)
+    操作时间(OperTime DateTime)
+    --规则--
+    1.仅用于整包误操作送出但线下实体包未实际发出的纠错
+    2.仅允许有效、已送出、未接收且当前有效送出记录状态为 Dispatched 的包撤销
+    3.接收方仅扫码或查询包详情不阻断撤销；已有正常接收、异常接收、未到货、检测中、检测完成、报告或条码终止时拒绝
+    4.成功后包交接状态回到 PendingDispatch，包编码和包内样本清单保留，可继续调整、作废或重新送出
+    5.当前送出记录状态变为 Cancelled，记录撤销原因、说明、实际撤销时间和可信 Token 审计身份；不接收 cancelledBy
+    6.原送出样本明细保留快照并标记撤回或撤销，包内样本 SpecimenMainStatus=PendingDispatch，CurrentDispatchRecordId 清空
+]
+DomainEvent('SpecimenPackageDispatchCancelledEvent')[
+    样本包送出已撤销
+    --属性--
+    包ID(PackageId Guid)
+    包编码(PackageCode String)
+    送出记录ID(DispatchRecordId Guid)
+    送出记录号(DispatchRecordNo String)
+    撤销时间(CancelTime DateTime)
+    撤销操作人(OperId Guid)
+]
+InitiatorExternalSystem --> CancelSpecimenPackageDispatchCommand
+InitiatorUser --> CancelSpecimenPackageDispatchCommand
+CancelSpecimenPackageDispatchCommand ..> SpecimenPackageDispatchCancelledEvent : send
+
+Command('MarkDispatchRecordCancelledCommand')[
+    标记送出记录已撤销
+    --入参--
+    送出记录ID(DispatchRecordId Guid)
+    撤销原因(CancelReason DispatchCancelReason)
+    撤销说明(CancelDescription String?)
+    撤销时间(CancelTime DateTime)
+    操作人(OperId Guid)
+    操作时间(OperTime DateTime)
+]
+DomainEvent('DispatchRecordCancelledEvent','送出记录已撤销')
+MarkDispatchRecordCancelledCommand ..> DispatchRecordCancelledEvent : send
+
+Command('MarkSpecimenPackagePendingDispatchCommand')[
+    标记样本包回到未送出
+    --入参--
+    包ID(PackageId Guid)
+    撤销时间(CancelTime DateTime)
+]
+DomainEvent('SpecimenPackageMarkedPendingDispatchEvent','样本包交接状态已回到未送出')
+MarkSpecimenPackagePendingDispatchCommand ..> SpecimenPackageMarkedPendingDispatchEvent : send
+
+FacadeCommand('WithdrawSpecimenDispatchCommand')[
+    撤回样本送出
+    --入参--
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    样本条码(SpecimenBarcode String)
+    撤回原因(WithdrawReason String)
+    撤回时间(WithdrawTime DateTime)
+    --规则--
+    1.仅已送出且尚未接收的有效样本可撤回
+    2.撤回不删除原送出记录，不修改送出样本明细字段
+    3.成功后样本 SpecimenMainStatus=PendingDispatch，重算 ApplicationState
+    4.样本级全部撤回不等同于撤销包送出，原包不回到未送出
+]
+DomainEvent('SpecimenDispatchWithdrawnEvent')[
+    样本送出已撤回
+    --属性--
+    平台申请单号(ApplicationNo String)
+    样本条码(SpecimenBarcode String)
+    原送出记录ID(DispatchRecordId Guid)
+    原送出记录号(DispatchRecordNo String)
+    撤回时间(WithdrawTime DateTime)
+]
+InitiatorExternalSystem --> WithdrawSpecimenDispatchCommand
+InitiatorUser --> WithdrawSpecimenDispatchCommand
+WithdrawSpecimenDispatchCommand ..> SpecimenDispatchWithdrawnEvent : send
+
+'============================================= 接收与异常 =============================================
+FacadeCommand('ConfirmSpecimenPackageReceiptCommand')[
+    确认样本包接收
+    --入参--
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    包编码(PackageCode String)
+    接收样本结果(ReceiptSpecimens ReceiptSpecimenResultItem[])
+    包接收时间(PackageReceiveTime DateTime)
+    包接收备注(PackageReceiveRemark String?)
+    --规则--
+    1.包接收确认按接收医院编码、接收院区编码和包编码定位已送出包
+    2.接收样本结果必须全量覆盖该包当前应接收清单，即送出时锁定且未撤回样本，以及送出后补录且未撤回样本
+    3.每条接收样本结果按接收医院编码、接收院区编码、包编码和样本条码定位当前有效送出关系
+    4.正常接收或异常接收后样本 SpecimenMainStatus=Received
+    5.未到货保持 SpecimenMainStatus=Dispatched，并生成未到货异常记录
+    6.异常接收生成异常记录，待处理异常默认阻断检测和报告上传
+    7.包接收确认成功后包交接状态变为 Received；该状态表示包级扫码、清点和提交完成，不表示包内样本全部正常接收
+    8.接收确认、包交接状态、接收记录、接收样本明细、异常记录和单据状态重算在同一主聚合内同步完成
+    9.接收科室不由前端或外部系统提交，由后端从 token DeptId 解析并只保存接收科室 ID；编码和名称查询时由组织服务解析
+]
+DomainEvent('SpecimenPackageReceiptConfirmedEvent')[
+    样本包接收已确认
+    --属性--
+    包编码(PackageCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    接收科室ID(ReceiverDeptId Guid?)
+    样本条码列表(SpecimenBarcodes String[])
+    接收时间(ReceiptTime DateTime)
+]
+ReceiverExternalSystem --> ConfirmSpecimenPackageReceiptCommand
+ReceiverUser --> ConfirmSpecimenPackageReceiptCommand
+ConfirmSpecimenPackageReceiptCommand ..> SpecimenPackageReceiptConfirmedEvent : send
+
+FacadeCommand('ConfirmSupplementalSpecimenReceiptCommand')[
+    确认样本级补接收
+    --入参--
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    样本条码(SpecimenBarcode String)
+    接收处理结果(ReceiptResult ReceiptResult)
+    异常类型编码(ExceptionTypeCode String?)
+    异常类型名称(ExceptionTypeName String?)
+    异常描述(ExceptionDescription String?)
+    接收时间(ReceiptTime DateTime)
+    接收备注(ReceiptRemark String?)
+    --规则--
+    1.仅用于未到货样本后续到达
+    2.按接收医院编码、接收院区编码和样本条码定位当前仍为已送出的未到货样本
+    3.不接收包编码、包ID、送出记录号或平台内部标识
+    4.只允许提交正常接收或异常接收，不允许再次提交未到货
+    5.成功后追加后续接收记录，关闭原未到货异常，并按接收结果推进样本状态
+    6.接收科室不由前端或外部系统提交，由后端从 token DeptId 解析并只保存接收科室 ID；编码和名称查询时由组织服务解析
+]
+DomainEvent('SupplementalSpecimenReceiptConfirmedEvent')[
+    样本级补接收已确认
+    --属性--
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    接收科室ID(ReceiverDeptId Guid?)
+    样本条码(SpecimenBarcode String)
+    接收时间(ReceiptTime DateTime)
+]
+ReceiverExternalSystem --> ConfirmSupplementalSpecimenReceiptCommand
+ReceiverUser --> ConfirmSupplementalSpecimenReceiptCommand
+ConfirmSupplementalSpecimenReceiptCommand ..> SupplementalSpecimenReceiptConfirmedEvent : send
+
+Command('MarkSpecimenPackageReceivedCommand')[
+    标记样本包已接收
+    --入参--
+    包ID(PackageId Guid)
+    包接收时间(PackageReceiveTime DateTime)
+    包接收备注(PackageReceiveRemark String?)
+]
+DomainEvent('SpecimenPackageMarkedReceivedEvent','样本包交接状态已变为已接收')
+MarkSpecimenPackageReceivedCommand ..> SpecimenPackageMarkedReceivedEvent : send
+
+Command('RegisterSpecimenExceptionCommand')[
+    登记接收后异常
+    --入参--
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    样本条码(SpecimenBarcode String)
+    异常类型编码(ExceptionTypeCode String)
+    异常类型名称(ExceptionTypeName String)
+    异常描述(ExceptionDescription String?)
+    发现人(DiscoveredBy String)
+    发现时间(DiscoveredTime DateTime)
+    --规则--
+    1.接收后异常仅平台页面登记，本轮不建对外接口
+    2.已检测完成或已有报告的样本不再新增异常记录
+]
+DomainEvent('SpecimenExceptionRegisteredEvent','样本异常已登记')
+ReceiverUser --> RegisterSpecimenExceptionCommand
+RegisterSpecimenExceptionCommand ..> SpecimenExceptionRegisteredEvent : send
+
+FacadeCommand('ProcessSpecimenExceptionCommand')[
+    处理样本异常
+    --入参--
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    异常记录号(ExceptionRecordNo String)
+    样本条码(SpecimenBarcode String)
+    处理结果(ProcessResult SpecimenExceptionProcessResult)
+    处理原因编码(ProcessReasonCode String)
+    处理原因名称(ProcessReasonName String)
+    处理说明(ProcessDescription String?)
+    处理时间(ProcessedTime DateTime)
+    --规则--
+    1.处理异常记录的唯一业务入口，适用于接收异常、未到货异常和接收后登记异常
+    2.ContinueTesting：关闭异常记录，样本允许继续检测
+    3.CloseException：关闭异常记录，不改变样本主状态
+    4.Unprocessable：关闭异常记录，并将样本置为已结束且设置 EndType=UnprocessableSpecimen
+    5.Unprocessable 时如样本仍在有效未送出包当前清单中，由当前聚合流程维护包内清单并重算申请单状态
+    6.异常类型使用平台字典编码 DY.CV.00066；继续检测、无法继续检测、关闭异常分别使用 DY.CV.00067、DY.CV.00068、DY.CV.00069
+]
+DomainEvent('SpecimenExceptionProcessedEvent')[
+    样本异常已处理
+    --属性--
+    异常记录ID(ExceptionRecordId Guid)
+    异常记录号(ExceptionRecordNo String)
+    申请单ID(ApplicationId Guid)
+    平台申请单号(ApplicationNo String)
+    样本ID(SpecimenId Guid)
+    样本条码(SpecimenBarcode String)
+    处理结果(ProcessResult SpecimenExceptionProcessResult)
+    处理原因编码(ProcessReasonCode String)
+    处理原因名称(ProcessReasonName String)
+    结束类型(EndType BarcodeEndType?)
+    处理时间(ProcessedTime DateTime)
+]
+ReceiverExternalSystem --> ProcessSpecimenExceptionCommand
+ReceiverUser --> ProcessSpecimenExceptionCommand
+ProcessSpecimenExceptionCommand ..> SpecimenExceptionProcessedEvent : send
+
+'============================================= 检测与报告 =============================================
+FacadeCommand('StartSpecimenTestingCommand')[
+    回传检测开始
+    --入参--
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    样本条码(SpecimenBarcode String)
+    检测开始时间(TestingStartedTime DateTime)
+    备注(Remark String?)
+    --规则--
+    1.检测中为可选状态，仅由接收方接口回传
+    2.样本必须有效、样本已接收、无待处理阻断异常
+    3.成功后重算 ApplicationState；任一有效样本 Testing 时单据可进入 Testing
+    4.已处于 Testing 时重复回传幂等成功，不覆盖首次时间和备注
+]
+DomainEvent('SpecimenTestingStartedEvent','样本检测已开始')
+ReceiverExternalSystem --> StartSpecimenTestingCommand
+StartSpecimenTestingCommand ..> SpecimenTestingStartedEvent : send
+
+FacadeCommand('UploadLabReportCommand')[
+    上传并发布报告
+    --入参--
+    样本条码(SpecimenBarcode String)
+    报告PDF(PdfFileKey String)
+    原始PDF文件名(PdfOriginalFileName String)
+    结构化结果(ResultItems LabResultItemCreateItem[])
+    接收方检验流水号(ReceiverLabSerialNo String?)
+    报告单类别编码(ReportCategoryCode String?)
+    报告单类别名称(ReportCategoryName String?)
+    检验人ID(InspectorId Guid)
+    检验时间(InspectionTime DateTime?)
+    检测完成时间(TestingCompletedTime DateTime)
+    检验小组(InspectionGroupName String?)
+    检测仪器(InspectionInstrumentName String?)
+    实验室内部审核人ID(InternalReviewerId Guid)
+    实验室内部审核时间(InternalReviewTime DateTime?)
+    报告时间(ReportTime DateTime)
+    出报告人ID(ReporterId Guid)
+    报告备注(ReportRemark String?)
+    --规则--
+    1.报告上传成功即发布，当前报告内容直接保存在 LabReportEntity，不建 CurrentLabReportContentEntity
+    2.报告已发布时必须先作废再上传；已作废可再次上传覆盖
+    3.成功后样本 SpecimenMainStatus=Completed，报告状态 Published，重算 ApplicationState
+    4.报告 PDF 和结构化结果均必填，结构化结果至少包含 1 条明细
+    5.每条结构化结果明细必须包含接收方报告明细项目编码、接收方报告明细项目名称、结果类型和项目结果
+    6.结果类型仅允许 Numeric、Qualitative、Text；定性结果、定量结果、单位、参考区间、异常标记、危急值标记、结果代码和结果说明按接收方实际提交保存
+    7.危急值标记仅作为报告结构化结果展示和查询字段，不触发平台危急值闭环
+    8.接收医院、接收院区、出报告科室和操作人从可信 Token 获取；请求不得提交接收组织字段
+    9.InspectorId、InternalReviewerId、ReporterId 均为平台统一用户 Guid，用户必须存在且属于 Token 接收医院、接收院区
+    10.报告只保存三个业务人员 ID；查询通过 IUserAppService 返回当前姓名，不保存或返回人员编码、工号、姓名快照或内部 ID
+    11.OperId 仅表示 Token 接口操作人，不得自动充当 ReporterId
+]
+DomainEvent('LabReportUploadedEvent')[
+    检验报告已上传
+    --属性--
+    申请单ID(ApplicationId Guid)
+    样本ID(SpecimenId Guid)
+    平台申请单号(ApplicationNo String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    发起科室ID(InitiatorDeptId Guid?)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    样本条码(SpecimenBarcode String)
+    报告状态(ReportStatus LabReportStatus)
+    报告时间(ReportTime DateTime)
+    上传时间(UploadedTime DateTime)
+]
+ReceiverExternalSystem --> UploadLabReportCommand
+UploadLabReportCommand ..> LabReportUploadedEvent : send
+
+FacadeCommand('VoidLabReportCommand')[
+    作废当前有效报告
+    --入参--
+    平台申请单号(ApplicationNo String)
+    样本条码(SpecimenBarcode String)
+    作废原因编码(VoidReasonCode String)
+    作废原因名称(VoidReasonName String)
+    作废说明(VoidDescription String?)
+    作废时间(VoidedTime DateTime)
+    作废人(VoidedBy String)
+    --规则--
+    1.仅当前有效报告可作废
+    2.报告作废不回退样本主状态，也不回退 ApplicationState
+    3.作废原因使用平台字典编码 DY.CV.00070
+    4.提交时保存字典项编码和名称，后端不反查字典校验两者匹配关系
+]
+DomainEvent('LabReportVoidedEvent')[
+    检验报告已作废
+    --属性--
+    申请单ID(ApplicationId Guid)
+    样本ID(SpecimenId Guid)
+    平台申请单号(ApplicationNo String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    发起科室ID(InitiatorDeptId Guid?)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    样本条码(SpecimenBarcode String)
+    报告状态(ReportStatus LabReportStatus)
+    报告时间(ReportTime DateTime)
+    作废原因编码(VoidReasonCode String)
+    作废原因名称(VoidReasonName String)
+    作废说明(VoidDescription String?)
+    作废时间(VoidedTime DateTime)
+    --规则--
+    1.ReportTime 取被作废当前有效报告已保存的原报告时间，不使用作废时间替代
+]
+ReceiverUser --> VoidLabReportCommand
+PlatformOperator --> VoidLabReportCommand
+VoidLabReportCommand ..> LabReportVoidedEvent : send
+
+'============================================= 聚合与实体 =============================================
+Aggregate('ApplicationAggregate')[
+    申请单
+    --属性--
+    ID(Id Guid)
+    平台申请单号(ApplicationNo String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    发起科室ID(InitiatorDeptId Guid)
+    发起医生ID(InitiatorDoctorId Guid)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    患者姓名(PatientName String)
+    患者性别(PatientGender String)
+    患者出生日期(PatientBirthDate DateTime?)
+    发起方患者标识(InitiatorPatientKey String?)
+    证件号(PatientIdCardNo String?)
+    联系电话(PatientPhoneNumber String?)
+    就诊类型(VisitType VisitType)
+    发起方就诊标识(InitiatorVisitKey String?)
+    门诊号(OutpatientNo String?)
+    住院号(InpatientNo String?)
+    体检号(PhysicalExamNo String?)
+    病区编码(WardCode String?)
+    病区名称(WardName String?)
+    床号(BedNo String?)
+    就诊时间(VisitTime DateTime?)
+    开单时间(OrderingTime DateTime?)
+    主诉(ChiefComplaint Text?)
+    既往史(PastHistory Text?)
+    诊断编码(DiagnosisCode String?)
+    诊断名称(Diagnosis String?)
+    诊断描述(DiagnosisDescription Text?)
+    临床备注(ClinicalRemark Text?)
+    是否绿色通道(IsGreenChannel Boolean)
+    绿色通道说明(GreenChannelDescription Text?)
+    审核结果(ReviewResult ApplicationReviewResult?)
+    审核人ID(ReviewerId String?)
+    审核人(ReviewerName String?)
+    审核时间(ReviewTime DateTime?)
+    审核备注(ReviewRemark Text?)
+    取消原因(CancelReason ApplicationCancelReason?)
+    取消说明(CancelDescription Text?)
+    取消发起方(CancelledByOrg String?)
+    取消时间(CancelTime DateTime?)
+    单据状态(ApplicationState ApplicationState)
+    备注(Remark Text?)
+    创建时间(CreatedTime DateTime)
+    --规则--
+    1.ApplicationState 是持久化主流程状态，由申请取消、申请单审核和有效样本集合汇总后写回
+    2.样本有效状态、样本主状态、接收结论和报告状态仍由各样本自身维护
+    3.样本包是申请单流转主流程内的一次性运输集合，可关联多个申请单的样本
+    4.聚合内部关联以 ApplicationId、SpecimenId、PackageId、DispatchRecordId、ReceiptRecordId、ExceptionRecordId、LabReportId 为准
+    5.ApplicationNo、SpecimenBarcode、PackageCode、DispatchRecordNo、ReceiptRecordNo、ExceptionRecordNo 等业务号仅作为展示、外部定位和追溯字段
+    6.申请审核仅允许按单个申请单逐条执行，不提供批量审核；批量终止本轮 UML 暂不展开
+    7.发起科室只保存 InitiatorDeptId；查询时通过组织服务获取当前名称，页面不展示科室编码或内部 ID
+    8.发起医生只保存 InitiatorDoctorId；查询时通过用户服务获取当前姓名，页面不展示医生编码或内部 ID
+    9.ApplicationNo 和 InitiatorApplicationNo 在创建后不可修改
+    10.不定义 Application 或 Specimen 通用物理删除命令和领域事件；停止流转使用申请取消、样本终止及既有业务纠错动作
+]
+
+Entity('ApplicationItemEntity')[
+    申请项目明细
+    --属性--
+    ID(Id Guid)
+    申请单ID(ApplicationId Guid)
+    发起院区项目编码(InitiatorItemCode String)
+    发起院区项目名称(InitiatorItemName String)
+    标准医疗项目编码(StandardItemCode String)
+    标准医疗项目名称(StandardItemName String)
+    标准医疗项目分类名称(StandardItemCategoryName String?)
+    标准医疗项目分组名称(StandardItemGroupName String?)
+    项目加急标识(IsUrgent Boolean)
+    费用状态(FeeStatus FeeStatus?)
+    费用总金额(TotalFee Decimal(10,2)?)
+    是否医保支付(InsurancePaidStatus InsurancePaidStatus?)
+    费用发生时间(FeeOccurredTime DateTime?)
+    医保类型(InsuranceType InsuranceType?)
+    医保支付金额(InsurancePaidAmount Decimal(10,2)?)
+    个人支付金额(SelfPaidAmount Decimal(10,2)?)
+    费用备注(FeeRemark String?)
+]
+
+Entity('SpecimenEntity')[
+    样本
+    --属性--
+    ID(Id Guid)
+    申请单ID(ApplicationId Guid)
+    样本条码(SpecimenBarcode String)
+    样本类型(SpecimenType String)
+    采样时间(SamplingTime DateTime?)
+    采样人(SamplerName String?)
+    容器编码(ContainerCode String?)
+    容器名称(ContainerName String)
+    实际检测开始时间(TestingStartedTime DateTime?)
+    检测开始备注(TestingStartedRemark String?)
+    样本有效状态(BarcodeStatus BarcodeStatus)
+    结束类型(EndType BarcodeEndType?)
+    终止类型(TerminationType BarcodeTerminationType?)
+    终止原因(TerminationReason BarcodeTerminationReason?)
+    终止说明(TerminationDescription String?)
+    终止时间(TerminationTime DateTime?)
+    终止发起方(TerminatedByOrg String?)
+    终止时样本主状态(TerminatedAtMainStatus SpecimenMainStatus?)
+    终止时报告状态摘要(TerminatedAtReportStatus LabReportStatus?)
+    样本主状态(SpecimenMainStatus SpecimenMainStatus)
+    最终接收结论(ReceiptConclusion FinalReceiptConclusion?)
+    报告状态(ReportStatus LabReportStatus?)
+    当前送出记录ID(CurrentDispatchRecordId Guid?)
+    当前接收记录ID(CurrentReceiptRecordId Guid?)
+    --规则--
+    1.ApplicationId、CurrentDispatchRecordId、CurrentReceiptRecordId 是内部关联依据
+    2.申请编号通过所属 ApplicationAggregate 取得；SpecimenBarcode 在样本形成后不可修改，用于展示、扫码识别、外部定位和追溯
+    3.样本条码、样本类型、采样和容器事实来自后端调用接收方条码生成适配器后的结果；采样时间、采样人、容器编码、实际检测开始时间和检测开始备注持久化到 lis_specimen
+    4.样本本体不保存送出时间；样本级送出时间从当前有效 DispatchSpecimenEntity.DispatchTime 推导
+]
+
+Entity('SpecimenCoveredItemEntity')[
+    样本覆盖项目明细
+    --属性--
+    ID(Id Guid)
+    样本ID(SpecimenId Guid)
+    发起院区项目编码(InitiatorItemCode String)
+    发起院区项目名称(InitiatorItemName String)
+    标准医疗项目编码(StandardItemCode String)
+    标准医疗项目名称(StandardItemName String)
+    项目加急标识(IsUrgent Boolean)
+    费用状态(FeeStatus FeeStatus?)
+    费用总金额(TotalFee Decimal(10,2)?)
+    是否医保支付(InsurancePaidStatus InsurancePaidStatus?)
+    费用发生时间(FeeOccurredTime DateTime?)
+    医保类型(InsuranceType InsuranceType?)
+    --规则--
+    1.SpecimenId 是唯一归属关联；申请和条码信息经所属 SpecimenEntity、ApplicationAggregate 取得
+    2.覆盖项目清单来自后端调用接收方条码生成适配器后的结果，必须能回溯当前申请项目明细
+]
+
+Entity('SpecimenPackageEntity')[
+    样本包
+    --属性--
+    ID(Id Guid)
+    包编码(PackageCode String)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    包名称(PackageName String)
+    包状态(PackageStatus SpecimenPackageStatus)
+    包交接状态(PackageHandoverStatus PackageHandoverStatus)
+    送出时间(DispatchTime DateTime?)
+    包接收时间(PackageReceiveTime DateTime?)
+    包接收备注(PackageReceiveRemark String?)
+    作废原因(VoidReason SpecimenPackageVoidReason?)
+    作废说明(VoidDescription String?)
+    作废时间(VoidedTime DateTime?)
+    创建时间(CreatedTime DateTime)
+    --规则--
+    1.ID 是内部关联依据
+    2.PackageCode 仅用于展示、外部定位、按包扫码或追溯
+    3.PackageHandoverStatus 仅表示未送出、已送出、已接收的包级交接进度；包内样本最终处理以接收样本明细为准
+]
+
+Entity('PackageSpecimenEntity')[
+    包内样本引用
+    --属性--
+    ID(Id Guid)
+    包ID(PackageId Guid)
+    包编码(PackageCode String)
+    申请单ID(ApplicationId Guid)
+    样本ID(SpecimenId Guid)
+    平台申请单号(ApplicationNo String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    样本条码(SpecimenBarcode String)
+    患者信息摘要(PatientSummary String?)
+    样本信息摘要(SpecimenSummary String?)
+    项目清单摘要(ProjectSummary String?)
+    加入时间(AddedTime DateTime)
+    是否补录(IsSupplemented Boolean)
+    补录原因(SupplementReason PackageSpecimenSupplementReason?)
+    补录说明(SupplementDescription String?)
+    补录时间(SupplementTime DateTime?)
+    补录来源(SupplementSource String?)
+    --规则--
+    1.ApplicationId 和 SpecimenId 是稳定内部关联依据
+    2.ApplicationNo、InitiatorApplicationNo、SpecimenBarcode 和摘要是包清单形成或补录时的业务快照，后续不得用当前主数据覆盖
+    3.PackageCode 用于展示、扫码识别、外部定位和追溯
+    4.补录字段仅用于标记送出后追加进入原包当前应接收清单的样本
+]
+
+Entity('DispatchRecordEntity')[
+    送出记录
+    --属性--
+    ID(Id Guid)
+    包ID(PackageId Guid)
+    送出记录号(DispatchRecordNo String)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    包编码(PackageCode String)
+    送出时间(DispatchTime DateTime)
+    送出记录状态(DispatchRecordStatus DispatchRecordStatus)
+    业务标签(BusinessTags String?)
+    送出备注(DispatchRemark String?)
+    撤销原因(CancelReason DispatchCancelReason?)
+    撤销说明(CancelDescription String?)
+    撤销时间(CancelTime DateTime?)
+    撤销操作人(CancelledOperId Guid?)
+    --规则--
+    1.PackageId 是包级送出事实的归属关联；记录头不具有单一申请归属
+    2.DispatchRecordNo、PackageCode 用于展示、外部定位和追溯；申请归属由 DispatchSpecimenEntity 逐样本表达
+    3.DispatchRecordStatus=Cancelled 表示整包误送出已撤销，包可回到未送出；AllWithdrawn 表示样本级全部撤回，原包不恢复编辑
+]
+
+Entity('DispatchSpecimenEntity')[
+    送出样本明细
+    --属性--
+    ID(Id Guid)
+    送出记录ID(DispatchRecordId Guid)
+    申请单ID(ApplicationId Guid)
+    样本ID(SpecimenId Guid)
+    平台申请单号(ApplicationNo String)
+    样本条码(SpecimenBarcode String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    患者信息摘要(PatientSummary String)
+    标准医疗项目编码清单(StandardItemCodes String[])
+    样本级送出时间(DispatchTime DateTime)
+    是否补录(IsSupplemented Boolean)
+    补录原因(SupplementReason PackageSpecimenSupplementReason?)
+    补录说明(SupplementDescription String?)
+    补录时间(SupplementTime DateTime?)
+    补录来源(SupplementSource String?)
+    是否撤回(IsWithdrawn Boolean)
+    撤回原因(WithdrawReason String?)
+    撤回时间(WithdrawTime DateTime?)
+    --规则--
+    1.DispatchRecordId、ApplicationId 和 SpecimenId 是稳定内部关联依据
+    2.ApplicationNo、InitiatorApplicationNo、SpecimenBarcode、患者和项目摘要是样本送出时的业务快照，后续不得用当前主数据覆盖
+    3.DispatchTime 表示样本纳入当前有效送出关系的时间，普通按包送出等于送出记录时间，补录样本等于补录送出时间或补录确认时间
+]
+
+Entity('ReceiptRecordEntity')[
+    接收记录
+    --属性--
+    ID(Id Guid)
+    包ID(PackageId Guid)
+    接收记录号(ReceiptRecordNo String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    接收科室ID(ReceiverDeptId Guid?)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    当前有效送出记录ID(DispatchRecordId Guid)
+    包编码(PackageCode String)
+    接收处理结果(ReceiptResult ReceiptResult)
+    最终接收结论(FinalReceiptConclusion FinalReceiptConclusion?)
+    接收时间(ReceiptTime DateTime)
+    接收备注(ReceiptRemark String?)
+    --规则--
+    1.PackageId 和 DispatchRecordId 是包级/拆分接收事实的内部关联；记录头不具有单一申请归属
+    2.ReceiptRecordNo、PackageCode 用于展示、外部定位和追溯；申请归属由 ReceiptSpecimenEntity 逐样本表达
+    3.ReceiverDeptId 为接收动作发生时从 token 解析的接收方科室 ID；编码和名称查询时通过组织服务获取，不落库
+]
+
+Entity('ReceiptSpecimenEntity')[
+    接收样本明细
+    --属性--
+    ID(Id Guid)
+    接收记录ID(ReceiptRecordId Guid)
+    包ID(PackageId Guid)
+    申请单ID(ApplicationId Guid)
+    样本ID(SpecimenId Guid)
+    平台申请单号(ApplicationNo String)
+    样本条码(SpecimenBarcode String)
+    当前有效送出记录ID(DispatchRecordId Guid)
+    包编码(PackageCode String)
+    接收处理结果(ReceiptResult ReceiptResult)
+    异常类型编码(ExceptionTypeCode String?)
+    异常类型名称(ExceptionTypeName String?)
+    异常描述(ExceptionDescription String?)
+    未到货说明(NotArrivedDescription String?)
+    接收备注(ReceiptRemark String?)
+    --规则--
+    1.ReceiptRecordId、PackageId、DispatchRecordId、ApplicationId 和 SpecimenId 是稳定内部关联依据
+    2.ApplicationNo、SpecimenBarcode 是本次接收结果形成时的业务快照，后续不得用当前主数据覆盖；PackageCode 用于业务定位和追溯
+]
+
+Entity('ExceptionRecordEntity')[
+    异常记录
+    --属性--
+    ID(Id Guid)
+    异常记录号(ExceptionRecordNo String)
+    申请单ID(ApplicationId Guid)
+    样本ID(SpecimenId Guid)
+    平台申请单号(ApplicationNo String)
+    样本条码(SpecimenBarcode String)
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    异常来源(ExceptionSource SpecimenExceptionSource)
+    异常类型编码(ExceptionTypeCode String)
+    异常类型名称(ExceptionTypeName String)
+    异常描述(ExceptionDescription String?)
+    异常状态(ExceptionStatus SpecimenExceptionStatus)
+    处理结果(ProcessResult SpecimenExceptionProcessResult?)
+    处理原因编码(ProcessReasonCode String?)
+    处理原因名称(ProcessReasonName String?)
+    处理说明(ProcessDescription String?)
+    发现人(DiscoveredBy String?)
+    发现时间(DiscoveredTime DateTime)
+    处理人(ProcessedBy String?)
+    处理时间(ProcessedTime DateTime?)
+    关联接收记录ID(ReceiptRecordId Guid?)
+    关联送出记录ID(DispatchRecordId Guid?)
+    --规则--
+    1.ApplicationId、SpecimenId、ReceiptRecordId、DispatchRecordId 是稳定内部关联依据
+    2.ApplicationNo、SpecimenBarcode 和机构范围是异常发现时的业务定位快照，处理异常不得改写；ExceptionRecordNo 用于展示、外部定位和追溯
+]
+
+Entity('LabReportEntity')[
+    报告
+    --属性--
+    ID(Id Guid)
+    样本ID(SpecimenId Guid)
+    报告PDF(PdfFileKey String)
+    原始PDF文件名(PdfOriginalFileName String)
+    接收方检验流水号(ReceiverLabSerialNo String?)
+    报告单类别编码(ReportCategoryCode String?)
+    报告单类别名称(ReportCategoryName String?)
+    检验人ID(InspectorId Guid?)
+    检验时间(InspectionTime DateTime?)
+    检测完成时间(TestingCompletedTime DateTime)
+    检验小组(InspectionGroupName String?)
+    检测仪器(InspectionInstrumentName String?)
+    出报告人ID(ReporterId Guid?)
+    出报告科室ID(ReportDeptId Guid?)
+    报告时间(ReportTime DateTime)
+    实验室内部审核人ID(InternalReviewerId Guid?)
+    实验室内部审核时间(InternalReviewTime DateTime?)
+    报告备注(ReportRemark String?)
+    上传时间(UploadedTime DateTime)
+    报告状态(ReportStatus LabReportStatus)
+    是否当前有效报告(IsCurrentEffective Boolean)
+    作废原因编码(VoidReasonCode String?)
+    作废原因名称(VoidReasonName String?)
+    作废说明(VoidDescription String?)
+    作废时间(VoidedTime DateTime?)
+    作废人(VoidedBy String?)
+    --规则--
+    1.SpecimenId 是报告唯一业务归属关联；申请编号和样本条码经 SpecimenEntity、ApplicationAggregate 取得
+    2.ReceiverLabSerialNo 用于展示、外部定位和追溯
+    3.ReportDeptId 为报告形成时保存的出报告科室 ID；科室名称查询时通过组织服务获取，不落库
+    4.InspectorId、InternalReviewerId、ReporterId 来自上传请求中的平台用户 ID；新上传必填，历史迁移记录可为空
+    5.查询时通过 IUserAppService 返回三类人员当前姓名；人员姓名、编码和工号不落库
+    6.InspectionGroupName、InspectionInstrumentName 和报告发生时间来自接收方报告内容
+]
+
+Entity('LabResultItemEntity')[
+    报告结构化结果明细
+    --属性--
+    ID(Id Guid)
+    报告ID(LabReportId Guid)
+    接收方报告明细项目编码(ReceiverReportItemCode String)
+    接收方报告明细项目名称(ReceiverReportItemName String)
+    结果类型(ResultType LabResultType)
+    项目结果(ResultValue String)
+    定性结果(QualitativeResult String?)
+    定量结果(QuantitativeResult String?)
+    单位(Unit String?)
+    参考区间(ReferenceRange String?)
+    异常标记(AbnormalFlag String?)
+    危急值标记(CriticalValueFlag String?)
+    结果代码(ResultCode String?)
+    结果说明(ResultDescription String?)
+    --规则--
+    1.LabReportId 是唯一归属关联；申请、样本和业务编号经 LabReportEntity、SpecimenEntity、ApplicationAggregate 取得
+    2.接收方报告明细项目编码、接收方报告明细项目名称、结果类型和项目结果为必填字段
+    3.结果类型仅表达结构化结果数据形态，不作为医学含义字典
+    4.数值型结果也必须保留项目结果原始展示值；定量结果仅保存可解析数值，不替代项目结果
+    5.危急值标记仅用于报告展示和查询，不触发平台危急值流程
+    6.接收方报告明细项目编码不作为院区项目对照维护对象
+]
+
+'============================================= 关系 =============================================
+CreateApplicationCommand .. ApplicationAggregate
+CreateApplicationCommand .. ApplicationItemEntity
+
+CancelApplicationCommand .. ApplicationAggregate
+
+ApproveApplicationCommand .. ApplicationAggregate
+ApproveApplicationCommand --> SpecimenEntity
+ApproveApplicationCommand --> SpecimenCoveredItemEntity
+RejectApplicationCommand .. ApplicationAggregate
+
+CreateSpecimenPackageCommand .. ApplicationAggregate
+CreateSpecimenPackageCommand --> SpecimenPackageEntity
+CreateSpecimenPackageCommand .. PackageSpecimenEntity
+AdjustSpecimenPackageCommand .. PackageSpecimenEntity
+DispatchSpecimenPackageCommand .. ApplicationAggregate
+DispatchSpecimenPackageCommand --> MarkSpecimenPackageDispatchedCommand
+DispatchSpecimenPackageCommand --> SpecimenEntity
+DispatchSpecimenPackageCommand .. DispatchRecordEntity
+DispatchSpecimenPackageCommand .. DispatchSpecimenEntity
+MarkSpecimenPackageDispatchedCommand .. SpecimenPackageEntity
+SupplementDispatchedPackageSpecimensCommand .. ApplicationAggregate
+SupplementDispatchedPackageSpecimensCommand --> AddSupplementedPackageSpecimensCommand
+SupplementDispatchedPackageSpecimensCommand --> SpecimenEntity
+SupplementDispatchedPackageSpecimensCommand .. DispatchSpecimenEntity
+AddSupplementedPackageSpecimensCommand .. PackageSpecimenEntity
+VoidSpecimenPackageCommand .. SpecimenPackageEntity
+
+TerminateSpecimenCommand .. ApplicationAggregate
+TerminateSpecimenCommand --> SpecimenEntity
+TerminateSpecimenCommand .. ExceptionRecordEntity
+
+CancelSpecimenPackageDispatchCommand .. ApplicationAggregate
+CancelSpecimenPackageDispatchCommand --> MarkDispatchRecordCancelledCommand
+CancelSpecimenPackageDispatchCommand --> MarkSpecimenPackagePendingDispatchCommand
+CancelSpecimenPackageDispatchCommand --> SpecimenEntity
+CancelSpecimenPackageDispatchCommand .. DispatchSpecimenEntity
+MarkDispatchRecordCancelledCommand .. DispatchRecordEntity
+MarkSpecimenPackagePendingDispatchCommand .. SpecimenPackageEntity
+WithdrawSpecimenDispatchCommand .. ApplicationAggregate
+WithdrawSpecimenDispatchCommand --> SpecimenEntity
+WithdrawSpecimenDispatchCommand .. DispatchSpecimenEntity
+
+ConfirmSpecimenPackageReceiptCommand .. ApplicationAggregate
+ConfirmSpecimenPackageReceiptCommand --> MarkSpecimenPackageReceivedCommand
+ConfirmSpecimenPackageReceiptCommand ..> ReceiptRecordEntity
+ConfirmSpecimenPackageReceiptCommand ..> ReceiptSpecimenEntity
+ConfirmSpecimenPackageReceiptCommand --> SpecimenEntity
+ConfirmSpecimenPackageReceiptCommand .. ExceptionRecordEntity
+ConfirmSupplementalSpecimenReceiptCommand .. ApplicationAggregate
+ConfirmSupplementalSpecimenReceiptCommand ..> ReceiptRecordEntity
+ConfirmSupplementalSpecimenReceiptCommand ..> ReceiptSpecimenEntity
+ConfirmSupplementalSpecimenReceiptCommand --> SpecimenEntity
+ConfirmSupplementalSpecimenReceiptCommand .. ExceptionRecordEntity
+MarkSpecimenPackageReceivedCommand .. SpecimenPackageEntity
+RegisterSpecimenExceptionCommand .. ExceptionRecordEntity
+ProcessSpecimenExceptionCommand .. ApplicationAggregate
+ProcessSpecimenExceptionCommand --> SpecimenEntity
+ProcessSpecimenExceptionCommand .. ExceptionRecordEntity
+
+StartSpecimenTestingCommand .. ApplicationAggregate
+StartSpecimenTestingCommand --> SpecimenEntity
+UploadLabReportCommand .. ApplicationAggregate
+UploadLabReportCommand --> SpecimenEntity
+UploadLabReportCommand .. LabReportEntity
+UploadLabReportCommand .. LabResultItemEntity
+VoidLabReportCommand .. ApplicationAggregate
+VoidLabReportCommand --> SpecimenEntity
+VoidLabReportCommand .. LabReportEntity
+
+ApplicationAggregate .. ApplicationItemEntity
+ApplicationAggregate .. SpecimenEntity
+SpecimenEntity .. SpecimenCoveredItemEntity
+ApplicationAggregate .. SpecimenPackageEntity
+SpecimenPackageEntity .. PackageSpecimenEntity
+ApplicationAggregate .. DispatchRecordEntity
+DispatchRecordEntity .. DispatchSpecimenEntity
+ApplicationAggregate .. ReceiptRecordEntity
+ReceiptRecordEntity .. ReceiptSpecimenEntity
+ApplicationAggregate .. ExceptionRecordEntity
+ApplicationAggregate .. LabReportEntity
+LabReportEntity .. LabResultItemEntity
+
+@enduml

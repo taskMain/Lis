@@ -1,0 +1,83 @@
+@startuml BranchCollaboration
+!include ddd_lib.puml
+' 聚合根：BranchCollaborationAggregate；业务范围：接收方院区对申请方院区的协作授权；不包含配置查询 API。
+
+Person('ReceiverUser','接收方用户')
+Person('PlatformOperator','平台运营人员')
+
+Enum('BranchCollaborationStatusEnum')[
+    院区协作授权状态
+    --属性--
+    启用(Enabled 1)
+    停用(Disabled 2)
+]
+
+Command('CreateBranchCollaborationCommand')[
+    新增院区协作授权
+    --入参--
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    --规则--
+    1.同一组发起院区与接收院区不可重复配置
+    2.新增后默认启用
+    3.接收方院区负责管理授权对象；平台运营人员可全局配置
+    4.新增时发起医院、发起院区、接收医院和接收院区必须在组织树主数据中存在且启用
+]
+DomainEvent('BranchCollaborationCreatedEvent','院区协作授权已创建')
+ReceiverUser --> CreateBranchCollaborationCommand
+PlatformOperator --> CreateBranchCollaborationCommand
+CreateBranchCollaborationCommand ..> BranchCollaborationCreatedEvent : send
+
+Command('EnableBranchCollaborationCommand')[
+    启用院区协作授权
+    --入参--
+    ID
+    --规则--
+    1.目标授权必须存在
+    2.启用时发起医院、发起院区、接收医院和接收院区必须在组织树主数据中存在且启用
+]
+DomainEvent('BranchCollaborationEnabledEvent','院区协作授权已启用')
+ReceiverUser --> EnableBranchCollaborationCommand
+PlatformOperator --> EnableBranchCollaborationCommand
+EnableBranchCollaborationCommand ..> BranchCollaborationEnabledEvent : send
+
+Command('DisableBranchCollaborationCommand')[
+    停用院区协作授权
+    --入参--
+    ID
+    ..
+    停用原因(DisableReason String)
+    --规则--
+    1.目标授权必须存在
+    2.停用原因必填
+    3.停用后不能用于创建新的检验申请
+]
+DomainEvent('BranchCollaborationDisabledEvent','院区协作授权已停用')
+ReceiverUser --> DisableBranchCollaborationCommand
+PlatformOperator --> DisableBranchCollaborationCommand
+DisableBranchCollaborationCommand ..> BranchCollaborationDisabledEvent : send
+
+Aggregate('BranchCollaborationAggregate')[
+    院区协作授权
+    --属性--
+    ID(Id Guid)
+    ..
+    发起医院编码(InitiatorHospitalCode String)
+    发起院区编码(InitiatorBranchCode String)
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    状态(Status BranchCollaborationStatus)
+    停用原因(DisableReason String?)
+    创建时间(CreatedTime DateTime)
+    --规则--
+    1.发起医院编码、发起院区编码、接收医院编码、接收院区编码构成完整唯一组合
+    2.停用保留历史记录，不通过物理移除表达状态
+]
+
+CreateBranchCollaborationCommand .. BranchCollaborationAggregate
+EnableBranchCollaborationCommand .. BranchCollaborationAggregate
+DisableBranchCollaborationCommand .. BranchCollaborationAggregate
+
+@enduml

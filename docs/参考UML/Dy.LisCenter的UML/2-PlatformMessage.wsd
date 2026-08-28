@@ -1,0 +1,5 @@
+@startuml PlatformMessage
+!include ddd_lib.puml
+' 平台消息中心为后续规划能力，当前版本暂缓。
+' 当前版本不定义平台消息聚合、命令、查询、事件、实体、状态或参与者。
+@enduml

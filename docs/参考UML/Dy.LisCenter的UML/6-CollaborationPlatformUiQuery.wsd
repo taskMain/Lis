@@ -1,0 +1,702 @@
+' 查询图：检验中心协同平台 UI 模块查询；业务范围：申请、样本、包、接收、报告和外部推送提交追溯页面查询；不包含外部 API 查询。
+@startuml CollaborationPlatformUiQuery
+!include ddd_lib.puml
+
+' T03 查询字段来源口径：当前申请编号来自申请单当前主数据，当前样本条码来自样本当前主数据；
+' 包清单、送出、接收和异常历史视图中的业务编号来自对应事实形成时的逐样本快照。
+' 跨申请包的记录头不展示某一个样本代表的单一申请归属，逐样本行继续展示各自申请和条码。
+
+Person('InitiatorUser','发起机构用户')
+Person('ReceiverUser','接收方用户')
+Person('PlatformOperator','平台管理员或平台运营人员')
+
+UserInterface('ApplicationManagementModule','申请与样本管理模块')
+UserInterface('PackageManagementModule','样本打包模块')
+UserInterface('ReceiptManagementModule','样本接收模块')
+UserInterface('ReportManagementModule','报告管理模块')
+UserInterface('GlobalPushRecordModule','推送记录模块')
+UserInterface('BranchPushRecordModule','院区推送记录模块')
+
+InitiatorUser --> ApplicationManagementModule
+ReceiverUser --> ApplicationManagementModule
+PlatformOperator --> ApplicationManagementModule
+InitiatorUser --> PackageManagementModule
+ReceiverUser --> PackageManagementModule
+ReceiverUser --> ReceiptManagementModule
+InitiatorUser --> ReportManagementModule
+ReceiverUser --> ReportManagementModule
+PlatformOperator --> GlobalPushRecordModule
+InitiatorUser --> BranchPushRecordModule
+ReceiverUser --> BranchPushRecordModule
+
+Enum('BarcodeStatusEnum')[
+    样本有效状态
+    --属性--
+    有效(Valid 1)
+    已结束(Ended 2)
+]
+
+Enum('BarcodeEndTypeEnum')[
+    结束类型
+    --属性--
+    发起方终止(InitiatorTerminated 1)
+    样本无法继续检测(UnprocessableSpecimen 2)
+]
+
+Enum('ApplicationStateEnum')[
+    申请单状态
+    --属性--
+    待审核(PendingReview 1)
+    已驳回(ReviewRejected 2)
+    审核通过(Approved 3)
+    部分送出(PartiallyDispatched 4)
+    全部送出(AllDispatched 5)
+    部分接收(PartiallyReceived 6)
+    全部接收(AllReceived 7)
+    检测中(Testing 8)
+    检测完成(Completed 9)
+    已关闭(Closed 10)
+    已取消(Cancelled 11)
+]
+
+Enum('SpecimenMainStatusEnum')[
+    样本主状态
+    --属性--
+    待送出(PendingDispatch 1)
+    已送出(Dispatched 2)
+    已接收(Received 3)
+    检测中(Testing 4)
+    检测完成(Completed 5)
+]
+
+Enum('VisitTypeEnum')[
+    就诊类型
+    --属性--
+    门诊(Outpatient 1)
+    住院(Inpatient 2)
+    体检(PhysicalExam 3)
+    急诊(Emergency 4)
+    其他(Other 5)
+    未知(Unknown 6)
+]
+
+Enum('LabReportStatusEnum')[
+    报告状态
+    --属性--
+    已发布(Published 1)
+    已作废(Voided 2)
+]
+
+Enum('SpecimenPackageStatusEnum')[
+    包状态
+    --属性--
+    有效(Valid 1)
+    已作废(Voided 2)
+]
+
+Enum('PackageHandoverStatusEnum')[
+    包交接状态
+    --属性--
+    未送出(PendingDispatch 1)
+    已送出(Dispatched 2)
+    已接收(Received 3)
+]
+
+Enum('PackageSpecimenSupplementReasonEnum')[
+    已送出包样本补录原因
+    --属性--
+    线下包内实物多于系统清单(PhysicalPackageExtraSpecimen 1)
+    系统漏登记(SystemOmission 2)
+    其他(Other 3)
+]
+
+Enum('ReceiptStatusEnum')[
+    接收状态
+    --属性--
+    待接收(PendingReceipt 1)
+    已接收(Received 2)
+]
+
+Enum('ReceiptResultEnum')[
+    接收处理结果
+    --属性--
+    正常接收(Normal 1)
+    异常接收(Exceptional 2)
+    未到货(NotArrived 3)
+]
+
+Enum('FinalReceiptConclusionEnum')[
+    最终接收结论
+    --属性--
+    正常接收(NormalReceipt 1)
+    异常接收(ExceptionalReceipt 2)
+]
+
+Enum('FeeStatusEnum')[
+    费用状态
+    --属性--
+    已收费(Charged 1)
+    未收费(Uncharged 2)
+    无需收费(NoChargeRequired 3)
+    未知(Unknown 4)
+]
+
+Enum('ReceiverMappingStatusEnum')[
+    接收方项目对照状态
+    --属性--
+    已匹配(Matched 1)
+    未匹配(Unmatched 2)
+]
+
+Enum('SpecimenExceptionTypeEnum')[
+    异常类型
+    --属性--
+    样本破损(SpecimenDamaged 1)
+    条码无法识别(BarcodeUnrecognizable 2)
+    样本不符(SpecimenMismatch 3)
+    容器不符(ContainerMismatch 4)
+    样本量不足(InsufficientSpecimenVolume 5)
+    样本遗失(SpecimenLost 6)
+    未到货(NotArrived 7)
+    其他(Other 8)
+]
+
+Enum('ExternalPushTypeEnum')[
+    外部推送类型
+    --属性--
+    申请审核通过(ApplicationApproved 1)
+    申请驳回(ApplicationRejected 2)
+    样本终止(SpecimenTerminated 3)
+    样本无法继续检测(SpecimenUnprocessable 4)
+    报告状态变更(ReportStatusChanged 5)
+]
+
+Enum('ExternalPushRecordStatusEnum')[
+    外部推送提交状态
+    --属性--
+    处理中(Pending 1)
+    已提交(Submitted 2)
+    未提交(NotSubmitted 3)
+    结果未知(Unknown 4)
+]
+
+Enum('ExternalPushBusinessNumberKindEnum')[
+    推送业务号类型
+    --属性--
+    自然业务编码(Natural 1)
+    报告状态组合标识(Composite 2)
+]
+
+Enum('ExternalPushBusinessRoleEnum')[
+    当前院区业务角色
+    --属性--
+    申请方(Initiator 1)
+    接收方(Receiver 2)
+]
+
+Enum('ExternalPushFailureCategoryEnum')[
+    外部推送失败分类
+    --属性--
+    组织解析失败(OrganizationResolutionFailed 1)
+    地址读取失败(TargetAddressReadFailed 2)
+    地址缺失(TargetAddressMissing 3)
+    地址无效(TargetAddressInvalid 4)
+    业务标识无效(BusinessNumberInvalid 5)
+    报文无效(RequestPayloadInvalid 6)
+    提交结果不确定(PushCenterSubmissionUncertain 7)
+    任务未找到(PushCenterTaskNotFound 8)
+    核对失败(PushCenterReconciliationFailed 9)
+]
+
+Enum('CurrentProcessingStatusEnum')[
+    样本当前处理展示状态
+    --属性--
+    待接收(PendingReceipt 1)
+    未到货待处理(NotArrivedPending 2)
+    已撤回(Withdrawn 3)
+    已拦截(Intercepted 4)
+    异常已归档(ExceptionArchived 5)
+    运输丢失导致样本结束(TransportLostEnded 6)
+]
+
+Enum('BusinessActionTypeEnum')[
+    业务动作类型
+    --属性--
+    条码生成(BarcodeGeneration 1)
+    接收方审核(ReceiverReview 2)
+    加入包(AddToPackage 3)
+    移出包(RemoveFromPackage 4)
+    送出(Dispatch 5)
+    送出撤回(DispatchWithdrawn 6)
+    接收(Receipt 7)
+    异常(Exception 8)
+    样本终止(BarcodeTermination 9)
+    样本结束(BarcodeEnd 10)
+    检测开始回传(TestingStartCallback 11)
+    报告上传(ReportUpload 12)
+    报告状态变更(ReportStatusChanged 13)
+    推送任务提交(PushTaskSubmitted 14)
+]
+
+Enum('BusinessObjectTypeEnum')[
+    业务对象类型
+    --属性--
+    条码(Barcode 1)
+    包(Package 2)
+    送出记录(DispatchRecord 3)
+    接收记录(ReceiptRecord 4)
+    异常记录(ExceptionRecord 5)
+    报告(Report 6)
+    推送任务提交摘要(PushTaskSubmissionSummary 7)
+]
+
+ReadModel('ApplicationSummaryReadModel')[
+    申请列表摘要
+    --属性--
+    平台申请单号(ApplicationNo String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    发起方(InitiatorName String)
+    接收方(ReceiverName String)
+    创建时间(CreatedTime DateTime)
+    申请单状态(ApplicationState ApplicationState)
+    样本数量(SpecimenCount Integer)
+    样本状态分布(SpecimenStatusDistribution String)
+]
+
+ReadModel('ApplicationDetailReadModel')[
+    申请详情
+    --属性--
+    平台申请单号(ApplicationNo String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    发起方(InitiatorName String)
+    接收方(ReceiverName String)
+    创建时间(CreatedTime DateTime)
+    申请单状态(ApplicationState ApplicationState)
+    审核结果摘要(ReviewSummary String?)
+    样本状态分布(SpecimenStatusDistribution String)
+    下属样本清单(Specimens SpecimenSummaryReadModel[])
+    关键流转摘要(KeyFlowSummary KeyFlowSummaryReadModel[])
+]
+
+ReadModel('SpecimenDetailReadModel')[
+    样本详情
+    --属性--
+    样本条码(SpecimenBarcode String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    患者信息(PatientInfo PatientInfoReadModel)
+    就诊信息(VisitInfo VisitInfoReadModel)
+    样本信息(SpecimenInfo SpecimenInfoReadModel)
+    检验项目明细(ProjectItems LabTestItemReadModel[])
+    是否绿色通道(IsGreenChannel Boolean)
+    绿色通道原因(GreenChannelReason String?)
+    样本有效状态(BarcodeStatus BarcodeStatus)
+    结束类型(EndType BarcodeEndType?)
+    样本主状态(MainStatus SpecimenMainStatus)
+    审核结果摘要(ReviewSummary String?)
+    终止摘要(TerminationSummary String?)
+    当前送出摘要(CurrentDispatchSummary String?)
+    最终接收结论(FinalReceiptConclusion FinalReceiptConclusion?)
+    接收科室编码(ReceiverDeptCode String?)
+    接收科室名称(ReceiverDeptName String?)
+    异常处理摘要(ExceptionSummary String?)
+    报告摘要(ReportSummary ReportSummaryReadModel?)
+    关键时间(KeyTimes String?)
+    关键流转摘要(KeyFlowSummary KeyFlowSummaryReadModel[])
+    业务动作摘要(Actions BusinessActionSummaryReadModel[])
+    --规则--
+    1.接收科室字段仅来源于接收记录快照，无接收记录时为空
+]
+
+ReadModel('SpecimenSummaryReadModel')[
+    样本列表摘要
+    --属性--
+    平台申请单号(ApplicationNo String)
+    样本条码(SpecimenBarcode String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    患者姓名(PatientName String)
+    发起方(InitiatorName String)
+    接收方(ReceiverName String)
+    样本有效状态(BarcodeStatus BarcodeStatus)
+    样本主状态(MainStatus SpecimenMainStatus)
+    结束类型(EndType BarcodeEndType?)
+    是否存在当前有效报告(HasCurrentEffectiveReport Boolean)
+    创建时间(CreatedTime DateTime)
+]
+
+ReadModel('PatientInfoReadModel')[
+    患者信息
+    --属性--
+    患者姓名(PatientName String)
+    患者性别(PatientGender String)
+    患者出生日期(BirthDate DateTime?)
+    发起方患者标识(InitiatorPatientId String)
+]
+
+ReadModel('VisitInfoReadModel')[
+    就诊信息
+    --属性--
+    就诊类型(VisitType VisitType)
+    开单科室(OrderDeptName String)
+    开单或送检医生(OrderDoctorName String)
+    诊断(Diagnosis String?)
+]
+
+ReadModel('SpecimenInfoReadModel')[
+    样本信息
+    --属性--
+    样本类型(SpecimenType String)
+    采样时间(SamplingTime DateTime)
+    采样人(SamplingOperator String)
+]
+
+ReadModel('LabTestItemReadModel')[
+    检验项目明细
+    --属性--
+    发起院区项目编码(InitiatorItemCode String)
+    发起院区项目名称(InitiatorItemName String)
+    项目加急标识(IsUrgent Boolean)
+    标准医疗项目编码(MedicalStandardItemCode String)
+    标准医疗项目名称(MedicalStandardItemName String)
+    接收院区项目编码(ReceiverItemCode String?)
+    接收院区项目名称(ReceiverItemName String?)
+    接收方项目对照状态(ReceiverMappingStatus ReceiverMappingStatus?)
+    费用状态(FeeStatus FeeStatus)
+    费用总金额(TotalFee Decimal)
+    是否医保支付(IsInsurancePaid String)
+    费用发生时间(FeeTime DateTime)
+    医保类型(InsuranceType String)
+]
+
+ReadModel('ReportSummaryReadModel')[
+    报告摘要
+    --属性--
+    报告状态(ReportStatus LabReportStatus?)
+    是否当前有效报告(IsCurrentEffective Boolean)
+    上传时间(UploadedTime DateTime?)
+    出报告科室名称(ReportDeptName String?)
+]
+
+ReadModel('PackageSummaryReadModel')[
+    样本包列表项
+    --属性--
+    包编码(PackageCode String)
+    包名称(PackageName String?)
+    发起方(InitiatorName String)
+    接收方(ReceiverName String)
+    包状态(Status SpecimenPackageStatus)
+    包交接状态(PackageHandoverStatus PackageHandoverStatus)
+]
+
+ReadModel('PackageDetailReadModel')[
+    样本包详情
+    --属性--
+    包基础信息(PackageSummary PackageSummaryReadModel)
+    包内样本清单(Specimens PackageSpecimenReadModel[])
+]
+
+ReadModel('PackageSpecimenReadModel')[
+    包内样本列表项
+    --属性--
+    样本条码(SpecimenBarcode String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    患者姓名(PatientName String)
+    样本信息摘要(SpecimenSummary String?)
+    项目清单摘要(ProjectSummary String?)
+    样本主状态(MainStatus SpecimenMainStatus)
+    最终接收结论(FinalReceiptConclusion FinalReceiptConclusion?)
+    加入时间(JoinedTime DateTime?)
+    样本级送出时间(DispatchTime DateTime?)
+    是否补录(IsSupplemented Boolean)
+    补录原因(SupplementReason PackageSpecimenSupplementReason?)
+    补录说明(SupplementDescription String?)
+    补录时间(SupplementTime DateTime?)
+    补录来源(SupplementSource String?)
+]
+
+ReadModel('ReceiptSpecimenReadModel')[
+    待接收样本列表项
+    --属性--
+    样本条码(SpecimenBarcode String)
+    发起方申请单号(InitiatorApplicationNo String?)
+    样本当前处理展示状态(CurrentProcessingStatus CurrentProcessingStatus)
+    接收状态(ReceiptStatus ReceiptStatus)
+    包编码(PackageCode String?)
+    样本级送出时间(DispatchTime DateTime)
+    是否补录(IsSupplemented Boolean)
+    接收科室编码(ReceiverDeptCode String?)
+    接收科室名称(ReceiverDeptName String?)
+    --规则--
+    1.接收科室字段仅来源于接收记录快照，待接收或无接收记录时为空
+]
+
+ReadModel('SpecimenReceiptRecordReadModel')[
+    样本接收记录列表项
+    --属性--
+    接收记录号(ReceiptNo String)
+    样本条码(SpecimenBarcode String)
+    接收处理结果(ReceiptResult ReceiptResult)
+    接收时间(ReceiptTime DateTime)
+    接收科室编码(ReceiverDeptCode String?)
+    接收科室名称(ReceiverDeptName String?)
+    异常类型(ExceptionType SpecimenExceptionType?)
+    --规则--
+    1.接收科室字段仅来源于接收记录快照，无接收记录时为空
+]
+
+ReadModel('CurrentEffectiveReportReadModel')[
+    当前有效报告
+    --属性--
+    样本条码(SpecimenBarcode String)
+    报告状态(ReportStatus LabReportStatus)
+    报告时间(ReportTime DateTime?)
+    出报告科室名称(ReportDeptName String?)
+    报告PDF文件(ReportPdfFile String?)
+    结构化结果摘要(ResultSummary String?)
+]
+
+ReadModel('BusinessActionSummaryReadModel')[
+    业务动作摘要
+    --属性--
+    动作时间(ActionTime DateTime)
+    动作类型(ActionType BusinessActionType)
+    业务对象类型(BusinessObjectType BusinessObjectType)
+    业务动作摘要(ActionSummary String)
+    处理结果摘要(ResultSummary String?)
+    是否可跳转(CanJump Boolean)
+    跳转目标类型(JumpTargetType String?)
+]
+
+ReadModel('KeyFlowSummaryReadModel')[
+    关键流转摘要
+    --属性--
+    阶段名称(StageName String)
+    阶段状态摘要(StageStatusSummary String)
+    最近关键动作时间(LastActionTime DateTime?)
+    最近关键业务动作摘要(LastActionSummary String?)
+    是否存在异常或受限展示(HasExceptionOrRestricted Boolean)
+]
+
+ReadModel('ExternalPushRecordSummaryReadModel')[
+    外部推送记录列表摘要
+    --属性--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    推送类型(PushType ExternalPushType)
+    推送类型文本(PushTypeText String)
+    推送业务号(BusinessNumber String(100))
+    推送业务号类型(BusinessNumberKind ExternalPushBusinessNumberKind)
+    推送业务号类型文本(BusinessNumberKindText String)
+    当前院区业务角色(BusinessRole ExternalPushBusinessRole?)
+    当前院区业务角色文本(BusinessRoleText String?)
+    平台申请单号(ApplicationNo String)
+    样本条码(SpecimenBarcode String?)
+    申请医院编码(InitiatorHospitalCode String)
+    申请医院名称(InitiatorHospitalName String?)
+    申请院区编码(InitiatorBranchCode String)
+    申请院区名称(InitiatorBranchName String?)
+    接收医院编码(ReceiverHospitalCode String)
+    接收医院名称(ReceiverHospitalName String?)
+    接收院区编码(ReceiverBranchCode String)
+    接收院区名称(ReceiverBranchName String?)
+    触发时间(TriggeredTime DateTime)
+    提交状态(SubmissionStatus ExternalPushRecordStatus)
+    提交状态文本(SubmissionStatusText String)
+    页面展示状态(DisplayStatus ExternalPushRecordStatus)
+    页面展示状态文本(DisplayStatusText String)
+    失败分类(FailureCategory ExternalPushFailureCategory?)
+    失败分类文本(FailureCategoryText String?)
+    提交时间(SubmittedTime DateTime?)
+    是否允许核对(CanReconcile Boolean)
+    --规则--
+    1.通过外部推送记录的 ApplicationId 关联申请单取得平台申请单号和双方医院院区，通过可选 SpecimenId 关联样本取得样本条码
+    2.申请医院、申请院区、接收医院和接收院区不从推送记录冗余字段读取
+    3.名称优先展示，编码作为辅助信息；组织名称缺失时允许空态展示
+    4.超过提交超时阈值的 Pending 返回 DisplayStatus=Unknown 和 CanReconcile=true，主标签显示“结果未知”、辅显“原状态处理中超时”；数据库真实状态在核对开始前仍为 Pending
+]
+
+ReadModel('ExternalPushRecordDetailReadModel')[
+    外部推送记录详情
+    --属性--
+    列表摘要(Summary ExternalPushRecordSummaryReadModel)
+    请求内容(RequestJson Text)
+    失败原因(FailureReason Text?)
+    推送任务ID(PushTaskId Guid?)
+    --规则--
+    1.RequestJson 只展示已记录的对外业务内容，不包含 ApplicationId、SpecimenId、PushTaskId 或其他内部标识
+    2.列表查询不返回 RequestJson、FailureReason 或 PushTaskId，上述字段仅在详情中按页面权限展示
+]
+
+Query('QueryApplicationList')[
+    查询申请列表
+    --入参--
+    平台申请单号(ApplicationNo String?)
+    发起方申请单号(InitiatorApplicationNo String?)
+    发起方(InitiatorOrg String?)
+    接收方(ReceiverOrg String?)
+    创建时间起(CreatedTimeFrom DateTime?)
+    创建时间止(CreatedTimeTo DateTime?)
+]
+ApplicationManagementModule --> QueryApplicationList
+QueryApplicationList .. ApplicationSummaryReadModel
+
+Query('QueryApplicationDetail')[
+    查询申请详情
+    --入参--
+    平台申请单号(ApplicationNo String)
+]
+ApplicationManagementModule --> QueryApplicationDetail
+QueryApplicationDetail .. ApplicationDetailReadModel
+
+Query('QuerySpecimenList')[
+    查询样本列表
+    --入参--
+    样本条码(SpecimenBarcode String?)
+    发起方申请单号(InitiatorApplicationNo String?)
+    发起方(InitiatorOrg String?)
+    接收方(ReceiverOrg String?)
+    样本有效状态(BarcodeStatus BarcodeStatus?)
+    样本主状态(MainStatus SpecimenMainStatus?)
+    报告状态(ReportStatus LabReportStatus?)
+]
+ApplicationManagementModule --> QuerySpecimenList
+QuerySpecimenList .. SpecimenSummaryReadModel
+
+Query('QuerySpecimenDetail')[
+    查询样本详情
+    --入参--
+    样本条码(SpecimenBarcode String)
+    --规则--
+    1.UI 使用业务定位字段查询，不使用平台内部 ID
+]
+ApplicationManagementModule --> QuerySpecimenDetail
+QuerySpecimenDetail .. SpecimenDetailReadModel
+
+Query('QueryPackageList')[
+    查询样本包列表
+    --入参--
+    包编码(PackageCode String?)
+    包状态(Status SpecimenPackageStatus?)
+    包交接状态(PackageHandoverStatus PackageHandoverStatus?)
+]
+PackageManagementModule --> QueryPackageList
+QueryPackageList .. PackageSummaryReadModel
+
+Query('QueryPackageDetail')[
+    查询样本包详情
+    --入参--
+    包编码(PackageCode String)
+]
+PackageManagementModule --> QueryPackageDetail
+QueryPackageDetail .. PackageDetailReadModel
+
+Query('QueryPendingReceiptSpecimenList')[
+    查询待接收样本列表
+    --入参--
+    接收状态(ReceiptStatus ReceiptStatus?)
+    发起方(InitiatorOrg String?)
+    送出时间起(DispatchTimeFrom DateTime?)
+    送出时间止(DispatchTimeTo DateTime?)
+    --规则--
+    1.送出时间范围按当前有效 DispatchSpecimen.DispatchTime 过滤
+]
+ReceiptManagementModule --> QueryPendingReceiptSpecimenList
+QueryPendingReceiptSpecimenList .. ReceiptSpecimenReadModel
+
+Query('QuerySpecimenReceiptRecordList')[
+    查询样本接收记录列表
+    --入参--
+    样本条码(SpecimenBarcode String?)
+    接收处理结果(ReceiptResult ReceiptResult?)
+    接收时间起(ReceiptTimeFrom DateTime?)
+    接收时间止(ReceiptTimeTo DateTime?)
+]
+ReceiptManagementModule --> QuerySpecimenReceiptRecordList
+QuerySpecimenReceiptRecordList .. SpecimenReceiptRecordReadModel
+
+Query('QueryCurrentEffectiveReport')[
+    查询当前有效报告
+    --入参--
+    样本条码(SpecimenBarcode String)
+]
+ReportManagementModule --> QueryCurrentEffectiveReport
+QueryCurrentEffectiveReport .. CurrentEffectiveReportReadModel
+
+Query('QueryGlobalExternalPushRecords')[
+    管理员全局查询外部推送记录
+    --入参--
+    推送类型(PushType ExternalPushType?)
+    提交状态(SubmissionStatus ExternalPushRecordStatus?)
+    推送业务号(BusinessNumber String(100)?)
+    平台申请单号(ApplicationNo String?)
+    样本条码(SpecimenBarcode String?)
+    申请医院编码(InitiatorHospitalCode String?)
+    申请院区编码(InitiatorBranchCode String?)
+    接收医院编码(ReceiverHospitalCode String?)
+    接收院区编码(ReceiverBranchCode String?)
+    触发时间起(TriggeredTimeFrom DateTime?)
+    触发时间止(TriggeredTimeTo DateTime?)
+    --规则--
+    1.全局入口信任宿主菜单和平台统一权限分配，不新增阶段专用管理员身份二次校验
+    2.可跨医院院区查询，组织筛选通过 ApplicationId 关联申请单完成
+]
+GlobalPushRecordModule --> QueryGlobalExternalPushRecords
+QueryGlobalExternalPushRecords .. ExternalPushRecordSummaryReadModel
+
+Query('GetGlobalExternalPushRecordDetail')[
+    管理员全局查询外部推送记录详情
+    --入参--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    --规则--
+    1.全局入口信任宿主菜单和平台统一权限分配，不新增阶段专用管理员身份二次校验
+]
+GlobalPushRecordModule --> GetGlobalExternalPushRecordDetail
+GetGlobalExternalPushRecordDetail .. ExternalPushRecordDetailReadModel
+
+Query('QueryBranchExternalPushRecords')[
+    当前院区查询相关外部推送记录
+    --入参--
+    推送类型(PushType ExternalPushType?)
+    提交状态(SubmissionStatus ExternalPushRecordStatus?)
+    推送业务号(BusinessNumber String(100)?)
+    平台申请单号(ApplicationNo String?)
+    样本条码(SpecimenBarcode String?)
+    触发时间起(TriggeredTimeFrom DateTime?)
+    触发时间止(TriggeredTimeTo DateTime?)
+    --规则--
+    1.当前 HosId 和 BranchId 来自可信登录组织上下文，不接收页面提交值作为可信范围
+    2.返回申请医院院区或接收医院院区与当前医院院区同时匹配的记录，不接收角色视角筛选
+    3.每条记录计算并返回当前院区的 BusinessRole 和 BusinessRoleText，页面不设置角色 Tab
+]
+BranchPushRecordModule --> QueryBranchExternalPushRecords
+QueryBranchExternalPushRecords .. ExternalPushRecordSummaryReadModel
+
+Query('GetBranchExternalPushRecordDetail')[
+    当前院区查询外部推送记录详情
+    --入参--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    --规则--
+    1.当前 HosId 和 BranchId 来自可信登录组织上下文
+    2.只有申请医院与申请院区同时匹配当前范围，或接收医院与接收院区同时匹配当前范围时返回详情
+    3.详情与列表复用相同的数据范围规则
+]
+BranchPushRecordModule --> GetBranchExternalPushRecordDetail
+GetBranchExternalPushRecordDetail .. ExternalPushRecordDetailReadModel
+
+' 建模口径：Query .. ReadModel 表示查询主返回读模型；Query .. Aggregate 表示查询来源/业务归属聚合引用，不计入主 ReadModel 数量。
+Aggregate('ApplicationAggregate','申请单生命周期聚合')
+Aggregate('ExternalPushRecordAggregate','外部推送记录聚合')
+
+QueryApplicationList .. ApplicationAggregate
+QueryApplicationDetail .. ApplicationAggregate
+QuerySpecimenList .. ApplicationAggregate
+QuerySpecimenDetail .. ApplicationAggregate
+QueryPackageList .. ApplicationAggregate
+QueryPackageDetail .. ApplicationAggregate
+QueryPendingReceiptSpecimenList .. ApplicationAggregate
+QuerySpecimenReceiptRecordList .. ApplicationAggregate
+QueryCurrentEffectiveReport .. ApplicationAggregate
+QueryGlobalExternalPushRecords .. ExternalPushRecordAggregate
+GetGlobalExternalPushRecordDetail .. ExternalPushRecordAggregate
+QueryBranchExternalPushRecords .. ExternalPushRecordAggregate
+GetBranchExternalPushRecordDetail .. ExternalPushRecordAggregate
+
+@enduml

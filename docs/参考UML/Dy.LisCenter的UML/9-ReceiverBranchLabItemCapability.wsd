@@ -1,0 +1,133 @@
+@startuml ReceiverBranchLabItemCapability
+!include ddd_lib.puml
+' 聚合根：ReceiverBranchLabItemCapabilityAggregate；业务范围：接收院区对标准医疗项目的独立承接白名单配置；不包含动态查询。
+
+Person('ReceiverUser','接收方用户')
+Person('PlatformOperator','平台运营人员')
+
+Enum('ReceiverBranchLabItemCapabilityStatusEnum')[
+    院区可承接项目配置状态
+    --属性--
+    启用(Enabled 1)
+    停用(Disabled 2)
+]
+
+Enum('ReceiverBranchLabItemCapabilityBatchIssueCodeEnum')[
+    批量新增项目问题类型
+    --属性--
+    标准医疗项目失效(StandardItemUnavailable 1)
+    已有启用配置(CapabilityAlreadyEnabled 2)
+    已有停用配置(CapabilityDisabledExists 3)
+    接收项目对照缺失(ReceiverMappingMissing 4)
+    接收项目对照不唯一(ReceiverMappingAmbiguous 5)
+]
+
+FacadeCommand('BatchCreateReceiverBranchLabItemCapabilitiesCommand')[
+    批量新增院区可承接项目
+    --入参--
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    标准医疗项目编码列表(MedicalStandardItemCodes String[])
+    --结果--
+    是否已应用(Applied Boolean)
+    已创建ID列表(CreatedIds Guid[])
+    项目问题列表(Issues [StandardItemCode, IssueType, Message][])
+    --规则--
+    1.一次提交一个或多个用户明确选择的标准医疗项目，不自动生成或回填白名单
+    2.先对整批项目校验目录有效性、既有配置和接收项目对照，再执行写入
+    3.全部项目通过时在同一事务内创建全部配置；任一项目未通过时整批零写入
+    4.项目级预期问题逐项返回标准项目编码、稳定问题类型和展示原因
+    5.请求、组织、登录上下文、上游服务和数据库异常继续按平台统一异常处理
+]
+
+Command('CreateReceiverBranchLabItemCapabilityCommand')[
+    新增院区可承接项目
+    --入参--
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    标准医疗项目编码(MedicalStandardItemCode String)
+    --规则--
+    1.接收医院、接收院区和标准医疗项目编码构成全生命周期唯一组合
+    2.新增后配置状态默认为启用
+    3.当前接收院区必须存在唯一启用的对应项目对照，且标准医疗项目当前有效
+    4.接收方用户仅能维护当前接收院区；平台运营人员按权限范围维护
+]
+DomainEvent('ReceiverBranchLabItemCapabilityCreatedEvent')[
+    院区可承接项目已创建
+    --属性--
+    ID
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    标准医疗项目编码(MedicalStandardItemCode String)
+    配置状态(Status ReceiverBranchLabItemCapabilityStatus)
+]
+ReceiverUser --> CreateReceiverBranchLabItemCapabilityCommand
+PlatformOperator --> CreateReceiverBranchLabItemCapabilityCommand
+CreateReceiverBranchLabItemCapabilityCommand ..> ReceiverBranchLabItemCapabilityCreatedEvent : send
+
+ReceiverUser --> BatchCreateReceiverBranchLabItemCapabilitiesCommand
+PlatformOperator --> BatchCreateReceiverBranchLabItemCapabilitiesCommand
+BatchCreateReceiverBranchLabItemCapabilitiesCommand ..> CreateReceiverBranchLabItemCapabilityCommand : 全批校验通过后逐项创建
+
+Command('EnableReceiverBranchLabItemCapabilityCommand')[
+    启用院区可承接项目
+    --入参--
+    ID
+    --规则--
+    1.当前接收院区必须存在唯一启用的对应项目对照，且标准医疗项目当前有效
+    2.启用只改变配置状态，不保存当前接收项目快照
+]
+DomainEvent('ReceiverBranchLabItemCapabilityEnabledEvent')[
+    院区可承接项目已启用
+    --属性--
+    ID
+    配置状态(Status ReceiverBranchLabItemCapabilityStatus)
+]
+ReceiverUser --> EnableReceiverBranchLabItemCapabilityCommand
+PlatformOperator --> EnableReceiverBranchLabItemCapabilityCommand
+EnableReceiverBranchLabItemCapabilityCommand ..> ReceiverBranchLabItemCapabilityEnabledEvent : send
+
+Command('DisableReceiverBranchLabItemCapabilityCommand')[
+    停用院区可承接项目
+    --入参--
+    ID
+    ..
+    停用原因(DisableReason String)
+    --规则--
+    1.停用原因必填
+    2.停用保留配置记录，不物理删除
+]
+DomainEvent('ReceiverBranchLabItemCapabilityDisabledEvent')[
+    院区可承接项目已停用
+    --属性--
+    ID
+    配置状态(Status ReceiverBranchLabItemCapabilityStatus)
+    停用原因(DisableReason String)
+]
+ReceiverUser --> DisableReceiverBranchLabItemCapabilityCommand
+PlatformOperator --> DisableReceiverBranchLabItemCapabilityCommand
+DisableReceiverBranchLabItemCapabilityCommand ..> ReceiverBranchLabItemCapabilityDisabledEvent : send
+
+Aggregate('ReceiverBranchLabItemCapabilityAggregate')[
+    院区可承接项目
+    --属性--
+    ID(Id Guid)
+    ..
+    接收医院编码(ReceiverHospitalCode String)
+    接收院区编码(ReceiverBranchCode String)
+    标准医疗项目编码(MedicalStandardItemCode String)
+    配置状态(Status ReceiverBranchLabItemCapabilityStatus)
+    停用原因(DisableReason String?)
+    --规则--
+    1.配置采用严格白名单，未配置即不可承接
+    2.配置只支持新增、启用和停用，不物理删除
+    3.实际可用性由配置状态、当前接收院区项目对照和标准医疗项目当前状态动态计算，不保存为聚合状态
+    4.启用后依赖异常不改变配置状态；依赖恢复后动态恢复实际可用
+]
+
+CreateReceiverBranchLabItemCapabilityCommand .. ReceiverBranchLabItemCapabilityAggregate
+BatchCreateReceiverBranchLabItemCapabilitiesCommand .. ReceiverBranchLabItemCapabilityAggregate
+EnableReceiverBranchLabItemCapabilityCommand .. ReceiverBranchLabItemCapabilityAggregate
+DisableReceiverBranchLabItemCapabilityCommand .. ReceiverBranchLabItemCapabilityAggregate
+
+@enduml

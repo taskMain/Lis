@@ -1,0 +1,328 @@
+@startuml ExternalPushRecord
+!include ddd_lib.puml
+' 聚合根：ExternalPushRecordAggregate；业务范围：LisCenter 向 PushCenter 提交任务的事实追溯与结果核对；不管理实际投递、重试、执行历史、删除或重启。
+
+Person('PlatformOperator','平台管理员或平台运营人员')
+Person('BranchUser','院区用户')
+
+Enum('ExternalPushTypeEnum')[
+    外部推送类型
+    --属性--
+    申请审核通过(ApplicationApproved 1)
+    申请驳回(ApplicationRejected 2)
+    样本终止(SpecimenTerminated 3)
+    样本无法继续检测(SpecimenUnprocessable 4)
+    报告状态变更(ReportStatusChanged 5)
+]
+
+Enum('ExternalPushRecordStatusEnum')[
+    外部推送提交状态
+    --属性--
+    处理中(Pending 1)
+    已提交(Submitted 2)
+    未提交(NotSubmitted 3)
+    结果未知(Unknown 4)
+]
+
+Enum('ExternalPushBusinessNumberKindEnum')[
+    推送业务号类型
+    --属性--
+    自然业务编码(Natural 1)
+    报告状态组合标识(Composite 2)
+]
+
+Enum('ExternalPushFailureCategoryEnum')[
+    外部推送失败分类
+    --属性--
+    组织解析失败(OrganizationResolutionFailed 1)
+    地址读取失败(TargetAddressReadFailed 2)
+    地址缺失(TargetAddressMissing 3)
+    地址无效(TargetAddressInvalid 4)
+    业务标识无效(BusinessNumberInvalid 5)
+    报文无效(RequestPayloadInvalid 6)
+    提交结果不确定(PushCenterSubmissionUncertain 7)
+    任务未找到(PushCenterTaskNotFound 8)
+    核对失败(PushCenterReconciliationFailed 9)
+]
+
+' 以下事件由 ApplicationAggregate 产生，本文件仅将其声明为外部推送记录聚合的触发来源。
+DomainEvent('ApplicationApprovedEvent','申请单审核通过')
+DomainEvent('ApplicationRejectedEvent','申请单驳回')
+DomainEvent('SpecimenTerminatedEvent','样本已终止')
+DomainEvent('SpecimenExceptionProcessedEvent','样本异常已处理')
+DomainEvent('LabReportUploadedEvent','检验报告已上传')
+DomainEvent('LabReportVoidedEvent','检验报告已作废')
+
+Policy('ApplicationApprovedExternalPushPolicy','申请审核通过后提交申请单级通知')
+Policy('ApplicationRejectedExternalPushPolicy','申请驳回后提交申请单级通知')
+Policy('SpecimenTerminatedExternalPushPolicy','样本终止后提交样本级通知')
+Policy('SpecimenUnprocessableExternalPushPolicy','样本无法继续检测后提交样本级通知')
+Policy('LabReportUploadedExternalPushPolicy','报告发布后提交报告状态通知')
+Policy('LabReportVoidedExternalPushPolicy','报告作废后提交报告状态通知')
+
+FacadeCommand('SubmitExternalPushTaskCommand')[
+    提交外部推送任务并记录结果
+    --入参--
+    申请单ID(ApplicationId Guid)
+    样本ID(SpecimenId Guid?)
+    推送类型(PushType ExternalPushType)
+    推送业务号(BusinessNumber String(100))
+    推送业务号类型(BusinessNumberKind ExternalPushBusinessNumberKind)
+    触发时间(TriggeredTime DateTime)
+    请求内容(RequestJson Text)
+    --规则--
+    1.审核通过和驳回按申请单形成一条记录；审核通过报文不携带样本条码或条码列表；驳回报文携带必填 ReviewRemark，不携带 RejectReason；其他事件按关联样本形成记录
+    2.六个独立本地事件策略只负责事件筛选和通知映射，统一调用 ExternalPushRecordManager 完成记录、提交和核对
+    3.先创建 SubmissionStatus=Pending 的记录，再使用申请方 HosId、BranchId 和平台组织编码01读取 hospital_push_address，并向 PushCenter 提交任务
+    4.申请方医院院区通过 ApplicationId 关联申请单取得，不在本聚合重复保存；组织解析、地址读取、地址校验失败时按失败分类标记 NotSubmitted
+    5.直接调用 IPushTaskAppService.CreatePushTaskAsync 并依赖 PushCenter 业务身份幂等能力，不在创建前强制预查询
+    6.取得 PushTaskId 时标记 Submitted；明确未创建任务时标记 NotSubmitted；远程调用结果不确定时标记 Unknown 并立即按业务身份核对
+    7.RequestJson 只保存对外业务内容，不包含 ApplicationId、SpecimenId、PushTaskId 或其他内部标识
+    8.推送处理是来源业务完成后的旁路动作，失败或结果未知不回滚来源业务状态；PushCenter 后续投递失败不反向修改 Submitted
+    9.SpecimenExceptionProcessedEvent 仅在处理结果为无法继续检测时触发对应推送
+    10.审核通过和驳回使用 ApplicationNo；条码终止和无法继续检测使用 SpecimenBarcode；报告状态变更使用 ApplicationNo:SpecimenBarcode:ReportStatus:ChangedTime
+    11.业务号最大100字符；超长时按 BusinessNumberInvalid 标记 NotSubmitted，不截断、不哈希替换、不临时改号
+    12.来源事件的 InitiatorApplicationNo 映射为对外 initiatorApplicationNo；报告作废使用事件中的原 ReportTime，不使用 VoidedTime 替代
+]
+DomainEvent('ExternalPushTaskSubmissionProcessedEvent')[
+    外部推送任务提交已处理
+    --属性--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    申请单ID(ApplicationId Guid)
+    样本ID(SpecimenId Guid?)
+    推送类型(PushType ExternalPushType)
+    推送业务号(BusinessNumber String(100))
+    推送业务号类型(BusinessNumberKind ExternalPushBusinessNumberKind)
+    提交状态(SubmissionStatus ExternalPushRecordStatus)
+    失败分类(FailureCategory ExternalPushFailureCategory?)
+    推送任务ID(PushTaskId Guid?)
+    提交时间(SubmittedTime DateTime?)
+]
+SubmitExternalPushTaskCommand ..> ExternalPushTaskSubmissionProcessedEvent : send
+
+Command('CreateExternalPushRecordCommand')[
+    创建外部推送记录
+    --入参--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    申请单ID(ApplicationId Guid)
+    样本ID(SpecimenId Guid?)
+    推送类型(PushType ExternalPushType)
+    推送业务号(BusinessNumber String(100))
+    推送业务号类型(BusinessNumberKind ExternalPushBusinessNumberKind)
+    触发时间(TriggeredTime DateTime)
+    请求内容(RequestJson Text)
+    --规则--
+    1.初始状态为 Pending
+    2.PushType 与 BusinessNumber 组合唯一，重复业务事件不创建第二条记录
+    3.BusinessNumber 必填且最大100字符，超长不得截断或替换
+]
+DomainEvent('ExternalPushRecordCreatedEvent')[
+    外部推送记录已创建
+    --属性--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    申请单ID(ApplicationId Guid)
+    样本ID(SpecimenId Guid?)
+    推送类型(PushType ExternalPushType)
+    推送业务号(BusinessNumber String(100))
+    推送业务号类型(BusinessNumberKind ExternalPushBusinessNumberKind)
+    触发时间(TriggeredTime DateTime)
+    请求内容(RequestJson Text)
+    提交状态(SubmissionStatus ExternalPushRecordStatus)
+]
+CreateExternalPushRecordCommand ..> ExternalPushRecordCreatedEvent : send
+
+Command('MarkExternalPushSubmittedCommand')[
+    标记外部推送已提交
+    --入参--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    ..
+    推送任务ID(PushTaskId Guid)
+    提交时间(SubmittedTime DateTime)
+    --规则--
+    1.仅允许 Pending 或 Unknown 转为 Submitted
+    2.PushTaskId 非空时唯一
+    3.转为 Submitted 时清空 FailureReason
+]
+DomainEvent('ExternalPushRecordSubmittedEvent')[
+    外部推送记录已提交
+    --属性--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    提交状态(SubmissionStatus ExternalPushRecordStatus)
+    推送任务ID(PushTaskId Guid)
+    提交时间(SubmittedTime DateTime)
+]
+MarkExternalPushSubmittedCommand ..> ExternalPushRecordSubmittedEvent : send
+
+Command('MarkExternalPushNotSubmittedCommand')[
+    标记外部推送未提交
+    --入参--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    ..
+    失败分类(FailureCategory ExternalPushFailureCategory)
+    失败原因(FailureReason Text)
+    --规则--
+    1.仅允许 Pending 转为 NotSubmitted
+    2.NotSubmitted 表示可以确认 PushCenter 未创建任务，不自动重试或重发
+]
+DomainEvent('ExternalPushRecordNotSubmittedEvent')[
+    外部推送记录已标记未提交
+    --属性--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    提交状态(SubmissionStatus ExternalPushRecordStatus)
+    失败分类(FailureCategory ExternalPushFailureCategory)
+    失败原因(FailureReason Text)
+]
+MarkExternalPushNotSubmittedCommand ..> ExternalPushRecordNotSubmittedEvent : send
+
+Command('MarkExternalPushUnknownCommand')[
+    标记外部推送结果未知
+    --入参--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    ..
+    失败分类(FailureCategory ExternalPushFailureCategory)
+    失败原因(FailureReason Text?)
+    --规则--
+    1.仅允许 Pending 转为 Unknown
+    2.Unknown 表示无法确认 PushCenter 是否已创建任务，不等同于未提交
+]
+DomainEvent('ExternalPushRecordMarkedUnknownEvent')[
+    外部推送记录已标记结果未知
+    --属性--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    提交状态(SubmissionStatus ExternalPushRecordStatus)
+    失败分类(FailureCategory ExternalPushFailureCategory)
+    失败原因(FailureReason Text?)
+]
+MarkExternalPushUnknownCommand ..> ExternalPushRecordMarkedUnknownEvent : send
+
+FacadeCommand('ReviewExternalPushRecordCommand')[
+    内部核对外部推送记录
+    --入参--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    --规则--
+    1.内部系统命令，不包含页面角色权限或页面组织范围判断
+    2.仅 Unknown 或超过提交超时阈值的 Pending 允许核对；超时 Pending 开始核对时先转为 Unknown
+    3.只按固定业务系统编码、PushType 和 BusinessNumber 查询 PushCenter 是否存在任务，不调用任务创建
+    4.找到任务时转为 Submitted 并保存 PushTaskId 和 SubmittedTime
+    5.未找到任务或查询失败时保持 Unknown，不转为 NotSubmitted
+    6.核对不得执行重试、重发、删除或重启
+]
+DomainEvent('ExternalPushRecordReviewedEvent')[
+    外部推送记录已核对
+    --属性--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    是否找到推送任务(PushTaskFound Boolean)
+    推送任务ID(PushTaskId Guid?)
+    核对后状态(SubmissionStatus ExternalPushRecordStatus)
+    核对时间(ReviewedTime DateTime)
+]
+ReviewExternalPushRecordCommand ..> ExternalPushRecordReviewedEvent : send
+
+FacadeCommand('ReviewGlobalExternalPushRecordFromPageCommand')[
+    从全局页面核对外部推送记录
+    --入参--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    --规则--
+    1.全局页面入口信任宿主菜单和平台统一权限分配，不新增阶段专用管理员身份二次校验
+    2.确认记录存在后调用内部核对命令，不创建或重发任务
+]
+DomainEvent('GlobalExternalPushRecordReviewRequestedEvent')[
+    全局页面外部推送记录核对已执行
+    --属性--
+    外部推送记录ID(ExternalPushRecordId Guid)
+]
+ReviewGlobalExternalPushRecordFromPageCommand ..> GlobalExternalPushRecordReviewRequestedEvent : send
+
+FacadeCommand('ReviewBranchExternalPushRecordFromPageCommand')[
+    从院区页面核对外部推送记录
+    --入参--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    当前医院ID(HosId String)
+    当前院区ID(BranchId String)
+    --规则--
+    1.HosId 和 BranchId 来自可信登录组织上下文，不接收页面提交值作为可信范围
+    2.通过 ApplicationId 关联申请单，只有申请医院与申请院区同时匹配当前范围，或接收医院与接收院区同时匹配当前范围时才允许核对
+    3.范围校验通过后调用内部核对命令，不创建或重发任务
+]
+DomainEvent('BranchExternalPushRecordReviewRequestedEvent')[
+    院区页面外部推送记录核对已执行
+    --属性--
+    外部推送记录ID(ExternalPushRecordId Guid)
+    当前医院ID(HosId String)
+    当前院区ID(BranchId String)
+]
+ReviewBranchExternalPushRecordFromPageCommand ..> BranchExternalPushRecordReviewRequestedEvent : send
+
+Query('GetPushTaskByBusinessIdentityQuery')[
+    按业务身份查询外部推送任务
+    --入参--
+    推送类型(PushType ExternalPushType)
+    推送业务号(BusinessNumber String(100))
+    --规则--
+    1.业务系统编码固定为 LisCenter
+    2.只查询任务是否存在及其 PushTaskId，不创建或修改 PushCenter 任务
+]
+
+Aggregate('ExternalPushRecordAggregate')[
+    外部推送记录
+    --属性--
+    ID(Id Guid)
+    申请单ID(ApplicationId Guid)
+    样本ID(SpecimenId Guid?)
+    推送类型(PushType ExternalPushType)
+    推送业务号(BusinessNumber String(100))
+    推送业务号类型(BusinessNumberKind ExternalPushBusinessNumberKind)
+    触发时间(TriggeredTime DateTime)
+    请求内容(RequestJson Text)
+    提交状态(SubmissionStatus ExternalPushRecordStatus)
+    失败分类(FailureCategory ExternalPushFailureCategory?)
+    失败原因(FailureReason Text?)
+    推送任务ID(PushTaskId Guid?)
+    提交时间(SubmittedTime DateTime?)
+    --规则--
+    1.ApplicationId 和可选 SpecimenId 是 LisCenter 内部关联依据，申请单号、样本条码和双方组织信息通过关联业务对象查询
+    2.不重复保存申请医院、申请院区、接收医院和接收院区字段
+    3.RequestJson 保存实际对外业务内容，不得包含 ApplicationId、SpecimenId、PushTaskId 或其他内部标识
+    4.状态流转仅允许 Pending 转为 Submitted、NotSubmitted 或 Unknown，以及 Unknown 转为 Submitted
+    5.Unknown 不得转为 NotSubmitted 或 Pending；Submitted 和 NotSubmitted 为终态
+    6.本聚合只追溯 LisCenter 向 PushCenter 提交任务的事实，不管理投递生命周期和运维操作
+    7.PushType 与 BusinessNumber 组合唯一；PushTaskId 非空时唯一
+    8.BusinessNumber 按推送类型使用平台申请单号、样本条码或报告状态组合标识，最大100字符，不直接暴露内部业务对象主键
+]
+
+ApplicationApprovedEvent --> ApplicationApprovedExternalPushPolicy
+ApplicationRejectedEvent --> ApplicationRejectedExternalPushPolicy
+SpecimenTerminatedEvent --> SpecimenTerminatedExternalPushPolicy
+SpecimenExceptionProcessedEvent --> SpecimenUnprocessableExternalPushPolicy
+LabReportUploadedEvent --> LabReportUploadedExternalPushPolicy
+LabReportVoidedEvent --> LabReportVoidedExternalPushPolicy
+ApplicationApprovedExternalPushPolicy -d-> SubmitExternalPushTaskCommand
+ApplicationRejectedExternalPushPolicy -d-> SubmitExternalPushTaskCommand
+SpecimenTerminatedExternalPushPolicy -d-> SubmitExternalPushTaskCommand
+SpecimenUnprocessableExternalPushPolicy -d-> SubmitExternalPushTaskCommand
+LabReportUploadedExternalPushPolicy -d-> SubmitExternalPushTaskCommand
+LabReportVoidedExternalPushPolicy -d-> SubmitExternalPushTaskCommand
+
+SubmitExternalPushTaskCommand .. ExternalPushRecordAggregate
+SubmitExternalPushTaskCommand --> CreateExternalPushRecordCommand
+SubmitExternalPushTaskCommand --> MarkExternalPushSubmittedCommand
+SubmitExternalPushTaskCommand --> MarkExternalPushNotSubmittedCommand
+SubmitExternalPushTaskCommand --> MarkExternalPushUnknownCommand
+SubmitExternalPushTaskCommand --> ReviewExternalPushRecordCommand
+CreateExternalPushRecordCommand .. ExternalPushRecordAggregate
+MarkExternalPushSubmittedCommand .. ExternalPushRecordAggregate
+MarkExternalPushNotSubmittedCommand .. ExternalPushRecordAggregate
+MarkExternalPushUnknownCommand .. ExternalPushRecordAggregate
+ReviewExternalPushRecordCommand .. ExternalPushRecordAggregate
+ReviewExternalPushRecordCommand --> GetPushTaskByBusinessIdentityQuery
+ReviewExternalPushRecordCommand --> MarkExternalPushSubmittedCommand
+ReviewExternalPushRecordCommand --> MarkExternalPushUnknownCommand
+
+PlatformOperator --> ReviewGlobalExternalPushRecordFromPageCommand
+BranchUser --> ReviewBranchExternalPushRecordFromPageCommand
+ReviewGlobalExternalPushRecordFromPageCommand .. ExternalPushRecordAggregate
+ReviewGlobalExternalPushRecordFromPageCommand --> ReviewExternalPushRecordCommand
+ReviewBranchExternalPushRecordFromPageCommand .. ExternalPushRecordAggregate
+ReviewBranchExternalPushRecordFromPageCommand --> ReviewExternalPushRecordCommand
+
+@enduml
