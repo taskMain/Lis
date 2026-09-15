@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Update="EarthraceConfig.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dy.Apron.Bridge" />
+    <PackageReference Include="Dy.Apron.QuickStart" />
+    <PackageReference Include="Dy.Apron.Security" />
+    <PackageReference Include="Dy.Earthrace" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Dy.Plugin.AspNet.Scalar" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dy.MedicalRecognition.Application\Dy.MedicalRecognition.Application.csproj" />
+    <ProjectReference Include="..\Dy.MedicalRecognition.Domain\Dy.MedicalRecognition.Domain.csproj" />
+    <ProjectReference Include="..\Dy.MedicalRecognition.Repository\Dy.MedicalRecognition.Repository.csproj" />
+  </ItemGroup>
+</Project>

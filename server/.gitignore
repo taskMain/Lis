@@ -1,0 +1,23 @@
+# Build output
+bin/
+obj/
+out/
+artifacts/
+
+# IDE state
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+
+# Test and coverage output
+TestResults/
+coverage/
+*.trx
+
+# Local configuration and secrets
+appsettings.Development.json
+*.local.json
+*.nupkg
+*.snupkg

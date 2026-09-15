@@ -1,0 +1,27 @@
+-- postgresql schema
+create table if not exists laboratory_result_item (
+  id uuid not null,
+  report_version_id uuid not null,
+  source_detail_key varchar(100),
+  source_project_name varchar(100) not null,
+  source_project_code varchar(100),
+  standard_project_code varchar(100),
+  source_result_text text not null,
+  result_type integer not null,
+  loinc_code varchar(100),
+  unit varchar(100),
+  reference_range text,
+  testing_method varchar(100),
+  instrument_code varchar(100),
+  instrument_name varchar(100),
+  display_order integer not null,
+  abnormal_flag integer,
+  critical_value_flag boolean,
+  laboratory_charge_item_code varchar(100),
+  insurance_charge_item_code varchar(100),
+  inspector_id varchar(100),
+  inspector_name varchar(100),
+  oper_id uuid not null,
+  oper_time timestamptz not null,
+  primary key (id)
+);

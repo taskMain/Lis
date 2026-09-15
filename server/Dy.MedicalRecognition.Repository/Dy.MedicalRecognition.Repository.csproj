@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>Dy.MedicalRecognition.Repository</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="**/*.xml" />
+    <EmbeddedResource Include="**/*.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dy.Earthrace.Abstractions" />
+    <PackageReference Include="Dy.Apron.Abstractions" />
+    <PackageReference Include="Dy.Core.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dy.MedicalRecognition.Application.Contracts\Dy.MedicalRecognition.Application.Contracts.csproj" />
+    <ProjectReference Include="..\Dy.MedicalRecognition.Domain\Dy.MedicalRecognition.Domain.csproj" />
+  </ItemGroup>
+</Project>

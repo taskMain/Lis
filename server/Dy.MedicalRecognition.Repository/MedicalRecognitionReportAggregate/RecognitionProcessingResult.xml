@@ -1,0 +1,12 @@
+<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <Statements>
+    <Statement Id="RecognitionProcessingResultColumns">
+      id, recognition_match_record_id, recognition_match_item_id, standard_project_code, recognition_time, recognition_result, recognition_dept_id, recognition_dept_name, recognition_doctor_id, recognition_doctor_name, non_adoption_reason, non_adoption_description, estimated_saving_amount, oper_id, oper_time
+    </Statement>
+    <Statement Id="QueryAllRecognitionProcessingResult">
+      select
+      <Include RefId="RecognitionProcessingResultColumns" />
+      from recognition_processing_result
+    </Statement>
+  </Statements>
+</SqlMap>

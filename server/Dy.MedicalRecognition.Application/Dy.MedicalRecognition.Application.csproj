@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>Dy.MedicalRecognition.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dy.Apron.Abstractions" />
+    <PackageReference Include="Dy.Core.Abstractions" />
+    <PackageReference Include="Dy.Core.SourceGen" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dy.MedicalRecognition.Application.Contracts\Dy.MedicalRecognition.Application.Contracts.csproj" />
+    <ProjectReference Include="..\Dy.MedicalRecognition.Domain\Dy.MedicalRecognition.Domain.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,26 @@
+-- postgresql schema
+create table if not exists laboratory_bacteria_result (
+  id uuid not null,
+  report_version_id uuid not null,
+  source_detail_key varchar(100),
+  source_organism_code varchar(100),
+  source_organism_name varchar(100),
+  source_result_text text not null,
+  detection_conclusion text not null,
+  colony_count varchar(100),
+  culture_medium varchar(100),
+  culture_time varchar(100),
+  culture_condition varchar(100),
+  discovery_method varchar(100),
+  detection_method varchar(100),
+  description text,
+  instrument_code varchar(100),
+  instrument_name varchar(100),
+  test_panel_code varchar(100),
+  test_panel_name varchar(100),
+  inspector_id varchar(100),
+  inspector_name varchar(100),
+  oper_id uuid not null,
+  oper_time timestamptz not null,
+  primary key (id)
+);

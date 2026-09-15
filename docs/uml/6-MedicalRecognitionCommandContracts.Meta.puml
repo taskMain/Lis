@@ -1,0 +1,319 @@
+@startuml MedicalRecognitionCommandContracts
+' 命令入参 DTO 与领域事件事实契约；这些结构不是聚合 Entity。
+' 本图为参考草稿，不是当前正式业务契约，不参与 Dy.DevToolkit 代码生成。
+' 正式业务语义以 CONTEXT.md、docs/需求规约SRS.md 和 docs/uml/1-5 为准；实现前需重新核对本图。
+hide methods
+skinparam classAttributeIconSize 0
+class "报告版本公共信息请求" as MedicalReportVersionRequest <<Request>> {
+    SourceReportName : String
+    PatientName : String
+    PatientGenderCode : String
+    PatientBirthDate : DateTime
+    IdentityDocumentTypeCode : String
+    IdentityDocumentNo : String
+    PatientPhoneNumber : String?
+    AgeAtReport : String?
+    VisitType : VisitType
+    VisitSerialNo : String
+    InpatientNo : String?
+    WardName : String?
+    RoomName : String?
+    BedNo : String?
+    ApplicationDeptId : String
+    ApplicationDeptName : String
+    ApplicationDoctorId : String
+    ApplicationDoctorName : String
+    ExecutionDeptId : String
+    ExecutionDeptName : String
+    ReportDeptId : String
+    ReportDeptName : String
+    ReportDoctorId : String
+    ReportDoctorName : String
+    ReviewDoctorId : String
+    ReviewDoctorName : String
+    ApplicationTime : DateTime
+    ReportTime : DateTime
+    ReviewTime : DateTime?
+    SourceModifiedTime : DateTime
+    SourceConfidentialFlag : String?
+}
+class "报告作废请求" as MedicalReportVoidRequest <<Request>> {
+    ReportNo : String
+    VoidedTime : DateTime
+    VoidReason : Text
+}
+class "互认报告主体写入请求" as MedicalRecognitionReportWriteRequest <<InternalCommandRequest>> {
+    OrganizationCode : String
+    HospitalCode : String
+    BranchCode : String
+    ReportType : MedicalReportType
+    ReportNo : String
+}
+class "报告版本写入请求" as MedicalReportVersionWriteRequest <<InternalCommandRequest>> {
+    ReportVersionId : Guid
+    ReportId : Guid
+    VersionNumber : Integer
+    Report : MedicalReportVersionRequest
+    ReceivedTime : DateTime
+    PdfFileId : String
+    PdfFileStream : ByteArray
+    OriginalPdfFileName : String?
+}
+class "检验报告专项内容请求" as LaboratoryReportContentRequest <<Request>> {
+    ReportCategoryCode : String?
+    ReportCategoryName : String?
+    ReportRemark : Text?
+    OverallAbnormalFlag : String?
+    SourceOrderSerialNo : String?
+    SourceSpecimenNo : String
+    SpecimenTypeCode : String
+    SpecimenTypeName : String
+    SpecimenCollectedTime : DateTime?
+    SpecimenSubmittedTime : DateTime?
+    LaboratoryReceivedTime : DateTime?
+    TestingCompletedTime : DateTime
+    InspectorId : String
+    InspectorName : String
+}
+class "普通检验结果请求" as LaboratoryResultItemRequest <<Request>> {
+    SourceDetailKey : String?
+    SourceProjectName : String
+    SourceProjectCode : String?
+    StandardProjectCode : String?
+    SourceResultText : Text
+    ResultType : LaboratoryResultType
+    LoincCode : String?
+    Unit : String?
+    ReferenceRange : Text?
+    TestingMethod : String?
+    InstrumentCode : String?
+    InstrumentName : String?
+    DisplayOrder : Integer
+    LaboratoryChargeItemCode : String?
+    InsuranceChargeItemCode : String?
+    AbnormalFlag : LaboratoryAbnormalFlag?
+    CriticalValueFlag : Boolean?
+    InspectorId : String?
+    InspectorName : String?
+}
+class "细菌鉴定结果请求" as BacterialIdentificationResultRequest <<Request>> {
+    SourceDetailKey : String?
+    DetectionStatus : BacterialDetectionStatus
+    SourceOrganismCode : String?
+    SourceOrganismName : String?
+    SourceResultText : Text
+    ColonyCount : String?
+    CultureMedium : String?
+    CultureTime : String?
+    CultureCondition : String?
+    DetectionMethod : String?
+    DetectionConclusion : Text
+    Description : Text?
+    InstrumentCode : String?
+    InstrumentName : String?
+    TestPanelCode : String?
+    TestPanelName : String?
+    InspectorId : String?
+    InspectorName : String?
+    DrugSusceptibilityResults : DrugSusceptibilityResultRequest[]
+}
+class "药敏结果请求" as DrugSusceptibilityResultRequest <<Request>> {
+    SourceDetailKey : String?
+    DrugCode : String?
+    DrugName : String
+    SusceptibilityCode : String?
+    SourceConclusionText : Text
+    ResistanceResultCode : String?
+    DiskContent : String?
+    MicValue : String?
+    InhibitionZoneDiameter : String?
+    ReferenceValue : String?
+    DisplayOrder : Integer
+    TestingMethod : String?
+    TestPanelOrder : String?
+    InspectorId : String?
+    InspectorName : String?
+}
+class "检验报告完整版本请求" as LaboratoryReportVersionRequest <<Request>> {
+    ReportNo : String
+    Report : MedicalReportVersionRequest
+    LaboratoryContent : LaboratoryReportContentRequest
+    ResultItems : LaboratoryResultItemRequest[]
+    BacterialResults : BacterialIdentificationResultRequest[]
+    PdfFileStream : ByteArray
+    OriginalPdfFileName : String?
+}
+class "检查报告专项内容请求" as ExaminationReportContentRequest <<Request>> {
+    SourceExaminationTypeCode : String?
+    SourceExaminationTypeName : String?
+    ReportRemark : Text?
+    Findings : Text
+    Conclusion : Text
+    OverallAbnormalFlag : String?
+    SourceDiagnosisCode : String?
+    SourceDiagnosisName : String
+    ConditionDescription : Text?
+    ExaminationPurpose : Text?
+    ExaminationTime : DateTime
+    ExaminationMethod : String?
+    DeviceCode : String?
+    DeviceName : String?
+    ExaminerId : String
+    ExaminerName : String
+    SourceImageStatus : SourceImageStatus
+    ImageAccessUrl : String?
+}
+class "检查项目请求" as ExaminationItemRequest <<Request>> {
+    SourceProjectName : String
+    SourceProjectCode : String?
+    StandardProjectCode : String?
+    Sites : ExaminationSiteRequest[]
+}
+class "检查部位请求" as ExaminationSiteRequest <<Request>> {
+    SourceSiteCode : String?
+    SiteName : String
+}
+class "检查报告完整版本请求" as ExaminationReportVersionRequest <<Request>> {
+    ReportNo : String
+    Report : MedicalReportVersionRequest
+    ExaminationContent : ExaminationReportContentRequest
+    ExaminationItems : ExaminationItemRequest[]
+    PdfFileStream : ByteArray
+    OriginalPdfFileName : String?
+}
+class "互认匹配拟开项目请求" as RecognitionMatchProposedItemRequest <<Request>> {
+    ItemType : MedicalItemType
+    StandardProjectCode : String
+}
+class "互认匹配查询响应" as RecognitionMatchesResponse <<Response>> {
+    RecognitionMatchRecordId : Guid?
+    RecognitionMatchRecordCreatedTime : DateTime?
+    Reports : RecognitionMatchReportResponse[]
+    Items : RecognitionMatchItemResponse[]
+}
+class "互认匹配报告响应" as RecognitionMatchReportResponse <<Response>> {
+    ReportId : Guid
+    ReportVersionId : Guid
+    SourceHospitalCode : String
+    SourceBranchCode : String
+    SourceReportName : String
+    ExaminationOrTestingTime : DateTime
+    ReportTime : DateTime
+    PdfFileId : String
+    PdfDownloadUrl : String
+    OriginalPdfFileName : String
+    SourceImageStatus : SourceImageStatus?
+    ImageAccessUrl : String?
+    LaboratoryContent : RecognitionMatchLaboratoryContentResponse?
+    ExaminationContent : RecognitionMatchExaminationContentResponse?
+}
+class "互认匹配项响应" as RecognitionMatchItemResponse <<Response>> {
+    RecognitionMatchItemId : Guid
+    ItemType : MedicalItemType
+    StandardProjectCode : String
+    ReportId : Guid
+    ReportVersionId : Guid
+    LaboratoryResults : RecognitionMatchLaboratoryResultResponse[]
+    ExaminationSites : RecognitionMatchExaminationSiteResponse[]
+}
+class "互认匹配检验内容响应" as RecognitionMatchLaboratoryContentResponse <<Response>> {
+    SpecimenTypeName : String
+}
+class "互认匹配检验结果响应" as RecognitionMatchLaboratoryResultResponse <<Response>> {
+    SourceProjectName : String
+    SourceResultText : Text
+    Unit : String?
+    ReferenceRange : Text?
+    AbnormalFlag : LaboratoryAbnormalFlag?
+    CriticalValueFlag : Boolean?
+}
+class "互认匹配检查内容响应" as RecognitionMatchExaminationContentResponse <<Response>> {
+    OverallAbnormalFlag : String?
+}
+class "互认匹配检查部位响应" as RecognitionMatchExaminationSiteResponse <<Response>> {
+    SiteName : String
+}
+class "互认匹配记录创建请求" as RecognitionMatchRecordCreateRequest <<InternalCommandRequest>> {
+    ReceiverOrganizationCode : String
+    ReceiverHospitalCode : String
+    ReceiverBranchCode : String
+    IdentityDocumentTypeCode : String
+    IdentityDocumentNo : String
+    VisitType : VisitType
+    VisitSerialNo : String
+    RecognitionMatchRecordCreatedTime : DateTime
+}
+class "匹配项创建请求" as RecognitionMatchItemCreateRequest <<InternalCommandRequest>> {
+    StandardProjectCode : String
+    ItemType : MedicalItemType
+    ReportId : Guid
+    ReportVersionId : Guid
+}
+class "互认处理结果项目请求" as RecognitionProcessingResultItemRequest <<Request>> {
+    RecognitionMatchItemId : Guid
+    RecognitionResult : RecognitionResult
+    NonAdoptionReason : RecognitionNonAdoptionReason?
+    NonAdoptionDescription : Text?
+}
+note right of RecognitionProcessingResultItemRequest
+    HIS 不提交 CurrentAmount 或 EstimatedSavingAmount。
+    平台仅在采纳结果首次成功保存时，按接收院区当前金额计算预计节省金额；
+    未配置金额按 0 元计算。
+end note
+class "互认处理结果提交请求" as RecognitionProcessingResultSubmitRequest <<Request>> {
+    RecognitionMatchRecordId : Guid
+    RecognitionTime : DateTime
+    RecognitionDeptId : String
+    RecognitionDeptName : String
+    RecognitionDoctorId : String
+    RecognitionDoctorName : String
+    Items : RecognitionProcessingResultItemRequest[]
+}
+class "互认引用项目请求" as RecognitionReferenceItemRequest <<Request>> {
+    RecognitionMatchItemId : Guid
+    ReferencedTime : DateTime
+    ReferenceDeptId : String
+    ReferenceDeptName : String
+    ReferenceDoctorId : String
+    ReferenceDoctorName : String
+}
+class "互认引用结果提交请求" as RecognitionReferenceSubmitRequest <<Request>> {
+    Items : RecognitionReferenceItemRequest[]
+}
+note right of RecognitionReferenceSubmitRequest
+    不提交 RecognitionMatchRecordId。
+    每个 RecognitionMatchItemId 全局唯一，平台据此反查所属匹配记录和已保存采纳结果。
+    同一请求允许混合不同匹配记录的项目，但整批校验并原子保存。
+end note
+class "互认处理结果事实" as RecognitionProcessingResultFact <<EventContract>> {
+    RecognitionMatchItemId : Guid
+    StandardProjectCode : String
+    RecognitionResult : RecognitionResult
+    EstimatedSavingAmount : Decimal(18,2)?
+}
+note right of RecognitionProcessingResultFact
+    EstimatedSavingAmount 是平台形成的采纳事实，不是请求输入。
+    同一请求幂等重试及后续金额调整均不重新计算。
+end note
+class "互认引用事实" as RecognitionReferenceFact <<EventContract>> {
+    RecognitionMatchItemId : Guid
+    StandardProjectCode : String
+    ReferencedTime : DateTime
+}
+LaboratoryReportVersionRequest --> MedicalReportVersionRequest : 包含
+LaboratoryReportVersionRequest --> LaboratoryReportContentRequest : 包含
+LaboratoryReportVersionRequest --> LaboratoryResultItemRequest : 包含多项
+LaboratoryReportVersionRequest --> BacterialIdentificationResultRequest : 包含多项
+BacterialIdentificationResultRequest --> DrugSusceptibilityResultRequest : 包含多项
+ExaminationReportVersionRequest --> MedicalReportVersionRequest : 包含
+ExaminationReportVersionRequest --> ExaminationReportContentRequest : 包含
+ExaminationReportVersionRequest --> ExaminationItemRequest : 包含多项
+ExaminationItemRequest --> ExaminationSiteRequest : 包含多项
+MedicalReportVersionWriteRequest --> MedicalReportVersionRequest : 映射
+RecognitionMatchesResponse --> RecognitionMatchReportResponse : 包含多项
+RecognitionMatchesResponse --> RecognitionMatchItemResponse : 包含多项
+RecognitionMatchReportResponse --> RecognitionMatchLaboratoryContentResponse : 检验时包含
+RecognitionMatchReportResponse --> RecognitionMatchExaminationContentResponse : 检查时包含
+RecognitionMatchItemResponse --> RecognitionMatchLaboratoryResultResponse : 检验时包含
+RecognitionMatchItemResponse --> RecognitionMatchExaminationSiteResponse : 检查时包含
+@enduml

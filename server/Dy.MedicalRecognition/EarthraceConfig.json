@@ -1,0 +1,38 @@
+{
+  "SqlMapConfigs": [
+    {
+      "Alias": "Default",
+      "Properties": {
+        "DbConnection": "Host=183.224.180.166;Port=15432;Username=postgres;Password=dysoft;Database=DysoftHIS"
+      },
+      "Settings": {
+        "IgnoreParameterCase": "true"
+      },
+      "Database": {
+        "DbProvider": {
+          "Name": "PostgreSql"
+        },
+        "Write": {
+          "Name": "WriteDB",
+          "ConnectionString": "${DbConnection}"
+        }
+      },
+      "Converters": [
+        {
+          "Name": "DelimiterConverter",
+          "IsDefault": true,
+          "Tokenizer": {
+            "Name": "Default",
+            "Properties": {
+              "Delimiter": "_",
+              "UppercaseSplit": false
+            }
+          },
+          "Converter": {
+            "Name": "Pascal"
+          }
+        }
+      ]
+    }
+  ]
+}

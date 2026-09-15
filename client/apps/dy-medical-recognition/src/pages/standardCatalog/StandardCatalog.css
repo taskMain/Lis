@@ -1,0 +1,18 @@
+.standard-catalog-page { min-width: 0; max-width: 100%; }
+.standard-catalog-header, .standard-catalog-section-header, .standard-catalog-list-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.standard-catalog-header { margin-bottom: 20px; }
+.standard-catalog-header h2.ant-typography, .standard-catalog-list-header h5.ant-typography, .standard-catalog-section-header h5.ant-typography { margin: 0; }
+.standard-catalog-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 20px; align-items: start; margin-top: 20px; }
+.standard-catalog-directory { min-width: 0; display: grid; gap: 12px; padding-right: 16px; border-right: 1px solid #e5e7eb; }
+.standard-catalog-list { min-width: 0; }
+.standard-catalog-tree-scroll { max-height: 560px; min-height: 160px; overflow: auto; }
+.standard-catalog-node { display: flex; align-items: center; gap: 4px; min-width: 0; min-height: 32px; }
+.standard-catalog-node-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.standard-catalog-node-actions { display: flex; flex: 0 0 56px; justify-content: flex-end; }
+.standard-catalog-node-actions .ant-btn { width: 28px; height: 28px; flex: none; }
+.standard-catalog-node .ant-tag { flex: none; margin-inline-end: 0; }
+.standard-catalog-filters { display: grid; grid-template-columns: minmax(120px, 190px) minmax(120px, 220px) minmax(180px, 220px) auto; gap: 8px; margin: 12px 0; }
+.standard-catalog-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 1100px) { .standard-catalog-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 960px) { .standard-catalog-layout { grid-template-columns: minmax(0, 1fr); } .standard-catalog-directory { padding: 0 0 16px; border-right: 0; border-bottom: 1px solid #e5e7eb; } .standard-catalog-tree-scroll { max-height: 320px; } }
+@media (max-width: 600px) { .standard-catalog-filters { grid-template-columns: minmax(0, 1fr) auto; } .standard-catalog-filters > .ant-input-affix-wrapper { grid-column: 1 / -1; } .standard-catalog-form-grid { grid-template-columns: 1fr; gap: 0; } }

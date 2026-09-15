@@ -1,0 +1,43 @@
+{
+  "name": "@dy/api-client-medical-recognition",
+  "version": "0.1.0",
+  "description": "检验检查结果互认平台 API Client（由 Kiota 从服务 OpenAPI 文档生成）",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "publishConfig": {
+    "registry": "http://192.168.1.19:4873/"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prepare-openapi": "node scripts/prepare-openapi.mjs",
+    "generate": "kiota generate -l typescript -d openapi/medical-recognition.openapi.json -o src --class-name MedicalRecognitionClient --exclude-path /auth/login",
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --clean --watch",
+    "typecheck": "tsc --noEmit",
+    "release": "pnpm build && pnpm publish"
+  },
+  "dependencies": {
+    "@dy/auth": "^0.1.39",
+    "@microsoft/kiota-abstractions": "1.0.0-preview.103",
+    "@microsoft/kiota-http-fetchlibrary": "1.0.0-preview.103",
+    "@microsoft/kiota-serialization-form": "1.0.0-preview.103",
+    "@microsoft/kiota-serialization-json": "1.0.0-preview.103",
+    "@microsoft/kiota-serialization-multipart": "1.0.0-preview.103",
+    "@microsoft/kiota-serialization-text": "1.0.0-preview.103"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.9.3"
+  }
+}

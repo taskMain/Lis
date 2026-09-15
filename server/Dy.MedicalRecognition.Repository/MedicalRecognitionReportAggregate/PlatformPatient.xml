@@ -1,0 +1,12 @@
+<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <Statements>
+    <Statement Id="PlatformPatientColumns">
+      id, identity_document_type_code, identity_document_no, patient_name, patient_gender_code, patient_birth_date, oper_id, oper_time
+    </Statement>
+    <Statement Id="QueryAllPlatformPatient">
+      select
+      <Include RefId="PlatformPatientColumns" />
+      from platform_patient
+    </Statement>
+  </Statements>
+</SqlMap>

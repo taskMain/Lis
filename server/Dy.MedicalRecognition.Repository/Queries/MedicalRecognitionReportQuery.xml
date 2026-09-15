@@ -1,0 +1,115 @@
+<SqlMap Scope="MedicalRecognitionReportQuery" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <Statements>
+    <!--
+      功能：查询标准项目分类列表，供标准项目目录维护界面按项目类型浏览分类。
+      结果：返回分类标识、项目类型、分类名称、启用状态、备注以及表示“是否存在下级分组”的派生列 usage_status，并按项目类型、分类名称、分类标识稳定排序；未传项目类型时返回全部类型。
+    -->
+    <Statement Id="QueryMedicalStandardCategoryList">
+      select
+        c.id as category_id,  <!-- 分类标识 -->
+        c.item_type,          <!-- 项目类型：0=检验、1=检查 -->
+        c.name,               <!-- 分类名称 -->
+        c.is_valid,           <!-- 是否启用 -->
+        c.remark,             <!-- 备注 -->
+        <!--
+          处理：用相关子查询判断该分类下是否已存在分组，存在记 1、不存在记 0。
+          原因：分类列表需要提示分类是否已被下级引用，但直接关联分组明细会造成结果行放大，因此改为只判断存在性。
+          结果：派生列 usage_status 映射 MedicalStandardUsageStatus（1=存在下级对象、0=没有下级对象），只表示是否存在下级分组，与分类自身是否启用无关，且包含已停用的分组。
+        -->
+        case when exists (select 1 from mrec_medical_standard_group g where g.category_id = c.id) then 1 else 0 end as usage_status
+      from mrec_medical_standard_category c
+      where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">c.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入项目类型时按项目类型（检验/检查）过滤 -->
+      order by c.item_type asc, c.name asc, c.id asc  <!-- 排序：按项目类型、分类名称、分类标识升序，保证同类型内顺序稳定 -->
+    </Statement>
+    <!--
+      功能：查询标准项目分组列表，供标准项目目录维护界面在指定分类下浏览分组。
+      结果：返回分组标识、所属分类标识、分组名称、启用状态、备注以及表示“是否存在下级标准项目”的派生列 usage_status，并按所属分类、分组名称、分组标识稳定排序；未传分类标识时返回全部分组。
+    -->
+    <Statement Id="QueryMedicalStandardGroupList">
+      select
+        g.id as group_id,     <!-- 分组标识 -->
+        g.category_id,        <!-- 所属分类标识 -->
+        g.name,               <!-- 分组名称 -->
+        g.is_valid,           <!-- 是否启用 -->
+        g.remark,             <!-- 备注 -->
+        <!--
+          处理：用相关子查询判断该分组下是否已存在标准项目，存在记 1、不存在记 0。
+          原因：分组列表需要提示分组是否已被下级引用，但直接关联标准项目明细会造成结果行放大，因此改为只判断存在性。
+          结果：派生列 usage_status 映射 MedicalStandardUsageStatus（1=存在下级对象、0=没有下级对象），只表示是否存在下级标准项目，与分组自身是否启用无关，且包含已停用的标准项目。
+        -->
+        case when exists (select 1 from mrec_medical_standard_item i where i.group_id = g.id) then 1 else 0 end as usage_status
+      from mrec_medical_standard_group g
+      where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+      <IsNotEmpty Prepend="and" Property="CategoryId">g.category_id = $CategoryId</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入所属分类时按所属分类过滤 -->
+      order by g.category_id asc, g.name asc, g.id asc  <!-- 排序：按所属分类、分组名称、分组标识升序，保证同分类内顺序稳定 -->
+    </Statement>
+    <!--
+      功能：查询标准项目列表，供标准项目目录维护界面按分类、分组、编码、名称和启用状态组合筛选标准项目。
+      结果：返回标准项目标识、所属分类标识、所属分组标识、项目类型、标准项目编码、标准项目名称、启用状态和备注，并按所属分类、所属分组、编码、标识稳定排序；各筛选条件均可为空，为空时不参与过滤。
+    -->
+    <Statement Id="QueryMedicalStandardItemList">
+      select
+        i.id as item_id,      <!-- 标准项目标识 -->
+        i.category_id,        <!-- 所属分类标识 -->
+        i.group_id,           <!-- 所属分组标识 -->
+        c.item_type,          <!-- 项目类型：取自所属分类，标准项目表不冗余保存该字段 -->
+        i.code,               <!-- 标准项目编码 -->
+        i.name,               <!-- 标准项目名称 -->
+        i.is_valid,           <!-- 是否启用 -->
+        i.remark              <!-- 备注 -->
+      from mrec_medical_standard_item i
+      <!-- 关联原因：标准项目表只保存分类标识，项目类型需要从所属分类取得，因此必须内联分类表 -->
+      join mrec_medical_standard_category c on c.id = i.category_id
+      where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+      <IsNotEmpty Prepend="and" Property="CategoryId">i.category_id = $CategoryId</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入所属分类时按所属分类过滤 -->
+      <IsNotEmpty Prepend="and" Property="GroupId">i.group_id = $GroupId</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入所属分组时按所属分组过滤 -->
+      <!--
+        处理：对用户输入的转义符 ! 先加倍，再将 % 转义为 !%、_ 转义为 !_，然后首尾拼接通配符并用 escape '!' 声明转义符。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符，使“字面包含”退化为任意模糊匹配，返回超出预期的标准项目。
+        结果：按标准项目编码做字面包含匹配，用户输入的通配符字符只作为普通字符参与比较。
+      -->
+      <IsNotEmpty Prepend="and" Property="Code">i.code like concat('%', replace(replace(replace($Code, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入编码时按标准项目编码做字面包含匹配 -->
+      <!--
+        处理：与编码筛选相同的转义方式，对用户输入做转义后按字面包含匹配标准项目名称。
+        原因：名称同样允许用户输入任意文本，不转义会使 % 和 _ 被当作通配符。
+        结果：按标准项目名称字面包含匹配，匹配范围不会被用户输入放大。
+      -->
+      <IsNotEmpty Prepend="and" Property="Name">i.name like concat('%', replace(replace(replace($Name, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入名称时按标准项目名称做字面包含匹配 -->
+      <IsNotEmpty Prepend="and" Property="IsValid">i.is_valid = $IsValid</IsNotEmpty>  <!-- 可选筛选：按启用状态过滤，未传入启用状态时同时返回启用与停用的标准项目 -->
+      order by i.category_id asc, i.group_id asc, i.code asc, i.id asc  <!-- 排序：按所属分类、所属分组、编码、标识升序，保证同一分组内顺序稳定 -->
+    </Statement>
+    <!--
+      功能：查询当前生效的标准医疗项目目录（三级均启用的分类、分组和标准项目），供识别业务读取可用的标准项目清单。
+      结果：返回项目类型、分类标识与名称、分组标识与名称、标准项目标识、编码、名称、备注和操作审计字段，并按项目类型、分类、分组、项目名称、项目标识稳定排序；只返回分类、分组和标准项目都处于启用态的记录。
+    -->
+    <Statement Id="QueryEffectiveMedicalStandardCatalog">
+      select
+        c.item_type,           <!-- 项目类型：0=检验、1=检查 -->
+        c.id as category_id,   <!-- 分类标识 -->
+        c.name as category_name,    <!-- 分类名称 -->
+        g.id as group_id,      <!-- 分组标识 -->
+        g.name as group_name,  <!-- 分组名称 -->
+        i.id as item_id,       <!-- 标准项目标识 -->
+        i.code,                <!-- 标准项目编码 -->
+        i.name,                <!-- 标准项目名称 -->
+        i.remark,              <!-- 备注 -->
+        i.oper_id,             <!-- 操作人标识 -->
+        i.oper_time            <!-- 操作时间 -->
+      from mrec_medical_standard_item i
+      join mrec_medical_standard_group g on g.id = i.group_id
+      <!-- 关联原因：标准项目必须归属到与自己同分类的分组；附加 c.id = g.category_id 可避免历史不一致数据把跨分类的分组纳入生效目录 -->
+      join mrec_medical_standard_category c on c.id = i.category_id and c.id = g.category_id
+      <!-- 生效范围：只保留标准项目、所属分组、所属分类三级都启用的记录，任一级停用即整个项目不可用 -->
+      where i.is_valid = true and g.is_valid = true and c.is_valid = true
+      <IsNotEmpty Prepend="and" Property="ItemType">c.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入项目类型时按项目类型（检验/检查）过滤 -->
+      <!--
+        处理：对用户输入的转义符 ! 先加倍，再将 % 转义为 !%、_ 转义为 !_，然后首尾拼接通配符并用 escape '!' 声明转义符。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符，使分类名称的“字面包含”匹配范围被放大。
+        结果：按分类名称做字面包含匹配，用户输入的通配符字符只作为普通字符参与比较。
+      -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">c.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入分类名称时按分类名称做字面包含匹配 -->
+      order by c.item_type asc, c.name asc, c.id asc, g.name asc, g.id asc, i.name asc, i.id asc  <!-- 排序：按项目类型、分类、分组、项目名称、标识逐级升序，保证目录输出层级稳定 -->
+    </Statement>
+  </Statements>
+</SqlMap>

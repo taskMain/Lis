@@ -1,0 +1,74 @@
+# Test Environment
+
+本文是项目运行环境与测试配置的唯一来源。测试流程见 [Testing](testing.md)，业务与工程入口见 [Project Context](project-context.md)。
+
+## 1. 环境值
+
+| 配置项 | 状态 | 使用前条件 |
+|---|---|---|
+| 子系统业务编码 | 待配置 | 负责人确认，不能由仓库名推断；宿主拦截命中键已确认是 `medical-recognition`（见第 4 节），两者不要混用 |
+| 宿主地址与登录页 | 已确认：`http://183.224.180.166:35000`，登录页 `/login`，开发设置页 `/dev-settings` | 宿主后端 API 在 `http://183.224.180.166:35001`（登录、菜单、子应用信息） |
+| 平台 Base API / OpenAPI | 本项目自身 OpenAPI 已确认：`http://localhost:5008/openapi/v1.json`；对外依赖的平台 Base API 仍待配置 | 后端启动后可用；Scalar 调试页在 `http://localhost:5008/scalar` |
+| 本地后端端口及 OpenAPI / Scalar 地址 | 已确认：`5008`；当前运行中 | 三处启动配置已一致指向 5008：`appsettings.json`、`appsettings.Development.json`、`Properties/launchSettings.json`（后者以 `ASPNETCORE_URLS` 形式生效，改端口时三者必须同步）。OpenAPI `http://localhost:5008/openapi/v1.json`，Scalar `http://localhost:5008/scalar` |
+| 前端开发端口、basename、宿主菜单与拦截命中键 | 已确认：端口 `3008`、basename `/subApps/medical-recognition`、宿主拦截命中键 `medical-recognition`；当前运行中 | 端口来源 `apps/dy-medical-recognition/vite.config.ts` 的 `server.port`；`base` 与 `redirectBasePlugin` 均为 `/subApps/medical-recognition/`；宿主菜单入口为「检验检查结果互认」；拦截配置见第 4 节，已于本轮验证生效 |
+| 测试辅助服务端口和公网接收地址（需要时） | 待配置 | 阶段明确用途，负责人确认目标 |
+| 测试账号、角色、组织、医院与院区范围 | 账号已确认：`yangkj`（宿主显示名 杨康健）；组织/医院/院区范围待按本轮登录返回登记 | 从宿主登录页进入，入口选「检验检查结果互认平台」；不使用其他系统身份 |
+| 测试密码和凭据获取方式 | 由负责人通过本轮会话提供，不写入仓库 | 使用负责人提供的安全渠道；报告只记录非敏感账号标识 |
+| 数据库 Provider、版本与测试连接 | 已确认：PostgreSQL，`183.224.180.166:15432` / 用户 `postgres` / 库 `DysoftHIS` | 与 `Dy.LisCenter` 的配置指向同一实例与库，不代表共用表；TCP 15432 为历史连通证据。连接配置保持不变，实际初始化另须确认目标数据库与 schema。V30 的数据库只读取证可使用负责人确认的 dbx MCP；不得通过 dbx 或其他通道写入、迁移或修改数据库。连接串落在 `server/Dy.MedicalRecognition/EarthraceConfig.json`，属被仓库根 `.gitignore` 覆盖的 `appsettings.Development.json` 之外的**受版本控制**文件 |
+| 平台表初始化目标 | 目标数据库与 schema 待负责人确认；独立新建 `mrec_` 物理表已确认 | 本平台尚未建表；先确认目标和本阶段最终 DDL，再由负责人执行，仅阶段 1 的 3 表，不提前创建后续 16 表 |
+| 外部系统地址 | 已确认并已配置 | 用户信息 / 组织信息 / 系统参数 / 字典 → `http://183.224.180.166:35001`；推送 → `http://183.224.180.166:35005`；文件服务 → `localhost:9333`。35001 与 35005 已验证 TCP 连通 |
+| 不使用的中间件 | 已确认不使用 | 本项目不用 MQ 和 Redis，`appsettings.Development.json` 中不配置 `RabbitMQ`、`DistributedLock`、`Caching` 节 |
+| .NET SDK 版本 | 已确认：`10.0.401` | `server/global.json` 已钉 `10.0.401`（`rollForward: latestPatch`）；早期生成值 `10.0.302` 本机未安装，已按负责人决策替换 |
+| Dy 框架包版本 | 已确认：`Dy.Apron.* 1.1.0.48`、`Dy.Earthrace* 1.0.0.60`、`Dy.Core.SourceGen 1.0.0.66`（负责人后续升级） | 生成器基准版本（`Dy.Apron.* 1.1.0.43`、`Dy.Earthrace* 1.0.0.54`、`Dy.Core.SourceGen 1.0.0.62`）不在本机缓存；先按负责人决策对齐到本机缓存版本使 restore/build 可用，负责人随后自行升级到当前值 |
+| 私有 NuGet 源访问 | 本机不可达，暂不需要 | `https://dysoft.vip/api/v4/projects/41/packages/nuget/index.json` DNS 解析失败；当前全部依赖由本机 NuGet 缓存满足，只需恢复访问以更新框架包 |
+| 浏览器、Profile、控制工具及可选调试端口 | 执行时选择 | 能完成当前验收并采集必要证据 |
+
+“待配置”不是可执行值。只在某操作确实依赖缺失配置时暂停该操作；不阻止独立的需求、设计、规范或不依赖环境的测试。不得回退到其他项目的地址、端口、编码、账号或组织标识。
+
+当前仍待配置的三项为：子系统业务编码、对外依赖的平台 Base API、按需启用的测试辅助服务；平台表实际初始化另须确认目标数据库与 schema，身份范围仍按本轮登录返回登记。宿主地址、前后端端口、拦截配置、测试账号与外部系统地址保留已登记值，使用前按本规范核实。
+
+2026-09-11 用户澄清：先前发现的 `medical_standard_category`、`medical_standard_group`、`medical_standard_item` 是归属未确认的既存对象，不是本平台共享或既有资源。历史观测保留于阶段 0，不作为平台已建表、旧表迁移或索引继承依据。平台独立新建 `mrec_` 表，实体名不加前缀；同库不等于同表，不改名、复制、转换或修改其他系统的对象与数据。初始化完成须由负责人确认后再开展依赖新表的集成测试。
+
+端口确认后统一同步工程启动配置与本表。启动、健康检查和联调核对本轮实际监听；端口冲突先识别进程归属，不擅自关闭其他项目服务或静默改用未同步端口。
+
+凭据可放在被忽略的 `.local/` 或通过安全渠道提供；规范只记录获取方式，不保存密码、完整 token 或认证对象。报告记录实际非敏感环境值，不复制凭据。
+
+当前数据库连接串含明文口令并写在受版本控制的 `server/Dy.MedicalRecognition/EarthraceConfig.json`，与 `Dy.LisCenter`、`Dy.MedicalStandardCatalog` 的做法一致（这两个项目同样把连接串写在该文件）。这是负责人本轮明确要求"数据库配置可以直接使用"的结果；如需改为占位符 + 本机私有配置，需负责人另行决策，不擅自改动。
+
+## 2. 登录与身份
+
+1. 正式页面验收从确认的宿主登录页登录，并从本项目实际菜单进入；本地直达不能代替宿主链路。
+2. 实际用户及可信组织上下文以本轮登录返回为准，不根据账号名称、历史记录或业务人员字段推断。
+3. 子系统业务编码与登录返回的运行时 ID 分开；医院业务科室/人员 ID 与权限系统登录主体分开，遵循本项目业务契约。
+4. 本地接口测试 token 入口只有在后端明确实现并经设计确认后才能使用；接口直测不替代宿主登录，不复制旧系统 token 请求或固定 ID。
+5. 不把本地 token 写入宿主认证存储，不复制宿主 token 到本地链路，不以修改认证信息绕过权限。
+
+## 3. 浏览器与 Profile
+
+1. 自行选择可用浏览器、Profile 和控制工具；允许复用专用测试 Profile 或使用临时会话，不固定路径，也不强制使用 CDP。
+2. 记录实际浏览器及版本、Profile 或会话标识、控制工具；调试端口仅在使用时记录。
+3. 验收前确认宿主登录、必要权限、本地开发资源来源和子应用加载正确。需要人工完成的权限授权由负责人处理，不绕过权限限制。
+4. 当前工具或 Profile 不可用时，可自行恢复或切换满足条件的替代环境，并重新核实前置条件；无法完成必要验收时才记录 `Blocked`。
+5. 内嵌浏览器不一概禁止，也不默认兼容；出现白屏、资源路径或沙箱问题时核对资源请求与错误，再选择可用环境。
+6. 不预写、复制或长期固化认证信息。只关闭本轮自行启动且已核实归属的进程或会话，不关闭用户或其他任务的浏览器。
+7. 持久测试 Profile 保留；本轮临时 Profile 仅在会话关闭、路径及归属核实后清理，不删除既有或来源不明的 Profile。
+
+## 4. 宿主开发地址拦截
+
+宿主拦截配置在开发设置页 `http://183.224.180.166:35000/dev-settings`，底层写入 localStorage `dy-web-micro:dev-url-intercepts`（数组，每项 `matchKey`/`origin`/`enabled`）与全局开关键 `dy-web-micro:dev-url-intercepts-enabled`。本项目映射：
+
+```json
+[{ "matchKey": "medical-recognition", "origin": "http://localhost:3008", "enabled": true }]
+```
+
+2026-09-10 本轮实际值：全局开关 `"true"`，映射行 `enabled: true`，两级均已启用。
+
+生效验证（配置后必做，不得凭页面能打开就认定生效）：在 Network 中确认子应用资源来自 `http://localhost:3008`（`@vite/client`、带 HMR 时间戳的 `src/*.tsx`），并在 Console 看到 `[vite] connected.`。只看到宿主 `183.224.180.166:35000/assets/*` 的资源即为拦截未生效。
+
+Vite 监听形态与 origin 匹配（本项目实测）：默认形态只监听 IPv6 `[::1]:3008`，因此 `http://localhost:3008` 可用、`http://127.0.0.1:3008` 连接被拒。origin 与实际监听不匹配时请求静默失败。
+
+只修改本项目映射，不执行 `localStorage.clear()` 或 `sessionStorage.clear()`，不修改任何 `dy-auth:*` 数据。
+
+## 5. 环境恢复
+
+先定位登录、权限、后端、前端监听、宿主菜单、资源来源和路由问题。可安全恢复的项目继续处理；只有缺少必要授权、配置或可用替代环境时才暂停受影响验证并记录原因。不得以接口成功、空列表、构建成功或历史截图替代实际页面验收。

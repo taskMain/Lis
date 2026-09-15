@@ -1,0 +1,92 @@
+<SqlMap Scope="MedicalStandardItem" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <Statements>
+    <!--
+      功能：定义标准医疗项目的通用查询字段清单，供按主键查询和全量查询语句复用。
+      结果：输出项目标识、所属分类标识、所属分组标识、标准项目编码、标准项目名称、启用状态、备注和操作审计字段，各字段业务含义见行内注释。
+    -->
+    <Statement Id="MedicalStandardItemColumns">
+      id,          <!-- 标准项目标识（主键） -->
+      category_id, <!-- 所属分类标识 -->
+      group_id,    <!-- 所属分组标识 -->
+      code,        <!-- 标准项目编码，全局唯一 -->
+      name,        <!-- 标准项目名称 -->
+      is_valid,    <!-- 是否启用 -->
+      remark,      <!-- 备注 -->
+      oper_id,     <!-- 操作人标识 -->
+      oper_time    <!-- 操作时间 -->
+    </Statement>
+    <!--
+      功能：查询标准医疗项目的全部记录，用于不区分启用状态地读取标准项目全量数据。
+      结果：返回标准项目的完整字段清单，不接收任何筛选参数，也没有显式排序，返回顺序由数据库决定、调用方不得依赖。
+    -->
+    <Statement Id="QueryAllMedicalStandardItem">
+      select
+      <Include RefId="MedicalStandardItemColumns" />
+      from mrec_medical_standard_item
+    </Statement>
+    <!--
+      功能：新增一条标准医疗项目，并归属到指定分类与分组下。
+      结果：写入项目标识、所属分类标识、所属分组标识、标准项目编码、标准项目名称、备注和操作审计字段；启用状态固定为启用、操作时间取数据库当前时间，均不接受请求参数。
+    -->
+    <Statement Id="CreateMedicalStandardItem">
+      insert into mrec_medical_standard_item (
+        id,           <!-- 标准项目标识（主键），由仓储在插入前生成 -->
+        category_id,  <!-- 所属分类标识 -->
+        group_id,     <!-- 所属分组标识 -->
+        code,         <!-- 标准项目编码，全局唯一 -->
+        name,         <!-- 标准项目名称 -->
+        is_valid,     <!-- 是否启用，新增固定写入 true -->
+        remark,       <!-- 备注 -->
+        oper_id,      <!-- 操作人标识 -->
+        oper_time     <!-- 操作时间，取数据库当前时间 -->
+      ) values ($Id, $CategoryId, $GroupId, $Code, $Name, true, $Remark, $OperId, current_timestamp)
+    </Statement>
+    <!--
+      功能：按标准项目标识修改该标准项目的备注，并记录本次操作人和操作时间。
+      结果：只影响主键命中的一行；编码、名称、所属分类、所属分组和启用状态均不在本语句的变更范围内。
+    -->
+    <Statement Id="ChangeMedicalStandardItemRemark">
+      update mrec_medical_standard_item set
+        remark = $Remark,               <!-- 备注 -->
+        oper_id = $OperId,              <!-- 操作人标识 -->
+        oper_time = current_timestamp   <!-- 操作时间，取数据库当前时间 -->
+      where id = $Id
+    </Statement>
+    <!--
+      功能：将指定标准医疗项目由停用改为启用，并记录本次操作人和操作时间。
+      结果：仅当该标准项目当前处于停用态时才更新；重复启用不产生额外更新、影响 0 行，调用方据此判定无需重复处理。
+    -->
+    <Statement Id="EnableMedicalStandardItem">
+      update mrec_medical_standard_item set
+        is_valid = true,                <!-- 是否启用，置为启用 -->
+        oper_id = $OperId,              <!-- 操作人标识 -->
+        oper_time = current_timestamp   <!-- 操作时间，取数据库当前时间 -->
+      where id = $Id and is_valid = false
+    </Statement>
+    <!--
+      功能：将指定标准医疗项目由启用改为停用，并记录本次操作人和操作时间。
+      结果：仅当该标准项目当前处于启用态时才更新；重复停用不产生额外更新、影响 0 行。
+    -->
+    <Statement Id="DisableMedicalStandardItem">
+      update mrec_medical_standard_item set
+        is_valid = false,               <!-- 是否启用，置为停用 -->
+        oper_id = $OperId,              <!-- 操作人标识 -->
+        oper_time = current_timestamp   <!-- 操作时间，取数据库当前时间 -->
+      where id = $Id and is_valid = true
+    </Statement>
+    <!--
+      功能：按标准项目标识读取单个标准医疗项目的完整信息，供修改备注、启用、停用前的存在性判断与业务校验使用。
+      结果：命中时返回一行标准项目字段清单，未命中时返回空结果；启用中的项目和已停用的项目都会被返回。
+    -->
+    <Statement Id="GetMedicalStandardItemById">
+      select <Include RefId="MedicalStandardItemColumns" /> from mrec_medical_standard_item where id = $Id
+    </Statement>
+    <!--
+      功能：统计与待校验编码相同的标准项目条数，用于新增标准项目前的编码查重。
+      结果：返回同编码条数（只计数、不返回明细），调用方以大于 0 判定编码已被占用；标准项目编码全局唯一，检验与检查之间不可重复，也不区分启用状态。
+    -->
+    <Statement Id="MedicalStandardItemCodeExists">
+      select count(1) from mrec_medical_standard_item where code = $Code
+    </Statement>
+  </Statements>
+</SqlMap>

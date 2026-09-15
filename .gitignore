@@ -205,6 +205,10 @@ PublishScripts/
 !client/packages/api-client-medical-standard-catalog/**
 !client/packages/api-client-lis-center/
 !client/packages/api-client-lis-center/**
+!client/packages/api-client-medical-recognition/
+!client/packages/api-client-medical-recognition/**
+client/packages/api-client-medical-recognition/dist/
+client/packages/api-client-medical-recognition/node_modules/
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
 # NuGet v3's project.json files produces more ignorable files
@@ -382,7 +386,20 @@ FodyWeavers.xsd
 .playwright-cli
 .codex-runtime
 .codex-temp
+.codex/*
+!.codex/agents/
+!.codex/agents/**
+.zcode/*
+!.zcode/agents/
+!.zcode/agents/**
+.local/
+.agents/*
+!.agents/instructions/
+!.agents/instructions/**
 参考/
+
+# dy-codegen 生成状态（可由 docs/uml 再生成；如需留存生成证据，删除下一行）
+.dy-codegen/
 
 # 内网穿透相关
 test_server\run_natapp.bat

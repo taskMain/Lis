@@ -1,587 +1,466 @@
-' 查询图：互认项目、项目编码对照和报告管理 UI 查询；同步已有对照仅生成页面预览，不形成持久化业务记录。
 @startuml MedicalRecognitionConfigurationUiQuery
 !include ddd_lib.puml
-
+' 管理端 UI 查询：标准目录、互认配置、金额和报告管理。
+' 所有查询最终读取唯一 MedicalRecognitionReportAggregate 的实体或其只读投影。
+' MedicalItemType、MedicalReportType 和 MedicalReportLifecycleStatus 只引用 1-MedicalRecognitionReport.wsd 的全局正式定义；本文件不重复定义。
 Person('PlatformAdministrator','平台管理员')
 Person('HospitalAdministrator','医院管理员')
-
-UserInterface('RecognitionProjectManagementModule','互认项目管理模块')
-UserInterface('RecognitionProjectMappingManagementModule','项目编码对照管理模块')
+UserInterface('MedicalRecognitionConfigurationModule','互认配置管理模块')
+UserInterface('MedicalStandardCatalogManagementModule','标准医疗项目目录管理模块')
+UserInterface('RecognitionAmountManagementModule','互认项目金额管理模块')
 UserInterface('MedicalReportManagementModule','报告管理模块')
 
-Enum('MedicalItemTypeEnum')[
-    医疗项目类型
-    --属性--
-    检验(Laboratory 1)
-    检查(Examination 2)
-]
-
-Enum('MutualRecognitionItemStatusEnum')[
-    互认项目启停状态
+Enum('ConfigurationStatusEnum')[
+    配置状态
     --属性--
     启用(Enabled 1)
     停用(Disabled 2)
 ]
 
-Enum('MutualRecognitionItemCatalogStatusEnum')[
-    互认项目标准目录状态
+Enum('MedicalStandardUsageStatusEnum')[
+    标准目录使用情况
     --属性--
-    标准项目有效(Effective 1)
-    标准项目不可用(Unavailable 2)
+    未使用(Unused 0)
+    已使用(InUse 1)
 ]
 
-Enum('BranchMedicalItemMappingStatusEnum')[
-    项目编码对照启停状态
+ReadModel('MedicalStandardCategoryListReadModel')[
+    标准医疗项目分类列表
     --属性--
-    启用(Enabled 1)
-    停用(Disabled 2)
-]
-
-Enum('MappingSynchronizationSourceEnum')[
-    对照同步来源
-    --属性--
-    检验协同(LaboratoryCollaboration 1)
-    检查协同(ExaminationCollaboration 2)
-]
-
-Enum('MappingComparisonStatusEnum')[
-    对照比对状态
-    --属性--
-    待补价格(PriceRequired 1)
-    对照一致(Matched 2)
-    对照不一致(CodeMismatch 3)
-    名称不一致(NameMismatch 4)
-    来源存在多个对照(MultipleSourceMappings 5)
-    来源系统当前未启用(SourceMappingInactive 6)
-    编码占用冲突(BranchItemCodeConflict 7)
-]
-
-Enum('MedicalReportTypeEnum')[
-    报告类型
-    --属性--
-    检验(Laboratory 1)
-    检查(Examination 2)
-]
-
-Enum('MedicalReportLifecycleStatusEnum')[
-    报告生命周期状态
-    --属性--
-    当前有效(CurrentEffective 1)
-    已作废(Voided 2)
-]
-
-Enum('MedicalReportVersionStatusEnum')[
-    报告版本状态
-    --属性--
-    当前版本(Current 1)
-    历史版本(Historical 2)
-]
-
-Enum('VisitTypeEnum')[
-    就诊类型
-    --属性--
-    门诊(Outpatient 1)
-    急诊(Emergency 2)
-    住院(Inpatient 3)
-    体检(PhysicalExam 4)
-    其他(Other 5)
-]
-
-Enum('LaboratoryResultTypeEnum')[
-    检验结果类型
-    --属性--
-    数值型(Numeric 1)
-    定性型(Qualitative 2)
-    文本型(Textual 3)
-]
-
-Enum('LaboratoryAbnormalFlagEnum')[
-    检验异常标志
-    --属性--
-    正常(Normal 1)
-    偏高(High 2)
-    偏低(Low 3)
-    其他异常(OtherAbnormal 4)
-]
-
-Enum('BacterialDetectionStatusEnum')[
-    细菌检出状态
-    --属性--
-    检出(Detected 1)
-    未检出(NotDetected 2)
-]
-
-Enum('SourceImageStatusEnum')[
-    来源影像状态
-    --属性--
-    有影像(Available 1)
-    无影像(None 2)
-    未知(Unknown 3)
-]
-
-ReadModel('RecognitionProjectReadModel')[
-    互认项目列表项
-    --属性--
-    ID(Id Guid)
-    标准项目编码(StandardMedicalItemCode String)
-    标准项目名称(StandardMedicalItemName String)
+    分类ID(CategoryId Guid)
     项目类型(ItemType MedicalItemType)
-    标准项目类别名称(StandardCategoryName String?)
-    标准项目分组名称(StandardGroupName String?)
+    分类名称(Name String)
+    是否启用(IsValid Boolean)
+    备注(Remark String?)
+    使用情况(UsageStatus MedicalStandardUsageStatus)
+]
+ReadModel('MedicalStandardGroupListReadModel')[
+    标准医疗项目分组列表
+    --属性--
+    分组ID(GroupId Guid)
+    分类ID(CategoryId Guid)
+    分组名称(Name String)
+    是否启用(IsValid Boolean)
+    备注(Remark String?)
+    使用情况(UsageStatus MedicalStandardUsageStatus)
+]
+ReadModel('MedicalStandardItemListReadModel')[
+    标准医疗项目列表
+    --属性--
+    标准项目ID(ItemId Guid)
+    分类ID(CategoryId Guid)
+    分组ID(GroupId Guid)
+    项目类型(ItemType MedicalItemType)
+    标准项目编码(Code String)
+    标准项目名称(Name String)
+    是否启用(IsValid Boolean)
+    备注(Remark String?)
+]
+Query('QueryMedicalStandardCategoryList')[
+    查询标准医疗项目分类列表
+    --入参--
+    项目类型(ItemType MedicalItemType?)
+]
+Query('QueryMedicalStandardGroupList')[
+    查询标准医疗项目分组列表
+    --入参--
+    分类ID(CategoryId Guid?)
+]
+Query('QueryMedicalStandardItemList')[
+    查询标准医疗项目列表
+    --入参--
+    分类ID(CategoryId Guid?)
+    分组ID(GroupId Guid?)
+    项目编码(Code String?)
+    项目名称(Name String?)
+    是否启用(IsValid Boolean?)
+]
+
+ReadModel('EffectiveMedicalStandardCatalogReadModel')[
+    当前有效标准医疗项目目录
+    --属性--
+    类型目录(ItemTypes EffectiveMedicalStandardCatalogTypeReadModel)
+]
+ReadModel('EffectiveMedicalStandardCatalogTypeReadModel')[
+    当前有效项目类型目录
+    --属性--
+    项目类型(ItemType MedicalItemType)
+    分类目录(Categories EffectiveMedicalStandardCatalogCategoryReadModel)
+]
+ReadModel('EffectiveMedicalStandardCatalogCategoryReadModel')[
+    当前有效项目分类目录
+    --属性--
+    分类名称(CategoryName String)
+    分组目录(Groups EffectiveMedicalStandardCatalogGroupReadModel)
+]
+ReadModel('EffectiveMedicalStandardCatalogGroupReadModel')[
+    当前有效项目分组目录
+    --属性--
+    分组名称(GroupName String)
+    项目明细(Items EffectiveMedicalStandardCatalogItemReadModel)
+]
+ReadModel('EffectiveMedicalStandardCatalogItemReadModel')[
+    当前有效项目明细
+    --属性--
+    标准项目编码(Code String)
+    标准项目名称(Name String)
+    备注(Remark String?)
+    操作人(OperId Guid)
+    操作时间(OperTime DateTimeOffset)
+]
+Query('QueryEffectiveMedicalStandardCatalog')[
+    查询当前有效标准医疗项目目录
+    --入参--
+    项目类型(ItemType MedicalItemType?)
+    分类名称(CategoryName String?)
+]
+
+
+ReadModel('RecognitionProjectConfigurationReadModel')[
+    标准项目互认配置列表
+    --属性--
+    互认配置ID(ConfigurationId Guid)
+    标准项目编码(StandardProjectCode String)
+    标准项目名称(StandardItemName String)
+    项目类型(ItemType MedicalItemType)
+    分类名称(CategoryName String)
+    分组名称(GroupName String)
     可互认时间天数(RecognitionDurationDays Integer)
-    启停状态(Status MutualRecognitionItemStatus)
-    标准目录状态(CatalogStatus MutualRecognitionItemCatalogStatus)
-    创建人(CreatedOperatorName String)
-    创建时间(CreatedTime DateTime)
-    修改人(LastOperatorName String)
-    修改时间(LastOperTime DateTime)
-    --规则--
-    1.类型、类别和分组来自当前标准项目目录
-    2.可互认时间只允许最小为一的正整数天
-    3.互认项目不返回全县统一价格
+    配置状态(ConfigurationStatus ConfigurationStatus)
+    当前不可用原因(UnavailableReason String?)
 ]
-
-ReadModel('RecognitionProjectCandidateReadModel')[
-    可选标准医疗项目
+ReadModel('RecognitionAmountReadModel')[
+    医院院区互认项目金额
     --属性--
-    标准项目编码(StandardMedicalItemCode String)
-    标准项目名称(StandardMedicalItemName String)
-    项目类型(ItemType MedicalItemType)
-    标准项目类别名称(StandardCategoryName String?)
-    标准项目分组名称(StandardGroupName String?)
-    是否最细层项目(IsLeafItem Boolean)
-    是否已选为互认项目(IsSelected Boolean)
-    --规则--
-    1.只返回当前有效目录中的最细层项目
-]
-
-ReadModel('MappingSynchronizationCandidateReadModel')[
-    对照同步候选项
-    --属性--
-    同步来源(Source MappingSynchronizationSource)
-    本院项目编码(BranchMedicalItemCode String)
-    本院项目名称(BranchMedicalItemName String)
-]
-
-ReadModel('RecognitionProjectMappingReadModel')[
-    项目编码对照列表项
-    --属性--
-    对照ID(MappingId Guid?)
-    互认项目ID(RecognitionProjectId Guid)
+    组织编码(OrganizationCode String)
     医院编码(HospitalCode String)
     院区编码(BranchCode String)
+    标准项目编码(StandardProjectCode String)
+    标准项目名称(StandardProjectName String)
     项目类型(ItemType MedicalItemType)
-    标准项目类别名称(StandardCategoryName String?)
-    标准项目分组名称(StandardGroupName String?)
-    互认项目编码(StandardMedicalItemCode String)
-    互认项目名称(StandardMedicalItemName String)
-    本院项目编码(BranchMedicalItemCode String?)
-    本院项目名称(BranchMedicalItemName String?)
-    当前价格(CurrentPrice Decimal(18,2)?)
-    可互认时间天数(RecognitionDurationDays Integer)
-    启停状态(Status BranchMedicalItemMappingStatus?)
-    备注(Remarks Text?)
-    比对状态(ComparisonStatuses MappingComparisonStatus[])
-    同步候选(SynchronizationCandidates MappingSynchronizationCandidateReadModel[])
-    创建人(CreatedOperatorName String?)
-    创建时间(CreatedTime DateTime?)
-    修改人(LastOperatorName String?)
-    修改时间(LastOperTime DateTime?)
-    --规则--
-    1.医院用户范围来自可信登录上下文，平台管理员按权限查询
-    2.当前价格允许零，不允许负数或超过两位小数
-    3.可互认时间只读，来源于互认项目
+    分类名称(CategoryName String)
+    分组名称(GroupName String)
+    互认配置状态(ConfigurationStatus ConfigurationStatus)
+    当前不可用原因(UnavailableReason String?)
+    当前金额(CurrentAmount Decimal)
+    金额已配置(IsAmountConfigured Boolean)
+    最后修改时间(LastModifiedTime DateTime)
+    最后修改人(LastModifiedBy String)
+]
+note right of RecognitionProjectConfigurationReadModel
+  UnavailableReason 仅表达标准目录停用原因，不表达配置自身停用。
+  多层停用按分类、分组、标准项目顺序返回一个原因。
+  文案为“所属分类已停用”“所属分组已停用”“标准项目已停用”。
+  目录全部启用时返回 null。
+end note
+note right of MedicalRecognitionConfigurationModule
+  平台管理员可选择可信范围内的组织；
+  医院管理员只使用可信上下文允许的所属组织。
+  菜单与接口操作授权由外部权限系统负责，不在本模块重复建设。
+end note
+Query('QueryRecognitionProjectConfigurationList')[
+    查询标准项目互认配置
+    --入参--
+    组织编码(OrganizationCode String)
+    标准项目编码(StandardProjectCode String?)
+    配置状态(ConfigurationStatus ConfigurationStatus?)
+]
+Query('QueryRecognitionAmountList')[
+    查询医院院区互认项目金额
+    --入参--
+    组织编码(OrganizationCode String)
+    医院编码(HospitalCode String)
+    院区编码(BranchCode String)
+    标准项目编码(StandardProjectCode String?)
 ]
 
-ReadModel('MappingSynchronizationSourceResultReadModel')[
-    单一协同来源同步结果
-    --属性--
-    同步来源(Source MappingSynchronizationSource)
-    是否成功(IsSuccessful Boolean)
-    失败说明(FailureMessage Text?)
-]
-
-ReadModel('MappingSynchronizationPreviewReadModel')[
-    同步已有对照页面预览
-    --属性--
-    来源结果(SourceResults MappingSynchronizationSourceResultReadModel[])
-    预览行(PreviewRows RecognitionProjectMappingReadModel[])
-    成功数量(SuccessCount Integer)
-    失败数量(FailureCount Integer)
-    一致数量(MatchedCount Integer)
-    冲突数量(ConflictCount Integer)
-    跳过数量(SkippedCount Integer)
-    --规则--
-    1.预览只在当前页面使用，不创建待确认记录、同步历史或项目编码对照
-    2.任一来源失败不清空另一来源结果或页面已有数据
-    3.同步不得覆盖尚未保存的人工编辑
-]
-
-ReadModel('MedicalReportResponsiblePersonReadModel')[
-    报告版本责任人员
-    --属性--
-    责任角色(RoleName String)
-    人员ID(PersonId Guid)
-    人员名称(PersonName String)
-]
-
-ReadModel('MedicalReportListItemReadModel')[
-    报告管理列表项
+ReadModel('MedicalReportListReadModel')[
+    报告列表
     --属性--
     报告ID(ReportId Guid)
-    来源医院编码(SourceHospitalCode String)
-    来源院区编码(SourceBranchCode String)
+    组织编码(OrganizationCode String)
+    医院编码(HospitalCode String)
+    院区编码(BranchCode String)
     报告类型(ReportType MedicalReportType)
     报告单号(ReportNo String)
-    来源报告名称(SourceReportName String)
-    患者姓名(PatientName String)
     报告时间(ReportTime DateTime)
-    当前版本序号(CurrentVersionNumber Integer)
-    报告生命周期状态(LifecycleStatus MedicalReportLifecycleStatus)
+    生命周期状态(Status MedicalReportLifecycleStatus)
 ]
-
-ReadModel('MedicalReportVersionSummaryReadModel')[
-    报告历史版本列表项
+Query('QueryMedicalReportList')[
+    查询报告列表
+    --入参--
+    组织编码(OrganizationCode String?)
+    医院编码(HospitalCode String?)
+    院区编码(BranchCode String?)
+    开始时间(StartTime DateTime?)
+    结束时间(EndTime DateTime?)
+    报告类型(ReportType MedicalReportType?)
+    报告单号(ReportNo String?)
+    证件号码(IdentityDocumentNo String?)
+    患者姓名(PatientName String?)
+]
+ReadModel('MedicalReportVersionListReadModel')[
+    报告历史版本列表
     --属性--
     报告版本ID(ReportVersionId Guid)
-    内部版本序号(VersionNumber Integer)
+    平台内部版本序号(VersionSequence Integer)
     源端报告修改时间(SourceModifiedTime DateTime)
-    平台接收时间(ReceivedTime DateTime)
-    版本状态(VersionStatus MedicalReportVersionStatus)
-    PDF文件标识(PdfFileId String)
+    平台接收时间(PlatformReceivedTime DateTime)
+    报告责任人员(ResponsibleStaff Text)
+    来源报告备注(SourceReportRemark Text)
     PDF文件名(PdfFileName String)
-    报告责任人员(ResponsiblePersons MedicalReportResponsiblePersonReadModel[])
-    --规则--
-    1.按平台成功形成顺序展示，不展示医院未提交的更正原因或版本变更原因
-    2.报告已作废由报告生命周期状态表达，不伪造作废内容版本
+    是否当前有效版本(IsCurrentVersion Boolean)
+    是否已被后续版本替代(IsSuperseded Boolean)
+    报告生命周期状态(ReportStatus MedicalReportLifecycleStatus)
 ]
-
-ReadModel('MedicalReportHistoryReadModel')[
-    报告历史版本
-    --属性--
+Query('QueryMedicalReportVersionList')[
+    查询报告历史版本列表
+    --入参--
     报告ID(ReportId Guid)
-    来源医院编码(SourceHospitalCode String)
-    来源院区编码(SourceBranchCode String)
+]
+ReadModel('MedicalReportVersionDetailQueryReadModel')[
+    报告版本详情
+    --属性--
     报告类型(ReportType MedicalReportType)
     报告单号(ReportNo String)
-    报告生命周期状态(LifecycleStatus MedicalReportLifecycleStatus)
-    当前版本ID(CurrentVersionId Guid)
-    作废时间(VoidedTime DateTime?)
-    作废原因(VoidReason Text?)
-    历史版本(Versions MedicalReportVersionSummaryReadModel[])
-    --规则--
-    1.只读返回全部版本，不提供修改、删除、恢复、重新设为当前版本或重新启用能力
-]
-
-ReadModel('DrugSusceptibilityHistoryReadModel')[
-    药敏结果历史详情
-    --属性--
-    来源明细标识(SourceDetailKey String?)
-    受试药物编码(DrugCode String?)
-    受试药物名称(DrugName String)
-    药敏代码(SusceptibilityCode String?)
-    来源结论文字(SourceConclusionText Text)
-    抗药结果代码(ResistanceResultCode String?)
-    纸片含药量(DiskContent String?)
-    最小抑菌浓度(MicValue String?)
-    抑菌环直径(InhibitionZoneDiameter String?)
-    参考值(ReferenceValue String?)
-    展示序号(DisplayOrder Integer)
-    检测方法(TestingMethod String?)
-    试验板序号(TestPanelOrder String?)
-    检测人名称(InspectorName String?)
-    明细审核人名称(ItemReviewerName String?)
-]
-
-ReadModel('BacterialIdentificationHistoryReadModel')[
-    细菌鉴定历史详情
-    --属性--
-    来源明细标识(SourceDetailKey String?)
-    检出状态(DetectionStatus BacterialDetectionStatus)
-    来源菌种编码(SourceOrganismCode String?)
-    来源菌种名称(SourceOrganismName String?)
-    来源结果文字(SourceResultText Text)
-    菌落计数(ColonyCount String?)
-    培养基(CultureMedium String?)
-    培养时间(CultureTime String?)
-    培养条件(CultureCondition String?)
-    发现方式(DetectionMethod String?)
-    检测结论(DetectionConclusion Text)
-    详细描述(Description Text?)
-    仪器编号(InstrumentCode String?)
-    仪器名称(InstrumentName String?)
-    试验板编号(TestPanelCode String?)
-    试验板名称(TestPanelName String?)
-    检测人名称(InspectorName String?)
-    明细审核人名称(ItemReviewerName String?)
-    药敏结果(DrugSusceptibilityResults DrugSusceptibilityHistoryReadModel[])
-]
-
-ReadModel('LaboratoryResultHistoryReadModel')[
-    普通检验结果历史详情
-    --属性--
-    来源明细标识(SourceDetailKey String?)
-    院内项目编码(HospitalItemCode String)
-    院内项目名称(HospitalItemName String)
-    互认项目编码(RecognitionItemCode String?)
-    互认项目名称(RecognitionItemName String?)
-    来源结果原文(SourceResultText Text)
-    结果类型(ResultType LaboratoryResultType)
-    LOINC编码(LoincCode String?)
-    单位(Unit String?)
-    参考范围(ReferenceRange Text?)
-    检测方法(TestingMethod String?)
-    仪器编号(InstrumentCode String?)
-    仪器名称(InstrumentName String?)
-    展示序号(DisplayOrder Integer)
-    来源检验收费项目编码(LaboratoryChargeItemCode String?)
-    医保收费项目编码(InsuranceChargeItemCode String?)
-    异常标志(AbnormalFlag LaboratoryAbnormalFlag?)
-    危急值标志(CriticalValueFlag Boolean?)
-    检测人名称(InspectorName String?)
-    明细审核人名称(ItemReviewerName String?)
-]
-
-ReadModel('LaboratoryReportVersionContentReadModel')[
-    检验报告版本完整内容
-    --属性--
-    报告类别编码(ReportCategoryCode String?)
-    报告类别名称(ReportCategoryName String?)
-    报告备注(ReportRemark Text?)
-    整体异常标识(OverallAbnormalFlag String?)
-    来源医嘱流水号(SourceOrderSerialNo String?)
-    院内标本号(SourceSpecimenNo String)
-    标本类型编码(SpecimenTypeCode String)
-    标本类型名称(SpecimenTypeName String)
-    标本采集时间(SpecimenCollectedTime DateTime?)
-    标本送检时间(SpecimenSubmittedTime DateTime?)
-    检验科接收时间(LaboratoryReceivedTime DateTime?)
-    检测完成时间(TestingCompletedTime DateTime)
-    检验人名称(InspectorName String)
-    普通检验结果(ResultItems LaboratoryResultHistoryReadModel[])
-    细菌鉴定结果(BacterialResults BacterialIdentificationHistoryReadModel[])
-]
-
-ReadModel('ExaminationSiteHistoryReadModel')[
-    检查部位历史详情
-    --属性--
-    来源部位编码(SourceSiteCode String?)
-    部位名称(SiteName String)
-]
-
-ReadModel('ExaminationItemHistoryReadModel')[
-    检查项目历史详情
-    --属性--
-    院内项目编码(HospitalItemCode String)
-    院内项目名称(HospitalItemName String)
-    互认项目编码(RecognitionItemCode String?)
-    互认项目名称(RecognitionItemName String?)
-    检查部位(Sites ExaminationSiteHistoryReadModel[])
-]
-
-ReadModel('ExaminationReportVersionContentReadModel')[
-    检查报告版本完整内容
-    --属性--
-    来源检查类型编码(SourceExaminationTypeCode String?)
-    来源检查类型名称(SourceExaminationTypeName String?)
-    报告备注(ReportRemark Text?)
-    检查所见(Findings Text)
-    检查结论(Conclusion Text)
-    整体异常标识(OverallAbnormalFlag String?)
-    来源临床诊断编码(SourceDiagnosisCode String?)
-    来源临床诊断名称(SourceDiagnosisName String)
-    病情描述(ConditionDescription Text?)
-    检查目的(ExaminationPurpose Text?)
-    实际检查时间(ExaminationTime DateTime)
-    检查方法(ExaminationMethod String?)
-    设备编号(DeviceCode String?)
-    设备名称(DeviceName String?)
-    检查医生名称(ExaminerName String)
-    来源影像状态(SourceImageStatus SourceImageStatus)
-    影像调阅地址(ImageAccessUrl String?)
-    检查项目(ExaminationItems ExaminationItemHistoryReadModel[])
-]
-
-ReadModel('MedicalReportVersionDetailReadModel')[
-    报告历史版本完整详情
-    --属性--
-    报告ID(ReportId Guid)
     报告版本ID(ReportVersionId Guid)
-    内部版本序号(VersionNumber Integer)
-    报告类型(ReportType MedicalReportType)
-    来源报告名称(SourceReportName String)
+    平台内部版本序号(VersionSequence Integer)
+    源端报告修改时间(SourceModifiedTime DateTime)
+    平台接收时间(PlatformReceivedTime DateTime)
+    报告责任人员(ResponsibleStaff Text)
+    来源报告备注(SourceReportRemark Text)
+    报告内容(Content MedicalReportVersionContentReadModel)
+    PDF文件(File MedicalReportVersionPdfQueryReadModel)
+]
+ReadModel('MedicalReportVersionContentReadModel')[
+    完整结构化报告内容
+    --属性--
+    报告公共信息(Common ReportVersionCommonReadModel)
+    检验报告内容(LaboratoryContent LaboratoryReportContentReadModel)
+    检查报告内容(ExaminationContent ExaminationReportContentReadModel)
+]
+ReadModel('ReportVersionCommonReadModel')[
+    报告公共信息
+    --属性--
     患者姓名(PatientName String)
     患者性别代码(PatientGenderCode String)
     患者出生日期(PatientBirthDate DateTime)
+    患者联系电话(PatientPhoneNumber String)
+    报告时年龄(AgeAtReport String)
     证件类型代码(IdentityDocumentTypeCode String)
     证件号码(IdentityDocumentNo String)
-    患者联系电话(PatientPhoneNumber String?)
-    报告时年龄(AgeAtReport String?)
     就诊类型(VisitType VisitType)
-    院内就诊流水号(VisitSerialNo String)
-    住院号(InpatientNo String?)
-    病区(WardName String?)
-    病房(RoomName String?)
-    床位(BedNo String?)
+    就诊流水号(VisitSerialNo String)
+    来源报告名称(SourceReportName String)
+    申请科室ID(ApplicationDeptId String)
     申请科室名称(ApplicationDeptName String)
+    申请医生ID(ApplicationDoctorId String)
     申请医生名称(ApplicationDoctorName String)
+    执行科室ID(ExecutionDeptId String)
     执行科室名称(ExecutionDeptName String)
+    报告科室ID(ReportDeptId String)
     报告科室名称(ReportDeptName String)
+    报告医生ID(ReportDoctorId String)
     报告医生名称(ReportDoctorName String)
+    审核医生ID(ReviewDoctorId String)
     审核医生名称(ReviewDoctorName String)
+    审核时间(ReviewTime DateTime)
+    住院号(InpatientNo String)
+    病区名称(WardName String)
+    病房名称(RoomName String)
+    床位号(BedNo String)
     申请时间(ApplicationTime DateTime)
     报告时间(ReportTime DateTime)
-    审核时间(ReviewTime DateTime?)
-    源端报告修改时间(SourceModifiedTime DateTime)
-    平台接收时间(ReceivedTime DateTime)
-    来源保密标识(SourceConfidentialFlag String?)
-    版本状态(VersionStatus MedicalReportVersionStatus)
-    PDF文件标识(PdfFileId String)
-    PDF文件名(PdfFileName String)
-    检验报告内容(LaboratoryContent LaboratoryReportVersionContentReadModel?)
-    检查报告内容(ExaminationContent ExaminationReportVersionContentReadModel?)
-    --规则--
-    1.检验与检查专项内容互斥，并完整返回所选不可变版本的结构化内容
+    来源保密标识(SourceConfidentialFlag String)
 ]
-
-ReadModel('MedicalReportVersionPdfReadModel')[
-    报告历史版本 PDF 下载
+ReadModel('LaboratoryReportContentReadModel')[
+    检验报告结构化内容
     --属性--
-    PDF文件标识(PdfFileId String)
-    PDF文件名(PdfFileName String)
-    内容类型(ContentType String)
-    --规则--
-    1.文件内容通过 application/pdf 响应体流返回，不写入业务 JSON 或转换为 Base64
+    报告类别编码(ReportCategoryCode String)
+    报告类别名称(ReportCategoryName String)
+    报告备注(ReportRemark Text)
+    整体异常标识(OverallAbnormalFlag String)
+    来源医嘱流水号(SourceOrderSerialNo String)
+    标本采集时间(SpecimenCollectedTime DateTime)
+    标本送检时间(SpecimenSubmittedTime DateTime)
+    检验科接收时间(LaboratoryReceivedTime DateTime)
+    院内标本号(SourceSpecimenNo String)
+    标本类型编码(SpecimenTypeCode String)
+    标本类型名称(SpecimenTypeName String)
+    检测完成时间(TestingCompletedTime DateTime)
+    检验人ID(InspectorId String)
+    检验人名称(InspectorName String)
+    普通检验结果(Results LaboratoryResultReadModel)
+    细菌鉴定结果(BacteriaResults LaboratoryBacteriaResultReadModel)
+    药敏结果(Susceptibilities LaboratorySusceptibilityReadModel)
 ]
-
-Query('QueryRecognitionProjectList')[
-    查询互认项目列表
-    --入参--
-    项目关键字(ProjectKeyword String?)
-    项目类型(ItemType MedicalItemType?)
-    启停状态(Status MutualRecognitionItemStatus?)
-    标准目录状态(CatalogStatus MutualRecognitionItemCatalogStatus?)
+ReadModel('LaboratoryResultReadModel')[
+    普通检验结果
+    --属性--
+    来源明细标识(SourceDetailKey String)
+    来源项目名称(SourceProjectName String)
+    来源项目编码(SourceProjectCode String)
+    互认项目编码(StandardProjectCode String)
+    来源结果原文(SourceResultText Text)
+    结果类型(ResultType LaboratoryResultType)
+    LOINC编码(LoincCode String)
+    单位(Unit String)
+    参考范围(ReferenceRange Text)
+    检测方法(TestingMethod String)
+    检测仪器编码(InstrumentCode String)
+    检测仪器名称(InstrumentName String)
+    展示序号(DisplayOrder Integer)
+    异常标志(AbnormalFlag String)
+    危急值标志(CriticalValueFlag Boolean)
+    检验收费项目编码(LaboratoryChargeItemCode String)
+    医保收费项目编码(InsuranceChargeItemCode String)
+    检测人ID(InspectorId String)
+    检测人名称(InspectorName String)
 ]
-
-Query('QueryRecognitionProjectCandidates')[
-    查询可选标准医疗项目
-    --入参--
-    项目关键字(ProjectKeyword String?)
-    项目类型(ItemType MedicalItemType?)
-    标准项目类别编码(StandardCategoryCode String?)
-    标准项目分组编码(StandardGroupCode String?)
-    --规则--
-    1.页面进入和手动刷新时读取当前完整目录
-    2.目录获取失败或不完整时保留既有标准目录状态
+ReadModel('LaboratoryBacteriaResultReadModel')[
+    细菌鉴定结果
+    --属性--
+    来源明细标识(SourceDetailKey String)
+    来源菌种编码(SourceOrganismCode String)
+    来源菌种名称(SourceOrganismName String)
+    来源结果原文(SourceResultText Text)
+    检测结论(DetectionConclusion Text)
+    菌落计数(ColonyCount String)
+    培养基(CultureMedium String)
+    培养时间(CultureTime String)
+    培养条件(CultureCondition String)
+    发现方式(DiscoveryMethod String)
+    检测方法(DetectionMethod String)
+    详细描述(Description Text)
+    检测仪器编码(InstrumentCode String)
+    检测仪器名称(InstrumentName String)
+    试验板编码(TestPanelCode String)
+    试验板名称(TestPanelName String)
+    检测人ID(InspectorId String)
+    检测人名称(InspectorName String)
 ]
-
-Query('QueryRecognitionProjectMappingList')[
-    查询项目编码对照列表
-    --入参--
-    医院编码(HospitalCode String?)
-    院区编码(BranchCode String?)
-    项目关键字(ProjectKeyword String?)
-    项目类型(ItemType MedicalItemType?)
-    启停状态(Status BranchMedicalItemMappingStatus?)
-    比对状态(ComparisonStatus MappingComparisonStatus?)
-    --规则--
-    1.医院管理员查询范围由可信登录上下文和权限确定
-    2.平台管理员按权限跨机构只读查询并可异常停用
+ReadModel('LaboratorySusceptibilityReadModel')[
+    药敏结果
+    --属性--
+    来源明细标识(SourceDetailKey String)
+    受试药物编码(DrugCode String)
+    受试药物名称(DrugName String)
+    药敏结论编码(SusceptibilityCode String)
+    来源结论(SourceConclusionText Text)
+    抗药结果编码(ResistanceResultCode String)
+    纸片含药量(DiskContent String)
+    MIC(MicValue String)
+    抑菌圈直径(InhibitionZoneDiameter String)
+    参考值(ReferenceValue String)
+    展示序号(DisplayOrder Integer)
+    检测人ID(InspectorId String)
+    检测人名称(InspectorName String)
+    检测方法(TestingMethod String)
+    试验板序号(TestPanelOrder String)
 ]
-
-Query('PreviewExistingProjectMappings')[
-    预览同步已有对照
-    --入参--
-    当前页面编辑行(CurrentEditedRows [RecognitionProjectId Guid, BranchMedicalItemCode String?, BranchMedicalItemName String?, CurrentPrice Decimal(18,2)?, Remark String?][])
-    --规则--
-    1.医院和院区只由可信登录上下文解析
-    2.同时读取检验协同和检查协同的当前启用对照
-    3.只生成页面预填、比对、冲突和汇总结果，不保存项目编码对照或同步历史
+ReadModel('ExaminationReportContentReadModel')[
+    检查报告结构化内容
+    --属性--
+    来源检查类型编码(SourceExaminationTypeCode String)
+    来源检查类型名称(SourceExaminationTypeName String)
+    报告备注(ReportRemark Text)
+    整体异常标识(OverallAbnormalFlag String)
+    检查所见(Findings Text)
+    检查结论(Conclusion Text)
+    病情描述(ConditionDescription Text)
+    检查目的(ExaminationPurpose Text)
+    来源诊断编码(SourceDiagnosisCode String)
+    来源诊断名称(SourceDiagnosisName String)
+    实际检查时间(ExaminationTime DateTime)
+    检查医生ID(ExaminerId String)
+    检查医生名称(ExaminerName String)
+    来源影像状态(SourceImageStatus SourceImageStatus)
+    影像调阅地址(ImageAccessUrl String)
+    检查方法(ExaminationMethod String)
+    设备编码(DeviceCode String)
+    设备名称(DeviceName String)
+    检查项目(Items ExaminationItemReadModel)
 ]
-
-Query('GetMedicalReportHistory')[
-    获取报告历史版本
+ReadModel('ExaminationItemReadModel')[
+    检查项目
+    --属性--
+    来源项目名称(SourceProjectName String)
+    来源项目编码(SourceProjectCode String)
+    互认项目编码(StandardProjectCode String)
+    检查部位(Sites ExaminationSiteReadModel)
+]
+ReadModel('ExaminationSiteReadModel')[
+    检查部位
+    --属性--
+    部位名称(SiteName String)
+    来源部位编码(SourceSiteCode String)
+]
+Query('GetMedicalReportVersionDetail')[
+    获取报告版本详情
     --入参--
     报告ID(ReportId Guid)
-    --规则--
-    1.医院管理员直接按可信登录上下文查看本医院及有权院区，不新增报告查看权限
-    2.平台管理员按既有数据范围查看，其他医院不得越权查看来源医院报告
-    3.历史版本只读，不改变报告或版本业务有效性
-]
-
-Query('QueryMedicalReportList')[
-    查询报告管理列表
-    --入参--
-    来源医院编码(SourceHospitalCode String?)
-    来源院区编码(SourceBranchCode String?)
-    报告类型(ReportType MedicalReportType?)
-    报告单号(ReportNo String?)
-    --规则--
-    1.医院管理员的医院和院区范围来自可信登录上下文，不新增报告查看权限
-    2.平台管理员按既有数据范围查询，其他医院不得越权查看来源报告
-]
-
-Query('GetMedicalReportVersionDetail')[
-    获取报告历史版本完整详情
-    --入参--
     报告版本ID(ReportVersionId Guid)
-    --规则--
-    1.沿用报告历史查看的数据范围校验，只返回指定不可变版本的完整结构化内容
-    2.不提供自动差异比较、编辑、删除、恢复或重新启用
 ]
-
-Query('DownloadMedicalReportVersionPdf')[
-    下载报告历史版本 PDF
+ReadModel('MedicalReportVersionPdfQueryReadModel')[
+    报告版本PDF
+    --属性--
+    文件标识(FileId String)
+    文件名(FileName String)
+    PDF下载入口(PdfDownloadUrl String)
+]
+Query('GetMedicalReportVersionPdf')[
+    获取报告版本PDF
     --入参--
+    报告ID(ReportId Guid)
     报告版本ID(ReportVersionId Guid)
-    --规则--
-    1.沿用报告历史查看的数据范围校验并使用该版本保存的 PDF 文件名
-    2.医院 HIS 不使用本查询，在线业务只使用当前有效版本
-    3.直接以 application/pdf 文件流返回，不暴露平台存储地址
 ]
+note right of EffectiveMedicalStandardCatalogReadModel
+  ItemTypes、Categories、Groups、Items 均表示层级集合。
+end note
+note right of MedicalReportVersionContentReadModel
+  LaboratoryContent 与 ExaminationContent 按报告类型二选一。
+  Results、BacteriaResults、Susceptibilities、Items、Sites 均表示集合。
+  版本详情同时返回该版本完整结构化内容及对应 PDF 文件信息。
+end note
+note right of MedicalReportManagementModule
+  权限系统负责接口操作授权；本模块不重复判断操作权限。
+  报告列表、历史版本列表、版本详情和PDF查询仅按可信组织、医院、院区业务归属返回数据。
+  报告列表的开始时间和结束时间按报告时间过滤。
+  来源项目名称和来源项目编码仅在完整报告详情中只读展示，不作为查询筛选条件，也不参与匹配、业务判定、金额、统计或导出。
+  医院 HIS 不通过本模块查询或下载历史版本。
+end note
+note right of RecognitionAmountManagementModule
+  金额查询只返回组织级互认配置已存在的标准项目；金额未配置时 IsAmountConfigured=false，当前金额无业务值；最后修改时间和最后修改人无业务值。
+end note
+note right of MedicalReportManagementModule
+  源端报告修改时间、报告责任人员和来源报告备注在来源未提供时无业务值。
+end note
 
-Aggregate('MedicalRecognitionReportAggregate','互认报告')
-
-' 关系集中后置；Query 只直连一个主 ReadModel，子 ReadModel 仅由主模型字段引用。
-PlatformAdministrator --> QueryRecognitionProjectList
-PlatformAdministrator --> QueryRecognitionProjectCandidates
-PlatformAdministrator --> QueryRecognitionProjectMappingList
-HospitalAdministrator --> QueryRecognitionProjectMappingList
-HospitalAdministrator --> PreviewExistingProjectMappings
-PlatformAdministrator --> QueryMedicalReportList
-PlatformAdministrator --> GetMedicalReportHistory
-PlatformAdministrator --> GetMedicalReportVersionDetail
-PlatformAdministrator --> DownloadMedicalReportVersionPdf
-HospitalAdministrator --> GetMedicalReportHistory
-HospitalAdministrator --> GetMedicalReportVersionDetail
-HospitalAdministrator --> DownloadMedicalReportVersionPdf
-HospitalAdministrator --> QueryMedicalReportList
-
-RecognitionProjectManagementModule --> QueryRecognitionProjectList
-RecognitionProjectManagementModule --> QueryRecognitionProjectCandidates
-RecognitionProjectMappingManagementModule --> QueryRecognitionProjectMappingList
-RecognitionProjectMappingManagementModule --> PreviewExistingProjectMappings
-MedicalReportManagementModule --> GetMedicalReportHistory
+PlatformAdministrator --> MedicalRecognitionConfigurationModule
+HospitalAdministrator --> MedicalRecognitionConfigurationModule
+PlatformAdministrator --> MedicalStandardCatalogManagementModule
+PlatformAdministrator --> RecognitionAmountManagementModule
+PlatformAdministrator --> MedicalReportManagementModule
+HospitalAdministrator --> RecognitionAmountManagementModule
+HospitalAdministrator --> MedicalReportManagementModule
+MedicalStandardCatalogManagementModule --> QueryMedicalStandardCategoryList
+MedicalStandardCatalogManagementModule --> QueryMedicalStandardGroupList
+MedicalStandardCatalogManagementModule --> QueryMedicalStandardItemList
+MedicalRecognitionConfigurationModule --> QueryEffectiveMedicalStandardCatalog
+MedicalRecognitionConfigurationModule --> QueryRecognitionProjectConfigurationList
+RecognitionAmountManagementModule --> QueryRecognitionAmountList
 MedicalReportManagementModule --> QueryMedicalReportList
+MedicalReportManagementModule --> QueryMedicalReportVersionList
 MedicalReportManagementModule --> GetMedicalReportVersionDetail
-MedicalReportManagementModule --> DownloadMedicalReportVersionPdf
-
-QueryRecognitionProjectList .. RecognitionProjectReadModel
-QueryRecognitionProjectCandidates .. RecognitionProjectCandidateReadModel
-QueryRecognitionProjectMappingList .. RecognitionProjectMappingReadModel
-PreviewExistingProjectMappings .. MappingSynchronizationPreviewReadModel
-QueryMedicalReportList .. MedicalReportListItemReadModel
-GetMedicalReportHistory .. MedicalReportHistoryReadModel
-GetMedicalReportVersionDetail .. MedicalReportVersionDetailReadModel
-DownloadMedicalReportVersionPdf .. MedicalReportVersionPdfReadModel
-
-QueryRecognitionProjectList .. MedicalRecognitionReportAggregate
-QueryRecognitionProjectCandidates .. MedicalRecognitionReportAggregate
-QueryRecognitionProjectMappingList .. MedicalRecognitionReportAggregate
-PreviewExistingProjectMappings .. MedicalRecognitionReportAggregate
-QueryMedicalReportList .. MedicalRecognitionReportAggregate
-GetMedicalReportHistory .. MedicalRecognitionReportAggregate
-GetMedicalReportVersionDetail .. MedicalRecognitionReportAggregate
-DownloadMedicalReportVersionPdf .. MedicalRecognitionReportAggregate
-
+MedicalReportManagementModule --> GetMedicalReportVersionPdf
+QueryMedicalStandardCategoryList .. MedicalStandardCategoryListReadModel
+QueryMedicalStandardGroupList .. MedicalStandardGroupListReadModel
+QueryMedicalStandardItemList .. MedicalStandardItemListReadModel
+QueryEffectiveMedicalStandardCatalog .. EffectiveMedicalStandardCatalogReadModel
+QueryRecognitionProjectConfigurationList .. RecognitionProjectConfigurationReadModel
+QueryRecognitionAmountList .. RecognitionAmountReadModel
+QueryMedicalReportList .. MedicalReportListReadModel
+QueryMedicalReportVersionList .. MedicalReportVersionListReadModel
+GetMedicalReportVersionDetail .. MedicalReportVersionDetailQueryReadModel
+GetMedicalReportVersionPdf .. MedicalReportVersionPdfQueryReadModel
 @enduml

@@ -1,0 +1,141 @@
+/**
+ * 标准项目目录维护页面原型的样式。
+ *
+ * 仅服务于一次性页面形态比对，不是生产样式，生产实现不沿用本文件。
+ */
+
+.sc-proto-page {
+  padding: 16px;
+}
+
+.sc-proto-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sc-proto-page__desc {
+  margin: 8px 0 12px;
+}
+
+/* ---------- 目录节点 ---------- */
+
+.sc-proto__node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sc-proto__node-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-proto__node-actions {
+  display: none;
+  align-items: center;
+  gap: 0;
+}
+
+.sc-proto__node:hover .sc-proto__node-actions {
+  display: inline-flex;
+}
+
+.sc-proto__tree-scroll {
+  max-height: 460px;
+  overflow: auto;
+}
+
+/* ---------- 分栏 ---------- */
+
+.sc-proto__split {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.sc-proto__split--c {
+  grid-template-columns: 260px minmax(420px, 1fr);
+}
+
+.sc-proto__list-panel,
+.sc-proto__tree-panel {
+  min-width: 0;
+}
+
+/* ---------- 变体 B：目录卡片 ---------- */
+
+.sc-proto__cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sc-proto__category-card {
+  flex: 1 1 300px;
+  min-width: 300px;
+  padding: 10px 12px;
+  border: 1px solid #dfe3ea;
+  border-radius: 6px;
+  background: #fbfcfe;
+}
+
+.sc-proto__category-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.sc-proto__group-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sc-proto__group-tag {
+  cursor: pointer;
+  margin: 0;
+  user-select: none;
+}
+
+.sc-proto__group-tag.is-selected {
+  border-color: #1677ff;
+  color: #1677ff;
+  background: #e6f4ff;
+}
+
+/* ---------- 变体 B：行内备注 ---------- */
+
+.sc-proto__inline-remark {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+/* ---------- 原型切换条 ---------- */
+
+.prototype-switcher {
+  position: fixed;
+  z-index: 1000;
+  left: 50%;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid #d8dde6;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: #475569;
+  white-space: nowrap;
+}

@@ -1,0 +1,12 @@
+<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <Statements>
+    <Statement Id="LaboratoryAntimicrobialSusceptibilityColumns">
+      id, bacteria_result_id, source_detail_key, drug_code, drug_name, susceptibility_code, source_conclusion_text, resistance_result_code, disk_content, mic_value, inhibition_zone_diameter, reference_value, display_order, inspector_id, inspector_name, testing_method, test_panel_order, oper_id, oper_time
+    </Statement>
+    <Statement Id="QueryAllLaboratoryAntimicrobialSusceptibility">
+      select
+      <Include RefId="LaboratoryAntimicrobialSusceptibilityColumns" />
+      from laboratory_antimicrobial_susceptibility
+    </Statement>
+  </Statements>
+</SqlMap>

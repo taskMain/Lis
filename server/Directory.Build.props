@@ -1,0 +1,21 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <Company>dysoft</Company>
+    <Authors>Architecture Team</Authors>
+    <NoWarn>$(NoWarn);NU1507;NETSDK1201;PRI257</NoWarn>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)bin\NugetPacks</PackageOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Dy.CompileToolkit.Version" Condition="'$(IsPackable)'!='false'">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <IntegratedDebug>true</IntegratedDebug>
+  </PropertyGroup>
+</Project>

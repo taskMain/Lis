@@ -1,0 +1,12 @@
+<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <Statements>
+    <Statement Id="ExaminationReportContentColumns">
+      id, report_version_id, source_examination_type_code, source_examination_type_name, report_remark, overall_abnormal_flag, findings, conclusion, condition_description, examination_purpose, source_diagnosis_code, source_diagnosis_name, examination_time, examiner_id, examiner_name, source_image_status, image_access_url, examination_method, device_code, device_name, oper_id, oper_time
+    </Statement>
+    <Statement Id="QueryAllExaminationReportContent">
+      select
+      <Include RefId="ExaminationReportContentColumns" />
+      from examination_report_content
+    </Statement>
+  </Statements>
+</SqlMap>

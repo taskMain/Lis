@@ -1,0 +1,12 @@
+<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <Statements>
+    <Statement Id="MedicalRecognitionReportColumns">
+      id, organization_code, hospital_code, branch_code, report_type, report_no, patient_id, current_version_id, status, voided_time, void_reason, oper_id, oper_time
+    </Statement>
+    <Statement Id="QueryAllMedicalRecognitionReport">
+      select
+      <Include RefId="MedicalRecognitionReportColumns" />
+      from medical_recognition_report
+    </Statement>
+  </Statements>
+</SqlMap>

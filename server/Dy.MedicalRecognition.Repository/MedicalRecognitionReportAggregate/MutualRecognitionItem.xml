@@ -1,0 +1,34 @@
+<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <Statements>
+    <Statement Id="MutualRecognitionItemColumns">
+      id, organization_code, standard_item_id, standard_project_code, recognition_duration_days, is_valid, oper_id, oper_time
+    </Statement>
+    <Statement Id="QueryAllMutualRecognitionItem">
+      select
+      <Include RefId="MutualRecognitionItemColumns" />
+      from mutual_recognition_item
+    </Statement>
+    <Statement Id="CreateMutualRecognitionItem">
+      insert into mutual_recognition_item (id, organization_code, standard_item_id, standard_project_code, recognition_duration_days, is_valid, oper_id, oper_time) values ($Id, $OrganizationCode, $StandardItemId, $StandardProjectCode, $RecognitionDurationDays, $IsValid, $OperId, current_timestamp)
+    </Statement>
+    <Statement Id="UpdateMutualRecognitionItemConfiguration">
+      update mutual_recognition_item
+      <Set>
+        <IsNotEmpty Prepend="," Property="RecognitionDurationDays">
+          recognition_duration_days = $RecognitionDurationDays
+        </IsNotEmpty>
+        <IsNotEmpty Prepend="," Property="OperId">
+          oper_id = $OperId
+        </IsNotEmpty>
+        oper_time = current_timestamp
+      </Set>
+      where id = $Id
+    </Statement>
+    <Statement Id="EnableMutualRecognitionItem">
+      update mutual_recognition_item set is_valid = true, oper_id = $OperId, oper_time = current_timestamp where id = $Id
+    </Statement>
+    <Statement Id="DisableMutualRecognitionItem">
+      update mutual_recognition_item set is_valid = false, oper_id = $OperId, oper_time = current_timestamp where id = $Id
+    </Statement>
+  </Statements>
+</SqlMap>

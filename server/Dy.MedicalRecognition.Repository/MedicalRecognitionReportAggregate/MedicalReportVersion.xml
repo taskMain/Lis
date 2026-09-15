@@ -1,0 +1,12 @@
+<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <Statements>
+    <Statement Id="MedicalReportVersionColumns">
+      id, report_id, patient_id, version_number, source_report_name, patient_name, patient_gender_code, patient_birth_date, patient_phone_number, age_at_report, identity_document_type_code, identity_document_no, visit_type, visit_serial_no, application_dept_id, application_dept_name, application_doctor_id, application_doctor_name, execution_dept_id, execution_dept_name, report_dept_id, report_dept_name, report_doctor_id, report_doctor_name, review_doctor_id, review_doctor_name, review_time, inpatient_no, ward_name, room_name, bed_no, application_time, report_time, source_modified_time, received_time, pdf_file_id, pdf_file_name, source_confidential_flag, oper_id, oper_time
+    </Statement>
+    <Statement Id="QueryAllMedicalReportVersion">
+      select
+      <Include RefId="MedicalReportVersionColumns" />
+      from medical_report_version
+    </Statement>
+  </Statements>
+</SqlMap>

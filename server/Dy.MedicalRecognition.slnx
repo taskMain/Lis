@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/解决方案项/">
+    <File Path=".editorconfig" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Build.targets" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="NuGet.config" />
+    <File Path="Readme.md" />
+  </Folder>
+  <Project Path="Dy.MedicalRecognition/Dy.MedicalRecognition.csproj" />
+  <Project Path="Dy.MedicalRecognition.Application/Dy.MedicalRecognition.Application.csproj" />
+  <Project Path="Dy.MedicalRecognition.Application.Contracts/Dy.MedicalRecognition.Application.Contracts.csproj" />
+  <Project Path="Dy.MedicalRecognition.Domain/Dy.MedicalRecognition.Domain.csproj" />
+  <Project Path="Dy.MedicalRecognition.Domain.Share/Dy.MedicalRecognition.Domain.Share.csproj" />
+  <Project Path="Dy.MedicalRecognition.Repository/Dy.MedicalRecognition.Repository.csproj" />
+  <Project Path="Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj" />
+</Solution>

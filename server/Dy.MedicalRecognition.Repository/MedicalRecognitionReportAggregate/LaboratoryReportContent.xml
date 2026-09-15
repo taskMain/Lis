@@ -1,0 +1,12 @@
+<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <Statements>
+    <Statement Id="LaboratoryReportContentColumns">
+      id, report_version_id, report_category_code, report_category_name, report_remark, overall_abnormal_flag, source_order_serial_no, specimen_collected_time, specimen_submitted_time, laboratory_received_time, source_specimen_no, specimen_type_code, specimen_type_name, testing_completed_time, inspector_id, inspector_name, oper_id, oper_time
+    </Statement>
+    <Statement Id="QueryAllLaboratoryReportContent">
+      select
+      <Include RefId="LaboratoryReportContentColumns" />
+      from laboratory_report_content
+    </Statement>
+  </Statements>
+</SqlMap>

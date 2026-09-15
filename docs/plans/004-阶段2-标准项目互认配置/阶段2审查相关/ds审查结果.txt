@@ -1,0 +1,176 @@
+# 阶段 2 标准项目互认配置 审查结果（全量复审）
+
+审查对象（当前版本，本轮全部重新读取）：
+阶段正式文档 `design.md`、`impl.md`、`testReport.md`、`讨论内容.md`、`Server/design.md`、`Server/impl.md`、`Client/design.md`、`Client/impl.md`、`Client/testPlan.md`；任务切分 `阶段2-Tickets/` 下 `README.md` 与 01–08 共 8 份工单。
+
+依据：`AGENTS.md`、`.agents/instructions/`（`planning-and-evidence.md`、`testing.md`、`testing-baseline.md`、`backend-design-gates.md`、`backend-command-query-event.md`、`backend-architecture.md`、`dy-framework-workunit.md`、`frontend-api-client.md`、`project-context.md`）、`docs/plans/001-总体计划/`、`docs/需求规约SRS.md`、`docs/uml/`、`CONTEXT.md`、阶段 1 已确立的查询作用域约定（S1-D6），以及 `server/` 实际生成代码与配置。
+
+工单格式基准：`to-tickets` 技能的本地工单模板与切片规则（`# <NN>: 标题`、`**What to build:**`、`**Blocked by:**`、`**Status:**`、验收勾选项；规则含"每个切片纵向贯穿各层"、"完成的切片必须可独立演示或验证"、"每个切片适配单个上下文窗口"）。
+
+范围说明：按负责人要求，本轮不评估阶段 1 的实施进度、收口结论或作用域探测状态——阶段 1 正在实施，其内容不是最终状态。报告只审查阶段 2 自身的一致性、完整性与可实施性；涉及阶段 1 之处仅为"阶段 2 应如何表述尚未定论的依赖"。
+
+本轮为上一份同名结果的全量替换：已清空旧内容，结论只基于本轮读取到的文档与代码事实，不保留、不混引前轮已修复项。
+
+---
+
+## 问题
+
+### [Medium] `Server/design.md` 的 scope 要求未区分写侧与查询侧，与查询链、阶段 1 约定及工单 04/05 的职责划分不一致
+
+- 位置：`Server/design.md:136`；对照同文件 `:75`（查询链）、`:119`（脚本位置）；`阶段2-Tickets/04-...md:14`、`05-...md:12`。
+- 证据：`:136` 写"SqlMap 的 `Scope` 和每个 DataMapper 调用点统一改为 `MutualRecognitionItem`，不调用 `SetContext`"，未限定语句范围。而 `:75` 的查询链写的是 `MedicalRecognitionReportQueryRepository` / `MedicalRecognitionReportQuery.xml`。实际代码一致：`server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs:10` 为 `SqlScope = "MedicalRecognitionReportQuery"`，`Repository/Queries/MedicalRecognitionReportQuery.xml:1` 为 `Scope="MedicalRecognitionReportQuery"`，写侧 `Repository/MedicalRecognitionReportAggregate/MutualRecognitionItem.xml:1` 为 `Scope="MedicalRecognitionReport"`。阶段 1 的 S1-D6 已确认"查询使用独立 scope、不挤进实体仓储"（阶段 1 `design.md:179`、`:220`），并把"把查询挤进实体仓储"列入已否决备选（`design.md:257`）。工单侧本轮已按写/查询分开：`04:14`"查询语句归入既有查询 SqlMap，使用独立查询 scope `MedicalRecognitionReportQuery`；不得放入互认项目实体 SqlMap"，`05:12`"仅写入、修改和启停语句使用 `MutualRecognitionItem` 实体 scope……查询语句和查询 scope 由 Ticket 04 负责"。
+- 冲突或风险：与 S1-D6 及阶段 1 已否决备选冲突；同时工单已修正而设计文档未同步，形成设计与实施分解之间的口径分叉。
+- 影响：按 `:136` 字面实施会把查询语句与写语句统一到实体 scope，违反已确认约定，并使 V23（"实际查找键与注册键一致"）在查询侧失去判定基准。
+- 最小修正：把 `:136` 限定为"写入、修改和启停语句使用 `MutualRecognitionItem` 实体 scope"；查询语句与查询 scope 明确归既有查询 SqlMap，与 `04:14`、`05:12` 及 `:75` 的查询链一致。
+
+### [Medium] 工单集与三份 `impl.md` 批次表并存为两套工作分解，未声明权威，且工单目录未被阶段入口登记
+
+- 位置：`impl.md:5-12`、`Server/impl.md:13-21`、`Client/impl.md:5-9`、`阶段2-Tickets/README.md:3`、`docs/plans/README.md:14`。
+- 证据：`impl.md`（mtime 2026-09-14 16:37，本轮未更新）仍保留批次 1–6 及"主责与文件所有权""矩阵编号""执行状态"列；`Server/impl.md` 保留 B1–B5；`Client/impl.md` 保留 F1–F3。工单侧新增 `README.md:3`"这些任务票是阶段2的执行分解"。两者矩阵分配已出现差异：`impl.md` 批次 3 为"V12-V14、V19-V21"而工单 04 为"V12-V14、V19-V23"；`impl.md` 批次 1 为"V21-V24"而工单 01 为"V11、V16、V21-V24"。全仓库检索 `阶段2-Tickets` 在 `design.md`、`impl.md`、`testReport.md`、`docs/plans/README.md` 及 `.agents/instructions/` 中均无命中。
+- 冲突或风险：与 `planning-and-evidence.md` 第 3 节定义的阶段文档组成（根 `design.md`/`impl.md`/`testReport.md` + `Server/`/`Client/`）不一致，该规范未涵盖工单目录，也未说明它与 `impl.md` 批次的关系；两处都自称执行分解，执行时以谁为准无依据。
+- 影响：批次与工单的矩阵分配差异会导致证据统计口径不一致；收口时难以核对"计划内批次是否全部完成"。
+- 最小修正：声明单一权威（`impl.md` 批次表引用工单集，或每张工单标注其对应的 `impl.md` 批次号）；在 `docs/plans/README.md` 的 004 行登记工单集位置；统一两处的矩阵编号分配。
+
+### [Medium] 根 `impl.md` 批次状态与 `Server/impl.md`、`testReport.md` 对同一批用例给出不同状态
+
+- 位置：`impl.md:8-9`；`Server/impl.md:16-17`；`testReport.md:19-21`。
+- 证据：`impl.md` 批次 2 覆盖"V1-V11、V15-V16、V26-V27"且状态为整批 `Blocked`，批次 3 同为 `Blocked`；`Server/impl.md` 的 B2 覆盖面相同，状态为"NotRun；依赖未确认组织/事件机制的实现Blocked，其余独立契约静态工作可推进"，B3 同形；`testReport.md:19` 把 `V1、V3、V4、V6、V8、V9、V16、V21` 记为 `NotRun`，`:20` 只把 `V11、V19、V22、V27` 记为 `Blocked`。
+- 冲突或风险：与 `testing-baseline.md` 第 3 节状态定义冲突——`Blocked` 指"环境、权限、数据或外部依赖阻止执行"，`NotRun` 指"尚未执行规定验证"，同一用例不能同时成立。
+- 影响：同一用例在根文档为 `Blocked`、在报告为 `NotRun`；批次状态无法用于判断"该批次现在能做什么"，排期与交接会得出相反结论。
+- 最小修正：根 `impl.md` 批次 2/3 状态改为 `NotRun`，并在前置条件或范围中写明"依赖 S2-D12/S2-D13 的实现部分 `Blocked`"，与 `Server/impl.md` 现有表述和 `testReport.md` 的分组一致。
+
+### [Medium] V26 在 `testReport.md` 的阻断归因与其声明的前置不一致
+
+- 位置：`testReport.md:21`；`Server/design.md:181`（V26 前置）、`:151`、`:114`。
+- 证据：V26 预期为"无交错反向操作时仅1行状态变化、只登记一次事件……"，其前置数据列显式包含"V24观察点"；`Server/design.md:151` 写"V26要取得事件观察/计数证据，不能仅凭最终状态推断一次事件"；`:114` 说明"V24当前为 `Blocked`：实际入口调度和可控观察点未核实"。`testReport.md:21` 却把 V26 并入"数据库及混合静态/真实验证"行，未覆盖面只写"未取得本阶段目标/schema及负责人建表确认"。
+- 冲突或风险：与 `testing.md` 第 7 节"未覆盖面"应说明真实阻断原因的要求冲突——同一用例被两条不同前置阻断，却只记录一条。
+- 影响：建表确认完成后 V26 仍不可执行（事件计数依赖 V24 观察点），而报告会显示其阻断条件已满足。
+- 最小修正：在 `testReport.md` 的 V26 行补注"S2-D13/V24 事件观察点未核实"；或在 `Server/design.md` 把 V26 拆为"条件更新与 0 行复读（可随建表执行）"与"事件计数（依赖 V24 观察点）"并分别列出。
+
+### [Medium] 工单 `README.md:11` 的"不执行目标数据库写入"与 08 的真实写入验证冲突
+
+- 位置：`阶段2-Tickets/README.md:11`；`阶段2-Tickets/08-...md:11`。
+- 证据：`README.md:11` 写"Ticket 01、Ticket 05 和 Ticket 08 不执行目标数据库写入；目标库/schema和建表由负责人确认并执行"。而 `08:11` 的验收项为"验证真实写入、回读、唯一约束、条件启停、跨组织拒绝和目录停用行为"；`testing.md` 第 5 节第 6 条要求"数据库行为验收必须经真实后端链路取证"。
+- 冲突或风险：同一约定集内自相矛盾；若按字面执行，08 的写入验证被禁止，而其验收项又要求完成该验证。
+- 影响：执行 08 的代理可能据此不执行写入验证，也无法判断"经真实后端链路的业务写入"是否在禁止范围内。
+- 最小修正：改为"01/05/08 不自行建表、不直接改库；目标库/schema 与建表由负责人确认并执行；08 经真实后端链路的写入验证必须执行"。
+
+---
+
+### [Low] `design.md` 仍引用已删除的"整改矩阵"与"整改文档"
+
+- 位置：`design.md:33`（S2-D5 依据列）、`design.md:51`。
+- 证据：`整改矩阵.md` 已不在阶段目录（`find` 无结果）；`design.md:33` 依据列写"讨论决策48；阶段2整改矩阵的正式落点"，`:51` 写"整改文档通过检查不等于这两项已解除"。
+- 冲突或风险：与 `planning-and-evidence.md` 第 4 节"每个阶段文档只表达所属阶段的最终设计状态，不保留中间过渡"及 `backend-design-gates.md` 第 3.1 节依据应可追溯的意图冲突——引用对象已不存在。
+- 影响：S2-D5 的依据中存在不可解析项（另有可解析的"讨论决策48"）；`:51` 的阻断口径失去指向对象。
+- 最小修正：`design.md:33` 改为仅引用"讨论决策48"；`:51` 改为"本设计通过检查不等于这两项已解除"。
+
+### [Low] 08 的新旧两行状态枚举并存，且重复建表说明
+
+- 位置：`阶段2-Tickets/08-...md:9`、`:14`、`:15`。
+- 证据：`:14` 写"更新阶段2 `testReport.md`，区分 `NotRun`、`Blocked`、`Failed` 和真实 `Passed`"（四种）；`:15` 写"按 Testing Baseline 使用 `NotRun`、`Passed`、`Failed`、`Blocked`、`PendingRetest`、`N/A` 六种状态；建表动作由负责人执行，本票只核验结果"。`:15` 后半句与 `:9`"建表动作由负责人执行，不由本票代执行"重复。
+- 冲突或风险：与 `testing-baseline.md` 第 3 节的六状态唯一口径存在两种表述并存。
+- 影响：执行代理可能按旧的四状态行记录，遗漏 `PendingRetest`/`N/A`。
+- 最小修正：删除 `:14`，保留 `:15` 的六状态要求，并把建表说明并入 `:9`。
+
+### [Low] 设计文档的静态检查证据日期不覆盖最后一次修订
+
+- 位置：`testReport.md:45`、`:47-52`；`design.md`、`讨论内容.md`、`Server/design.md` 的最后修改时间为 2026-09-15 09:26–09:27。
+- 证据：`testReport.md:45` 写"2026-09-14，仅检查本阶段根 Markdown、Server/Client Markdown 和本轮涉及的 SRS/UML"，检查项含"矩阵定义与引用"与"文档链接及表格列数"；而上述三份设计文档在其后（09-15 09:26–09:27）又被修订。
+- 冲突或风险：与 `testing.md` 第 7 节第 6 项"实际验证命令、结果、证据"的要求存在覆盖缺口——证据未标明所检查的版本。
+- 影响：无法确认这两项 `Passed` 覆盖的是当前版本还是 09-14 版本。
+- 最小修正：补记检查所依据的版本（提交或文件时间），或对当前版本重跑并更新日期。
+
+### [Low] UML 校验证据未记录脚本位置，且使用仓库外工具
+
+- 位置：`testReport.md:51-52`。
+- 证据：两行分别记"执行dy-puml的validate-wsd.ps1，Path为docs/uml/1-MedicalRecognitionReport.wsd：0 errors、1 warning（CRLF）"与 UML2 同形，结果列 `Passed`。仓库内不存在该脚本（`find . -iname "validate-wsd*"` 无结果），实际位于用户技能目录（`C:/Users/test/.skills-manager/skills/dy-puml/scripts/validate-wsd.ps1`）；`AGENTS.md` 第 1 节声明"技能不在本次迁移范围内"。
+- 冲突或风险：与 `testing.md` 第 7 节第 6 节要求记录可复核命令冲突——只给脚本名与输入路径，其他执行者无法复现。
+- 影响：两项 `Passed` 无法被独立复核。
+- 最小修正：补全脚本所在位置或注明"由外部技能提供、仓库外工具"，并相应说明其结论强度。
+
+### [Low] `Client/design.md` 记录个人机器绝对路径
+
+- 位置：`Client/design.md:32`。
+- 证据：写"页面设计使用负责人指定的外部技能 `C:/Users/test/.skills-manager/skills/web-design-guidelines/SKILL.md`，仓库内规范为 `.agents/instructions/frontend-style.md`、`frontend-application.md` 和 `frontend-testing.md`"。
+- 冲突或风险：与 `project-context.md`"本轮不迁移、不创建技能"的口径一致，但把个人机器路径写入受版本控制的正式设计文档，其他环境不可解析。
+- 影响：不影响业务正确性；交接或换机后该引用失效。
+- 最小修正：改为叙述性表述（"负责人指定的页面设计规范技能"），保留仓库内规范引用。
+
+### [Low] 工单 03/04 与 05 的运行时证据归属及传递依赖未完全收敛
+
+- 位置：`03-...md:11`、`:14`、`:19`；`04-...md:13`、`:18`；`05-...md:5`、`:10`、`:12`、`:20`；`阶段2-Tickets/README.md:5`。
+- 证据：`README.md:5` 已声明"`Blocked by` 表示完整交付的阻塞关系，不代表每个静态子任务都必须等待；可独立执行的部分应先执行"，缓解了前轮的循环问题。但 03 的验收项仍依赖 05 的产物——`03:11`"启停按 `ID + 可信组织 + 原状态` 条件更新，影响1行才登记事件"需要该条件 UPDATE 语句，`03:14`"唯一键冲突统一返回重复配置业务错误"需要唯一索引 `ux_mrec_mutual_recognition_org_project`（`05:10`）；`03:19` 要求记录"数据库和事件证据"，而 `05:20` 声明"数据库执行证据由 Ticket 08 归档"，`08:9` 又把建表置于负责人确认之后。同时 `05:5` 的前置为 02/03/04，而 03/04 的前置含 01（Pending 取证），使 DDL 仍传递依赖 01。
+- 冲突或风险：与工单格式基准"完成的切片必须可独立演示或验证"存在张力；DDL 本身不依赖组织传输链与无 WorkUnit 事件机制，却仍被传递阻断。
+- 影响：03/04 的"完整交付"在 05 交付前无法在证据上闭合；DDL 在 01 解除前不能完整交付。
+- 最小修正：在 03/04 的验收项注明"运行时证据由 08 按对应编号归档"；把 05 的前置收敛为不依赖 01 的形式（语句与字段清单属设计产物）。
+
+### [Low] `Client/testPlan.md` 列名相对模板简化
+
+- 位置：`Client/testPlan.md:3`；对照 `docs/plans/stage-template/Client/testPlan.md` 与阶段 1 `Client/testPlan.md:13`。
+- 证据：阶段 2 为"编号|页面或能力|前置数据|操作及边界|预期|层级"；模板与阶段 1 为"编号|页面或能力|身份与前置数据|操作及边界|预期页面、请求和业务状态|层级"。
+- 冲突或风险：与 `planning-and-evidence.md` 第 3 节及模板要求存在表述差异（不改变用例内容）。
+- 影响：依赖真实身份的用例（C1/C13/C17）其"身份"前提未被列名层面强制填写。
+- 最小修正：恢复模板列名，或在文首说明列名简化的等价含义。
+
+### [Low] C5 未断言后端拒绝后的输入与弹窗保留
+
+- 位置：`Client/testPlan.md:9`；对照 `Client/design.md:23` 与 `讨论内容.md:106`（决策 40）。
+- 证据：C5 预期仅为"统一业务错误"；`Client/design.md:23` 明确"所有写失败保留输入"，决策 40 要求"修改可互认时间失败时保留输入并保持弹窗打开"；C4 的失败面只覆盖前端校验的"非法输入零写请求"。
+- 冲突或风险：与 `testing.md` 第 2 节"按钮应验证弹层、校验、请求、响应、刷新和业务状态，不只检查可见或点击未报错"的验证意图存在缺口——后端拒绝是唯一由后端产生的失败路径，其输入保留行为无对应用例断言。
+- 影响：后端拒绝后表单是否被清空这一用户可见行为不会被验证。
+- 最小修正：在 C5（或另立一条）增补"后端拒绝后新增表单输入与弹窗保持、不发生列表刷新"。
+
+---
+
+## 已确认无问题
+
+- **阶段边界与总体计划 F02 一致**：`design.md:8-9` 的纳入/排除与 `docs/plans/001-总体计划/design.md:134-142` 的 F02 范围、建表 `mrec_mutual_recognition_item`、跨端与页面「互认项目」一致；未纳入 F01 本体维护、院内项目对照、金额、报告采集或在线互认匹配。
+- **可互认时间规则**：`design.md:19`"经过时间小于等于 `RecognitionDurationDays × 24小时` 时有效，边界包含"与 `CONTEXT.md`「可互认时间」、SRS F02 备选流在"天为单位、正整数、最小值 1、拒绝空/零/负/小数/永久有效、连续 24 小时"上一致。
+- **目录停用/配置停用/重新启用/修改时间的关系与启停幂等顺序**：`design.md:17`、`Server/design.md:103`（"先验证归属再判断幂等；已是目标状态直接幂等……真实启用才校验三层目录"）与 SRS F02 备选流 1、业务规则 4、`CONTEXT.md`「标准目录不可用」一致。
+- **未引入真实删除、删除恢复、配置版本或"事实/快照"命名**：`design.md:9`、`Server/design.md:5`、`Server/design.md:138`（"只处理停用，不处理删除"）与 `讨论内容.md:62-67` 一致。
+- **唯一键与启停生命周期**：`design.md:17`、`Server/design.md:134`（索引无状态过滤、停用也占用）与 S2-D4、决策 47、SRS F02 关键属性一致。
+- **SRS/UML 同步经文件核对为真实**：`docs/需求规约SRS.md:2355`（不展示创建人、创建时间、修改人、修改时间）、`:2364`（原因优先级与三条文案）、`:534`（医院管理员参与者及其所属组织范围）；`docs/uml/2-MedicalRecognitionConfigurationUiQuery.wsd:130`、`:144`（`UnavailableReason String?`）、`:150-155`（ReadModel note 复述原因规则）、`:433`（`HospitalAdministrator --> MedicalRecognitionConfigurationModule` 连线）；F02「关键属性」中"创建及修改信息"行已不存在。
+- **四命令四事件沿用、无重复设计或改名**：`Server/design.md:79-84` 沿用 UML1 既有四个命令与四个事件；事件字段与登记规则（创建含启用状态、修改含组织与编码且同值也登记、幂等不登记、失败不登记）与决策 44/45/46 一致。
+- **事件证据层次表述正确**：`Server/design.md:86` 明确"这是源码映射证据，不是运行投递证据"；`:111`、`:115` 区分事件登记、处理器观察、数据库提交、外部可靠投递四种事实，V24 记 `Blocked` 且禁止用带 `[WorkUnit]` 的探针替代、禁止手工 Flush/清理/重发事件队列，与 `dy-framework-workunit.md` 第 3 节一致。
+- **事务边界口径与 S2-D6 一致，且如实标注分歧**：`Server/design.md:97` 说明本阶段四个用例各最多一条写语句、依靠单语句原子性，并指出通用规范与负责人限定范围的分歧、声明不将其扩张为后续阶段通用规则，与 `backend-command-query-event.md` 第 4.1 节不冲突。
+- **启停并发与归属规则自洽**：`Server/design.md:105` 给出条件 UPDATE 的完整条件、0/1/N 行分支、0 行复读后的三类结论（幂等/并发冲突/不存在或越组织）与"不自动无限重试"，`:107` 明确越组织 ID 无论状态相同与否都拒绝、唯一约束冲突统一翻译，与决策 36、47 及 V15/V26/V27 一致。
+- **设计闸门要求的交付物齐备**：`Server/design.md:23-34`（层目录与依赖方向）、`:38-65`（逐类型归属表，含本轮新增的 `MutualRecognitionItemDto` 生成遗留行）、`:71-75`（写链与查询链、编码到服务端 `StandardItemId` 的边界转换）、`:90-95`（写用例事务表）覆盖 `backend-design-gates.md` 第 2、4、5、6、8 节要求。
+- **DDL 逐列契约与项目 DDL 规则一致**：`Server/design.md:121-134` 给出列序、类型、可空、无默认值、中文注释、`COMMENT ON TABLE/COLUMN/INDEX` 与唯一索引名；`:132` 对 `text` 给出理由并声明不新增业务上限、不使用 `current_timestamp` 代替 `Command.OperTime`；与 `project-context.md` 第 4 节（S1-D30/S1-D31）、S2-D5（不建外键）一致。
+- **查询契约与权威定义一致**：`Server/design.md:19` 的入参（组织编码必填、标准项目编码与配置状态可选）、ReadModel 字段集合（不含创建/修改信息与两个已派生字段、`UnavailableReason` 可空）、稳定排序与不分页，与 UML2 `QueryRecognitionProjectConfigurationList`、决策 5/53、S2-D7/S2-D8 一致；`:75` 明确查询不产生写入、审计事件或消息。
+- **内部投影与查询契约归属符合架构规范**：`Server/design.md:58-60` 把 `RecognitionProjectConfigurationListItem` 放入 `D/Queries/`（与既有 `server/Dy.MedicalRecognition.Domain/Queries/MedicalRecognitionReportQueryModels.cs` 同址），查询 Service 扩展既有 `IMedicalRecognitionReportQueryAppService` 而非新建同义接口，符合 `backend-command-query-event.md` 第 3 节与 `backend-architecture.md` 第 2、7 节。
+- **工单依赖图无环且编号与依赖顺序一致**：01→02→03/04→05→06→07→08 不构成字面环；阻塞方编号均小于被阻塞方（02:5 引 01 已改为 `None`；03:5 引 01/02；04:5 引 01/02；05:5 引 02/03/04；06:5 引 02/04；07:5 引 03/04/06；08:5 引 01-07），符合工单格式基准"number blocks first"。
+- **工单矩阵映射已补全且覆盖完整**：逐条统计 8 份工单的 V/C 编号——V1–V27 由 01（V11、V16、V21-V24）、02（V21）、03（V1-V11、V15-V16、V26-V27）、04（V12-V14、V19-V23）、05（V17-V18、V23、V25）、08（V2、V5、V7、V10、V12-V15、V17-V18、V20、V23-V27）合起来全覆盖，无遗漏；C1–C25 由 06（C22、C24）、07（C1-C3、C6、C8、C10-C11、C13-C21、C23）、08（C4-C9、C12-C13、C17、C20-C21、C25）合起来全覆盖，无遗漏。
+- **工单的可立即开工口径与设计一致**：`02:5` 为"None (contract work can start immediately; organization/event runtime evidence remains a separate dependency)"，与 `design.md:51`"S2-D12/S2-D13 只阻断依赖未核实机制的实现；独立 DDL、类型契约及组件设计可以继续"一致；`06:5` 明确"不依赖 Ticket 05 的数据库物理映射"。
+- **工单已补 S2-D6 与查询 scope 的关键约束**：`03:21`"四个写入口各保持最多一条写语句且不声明 `[WorkUnit]`；若出现同表多写或跨表原子写入，先由负责人修订设计"，与 S2-D6 的守卫条款一致；`04:14` 的查询 scope 要求经源码核对与现状（查询仓储 `SqlScope = "MedicalRecognitionReportQuery"`、查询 XML `Scope="MedicalRecognitionReportQuery"`）及 `Server/design.md:75` 查询链一致；`05:12` 相应限定为写侧，消除了 04/05 的查询语句职责重叠。
+- **工单覆盖了停用配置的排除与切换组织重算**：`07:10`"当前组织已存在配置的项目（含停用配置）不可选；切换组织后按目标组织重新计算排除集合"，与 S2-D4/决策 47（唯一键覆盖停用配置）及决策 17、22 自洽；`07:14` 覆盖未保存内容切换确认（C18），`07:20` 的"C13-C21"含 C17。
+- **工单新增的公共约定正确**：`阶段2-Tickets/README.md:5`（`Blocked by` 语义与静态子任务可先行）、`:7`（`Status` 是领取标签而非测试状态，测试结果只用六种状态）、`:9`（upstream impact、准确 RED 或静态失败证据、适用检查与 `git diff --check`）、`:11` 后半（"`阶段2审查相关` 不属于任何票的输入、输出或修改范围"）分别与工单格式基准、`testing-baseline.md` 第 3 节、`AGENTS.md` 第 2 节第 3/7 条、以及审查材料的排除要求一致。
+- **08 的状态标签不再宣称可领取**：`08:7` 为 `blocked-until-prerequisites-ready`，与 `08:9`（建表由负责人执行）、`:5`（阶段1收口、负责人建表确认、组织与事件机制为外部前置）自洽。
+- **未预写任何通过结论**：8 份工单验收项均为 `- [ ]` 未勾选；`design.md`、`testReport.md` 明确未执行；`testReport.md:29` 统计 `Passed/Failed/PendingRetest/N/A` 均为 0，`:41` 声明"不是业务实现验收"，`:54` 声明文档检查独立于 52 条业务用例，符合 `AGENTS.md` 第 2 节第 6 条与 `testing-baseline.md` 第 2 节。
+- **`testReport.md` 的分母与分组统计经复核正确**：`:8` 声明 V1–V27（27）+ C1–C25（25）=52；`:19-27` 分组穷尽、无重复、无遗漏（V 全部 27 条与 C 全部 25 条各出现一次）；`NotRun 21 + Blocked 31 = 52` 与逐行计数一致；`:15` 声明"多层级一条只计一次"。
+- **工单内容停留在行为层，未写死源码路径**：`What to build` 与验收项未出现具体源码文件路径，仅出现表名、索引名、类型名与矩阵编号等契约标识，符合工单格式基准"avoid specific file paths"。
+- **阶段 2 不需要额外的 Host 端点工单**：`server/Dy.MedicalRecognition/Dy.MedicalRecognition.csproj` 为 `Microsoft.NET.Sdk.Web` + `Dy.Apron.QuickStart`，Host 目录除配置文件外无业务 `.cs`（无 `Program.cs`、无 `MapPost/MapGet`），端点由框架按 AppService 自动暴露（阶段 1 证据中已出现 `/Api/MedicalRecognitionReportQuery/QueryMedicalStandardCategoryList`）。
+
+---
+
+## 待确认或未验证
+
+- **工单集是否已获负责人批准**：8 份工单 `Status` 为领取标签，仓库内没有负责人批准记录，也没有与阶段设计确认状态的对应关系。工单格式基准要求先展示分解并迭代至批准再发布；是否可直接领取开工需负责人确认。
+- **工单目录的长期定位**：`阶段2-Tickets/` 是否属阶段正式交付物、完成后是否保留，`planning-and-evidence.md` 未涵盖该类目录；属规范空白而非工单缺陷。
+- **`Status: blocked-until-prerequisites-ready` 的规范地位**：项目在 `testing-baseline.md` 第 3 节定义测试状态、在 `backend-design-gates.md` 第 3.1 节定义决策状态，均不含该值；`阶段2-Tickets/README.md:7` 已给出其语义，但是否需并入项目状态词汇待确认。
+- **阶段 2 文档对阶段 1 状态的表述口径**：`讨论内容.md:13` 写"阶段 1 截至 2026-09-14 尚未整体验收通过"，而 `design.md:23` 与 `testReport.md:5` 已改为"不评定阶段 1 当前进度"。按负责人要求本轮不评估阶段 1 的实际进度，仅指出三处口径不一致，是否统一由负责人决定。
+- **事件字段扩充是否需登记为契约变更**：`Server/design.md:81-84` 使启停事件在 `Id` 之外增加 `OrganizationCode`、`StandardProjectCode`，修改事件增加组织与编码。按 `backend-command-query-event.md` 第 2 节这属合理的"最小业务快照"，但阶段文档未把它登记为公共契约变更，是否存在既有或计划中的订阅方也不明确；当前无订阅实现。
+- **`RecognitionProjectConfigurationReadModel` 迁入 `C/Queries` 的完成方式**：`Server/design.md:45` 标注"修改并迁入 Queries；现位于 C/ReadModels"，实际文件仍在 `server/Dy.MedicalRecognition.Application.Contracts/ReadModels/`；迁入方式（移动、改名或保留旧位置）未明确，阶段 1 已有"本模块现有 `Contracts/ReadModels` 类型对齐至 `Contracts/Queries`"的做法可参照。
+- **目录资料缺失的技术处理分支**：`Server/design.md:138` 写"目录资料缺失不包装成正常删除/停用原因，作为数据完整性异常单独处理"，未说明返回何种错误、是否记录、由谁裁决；按 `讨论内容.md:63` 该状态已被排除在业务场景外，是否需要明确的技术分支待确认。
+- **`text` 与既有脚本 `varchar(100)`、阶段 1 `varchar(200)` 的取舍**：`Server/design.md:132` 对 `text` 给出了理由，阶段 1 已交付脚本使用 `varchar(n)`；跨阶段是否要求统一字符串物理类型未在任何规范中确认。该表尚未创建，暂列为待确认。
+- **`05` 中"所属阶段迁移交付"的措辞**：`Server/impl.md:18` 的 B4 文件范围含"及所属阶段迁移交付"，`05:15` 只写"只交付脚本和映射"；阶段 2 为新建表、`project-context.md` 第 4 节要求由负责人执行最终 DDL，是否需要除 CREATE 脚本外的迁移文件尚未明确。
+
+---
+
+## 总结
+
+- **是否阻塞进入实施**：**未发现 `Blocker` 或 `High`**。有 5 项 `Medium` 需要整改，其中 `Server/design.md:136` 的 scope 表述与工单 `README.md:11` 的措辞会直接影响实施动作，建议在领取 04/05 与 08 前先修正；其余 3 项（两套工作分解、批次状态不一致、V26 归因）属文档与证据口径问题。
+- **必须整改的项目**：`Server/design.md:136` 限定为写侧并与 `04:14`/`05:12` 对齐；`阶段2-Tickets/README.md:11` 的"不执行目标数据库写入"改为不建表/不直接改库；指定单一工作分解权威并把工单集登记到 `docs/plans/README.md`；统一根 `impl.md` 与 `Server/impl.md`、`testReport.md` 的批次状态；补 V26 的事件观察点阻断归因。
+- **可选改进项目**：清理 `design.md` 对已删除"整改矩阵/整改文档"的引用；合并 08 的重复状态行与建表说明；补记静态检查证据的版本与 UML 校验脚本位置；去掉 `Client/design.md:32` 的机器绝对路径；统一 `Client/testPlan.md` 列名；为 C5 补后端拒绝后的输入保留断言；收敛 03/04 与 05 的运行时证据归属。
+- **本轮确认已修复的项目**（经本轮核对，均为当前版本事实）：工单矩阵映射已按票补全且 V1–V27、C1–C25 无遗漏；02 解除对 01 的依赖；06 解除对 05 的依赖；04 补查询 scope 且与源码一致；05 限定写侧并补 `COMMENT ON INDEX`；03 补"最多一条写语句且不声明 `[WorkUnit]`"；07 显式覆盖 C17/C18；08 状态改为受阻标签；新增 `阶段2-Tickets/README.md` 定义 `Blocked by`/`Status` 语义、检查闸门与审查材料边界；已删除的"整改矩阵"不再作为独立台账存在；`design.md` 决策依据列已改引"讨论决策"编号与 SRS/UML 落点，不再使用无定义的 Q 编号；`Server/design.md:138` 不再引用无定义的 Q22。
+- **当前测试和运行证据的真实边界**：阶段 2 尚未执行任何业务测试——`testReport.md` 记 52 条用例全部为 `NotRun`（21 条）或 `Blocked`（31 条），`Passed/Failed/PendingRetest/N/A` 均为 0；8 份工单验收项全部未勾选，无任何后端、数据库、API Client 或宿主页面的运行证据。本轮可核实的事实只有三类：文档与 SRS/UML/`CONTEXT.md` 的一致性核对结论、`server/` 实际生成代码与配置的静态事实、以及工单与矩阵的映射统计。`testReport.md` 自述的静态文档检查（4 项 `Passed`）属文档层结论，其中 UML 校验一项因使用仓库外技能脚本而不可独立复核（见 Low 项），且其记录日期不覆盖最后一次修订；这些都不替代运行验证。因此本报告不支持任何 `Passed`、`Ready`、`Complete` 或"验收通过"的结论。

@@ -1,0 +1,37 @@
+{
+  "name": "dy-medical-recognition",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build --emptyOutDir",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.2.3",
+    "@dy/api-client-medical-recognition": "workspace:*",
+    "@dy/auth": "^0.1.39",
+    "@dy/auth-react": "^0.1.39",
+    "@dy/micro-sdk": "^0.1.39",
+    "antd": "^6.4.3",
+    "dayjs": "^1.11.20",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-router-dom": "^7.15.1"
+  },
+  "devDependencies": {
+    "@dy/vite-plugin-redirect-base": "^0.1.39",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^24.12.4",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "jsdom": "^30.0.1",
+    "typescript": "~5.9.3",
+    "vite": "^8.0.13",
+    "vitest": "^4.1.7"
+  }
+}

@@ -1,0 +1,102 @@
+<SqlMap Scope="MedicalStandardCategory" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <Statements>
+    <!--
+      功能：定义标准项目分类的通用查询字段清单，供按主键查询和全量查询语句复用。
+      结果：输出分类标识、项目类型、分类名称、启用状态、备注和操作审计字段，各字段业务含义见行内注释。
+    -->
+    <Statement Id="MedicalStandardCategoryColumns">
+      id,        <!-- 分类标识（主键） -->
+      item_type, <!-- 项目类型：0=检验、1=检查 -->
+      name,      <!-- 分类名称，全局唯一 -->
+      is_valid,  <!-- 是否启用 -->
+      remark,    <!-- 备注 -->
+      oper_id,   <!-- 操作人标识 -->
+      oper_time  <!-- 操作时间 -->
+    </Statement>
+    <!--
+      功能：查询标准项目分类的全部记录，用于不区分启用状态地读取分类全量数据。
+      结果：返回分类的完整字段清单，不接收任何筛选参数，也没有显式排序，返回顺序由数据库决定、调用方不得依赖。
+    -->
+    <Statement Id="QueryAllMedicalStandardCategory">
+      select
+      <Include RefId="MedicalStandardCategoryColumns" />
+      from mrec_medical_standard_category
+    </Statement>
+    <!--
+      功能：新增一条标准项目分类。
+      结果：写入分类标识、项目类型、分类名称、备注和操作审计字段；启用状态固定为启用、操作时间取数据库当前时间，均不接受请求参数。
+    -->
+    <Statement Id="CreateMedicalStandardCategory">
+      insert into mrec_medical_standard_category (
+        id,          <!-- 分类标识（主键），由仓储在插入前生成 -->
+        item_type,   <!-- 项目类型：0=检验、1=检查 -->
+        name,        <!-- 分类名称，全局唯一 -->
+        is_valid,    <!-- 是否启用，新增固定写入 true -->
+        remark,      <!-- 备注 -->
+        oper_id,     <!-- 操作人标识 -->
+        oper_time    <!-- 操作时间，取数据库当前时间 -->
+      ) values ($Id, $ItemType, $Name, true, $Remark, $OperId, current_timestamp)
+    </Statement>
+    <!--
+      功能：按分类标识修改标准项目分类的项目类型、分类名称和备注。
+      结果：只影响主键命中的一行，同时刷新操作人和操作时间；启用状态由启用/停用语句单独维护、本语句不改动，分类下已有分组时项目类型是否允许变更由领域层先行拦截。
+    -->
+    <Statement Id="UpdateMedicalStandardCategory">
+      update mrec_medical_standard_category set
+        item_type = $ItemType,          <!-- 项目类型：0=检验、1=检查 -->
+        name = $Name,                   <!-- 分类名称，全局唯一 -->
+        remark = $Remark,               <!-- 备注 -->
+        oper_id = $OperId,              <!-- 操作人标识 -->
+        oper_time = current_timestamp   <!-- 操作时间，取数据库当前时间 -->
+      where id = $Id
+    </Statement>
+    <!--
+      功能：将指定标准项目分类由停用改为启用，并记录本次操作人和操作时间。
+      结果：仅当该分类当前处于停用态时才更新；重复启用不产生额外更新、影响 0 行，调用方据此判定无需重复处理。
+    -->
+    <Statement Id="EnableMedicalStandardCategory">
+      update mrec_medical_standard_category set
+        is_valid = true,                <!-- 是否启用，置为启用 -->
+        oper_id = $OperId,              <!-- 操作人标识 -->
+        oper_time = current_timestamp   <!-- 操作时间，取数据库当前时间 -->
+      where id = $Id and is_valid = false
+    </Statement>
+    <!--
+      功能：将指定标准项目分类由启用改为停用，并记录本次操作人和操作时间。
+      结果：仅当该分类当前处于启用态时才更新；重复停用不产生额外更新、影响 0 行。
+    -->
+    <Statement Id="DisableMedicalStandardCategory">
+      update mrec_medical_standard_category set
+        is_valid = false,               <!-- 是否启用，置为停用 -->
+        oper_id = $OperId,              <!-- 操作人标识 -->
+        oper_time = current_timestamp   <!-- 操作时间，取数据库当前时间 -->
+      where id = $Id and is_valid = true
+    </Statement>
+    <!--
+      功能：按分类标识读取单个标准项目分类的完整信息，供修改、启用、停用前的存在性判断与业务校验使用。
+      结果：命中时返回一行分类字段清单，未命中时返回空结果；启用中的分类和已停用的分类都会被返回。
+    -->
+    <Statement Id="GetMedicalStandardCategoryById">
+      select <Include RefId="MedicalStandardCategoryColumns" /> from mrec_medical_standard_category where id = $Id
+    </Statement>
+    <!--
+      功能：统计与待校验分类名称同名的分类条数，用于新增和改名前的分类名称重名校验。
+      结果：返回同名条数（只计数、不返回明细），调用方以大于 0 判定名称已被占用；分类名称全局唯一，不区分项目类型、也不区分启用状态。
+    -->
+    <Statement Id="MedicalStandardCategoryNameExists">
+      select count(1) from mrec_medical_standard_category where name = $Name
+      <!--
+        处理：仅当传入被排除的分类标识（改名场景传入分类自身标识）时追加主键不等条件。
+        结果：改名时不会把自身记录误判为同名冲突；新增时该分支不参与拼接。
+      -->
+      <IsNotEmpty Prepend="and" Property="ExcludedId">id &lt;&gt; $ExcludedId</IsNotEmpty>
+    </Statement>
+    <!--
+      功能：统计指定标准项目分类下的分组条数，用于判断该分类是否已有下级分组。
+      结果：返回分组条数（包含已停用的分组），调用方以大于 0 判定存在下级；该结果是分类项目类型不可修改的判定依据。
+    -->
+    <Statement Id="MedicalStandardCategoryHasGroups">
+      select count(1) from mrec_medical_standard_group where category_id = $CategoryId
+    </Statement>
+  </Statements>
+</SqlMap>
