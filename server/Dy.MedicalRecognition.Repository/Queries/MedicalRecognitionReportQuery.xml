@@ -1,4 +1,14 @@
 <SqlMap Scope="MedicalRecognitionReportQuery" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <ParameterMaps>
+    <!--
+      功能：为查询侧的布尔筛选参数提供框架公共参数绑定。
+      结果：启用状态按 CLR bool 交由当前数据库 Provider 适配，使布尔列与参数的比较可用。
+    -->
+    <ParameterMap Id="MedicalRecognitionBooleanParameters">
+      <!-- 字段：启用状态筛选条件；传入 true 只返回启用项目，传入 false 只返回停用项目。 -->
+      <Parameter Property="IsValid" TypeHandler="MedicalRecognitionBoolean" />
+    </ParameterMap>
+  </ParameterMaps>
   <Statements>
     <!--
       功能：查询标准项目分类列表，供标准项目目录维护界面按项目类型浏览分类。
@@ -48,7 +58,7 @@
       功能：查询标准项目列表，供标准项目目录维护界面按分类、分组、编码、名称和启用状态组合筛选标准项目。
       结果：返回标准项目标识、所属分类标识、所属分组标识、项目类型、标准项目编码、标准项目名称、启用状态和备注，并按所属分类、所属分组、编码、标识稳定排序；各筛选条件均可为空，为空时不参与过滤。
     -->
-    <Statement Id="QueryMedicalStandardItemList">
+    <Statement Id="QueryMedicalStandardItemList" ParameterMap="MedicalRecognitionBooleanParameters">
       select
         i.id as item_id,      <!-- 标准项目标识 -->
         i.category_id,        <!-- 所属分类标识 -->

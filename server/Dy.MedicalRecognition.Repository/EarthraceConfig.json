@@ -1,0 +1,57 @@
+{
+  "SqlMapConfigs": [
+    //{
+    //  "Alias": "Default", //配置名称，Default 为内置默认配置项名，一般用来表示主库HIS
+    //  "Database": {
+    //    "DbProvider": {
+    //      "Name": "MySql" //DbProvider Name: SqlServer,MsSqlServer,MySql,Oracle,SQLite,PostgreSql
+    //    },
+    //    "Write": {
+    //      "Name": "WriteDB", //自定义写库名称
+    //      "ConnectionString": "server=localhost;uid=root;pwd=mysql;database=mysql"
+    //    },
+    //    "Reads": {
+    //      "ReadDb-1": {
+    //        "Name": "ReadDb-1", //自定义读库名称
+    //        "ConnectionString": "server=localhost;uid=root;pwd=mysql;database=mysql", //连接串，当读写分离时可设置不同的目标库
+    //        "Weight": 100 //权重，当配置了多个读库的时候可利用该值设置负荷比例
+    //      }
+    //    }
+    //  }
+    //},
+    {
+      "Alias": "Default",
+      "Properties": {
+        "DbConnection": "User Id=dysoft; Password=dysoft; Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.1.19)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=orcl)))"
+      },
+      "Settings": {
+        "IgnoreParameterCase": "true"
+      },
+      "Database": {
+        "DbProvider": {
+          "Name": "Oracle"
+        },
+        "Write": {
+          "Name": "WriteDB",
+          "ConnectionString": "${DbConnection}"
+        }
+      },
+      "Converters": [
+        {
+          "Name": "DelimiterConverter", //自动将表字段名转换为对应的Pascal命名格式并映射到实体
+          "IsDefault": true,
+          "Tokenizer": {
+            "Name": "Default",
+            "Properties": {
+              "Delimiter": "_",
+              "UppercaseSplit": false
+            }
+          },
+          "Converter": {
+            "Name": "Pascal"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1845,3 +1845,52 @@ value=[probe-nocat]  Required=True ; RegularExpression("\\S")=False ; StringLeng
 - `Server/design.md:183` 引用的 `ValidateOptionalText` 已随本轮删除 → 改为「查询请求 DataAnnotations 特性 + validator 统一拒绝」
 - `Server/design.md:308`「否则 `[Required]` 会放行纯空白」的前提在本 .NET 版本不成立（实测更正保留于原文之后）
 - `Server/审查报告-分层与职责.md` 的 finding 正文保持原样，末尾追加「第 40 轮整改结果」说明
+
+## 第四十一轮 查询布尔筛选的参数绑定修复（2026-09-15）
+
+**背景**：收口后核实登记项「Provider 中立性与 `<IsNotEmpty>` 空值语义」时，以真实宿主认证链路对查询入参做矩阵实测，发现一个**未被 V/C 矩阵覆盖的真实缺陷**。
+
+### 41.1 缺陷与根因
+
+`QueryMedicalStandardItemList` 的 `IsValid` 筛选在传入时返回 HTTP 500：`Npgsql.PostgresException (0x80004005): 42883: 操作符不存在: boolean = integer`。
+
+根因：共享 XML 用 `i.is_valid = $IsValid` 比较布尔列与参数，但**未声明参数绑定类型**——本项目共享 XML 此前完全没有 `ParameterMap` / `TypeHandler`；框架默认把布尔参数按整数绑定，PostgreSQL 的 boolean 列与 integer 比较没有对应操作符。页面按设计走本地筛选（`Server/design.md` 查询语义的入参拒绝边界）从不提交该字段，因此既有 V/C 用例未覆盖该分支。
+
+### 41.2 `<IsNotEmpty>` 空值语义核实（LisCenter 对照）
+
+- LisCenter 已有结论并留有踩坑记录（该仓库 `docs/plans/012-阶段10-全量联调验收与发布收口/testReport.md` 的 `R1-P005`）：`<IsNotEmpty>` 在参数为空时**跳过该 SQL 片段**，用于**更新可空字段**会导致「清空值写不进去」，其修法是把该字段改为无条件更新。
+- 本项目核对：5 处 `<IsNotEmpty>` **全部在查询侧**（4 个可选筛选 + `ExcludedId` 排除自身），**写语句零使用**；`ChangeMedicalStandardItemRemark` 为无条件 `remark = $Remark`，清空可正常落库 → **不存在该陷阱**。
+- 实测补证：枚举 `0` 被 `<IsNotEmpty>` 视为非空（`itemType=0` 命中 7 条、`itemType=1` 命中 2 条）。
+- 由此第 26 轮 D1 与 V39 的分歧闭合：空串/纯空白由 Request 层拒绝（第 40 轮），到达 SQL 的只剩 `null`，「三义同义」不再影响契约。
+
+### 41.3 修复（按 LisCenter 口径，绑定交给 Provider 适配层）
+
+| 文件 | 改动 |
+|---|---|
+| `Repository/Queries/MedicalRecognitionReportQuery.xml` | 新增 `<ParameterMaps>` 与 `MedicalRecognitionBooleanParameters`（`IsValid` 声明 `TypeHandler="MedicalRecognitionBoolean"`）；`QueryMedicalStandardItemList` 挂 `ParameterMap` |
+| `Repository/MedicalRecognitionRepositoryModule.cs` | 新增 `OnConfigureServices`，注册 `TypeHandlerFactory.Register("MedicalRecognitionBoolean", new BooleanTypeHandler())`（框架自带处理器） |
+| `Repository/Dy.MedicalRecognition.Repository.csproj` | 新增 `Dy.Earthrace` 包引用（`BooleanTypeHandler` / `TypeHandlerFactory` 位于该程序集，版本仍由 `Directory.Packages.props` 统一） |
+| `Tests/Stage1SqlMapProbeTests.cs` | 新增架构断言：XML 必须声明布尔参数映射并被语句引用、模块必须注册该处理器；运行时注册测试补上「先注册处理器」的前置条件 |
+
+依据 [Backend Architecture](../../../../.agents/instructions/backend-architecture.md) 5.1：「分页、**参数绑定**、标识符和其他数据库方言优先交给 ORM/DataMapper/Earthrace 的当前 Provider 适配层生成」。
+
+### 41.4 验证
+
+- 失败测试先行：新增断言在修复前失败（`Assert.NotNull() Failure: Value is null`），修复后通过
+- 构建 **0 错误**；后端测试 **22/22 通过**（较第 40 轮新增 1 条）
+- 真实链路复测（同一宿主认证链路）：
+
+| 入参 | 修复前 | 修复后 |
+|---|---|---|
+| `{"isValid":true}` | HTTP 500 `42883 boolean = integer` | HTTP 200，命中 5 条，全部启用 |
+| `{"isValid":false}` | HTTP 500 | HTTP 200，命中 1 条，即唯一停用项 `S1-C61-PROBE-20260915` |
+| `{}` | 200 / 6 条 | 200 / 6 条（未变） |
+| `{"code":"%"}` | 200 / 0 条 | 200 / 0 条（字面匹配转义仍生效） |
+| `{"code":"S1","isValid":true}` | — | 200 / 3 条（组合筛选正确） |
+| 分类 / 分组 / 有效目录列表 | 200 | 200 / 9、8、1（未受影响） |
+
+### 41.5 残余与登记
+
+- 跨 Provider 声明仍只有 PostgreSQL 实测证据；若要声明跨库，须按 5.1 第 5 条在目标 Provider 上重跑同一验证矩阵。
+- **包引用带来的模板文件**：给 Repository 工程加 `Dy.Earthrace` 引用后，该包的 content 模板 `EarthraceConfig.json`（Oracle 示例，带注释）被复制进 `server/Dy.MedicalRecognition.Repository/`。LisCenter 的 Repository 工程下存在同一个文件且已被 git 跟踪，属该项目家族的既有做法，因此保留不改；运行期实际配置仍只取宿主的 `Dy.MedicalRecognition/EarthraceConfig.json`（PostgreSql），本文件不参与运行。
+- **阶段 2 观察项（未改动阶段 2 代码）**：`MutualRecognitionItem.xml` 的 `UpdateMutualRecognitionItemConfiguration` 在 `<Set>` 内用 `<IsNotEmpty>` 包裹 `RecognitionDurationDays` 与 `OperId`，其语义为「参数为空则不改该列」；该配置的「清空/恢复」口径需阶段 2 自行确认（参照 LisCenter `R1-P005` 的同类陷阱）。该文件不绑定布尔参数，无本轮同类缺陷。

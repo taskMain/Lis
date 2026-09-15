@@ -79,6 +79,7 @@ public sealed class Stage1SqlMapProbeTests
     dbProvider.GetType().GetProperty("ParameterPrefix")!.SetValue(dbProvider, "@");
 
     var builder = Activator.CreateInstance(builderType)!;
+    RegisterBooleanTypeHandler(earthraceAssembly);
     Invoke(builder, "UseHybridConfig", options!);
     Invoke(builder, "AddSqlMaps", Enum.Parse(resourceType, "Embedded"),
       "Dy.MedicalRecognition.Repository.MedicalRecognitionReportAggregate.**,Dy.MedicalRecognition.Repository",
@@ -109,6 +110,50 @@ public sealed class Stage1SqlMapProbeTests
     Assert.Contains("MedicalRecognitionReportQuery.QueryEffectiveMedicalStandardCatalog", registeredKeys);
     Assert.Contains("MedicalRecognitionReport.QueryAllRecognitionReference", registeredKeys);
     Assert.Contains("MedicalRecognitionReport.RecognitionReferenceColumns", registeredKeys);
+  }
+
+  /// <summary>
+  /// 校验绑定布尔参数的查询语句声明了布尔参数映射与类型处理器，并被该语句引用。
+  /// 原因：框架默认按整数绑定布尔参数，PostgreSQL 的 boolean 列无法与 integer 比较；
+  /// 未声明处理器时，带启用状态筛选的标准项目查询会直接失败，类型处理器把绑定交给当前 Provider 适配层。
+  /// </summary>
+  [Fact]
+  public void Boolean_query_parameter_declares_type_handler_and_is_referenced_by_statement()
+  {
+    var document = XDocument.Load(FindRepositoryFile("MedicalRecognitionReportQuery.xml"));
+    var ns = (XNamespace)"http://dysoft.vip/schemas/EarthraceSqlMap.xsd";
+
+    var statement = document.Descendants(ns + "Statement")
+      .Single(element => (string?)element.Attribute("Id") == "QueryMedicalStandardItemList");
+    Assert.Contains("$IsValid", statement.Value, StringComparison.Ordinal);
+
+    var parameterMap = document.Descendants(ns + "ParameterMap")
+      .SingleOrDefault(element => (string?)element.Attribute("Id") == "MedicalRecognitionBooleanParameters");
+    Assert.NotNull(parameterMap);
+    var isValidParameter = parameterMap!.Elements(ns + "Parameter")
+      .Single(element => (string?)element.Attribute("Property") == "IsValid");
+    Assert.Equal("MedicalRecognitionBoolean", (string?)isValidParameter.Attribute("TypeHandler"));
+    Assert.Equal("MedicalRecognitionBooleanParameters", (string?)statement.Attribute("ParameterMap"));
+
+    var moduleSource = File.ReadAllText(FindRepositoryFile("MedicalRecognitionRepositoryModule.cs"));
+    Assert.Contains("TypeHandlerFactory.Register(\"MedicalRecognitionBoolean\", new BooleanTypeHandler())", moduleSource, StringComparison.Ordinal);
+  }
+
+  /// <summary>
+  /// 在当前测试进程内注册共享 SQL 引用的布尔参数类型处理器，复现宿主装配阶段的同一前置条件。
+  /// </summary>
+  /// <param name="earthraceAssembly">已加载的 <c>Dy.Earthrace</c> 程序集，提供类型处理器工厂与布尔处理器。</param>
+  /// <exception cref="InvalidOperationException">工厂上不存在两个参数的公开静态 <c>Register</c> 方法时，由 <c>Single</c> 抛出。</exception>
+  private static void RegisterBooleanTypeHandler(Assembly earthraceAssembly)
+  {
+    var factoryType = earthraceAssembly.GetType("Dy.Earthrace.TypeHandlers.TypeHandlerFactory", throwOnError: true)!;
+    var handlerType = earthraceAssembly.GetType("Dy.Earthrace.TypeHandlers.BooleanTypeHandler", throwOnError: true)!;
+    var handler = Activator.CreateInstance(handlerType)!;
+    var register = factoryType.GetMethods(BindingFlags.Public | BindingFlags.Static)
+      .Where(method => method.Name == "Register" && method.GetParameters().Length == 2)
+      .Single(method => method.GetParameters()[0].ParameterType == typeof(string)
+        && method.GetParameters()[1].ParameterType.IsInstanceOfType(handler));
+    register.Invoke(null, new[] { (object)"MedicalRecognitionBoolean", handler });
   }
 
   /// <summary>
@@ -188,6 +233,30 @@ public sealed class Stage1SqlMapProbeTests
     }
 
     throw new DirectoryNotFoundException("Could not locate the built host output containing Dy.Earthrace.dll.");
+  }
+
+  /// <summary>
+  /// 在仓储工程内按文件名定位任意 SqlMap 文件，供查询侧断言读取语句与参数映射。
+  /// </summary>
+  /// <param name="fileName">SqlMap 文件名，例如 <c>MedicalRecognitionReportQuery.xml</c>。</param>
+  /// <returns>仓储工程中该 SqlMap 文件的绝对路径。</returns>
+  /// <exception cref="FileNotFoundException">从测试程序集所在目录逐级向上都未找到该 SqlMap 文件时抛出；此时检查仓储工程的 SqlMap 是否已随源码保留在原位。</exception>
+  private static string FindRepositoryFile(string fileName)
+  {
+    var directory = new DirectoryInfo(AppContext.BaseDirectory);
+    while (directory is not null)
+    {
+      var repositoryDirectory = Path.Combine(directory.FullName, "Dy.MedicalRecognition.Repository");
+      if (Directory.Exists(repositoryDirectory))
+      {
+        var matches = Directory.GetFiles(repositoryDirectory, fileName, SearchOption.AllDirectories);
+        if (matches.Length == 1) return matches[0];
+      }
+
+      directory = directory.Parent;
+    }
+
+    throw new FileNotFoundException($"Could not locate repository SqlMap '{fileName}'.");
   }
 
   /// <summary>

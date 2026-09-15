@@ -186,6 +186,7 @@
 
 **字面包含实现说明**：`QueryMedicalStandardItemList` 与 `QueryEffectiveMedicalStandardCatalog` 的文本筛选必须共同采用 Provider 中立的转义/谓词方式，使 `%`、`_` 按字面字符匹配；不得直接写 PostgreSQL 专用表达式，也不得把过滤后移为全量加载后的内存过滤。实施首批次核实共享 SQL/XML 的可行写法；若公共 SQL 子集无法表达该语义，暂停相关实现并回到设计确认，必要时仅在 Repository/Infrastructure 增加显式 Provider 适配边界。
 
+**参数绑定与布尔筛选（2026-09-15 第 41 轮补充）**：布尔列与参数的比较必须声明参数映射与类型处理器（`<ParameterMap>` + `TypeHandler`），把绑定交给 Earthrace 的当前 Provider 适配层；框架默认按整数绑定布尔参数，而 PostgreSQL 的 boolean 列与 integer 比较没有对应操作符。类型处理器由 `MedicalRecognitionRepositoryModule` 通过 `TypeHandlerFactory.Register` 注册，共享 XML 以注册名引用。实测依据：未声明时 `QueryMedicalStandardItemList` 的 `IsValid` 筛选返回 HTTP 500（`42883 操作符不存在: boolean = integer`）；声明后 `isValid=true` 返回 5 条启用项、`isValid=false` 返回 1 条停用项，其余筛选（编码字面匹配、名称包含匹配、分类标识、项目类型）与三张列表查询均未受影响。
 ### 类型归属表
 
 只列本阶段实际新增或修改的类型。层映射见下节。
