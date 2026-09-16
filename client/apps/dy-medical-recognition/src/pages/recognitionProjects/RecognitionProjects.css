@@ -1,0 +1,7 @@
+.recognition-projects-page { min-width: 0; max-width: 100%; }
+.recognition-projects-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.recognition-projects-header h2.ant-typography { margin: 0; }
+.recognition-projects-filters { display: grid; grid-template-columns: minmax(140px, 240px) minmax(200px, 260px) auto; gap: 8px; margin: 16px 0 12px; align-items: center; }
+.recognition-projects-number { font-variant-numeric: tabular-nums; }
+.recognition-projects-summary { display: block; margin-top: 12px; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) { .recognition-projects-filters { grid-template-columns: minmax(0, 1fr); } }

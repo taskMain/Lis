@@ -50,4 +50,18 @@ public interface IMedicalRecognitionReportQueryRepository
   /// <param name="categoryName">分类名称筛选条件。</param>
   /// <returns>展平的有效项目行集合。</returns>
   Task<IEnumerable<EffectiveMedicalStandardCatalogItem>> QueryEffectiveMedicalStandardCatalogAsync(MedicalItemType? itemType, string? categoryName);
+
+  /// <summary>
+  /// 查询指定组织范围内的互认项目配置，并实时关联标准项目所属分类、分组和标准项目。
+  /// </summary>
+  /// <remarks>
+  /// 组织编码是必填的范围条件，调用方须先确认它是可信当前组织。
+  /// 标准项目编码按字面包含匹配，<c>%</c>、<c>_</c> 不作为通配符。
+  /// 传 <see langword="null"/> 表示不按该条件过滤；无匹配时返回空集合；按标准项目编码升序、配置标识升序。
+  /// </remarks>
+  /// <param name="organizationCode">配置所属组织编码；只返回该组织的配置。</param>
+  /// <param name="standardProjectCode">标准项目编码筛选条件。</param>
+  /// <param name="configurationStatus">配置启用状态筛选条件。</param>
+  /// <returns>互认配置与标准目录三层状态的投影集合。</returns>
+  Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? standardProjectCode, ConfigurationStatus? configurationStatus);
 }

@@ -396,6 +396,190 @@
         ]
       }
     },
+    "/Api/MedicalRecognitionReportQuery/QueryRecognitionProjectConfigurationList": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProjectConfigurationListQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProjectConfigurationListQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProjectConfigurationListQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProjectConfigurationListQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProjectConfigurationListQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProjectConfigurationListQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionProjectConfigurationReadModel"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionProjectConfigurationReadModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionProjectConfigurationReadModel"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionProjectConfigurationReadModel"
+                  }
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionProjectConfigurationReadModel"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/EnumMetadata/GetEnumMetadata": {
+      "post": {
+        "tags": [
+          "EnumMetadataAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryEnumMetadataRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryEnumMetadataRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryEnumMetadataRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryEnumMetadataRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryEnumMetadataRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryEnumMetadataRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnumMetadataItemDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnumMetadataItemDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnumMetadataItemDto"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnumMetadataItemDto"
+                  }
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EnumMetadataItemDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
     "/Api/MedicalRecognitionReport/CreateMedicalStandardCategory": {
       "post": {
         "tags": [
@@ -1639,6 +1823,8 @@
             "format": "uuid"
           },
           "remark": {
+            "maxLength": 600,
+            "minLength": 0,
             "type": [
               "null",
               "string"
@@ -1655,16 +1841,38 @@
           }
         }
       },
+      "ConfigurationStatus": {
+        "enum": [
+          1,
+          2
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "Enabled",
+          "Disabled"
+        ],
+        "x-enumDescriptions": [
+          "启用",
+          "停用"
+        ]
+      },
       "CreateMedicalStandardCategoryRequest": {
+        "required": [
+          "name"
+        ],
         "type": "object",
         "properties": {
           "itemType": {
             "$ref": "#/components/schemas/MedicalItemType"
           },
           "name": {
+            "maxLength": 200,
+            "minLength": 0,
             "type": "string"
           },
           "remark": {
+            "maxLength": 600,
+            "minLength": 0,
             "type": [
               "null",
               "string"
@@ -1682,6 +1890,9 @@
         }
       },
       "CreateMedicalStandardGroupRequest": {
+        "required": [
+          "name"
+        ],
         "type": "object",
         "properties": {
           "categoryId": {
@@ -1689,9 +1900,13 @@
             "format": "uuid"
           },
           "name": {
+            "maxLength": 200,
+            "minLength": 0,
             "type": "string"
           },
           "remark": {
+            "maxLength": 600,
+            "minLength": 0,
             "type": [
               "null",
               "string"
@@ -1709,6 +1924,10 @@
         }
       },
       "CreateMedicalStandardItemRequest": {
+        "required": [
+          "code",
+          "name"
+        ],
         "type": "object",
         "properties": {
           "categoryId": {
@@ -1720,12 +1939,18 @@
             "format": "uuid"
           },
           "code": {
+            "maxLength": 200,
+            "minLength": 0,
             "type": "string"
           },
           "name": {
+            "maxLength": 200,
+            "minLength": 0,
             "type": "string"
           },
           "remark": {
+            "maxLength": 600,
+            "minLength": 0,
             "type": [
               "null",
               "string"
@@ -1743,15 +1968,17 @@
         }
       },
       "CreateMutualRecognitionItemRequest": {
+        "required": [
+          "standardProjectCode"
+        ],
         "type": "object",
         "properties": {
-          "organizationCode": {
-            "type": "string"
-          },
           "standardProjectCode": {
             "type": "string"
           },
           "recognitionDurationDays": {
+            "maximum": 2147483647,
+            "minimum": 1,
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": "integer",
             "format": "int32"
@@ -1896,14 +2123,7 @@
         "type": "object",
         "properties": {
           "itemType": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/MedicalItemType"
-              }
-            ]
+            "$ref": "#/components/schemas/MedicalItemType"
           },
           "categoryName": {
             "type": [
@@ -2010,6 +2230,22 @@
           }
         }
       },
+      "EnumMetadataItemDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
       "LoginRequest": {
         "required": [
           "subApplication",
@@ -2042,20 +2278,25 @@
         }
       },
       "MedicalItemType": {
-        "type": "integer"
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "Laboratory",
+          "Examination"
+        ],
+        "x-enumDescriptions": [
+          "检验",
+          "检查"
+        ]
       },
       "MedicalStandardCategoryListQueryRequest": {
         "type": "object",
         "properties": {
           "itemType": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/MedicalItemType"
-              }
-            ]
+            "$ref": "#/components/schemas/MedicalItemType"
           }
         }
       },
@@ -2201,6 +2442,87 @@
       "MedicalStandardUsageStatus": {
         "type": "integer"
       },
+      "QueryEnumMetadataRequest": {
+        "required": [
+          "enumName"
+        ],
+        "type": "object",
+        "properties": {
+          "enumName": {
+            "type": "string"
+          }
+        }
+      },
+      "RecognitionProjectConfigurationListQueryRequest": {
+        "required": [
+          "organizationCode"
+        ],
+        "type": "object",
+        "properties": {
+          "organizationCode": {
+            "type": "string"
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "configurationStatus": {
+            "$ref": "#/components/schemas/ConfigurationStatus"
+          }
+        }
+      },
+      "RecognitionProjectConfigurationReadModel": {
+        "type": "object",
+        "properties": {
+          "configurationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "standardProjectCode": {
+            "type": "string"
+          },
+          "standardItemName": {
+            "type": "string"
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "itemTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "categoryName": {
+            "type": "string"
+          },
+          "groupName": {
+            "type": "string"
+          },
+          "recognitionDurationDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "configurationStatus": {
+            "$ref": "#/components/schemas/ConfigurationStatus"
+          },
+          "configurationStatusText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unavailableReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "TokenInfo": {
         "type": "object",
         "properties": {
@@ -2223,6 +2545,9 @@
         }
       },
       "UpdateMedicalStandardCategoryRequest": {
+        "required": [
+          "name"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -2233,9 +2558,13 @@
             "$ref": "#/components/schemas/MedicalItemType"
           },
           "name": {
+            "maxLength": 200,
+            "minLength": 0,
             "type": "string"
           },
           "remark": {
+            "maxLength": 600,
+            "minLength": 0,
             "type": [
               "null",
               "string"
@@ -2253,6 +2582,9 @@
         }
       },
       "UpdateMedicalStandardGroupRequest": {
+        "required": [
+          "name"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -2260,9 +2592,13 @@
             "format": "uuid"
           },
           "name": {
+            "maxLength": 200,
+            "minLength": 0,
             "type": "string"
           },
           "remark": {
+            "maxLength": 600,
+            "minLength": 0,
             "type": [
               "null",
               "string"
@@ -2287,6 +2623,8 @@
             "format": "uuid"
           },
           "recognitionDurationDays": {
+            "maximum": 2147483647,
+            "minimum": 1,
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": "integer",
             "format": "int32"
@@ -2317,6 +2655,9 @@
     },
     {
       "name": "MedicalRecognitionReportQueryAppService"
+    },
+    {
+      "name": "EnumMetadataAppService"
     },
     {
       "name": "MedicalRecognitionReportAppService"

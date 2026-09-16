@@ -129,24 +129,6 @@ export function createEffectiveMedicalStandardCatalogItemReadModelFromDiscrimina
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1 | MedicalItemType}
- */
-// @ts-ignore
-export function createEffectiveMedicalStandardCatalogQueryRequest_itemTypeFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoEffectiveMedicalStandardCatalogQueryRequest_itemType;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1}
- */
-// @ts-ignore
-export function createEffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoEffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {EffectiveMedicalStandardCatalogQueryRequest}
  */
 // @ts-ignore
@@ -210,29 +192,11 @@ export function createEnableMutualRecognitionItemRequestFromDiscriminatorValue(p
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {MedicalItemType}
+ * @returns {EnumMetadataItemDto}
  */
 // @ts-ignore
-export function createMedicalItemTypeFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoMedicalItemType;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {MedicalItemType | MedicalStandardCategoryListQueryRequest_itemTypeMember1}
- */
-// @ts-ignore
-export function createMedicalStandardCategoryListQueryRequest_itemTypeFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoMedicalStandardCategoryListQueryRequest_itemType;
-}
-/**
- * Creates a new instance of the appropriate class based on discriminator value
- * @param parseNode The parse node to use to read the discriminator value and create the object
- * @returns {MedicalStandardCategoryListQueryRequest_itemTypeMember1}
- */
-// @ts-ignore
-export function createMedicalStandardCategoryListQueryRequest_itemTypeMember1FromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
-    return deserializeIntoMedicalStandardCategoryListQueryRequest_itemTypeMember1;
+export function createEnumMetadataItemDtoFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoEnumMetadataItemDto;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -356,10 +320,6 @@ export interface CreateMutualRecognitionItemRequest extends AdditionalDataHolder
      */
     changedProperties?: string[] | null;
     /**
-     * The organizationCode property
-     */
-    organizationCode?: string | null;
-    /**
      * The recognitionDurationDays property
      */
     recognitionDurationDays?: number | null;
@@ -367,6 +327,33 @@ export interface CreateMutualRecognitionItemRequest extends AdditionalDataHolder
      * The standardProjectCode property
      */
     standardProjectCode?: string | null;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {QueryEnumMetadataRequest}
+ */
+// @ts-ignore
+export function createQueryEnumMetadataRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoQueryEnumMetadataRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionProjectConfigurationListQueryRequest}
+ */
+// @ts-ignore
+export function createRecognitionProjectConfigurationListQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionProjectConfigurationListQueryRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionProjectConfigurationReadModel}
+ */
+// @ts-ignore
+export function createRecognitionProjectConfigurationReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionProjectConfigurationReadModel;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -461,7 +448,6 @@ export function deserializeIntoCreateMedicalStandardItemRequest(createMedicalSta
 export function deserializeIntoCreateMutualRecognitionItemRequest(createMutualRecognitionItemRequest: Partial<CreateMutualRecognitionItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "changedProperties": n => { createMutualRecognitionItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
-        "organizationCode": n => { createMutualRecognitionItemRequest.organizationCode = n.getStringValue(); },
         "recognitionDurationDays": n => { createMutualRecognitionItemRequest.recognitionDurationDays = n.getNumberValue(); },
         "standardProjectCode": n => { createMutualRecognitionItemRequest.standardProjectCode = n.getStringValue(); },
     }
@@ -562,29 +548,7 @@ export function deserializeIntoEffectiveMedicalStandardCatalogItemReadModel(effe
 export function deserializeIntoEffectiveMedicalStandardCatalogQueryRequest(effectiveMedicalStandardCatalogQueryRequest: Partial<EffectiveMedicalStandardCatalogQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "categoryName": n => { effectiveMedicalStandardCatalogQueryRequest.categoryName = n.getStringValue(); },
-        "itemType": n => { effectiveMedicalStandardCatalogQueryRequest.itemType = n.getObjectValue<EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1>(createEffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1FromDiscriminatorValue) ?? n.getObjectValue<MedicalItemType>(createMedicalItemTypeFromDiscriminatorValue); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param EffectiveMedicalStandardCatalogQueryRequest_itemType The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoEffectiveMedicalStandardCatalogQueryRequest_itemType(effectiveMedicalStandardCatalogQueryRequest_itemType: Partial<EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1 | MedicalItemType> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        ...deserializeIntoEffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1(effectiveMedicalStandardCatalogQueryRequest_itemType as EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1),
-        ...deserializeIntoMedicalItemType(effectiveMedicalStandardCatalogQueryRequest_itemType as MedicalItemType),
-    }
-}
-/**
- * The deserialization information for the current model
- * @param EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1 The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoEffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1(effectiveMedicalStandardCatalogQueryRequest_itemTypeMember1: Partial<EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
+        "itemType": n => { effectiveMedicalStandardCatalogQueryRequest.itemType = n.getNumberValue(); },
     }
 }
 /**
@@ -660,12 +624,15 @@ export function deserializeIntoEnableMutualRecognitionItemRequest(enableMutualRe
 }
 /**
  * The deserialization information for the current model
- * @param MedicalItemType The instance to deserialize into.
+ * @param EnumMetadataItemDto The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
 // @ts-ignore
-export function deserializeIntoMedicalItemType(medicalItemType: Partial<MedicalItemType> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+export function deserializeIntoEnumMetadataItemDto(enumMetadataItemDto: Partial<EnumMetadataItemDto> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "description": n => { enumMetadataItemDto.description = n.getStringValue(); },
+        "name": n => { enumMetadataItemDto.name = n.getStringValue(); },
+        "value": n => { enumMetadataItemDto.value = n.getNumberValue(); },
     }
 }
 /**
@@ -676,29 +643,7 @@ export function deserializeIntoMedicalItemType(medicalItemType: Partial<MedicalI
 // @ts-ignore
 export function deserializeIntoMedicalStandardCategoryListQueryRequest(medicalStandardCategoryListQueryRequest: Partial<MedicalStandardCategoryListQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "itemType": n => { medicalStandardCategoryListQueryRequest.itemType = n.getObjectValue<MedicalItemType>(createMedicalItemTypeFromDiscriminatorValue) ?? n.getObjectValue<MedicalStandardCategoryListQueryRequest_itemTypeMember1>(createMedicalStandardCategoryListQueryRequest_itemTypeMember1FromDiscriminatorValue); },
-    }
-}
-/**
- * The deserialization information for the current model
- * @param MedicalStandardCategoryListQueryRequest_itemType The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoMedicalStandardCategoryListQueryRequest_itemType(medicalStandardCategoryListQueryRequest_itemType: Partial<MedicalItemType | MedicalStandardCategoryListQueryRequest_itemTypeMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
-        ...deserializeIntoMedicalItemType(medicalStandardCategoryListQueryRequest_itemType as MedicalItemType),
-        ...deserializeIntoMedicalStandardCategoryListQueryRequest_itemTypeMember1(medicalStandardCategoryListQueryRequest_itemType as MedicalStandardCategoryListQueryRequest_itemTypeMember1),
-    }
-}
-/**
- * The deserialization information for the current model
- * @param MedicalStandardCategoryListQueryRequest_itemTypeMember1 The instance to deserialize into.
- * @returns {Record<string, (node: ParseNode) => void>}
- */
-// @ts-ignore
-export function deserializeIntoMedicalStandardCategoryListQueryRequest_itemTypeMember1(medicalStandardCategoryListQueryRequest_itemTypeMember1: Partial<MedicalStandardCategoryListQueryRequest_itemTypeMember1> | undefined = {}) : Record<string, (node: ParseNode) => void> {
-    return {
+        "itemType": n => { medicalStandardCategoryListQueryRequest.itemType = n.getNumberValue(); },
     }
 }
 /**
@@ -775,6 +720,51 @@ export function deserializeIntoMedicalStandardItemListReadModel(medicalStandardI
         "itemType": n => { medicalStandardItemListReadModel.itemType = n.getNumberValue(); },
         "name": n => { medicalStandardItemListReadModel.name = n.getStringValue(); },
         "remark": n => { medicalStandardItemListReadModel.remark = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param QueryEnumMetadataRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoQueryEnumMetadataRequest(queryEnumMetadataRequest: Partial<QueryEnumMetadataRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "enumName": n => { queryEnumMetadataRequest.enumName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionProjectConfigurationListQueryRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionProjectConfigurationListQueryRequest(recognitionProjectConfigurationListQueryRequest: Partial<RecognitionProjectConfigurationListQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "configurationStatus": n => { recognitionProjectConfigurationListQueryRequest.configurationStatus = n.getNumberValue(); },
+        "organizationCode": n => { recognitionProjectConfigurationListQueryRequest.organizationCode = n.getStringValue(); },
+        "standardProjectCode": n => { recognitionProjectConfigurationListQueryRequest.standardProjectCode = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionProjectConfigurationReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionProjectConfigurationReadModel(recognitionProjectConfigurationReadModel: Partial<RecognitionProjectConfigurationReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "categoryName": n => { recognitionProjectConfigurationReadModel.categoryName = n.getStringValue(); },
+        "configurationId": n => { recognitionProjectConfigurationReadModel.configurationId = n.getGuidValue(); },
+        "configurationStatus": n => { recognitionProjectConfigurationReadModel.configurationStatus = n.getNumberValue(); },
+        "configurationStatusText": n => { recognitionProjectConfigurationReadModel.configurationStatusText = n.getStringValue(); },
+        "groupName": n => { recognitionProjectConfigurationReadModel.groupName = n.getStringValue(); },
+        "itemType": n => { recognitionProjectConfigurationReadModel.itemType = n.getNumberValue(); },
+        "itemTypeText": n => { recognitionProjectConfigurationReadModel.itemTypeText = n.getStringValue(); },
+        "recognitionDurationDays": n => { recognitionProjectConfigurationReadModel.recognitionDurationDays = n.getNumberValue(); },
+        "standardItemName": n => { recognitionProjectConfigurationReadModel.standardItemName = n.getStringValue(); },
+        "standardProjectCode": n => { recognitionProjectConfigurationReadModel.standardProjectCode = n.getStringValue(); },
+        "unavailableReason": n => { recognitionProjectConfigurationReadModel.unavailableReason = n.getStringValue(); },
     }
 }
 /**
@@ -909,10 +899,7 @@ export interface EffectiveMedicalStandardCatalogQueryRequest extends AdditionalD
     /**
      * The itemType property
      */
-    itemType?: EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1 | MedicalItemType | null;
-}
-export type EffectiveMedicalStandardCatalogQueryRequest_itemType = EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1 | MedicalItemType;
-export interface EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1 extends AdditionalDataHolder, Parsable {
+    itemType?: number | null;
 }
 export interface EffectiveMedicalStandardCatalogReadModel extends AdditionalDataHolder, Parsable {
     /**
@@ -970,16 +957,25 @@ export interface EnableMutualRecognitionItemRequest extends AdditionalDataHolder
      */
     id?: Guid | null;
 }
-export interface MedicalItemType extends AdditionalDataHolder, Parsable {
+export interface EnumMetadataItemDto extends AdditionalDataHolder, Parsable {
+    /**
+     * The description property
+     */
+    description?: string | null;
+    /**
+     * The name property
+     */
+    name?: string | null;
+    /**
+     * The value property
+     */
+    value?: number | null;
 }
 export interface MedicalStandardCategoryListQueryRequest extends AdditionalDataHolder, Parsable {
     /**
      * The itemType property
      */
-    itemType?: MedicalItemType | MedicalStandardCategoryListQueryRequest_itemTypeMember1 | null;
-}
-export type MedicalStandardCategoryListQueryRequest_itemType = MedicalItemType | MedicalStandardCategoryListQueryRequest_itemTypeMember1;
-export interface MedicalStandardCategoryListQueryRequest_itemTypeMember1 extends AdditionalDataHolder, Parsable {
+    itemType?: number | null;
 }
 export interface MedicalStandardCategoryListReadModel extends AdditionalDataHolder, Parsable {
     /**
@@ -1095,6 +1091,72 @@ export interface MedicalStandardItemListReadModel extends AdditionalDataHolder, 
      */
     remark?: string | null;
 }
+export interface QueryEnumMetadataRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The enumName property
+     */
+    enumName?: string | null;
+}
+export interface RecognitionProjectConfigurationListQueryRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The configurationStatus property
+     */
+    configurationStatus?: number | null;
+    /**
+     * The organizationCode property
+     */
+    organizationCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+}
+export interface RecognitionProjectConfigurationReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The configurationId property
+     */
+    configurationId?: Guid | null;
+    /**
+     * The configurationStatus property
+     */
+    configurationStatus?: number | null;
+    /**
+     * The configurationStatusText property
+     */
+    configurationStatusText?: string | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The itemTypeText property
+     */
+    itemTypeText?: string | null;
+    /**
+     * The recognitionDurationDays property
+     */
+    recognitionDurationDays?: number | null;
+    /**
+     * The standardItemName property
+     */
+    standardItemName?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The unavailableReason property
+     */
+    unavailableReason?: string | null;
+}
 /**
  * Serializes information the current object
  * @param ChangeMedicalStandardItemRemarkRequest The instance to serialize from.
@@ -1166,7 +1228,6 @@ export function serializeCreateMedicalStandardItemRequest(writer: SerializationW
 export function serializeCreateMutualRecognitionItemRequest(writer: SerializationWriter, createMutualRecognitionItemRequest: Partial<CreateMutualRecognitionItemRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!createMutualRecognitionItemRequest || isSerializingDerivedType) { return; }
     writer.writeCollectionOfPrimitiveValues<string>("changedProperties", createMutualRecognitionItemRequest.changedProperties);
-    writer.writeStringValue("organizationCode", createMutualRecognitionItemRequest.organizationCode);
     writer.writeNumberValue("recognitionDurationDays", createMutualRecognitionItemRequest.recognitionDurationDays);
     writer.writeStringValue("standardProjectCode", createMutualRecognitionItemRequest.standardProjectCode);
     writer.writeAdditionalData(createMutualRecognitionItemRequest.additionalData);
@@ -1275,30 +1336,8 @@ export function serializeEffectiveMedicalStandardCatalogItemReadModel(writer: Se
 export function serializeEffectiveMedicalStandardCatalogQueryRequest(writer: SerializationWriter, effectiveMedicalStandardCatalogQueryRequest: Partial<EffectiveMedicalStandardCatalogQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!effectiveMedicalStandardCatalogQueryRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("categoryName", effectiveMedicalStandardCatalogQueryRequest.categoryName);
-    writer.writeObjectValue<EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1 | MedicalItemType>("itemType", effectiveMedicalStandardCatalogQueryRequest.itemType, serializeEffectiveMedicalStandardCatalogQueryRequest_itemType);
+    writer.writeNumberValue("itemType", effectiveMedicalStandardCatalogQueryRequest.itemType);
     writer.writeAdditionalData(effectiveMedicalStandardCatalogQueryRequest.additionalData);
-}
-/**
- * Serializes information the current object
- * @param EffectiveMedicalStandardCatalogQueryRequest_itemType The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeEffectiveMedicalStandardCatalogQueryRequest_itemType(writer: SerializationWriter, effectiveMedicalStandardCatalogQueryRequest_itemType: Partial<EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1 | MedicalItemType> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    serializeEffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1(writer, effectiveMedicalStandardCatalogQueryRequest_itemType as EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1);
-    serializeMedicalItemType(writer, effectiveMedicalStandardCatalogQueryRequest_itemType as MedicalItemType);
-}
-/**
- * Serializes information the current object
- * @param EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1 The instance to serialize from.
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeEffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1(writer: SerializationWriter, effectiveMedicalStandardCatalogQueryRequest_itemTypeMember1: Partial<EffectiveMedicalStandardCatalogQueryRequest_itemTypeMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!effectiveMedicalStandardCatalogQueryRequest_itemTypeMember1 || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(effectiveMedicalStandardCatalogQueryRequest_itemTypeMember1.additionalData);
 }
 /**
  * Serializes information the current object
@@ -1379,14 +1418,17 @@ export function serializeEnableMutualRecognitionItemRequest(writer: Serializatio
 }
 /**
  * Serializes information the current object
+ * @param EnumMetadataItemDto The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param MedicalItemType The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
 // @ts-ignore
-export function serializeMedicalItemType(writer: SerializationWriter, medicalItemType: Partial<MedicalItemType> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!medicalItemType || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(medicalItemType.additionalData);
+export function serializeEnumMetadataItemDto(writer: SerializationWriter, enumMetadataItemDto: Partial<EnumMetadataItemDto> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!enumMetadataItemDto || isSerializingDerivedType) { return; }
+    writer.writeStringValue("description", enumMetadataItemDto.description);
+    writer.writeStringValue("name", enumMetadataItemDto.name);
+    writer.writeNumberValue("value", enumMetadataItemDto.value);
+    writer.writeAdditionalData(enumMetadataItemDto.additionalData);
 }
 /**
  * Serializes information the current object
@@ -1397,30 +1439,8 @@ export function serializeMedicalItemType(writer: SerializationWriter, medicalIte
 // @ts-ignore
 export function serializeMedicalStandardCategoryListQueryRequest(writer: SerializationWriter, medicalStandardCategoryListQueryRequest: Partial<MedicalStandardCategoryListQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!medicalStandardCategoryListQueryRequest || isSerializingDerivedType) { return; }
-    writer.writeObjectValue<MedicalItemType | MedicalStandardCategoryListQueryRequest_itemTypeMember1>("itemType", medicalStandardCategoryListQueryRequest.itemType, serializeMedicalStandardCategoryListQueryRequest_itemType);
+    writer.writeNumberValue("itemType", medicalStandardCategoryListQueryRequest.itemType);
     writer.writeAdditionalData(medicalStandardCategoryListQueryRequest.additionalData);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param MedicalStandardCategoryListQueryRequest_itemType The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeMedicalStandardCategoryListQueryRequest_itemType(writer: SerializationWriter, medicalStandardCategoryListQueryRequest_itemType: Partial<MedicalItemType | MedicalStandardCategoryListQueryRequest_itemTypeMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    serializeMedicalItemType(writer, medicalStandardCategoryListQueryRequest_itemType as MedicalItemType);
-    serializeMedicalStandardCategoryListQueryRequest_itemTypeMember1(writer, medicalStandardCategoryListQueryRequest_itemType as MedicalStandardCategoryListQueryRequest_itemTypeMember1);
-}
-/**
- * Serializes information the current object
- * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
- * @param MedicalStandardCategoryListQueryRequest_itemTypeMember1 The instance to serialize from.
- * @param writer Serialization writer to use to serialize this model
- */
-// @ts-ignore
-export function serializeMedicalStandardCategoryListQueryRequest_itemTypeMember1(writer: SerializationWriter, medicalStandardCategoryListQueryRequest_itemTypeMember1: Partial<MedicalStandardCategoryListQueryRequest_itemTypeMember1> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
-    if (!medicalStandardCategoryListQueryRequest_itemTypeMember1 || isSerializingDerivedType) { return; }
-    writer.writeAdditionalData(medicalStandardCategoryListQueryRequest_itemTypeMember1.additionalData);
 }
 /**
  * Serializes information the current object
@@ -1502,6 +1522,54 @@ export function serializeMedicalStandardItemListReadModel(writer: SerializationW
     writer.writeStringValue("name", medicalStandardItemListReadModel.name);
     writer.writeStringValue("remark", medicalStandardItemListReadModel.remark);
     writer.writeAdditionalData(medicalStandardItemListReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param QueryEnumMetadataRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeQueryEnumMetadataRequest(writer: SerializationWriter, queryEnumMetadataRequest: Partial<QueryEnumMetadataRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!queryEnumMetadataRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("enumName", queryEnumMetadataRequest.enumName);
+    writer.writeAdditionalData(queryEnumMetadataRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionProjectConfigurationListQueryRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionProjectConfigurationListQueryRequest(writer: SerializationWriter, recognitionProjectConfigurationListQueryRequest: Partial<RecognitionProjectConfigurationListQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionProjectConfigurationListQueryRequest || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("configurationStatus", recognitionProjectConfigurationListQueryRequest.configurationStatus);
+    writer.writeStringValue("organizationCode", recognitionProjectConfigurationListQueryRequest.organizationCode);
+    writer.writeStringValue("standardProjectCode", recognitionProjectConfigurationListQueryRequest.standardProjectCode);
+    writer.writeAdditionalData(recognitionProjectConfigurationListQueryRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionProjectConfigurationReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionProjectConfigurationReadModel(writer: SerializationWriter, recognitionProjectConfigurationReadModel: Partial<RecognitionProjectConfigurationReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionProjectConfigurationReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("categoryName", recognitionProjectConfigurationReadModel.categoryName);
+    writer.writeGuidValue("configurationId", recognitionProjectConfigurationReadModel.configurationId);
+    writer.writeNumberValue("configurationStatus", recognitionProjectConfigurationReadModel.configurationStatus);
+    writer.writeStringValue("configurationStatusText", recognitionProjectConfigurationReadModel.configurationStatusText);
+    writer.writeStringValue("groupName", recognitionProjectConfigurationReadModel.groupName);
+    writer.writeNumberValue("itemType", recognitionProjectConfigurationReadModel.itemType);
+    writer.writeStringValue("itemTypeText", recognitionProjectConfigurationReadModel.itemTypeText);
+    writer.writeNumberValue("recognitionDurationDays", recognitionProjectConfigurationReadModel.recognitionDurationDays);
+    writer.writeStringValue("standardItemName", recognitionProjectConfigurationReadModel.standardItemName);
+    writer.writeStringValue("standardProjectCode", recognitionProjectConfigurationReadModel.standardProjectCode);
+    writer.writeStringValue("unavailableReason", recognitionProjectConfigurationReadModel.unavailableReason);
+    writer.writeAdditionalData(recognitionProjectConfigurationReadModel.additionalData);
 }
 /**
  * Serializes information the current object

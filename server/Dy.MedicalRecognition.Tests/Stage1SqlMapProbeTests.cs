@@ -1,7 +1,9 @@
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
+using Dy.MedicalRecognition.Domain.Queries;
 using Microsoft.Extensions.Configuration;
 using Xunit;
 
@@ -52,7 +54,8 @@ public sealed class Stage1SqlMapProbeTests
 
   /// <summary>
   /// 在不连接数据库的前提下加载宿主输出目录中的程序集并构建 SqlMap 注册表，
-  /// 核对注册出的完整语句标识：聚合级标识不应存在，具体实体的新增、更新与查询标识必须齐全。
+  /// 核对注册出的完整语句标识：聚合级标识不应存在，具体实体的新增、更新与查询标识必须齐全；
+  /// 阶段 2 追加核对互认项目配置的实体作用域注册键、独立查询作用域注册键，以及旧聚合作用域键已消失。
   /// </summary>
   [Fact]
   public void Runtime_registration_reports_full_sql_ids_without_opening_database()
@@ -110,6 +113,27 @@ public sealed class Stage1SqlMapProbeTests
     Assert.Contains("MedicalRecognitionReportQuery.QueryEffectiveMedicalStandardCatalog", registeredKeys);
     Assert.Contains("MedicalRecognitionReport.QueryAllRecognitionReference", registeredKeys);
     Assert.Contains("MedicalRecognitionReport.RecognitionReferenceColumns", registeredKeys);
+
+    // 阶段 2 追加核对：互认项目配置的写入、启停与按组织读取语句必须注册在实体作用域下，
+    // 查询语句注册在独立查询作用域，且五个旧聚合作用域键（新增、修改、启用、停用、按标识读取）必须全部消失；
+    // 缺少这些断言时，作用域或语句标识被改名不会让本用例失败，V23 会静默通过。
+    Assert.DoesNotContain("MedicalRecognitionReport.CreateMutualRecognitionItem", registeredKeys);
+    Assert.DoesNotContain("MedicalRecognitionReport.UpdateMutualRecognitionItemConfiguration", registeredKeys);
+    Assert.DoesNotContain("MedicalRecognitionReport.EnableMutualRecognitionItem", registeredKeys);
+    Assert.DoesNotContain("MedicalRecognitionReport.DisableMutualRecognitionItem", registeredKeys);
+    Assert.DoesNotContain("MedicalRecognitionReport.GetMutualRecognitionItemById", registeredKeys);
+    Assert.Contains("MutualRecognitionItem.CreateMutualRecognitionItem", registeredKeys);
+    Assert.Contains("MutualRecognitionItem.UpdateMutualRecognitionItemConfiguration", registeredKeys);
+    Assert.Contains("MutualRecognitionItem.EnableMutualRecognitionItem", registeredKeys);
+    Assert.Contains("MutualRecognitionItem.DisableMutualRecognitionItem", registeredKeys);
+    Assert.Contains("MutualRecognitionItem.GetMutualRecognitionItemById", registeredKeys);
+    Assert.Contains("MedicalStandardItem.GetMedicalStandardItemByCode", registeredKeys);
+    Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionProjectConfigurationList", registeredKeys);
+
+    // 复用的字段清单语句与全量查询语句同样必须注册在实体作用域下：这两条键此前只出现在上面的打印清单里，
+    // 语句标识被改名或作用域被改动时没有任何用例会失败。
+    Assert.Contains("MutualRecognitionItem.MutualRecognitionItemColumns", registeredKeys);
+    Assert.Contains("MutualRecognitionItem.QueryAllMutualRecognitionItem", registeredKeys);
   }
 
   /// <summary>
@@ -127,6 +151,20 @@ public sealed class Stage1SqlMapProbeTests
       .Single(element => (string?)element.Attribute("Id") == "QueryMedicalStandardItemList");
     Assert.Contains("$IsValid", statement.Value, StringComparison.Ordinal);
 
+    // 阶段 2 的互认配置列表查询同样以 `$IsValid` 过滤启用列（停用筛选下发 false 时也必须渲染该谓词），
+    // 缺少这条断言时，该语句的筛选谓词被删改不会让任何用例失败。
+    var configurationStatement = document.Descendants(ns + "Statement")
+      .Single(element => (string?)element.Attribute("Id") == "QueryRecognitionProjectConfigurationList");
+    Assert.True(ConfigurationQueryFiltersByEnabledState(configurationStatement.Value));
+
+    // 变异证据：把副本里的 `$IsValid` 谓词换成恒真条件后，同一条判据必须判为"没有按启用状态过滤"，
+    // 证明上面的断言不是对任何文本都成立。
+    string predicateRemoved = configurationStatement.Value.Replace("m.is_valid = $IsValid", "1 = 1", StringComparison.Ordinal);
+    Assert.NotEqual(configurationStatement.Value, predicateRemoved);
+    Assert.False(ConfigurationQueryFiltersByEnabledState(predicateRemoved));
+
+    Assert.Equal("MedicalRecognitionBooleanParameters", (string?)configurationStatement.Attribute("ParameterMap"));
+
     var parameterMap = document.Descendants(ns + "ParameterMap")
       .SingleOrDefault(element => (string?)element.Attribute("Id") == "MedicalRecognitionBooleanParameters");
     Assert.NotNull(parameterMap);
@@ -137,6 +175,160 @@ public sealed class Stage1SqlMapProbeTests
 
     var moduleSource = File.ReadAllText(FindRepositoryFile("MedicalRecognitionRepositoryModule.cs"));
     Assert.Contains("TypeHandlerFactory.Register(\"MedicalRecognitionBoolean\", new BooleanTypeHandler())", moduleSource, StringComparison.Ordinal);
+  }
+
+  /// <summary>
+  /// 校验互认配置列表查询语句冻结了组织范围谓词、稳定排序键与投影别名绑定：
+  /// 组织谓词决定只返回该组织的配置，排序键决定结果顺序稳定，投影列与只读投影
+  /// <see cref="RecognitionProjectConfigurationListItem"/> 的属性必须一一对应，否则字段会静默漏绑或错绑。
+  /// </summary>
+  [Fact]
+  public void Recognition_configuration_query_freezes_organization_sort_and_projection_binding()
+  {
+    var document = XDocument.Load(FindRepositoryFile("MedicalRecognitionReportQuery.xml"));
+    var ns = (XNamespace)"http://dysoft.vip/schemas/EarthraceSqlMap.xsd";
+    var statement = document.Descendants(ns + "Statement")
+      .Single(element => (string?)element.Attribute("Id") == "QueryRecognitionProjectConfigurationList");
+    string sql = NormalizeSqlText(statement.Value);
+
+    // 组织范围谓词：缺失或改成"不过滤"会让一个组织的调用方读到其他组织的配置。
+    Assert.True(RecognitionConfigurationQueryFiltersByOrganization(sql));
+    string organizationPredicateRemoved = statement.Value.Replace(
+      "and m.organization_code = $OrganizationCode", "and 1 = 1", StringComparison.Ordinal);
+    Assert.NotEqual(statement.Value, organizationPredicateRemoved);
+    Assert.False(RecognitionConfigurationQueryFiltersByOrganization(NormalizeSqlText(organizationPredicateRemoved)));
+    // 稳定排序键：缺失时同一组织的配置顺序随数据库执行计划变化，页面顺序会抖动。
+    Assert.Contains("order by m.standard_project_code asc, m.id asc", sql, StringComparison.Ordinal);
+
+    // 投影列逐项冻结：列表达式必须出现在 select 列表中，且其别名与投影属性名按 snake_case 一一对应。
+    string[] expectedAliases = [.. RecognitionConfigurationProjection
+      .Select(projection => ToSnakeCase(projection.PropertyName))
+      .Order(StringComparer.Ordinal)];
+    string[] projectedAliases = [.. typeof(RecognitionProjectConfigurationListItem)
+      .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+      .Select(property => ToSnakeCase(property.Name))
+      .Order(StringComparer.Ordinal)];
+    Assert.Equal(projectedAliases, expectedAliases);
+
+    foreach ((string selectExpression, string propertyName) in RecognitionConfigurationProjection)
+    {
+      Assert.Contains(NormalizeSqlText(selectExpression), sql, StringComparison.Ordinal);
+      // 别名与属性名必须逐项对应：有别名取 as 之后的别名，没有别名取列名（列名本身就是 snake_case 形式）。
+      string expectedAlias = selectExpression.Contains(" as ", StringComparison.Ordinal)
+        ? selectExpression[(selectExpression.IndexOf(" as ", StringComparison.Ordinal) + " as ".Length)..]
+        : selectExpression[(selectExpression.IndexOf('.') + 1)..];
+      Assert.Equal(expectedAlias, ToSnakeCase(propertyName));
+    }
+  }
+
+  /// <summary>
+  /// 互认配置列表查询的投影列与只读投影属性的逐项对应：select 列表里的列表达式，以及它绑定的属性名。
+  /// </summary>
+  private static readonly (string SelectExpression, string PropertyName)[] RecognitionConfigurationProjection =
+  [
+    ("m.id as configuration_id", nameof(RecognitionProjectConfigurationListItem.ConfigurationId)),
+    ("m.standard_project_code", nameof(RecognitionProjectConfigurationListItem.StandardProjectCode)),
+    ("i.name as standard_item_name", nameof(RecognitionProjectConfigurationListItem.StandardItemName)),
+    ("c.item_type", nameof(RecognitionProjectConfigurationListItem.ItemType)),
+    ("c.name as category_name", nameof(RecognitionProjectConfigurationListItem.CategoryName)),
+    ("g.name as group_name", nameof(RecognitionProjectConfigurationListItem.GroupName)),
+    ("m.recognition_duration_days", nameof(RecognitionProjectConfigurationListItem.RecognitionDurationDays)),
+    ("m.is_valid", nameof(RecognitionProjectConfigurationListItem.IsValid)),
+    ("c.is_valid as category_is_valid", nameof(RecognitionProjectConfigurationListItem.CategoryIsValid)),
+    ("g.is_valid as group_is_valid", nameof(RecognitionProjectConfigurationListItem.GroupIsValid)),
+    ("i.is_valid as item_is_valid", nameof(RecognitionProjectConfigurationListItem.ItemIsValid))
+  ];
+
+  /// <summary>
+  /// 判断互认配置列表查询语句是否按可信组织范围过滤，即是否包含组织范围谓词。
+  /// </summary>
+  /// <param name="statement">查询语句文本。</param>
+  /// <returns>语句包含组织范围谓词时为 <see langword="true"/>。</returns>
+  private static bool RecognitionConfigurationQueryFiltersByOrganization(string statement) =>
+    statement.Contains("m.organization_code = $OrganizationCode", StringComparison.Ordinal);
+
+  /// <summary>
+  /// 判断互认配置列表查询语句是否按启用状态过滤，即是否引用布尔参数 <c>$IsValid</c> 比较配置启用列。
+  /// </summary>
+  /// <param name="statement">查询语句文本。</param>
+  /// <returns>语句包含启用状态谓词时为 <see langword="true"/>。</returns>
+  private static bool ConfigurationQueryFiltersByEnabledState(string statement) =>
+    statement.Contains("m.is_valid = $IsValid", StringComparison.Ordinal);
+
+  /// <summary>
+  /// 校验互认项目配置建表脚本的物理形态：列序、列类型口径、没有后续变更语句、唯一索引名称与覆盖列，以及注释覆盖。
+  /// </summary>
+  /// <remarks>
+  /// 这些内容与仓储语句、领域字段名一起构成物理映射，改名或漏写时既不会编译失败，也不会让 SqlMap 断言失败。
+  /// </remarks>
+  [Fact]
+  public void Mutual_recognition_item_ddl_freezes_columns_index_and_comments()
+  {
+    string script = File.ReadAllText(FindRepositoryFile("mutual_recognition_item.sql"));
+    string[] expectedColumns =
+    [
+      "id", "organization_code", "standard_item_id", "standard_project_code",
+      "recognition_duration_days", "is_valid", "oper_time", "oper_id"
+    ];
+
+    // 列序与列数：投影与写入语句按列位置绑定，插入列或调换顺序都会让真实运行与静态断言不一致。
+    string tableBody = script[script.IndexOf("create table mrec_mutual_recognition_item (", StringComparison.Ordinal)..];
+    tableBody = tableBody[..tableBody.IndexOf(");", StringComparison.Ordinal)];
+    string[] columns = [.. tableBody.Split('\n')
+      .Skip(1)
+      .Select(line => line.Trim())
+      .Where(line => line.Length > 0 && !line.StartsWith("primary key", StringComparison.OrdinalIgnoreCase))
+      .Select(line => line.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0])];
+    Assert.Equal(expectedColumns, columns);
+
+    // 列类型口径：文本列不使用带长度上限的 varchar，避免编码长度被物理截断。
+    Assert.DoesNotContain("varchar", script, StringComparison.OrdinalIgnoreCase);
+    // 建表脚本只做一次建表：出现 alter 说明表结构被后续脚本改写，仓库里只有这一处物理定义。
+    Assert.DoesNotContain("alter", script, StringComparison.OrdinalIgnoreCase);
+
+    // 唯一索引：名称与覆盖列决定同一组织与标准项目只能有一条配置，是重复配置拒绝的物理依据。
+    Assert.Contains("create unique index ux_mrec_mutual_recognition_org_project", script, StringComparison.Ordinal);
+    Assert.Contains("on mrec_mutual_recognition_item (organization_code, standard_project_code)", script, StringComparison.Ordinal);
+
+    // 注释覆盖：表、8 个列与唯一索引都必须有中文说明，注释条数与目标集合一起冻结。
+    string[] commentLines = [.. script.Split('\n')
+      .Select(line => line.Trim())
+      .Where(line => line.StartsWith("comment on ", StringComparison.Ordinal))];
+    Assert.Equal(10, commentLines.Length);
+    Assert.Single(commentLines, line => line.StartsWith("comment on table mrec_mutual_recognition_item ", StringComparison.Ordinal));
+    Assert.Single(commentLines, line => line.StartsWith("comment on index ux_mrec_mutual_recognition_org_project ", StringComparison.Ordinal));
+    Assert.Equal(8, commentLines.Count(line => line.StartsWith("comment on column mrec_mutual_recognition_item.", StringComparison.Ordinal)));
+    foreach (string column in expectedColumns)
+    {
+      Assert.Contains(
+        commentLines,
+        line => line.StartsWith($"comment on column mrec_mutual_recognition_item.{column} is ", StringComparison.Ordinal));
+    }
+  }
+
+  /// <summary>
+  /// 把 SQL 文本中的换行与连续空白归一为单个空格，使冻结判据只对语句内容敏感、不对映射文件排版敏感。
+  /// </summary>
+  /// <param name="text">SQL 文本或语句片段。</param>
+  /// <returns>空白归一后的 SQL 文本。</returns>
+  private static string NormalizeSqlText(string text) => string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+  /// <summary>
+  /// 把投影属性名转换为查询别名使用的 snake_case 形式，用于逐项对应。
+  /// </summary>
+  /// <param name="propertyName">PascalCase 属性名。</param>
+  /// <returns>snake_case 形式，例如 <c>ConfigurationId</c> 对应 <c>configuration_id</c>。</returns>
+  private static string ToSnakeCase(string propertyName)
+  {
+    StringBuilder builder = new();
+    for (int index = 0; index < propertyName.Length; index++)
+    {
+      char current = propertyName[index];
+      if (char.IsUpper(current) && index > 0) builder.Append('_');
+      builder.Append(char.ToLowerInvariant(current));
+    }
+
+    return builder.ToString();
   }
 
   /// <summary>

@@ -10,6 +10,8 @@ import { QueryMedicalStandardGroupListRequestBuilderRequestsMetadata, type Query
 // @ts-ignore
 import { QueryMedicalStandardItemListRequestBuilderRequestsMetadata, type QueryMedicalStandardItemListRequestBuilder } from './queryMedicalStandardItemList/index.js';
 // @ts-ignore
+import { QueryRecognitionProjectConfigurationListRequestBuilderRequestsMetadata, type QueryRecognitionProjectConfigurationListRequestBuilder } from './queryRecognitionProjectConfigurationList/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -32,6 +34,10 @@ export interface MedicalRecognitionReportQueryRequestBuilder extends BaseRequest
      * The QueryMedicalStandardItemList property
      */
     get queryMedicalStandardItemList(): QueryMedicalStandardItemListRequestBuilder;
+    /**
+     * The QueryRecognitionProjectConfigurationList property
+     */
+    get queryRecognitionProjectConfigurationList(): QueryRecognitionProjectConfigurationListRequestBuilder;
 }
 /**
  * Uri template for the request builder.
@@ -52,6 +58,9 @@ export const MedicalRecognitionReportQueryRequestBuilderNavigationMetadata: Reco
     },
     queryMedicalStandardItemList: {
         requestsMetadata: QueryMedicalStandardItemListRequestBuilderRequestsMetadata,
+    },
+    queryRecognitionProjectConfigurationList: {
+        requestsMetadata: QueryRecognitionProjectConfigurationListRequestBuilderRequestsMetadata,
     },
 };
 /* tslint:enable */

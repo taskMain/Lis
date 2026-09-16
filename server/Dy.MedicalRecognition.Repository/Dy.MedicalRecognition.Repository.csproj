@@ -13,6 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Dy.Base.Application.Contracts" />
+    <PackageReference Include="Dy.Core.SourceGen" />
     <PackageReference Include="Dy.Earthrace" />
     <PackageReference Include="Dy.Earthrace.Abstractions" />
     <PackageReference Include="Dy.Apron.Abstractions" />

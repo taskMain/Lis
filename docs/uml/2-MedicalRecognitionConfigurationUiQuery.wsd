@@ -132,20 +132,18 @@ ReadModel('RecognitionProjectConfigurationReadModel')[
 ReadModel('RecognitionAmountReadModel')[
     医院院区互认项目金额
     --属性--
-    组织编码(OrganizationCode String)
-    医院编码(HospitalCode String)
-    院区编码(BranchCode String)
     标准项目编码(StandardProjectCode String)
     标准项目名称(StandardProjectName String)
     项目类型(ItemType MedicalItemType)
     分类名称(CategoryName String)
     分组名称(GroupName String)
+    组织名称(OrganizationName String)
+    医院名称(HospitalName String)
+    院区名称(BranchName String)
     互认配置状态(ConfigurationStatus ConfigurationStatus)
     当前不可用原因(UnavailableReason String?)
-    当前金额(CurrentAmount Decimal)
+    当前金额(CurrentAmount Decimal?)
     金额已配置(IsAmountConfigured Boolean)
-    最后修改时间(LastModifiedTime DateTime)
-    最后修改人(LastModifiedBy String)
 ]
 note right of RecognitionProjectConfigurationReadModel
   UnavailableReason 仅表达标准目录停用原因，不表达配置自身停用。
@@ -173,6 +171,20 @@ Query('QueryRecognitionAmountList')[
     院区编码(BranchCode String)
     标准项目编码(StandardProjectCode String?)
 ]
+note right of QueryRecognitionAmountList
+  平台管理员入口：组织、医院、院区均取自请求。
+  服务端校验该组织、医院、院区存在、启用且父子归属正确。
+end note
+Query('QueryBranchRecognitionAmountList')[
+    查询本院区互认项目金额
+    --入参--
+    院区编码(BranchCode String)
+    标准项目编码(StandardProjectCode String?)
+]
+note right of QueryBranchRecognitionAmountList
+  医院管理员入口：组织与医院取自可信上下文，请求只提交院区。
+  服务端校验该院区存在、启用且属于可信医院。
+end note
 
 ReadModel('MedicalReportListReadModel')[
     报告列表
@@ -430,7 +442,10 @@ note right of MedicalReportManagementModule
   医院 HIS 不通过本模块查询或下载历史版本。
 end note
 note right of RecognitionAmountManagementModule
-  金额查询只返回组织级互认配置已存在的标准项目；金额未配置时 IsAmountConfigured=false，当前金额无业务值；最后修改时间和最后修改人无业务值。
+  金额查询只返回组织级互认配置已存在的标准项目；金额未配置时 IsAmountConfigured=false，当前金额无业务值。
+  平台管理员入口按请求提交的组织、医院、院区查询；医院管理员入口的组织与医院取自可信上下文，请求只提交院区。
+  组织名称、医院名称、院区名称与标准项目名称由服务端一次性批量读取后在内存填充，不按结果行逐条查询。
+  列表不返回组织编码、医院编码、院区编码，也不返回最后修改时间和最后修改人。
 end note
 note right of MedicalReportManagementModule
   源端报告修改时间、报告责任人员和来源报告备注在来源未提供时无业务值。
@@ -449,6 +464,7 @@ MedicalStandardCatalogManagementModule --> QueryMedicalStandardItemList
 MedicalRecognitionConfigurationModule --> QueryEffectiveMedicalStandardCatalog
 MedicalRecognitionConfigurationModule --> QueryRecognitionProjectConfigurationList
 RecognitionAmountManagementModule --> QueryRecognitionAmountList
+RecognitionAmountManagementModule --> QueryBranchRecognitionAmountList
 MedicalReportManagementModule --> QueryMedicalReportList
 MedicalReportManagementModule --> QueryMedicalReportVersionList
 MedicalReportManagementModule --> GetMedicalReportVersionDetail
@@ -459,6 +475,7 @@ QueryMedicalStandardItemList .. MedicalStandardItemListReadModel
 QueryEffectiveMedicalStandardCatalog .. EffectiveMedicalStandardCatalogReadModel
 QueryRecognitionProjectConfigurationList .. RecognitionProjectConfigurationReadModel
 QueryRecognitionAmountList .. RecognitionAmountReadModel
+QueryBranchRecognitionAmountList .. RecognitionAmountReadModel
 QueryMedicalReportList .. MedicalReportListReadModel
 QueryMedicalReportVersionList .. MedicalReportVersionListReadModel
 GetMedicalReportVersionDetail .. MedicalReportVersionDetailQueryReadModel

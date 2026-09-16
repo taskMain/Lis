@@ -209,6 +209,8 @@ PublishScripts/
 !client/packages/api-client-medical-recognition/**
 client/packages/api-client-medical-recognition/dist/
 client/packages/api-client-medical-recognition/node_modules/
+# Kiota 生成日志：只在本机生成、不入版本控制。该规则必须排在上面包级反向规则（`!client/packages/api-client-medical-recognition/**`）之后才能生效
+.kiota.log
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
 # NuGet v3's project.json files produces more ignorable files

@@ -1,4 +1,6 @@
 using Dy.Apron.Abstractions.Core;
+using Microsoft.AspNetCore.OpenApi;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Dy.MedicalRecognition.Application;
 
@@ -12,5 +14,13 @@ public sealed class MedicalRecognitionApplicationModule : ApronModule
   /// </summary>
   public MedicalRecognitionApplicationModule() : base(nameof(MedicalRecognitionApplicationModule))
   {
+  }
+
+  /// <inheritdoc/>
+  public override void OnPostConfigureServices(ServiceConfigurationContext context)
+  {
+    // 公共枚举的取值集合只能由服务端声明：缺少时生成端会把可空枚举写成空对象。
+    context.Services.ConfigureAll<OpenApiOptions>(options =>
+      options.AddDocumentTransformer(new MedicalRecognitionEnumOpenApiDocumentTransformer()));
   }
 }

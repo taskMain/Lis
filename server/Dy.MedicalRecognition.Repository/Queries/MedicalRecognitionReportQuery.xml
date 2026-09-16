@@ -121,5 +121,39 @@
       <IsNotEmpty Prepend="and" Property="CategoryName">c.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入分类名称时按分类名称做字面包含匹配 -->
       order by c.item_type asc, c.name asc, c.id asc, g.name asc, g.id asc, i.name asc, i.id asc  <!-- 排序：按项目类型、分类、分组、项目名称、标识逐级升序，保证目录输出层级稳定 -->
     </Statement>
+    <!--
+      功能：查询指定组织范围内的互认项目配置，并实时关联标准项目所属分类、分组和标准项目，取得展示资料与标准目录三层的启用状态。
+      结果：返回互认配置标识、标准项目编码、标准项目名称、项目类型、分类名称、分组名称、可互认时间天数、配置启用状态，以及分类、分组和标准项目三层的启用状态；按标准项目编码升序、配置标识升序稳定排序，不分页；未传标准项目编码或配置状态时对应条件不参与过滤。
+    -->
+    <Statement Id="QueryRecognitionProjectConfigurationList" ParameterMap="MedicalRecognitionBooleanParameters">
+      select
+        m.id as configuration_id,         <!-- 互认配置标识 -->
+        m.standard_project_code,          <!-- 标准项目编码 -->
+        i.name as standard_item_name,     <!-- 标准项目名称：实时取自标准目录，互认配置不重复保存 -->
+        c.item_type,                      <!-- 项目类型：0=检验、1=检查，实时取自所属分类 -->
+        c.name as category_name,          <!-- 分类名称：实时取自标准目录 -->
+        g.name as group_name,             <!-- 分组名称：实时取自标准目录 -->
+        m.recognition_duration_days,      <!-- 可互认时间天数 -->
+        m.is_valid,                       <!-- 配置自身的启用状态 -->
+        c.is_valid as category_is_valid,  <!-- 所属分类的启用状态：供派生目录停用原因，不对外返回 -->
+        g.is_valid as group_is_valid,     <!-- 所属分组的启用状态：供派生目录停用原因，不对外返回 -->
+        i.is_valid as item_is_valid       <!-- 标准项目的启用状态：供派生目录停用原因，不对外返回 -->
+      from mrec_mutual_recognition_item m
+      <!-- 关联原因：互认配置只保存标准项目标识，标准项目名称、项目类型、分类和分组都需要从标准目录实时取得，不重复保存在配置中 -->
+      join mrec_medical_standard_item i on i.id = m.standard_item_id
+      join mrec_medical_standard_group g on g.id = i.group_id
+      <!-- 关联原因：标准项目必须归属到与自己同分类的分组；附加 c.id = g.category_id 可避免历史不一致数据把跨分类的分组纳入查询结果 -->
+      join mrec_medical_standard_category c on c.id = i.category_id and c.id = g.category_id
+      where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+      and m.organization_code = $OrganizationCode  <!-- 组织范围：只返回该组织的互认配置，组织编码由调用方确认是可信当前组织 -->
+      <!--
+        处理：对用户输入的转义符 ! 先加倍，再将 % 转义为 !%、_ 转义为 !_，然后首尾拼接通配符并用 escape '!' 声明转义符。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符，使标准项目编码的“字面包含”匹配范围被放大，返回超出预期的配置。
+        结果：按标准项目编码做字面包含匹配，用户输入的通配符字符只作为普通字符参与比较。
+      -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">m.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入标准项目编码时按标准项目编码做字面包含匹配 -->
+      <IsNotEmpty Prepend="and" Property="IsValid">m.is_valid = $IsValid</IsNotEmpty>  <!-- 可选筛选：按配置启用状态过滤，调用方已把启用/停用换算为布尔值，SQL 只比较布尔列 -->
+      order by m.standard_project_code asc, m.id asc  <!-- 排序：按标准项目编码升序，并以配置标识作为稳定兜底键；同一组织内配置编码唯一，兜底键只保证顺序稳定 -->
+    </Statement>
   </Statements>
 </SqlMap>

@@ -82,6 +82,14 @@
       select <Include RefId="MedicalStandardItemColumns" /> from mrec_medical_standard_item where id = $Id
     </Statement>
     <!--
+      功能：按标准项目编码精确读取单个标准医疗项目，供互认项目配置按调用方提交的编码解析服务端目录标识。
+      结果：命中时返回一行标准项目字段清单，未命中时返回空结果；启用中的项目和已停用的项目都会被返回，
+      当前是否有效由领域层判断，编码全局唯一因此至多命中一行。
+    -->
+    <Statement Id="GetMedicalStandardItemByCode">
+      select <Include RefId="MedicalStandardItemColumns" /> from mrec_medical_standard_item where code = $Code
+    </Statement>
+    <!--
       功能：统计与待校验编码相同的标准项目条数，用于新增标准项目前的编码查重。
       结果：返回同编码条数（只计数、不返回明细），调用方以大于 0 判定编码已被占用；标准项目编码全局唯一，检验与检查之间不可重复，也不区分启用状态。
     -->

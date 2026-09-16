@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Dy.Core.Abstractions.Data;
 using Dy.Core.Abstractions.Models;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
@@ -8,13 +9,21 @@ namespace Dy.MedicalRecognition.Repository.MedicalRecognitionReportAggregate;
 /// <summary>
 /// 标准项目分类、分组、标准项目与互认项目配置的读写实现。
 /// </summary>
-/// <remarks>只发映射文件中已有的语句，不判断业务状态、存在性与名称编码可用性，均由领域层判定；并发下的名称与编码重复由数据库唯一索引兜底。</remarks>
+/// <remarks>
+/// 只发映射文件中已有的语句，不判断业务状态、存在性与名称编码可用性，均由领域层判定；并发下的名称与编码重复由数据库唯一索引兜底。
+/// 互认项目配置写入的唯一约束冲突由本层识别为持久化事实并翻译为重复配置异常，是否构成业务拒绝仍由领域层决定。
+/// </remarks>
 public partial class MedicalRecognitionReportRepository : IMedicalRecognitionReportRepository, IHasDataMapper
 {
   /// <summary>
-  /// 互认项目配置语句集的作用域名；与识别报告共用同一映射文件。
+  /// 互认项目配置语句集的作用域名；与 <c>MutualRecognitionItem.xml</c> 的 <c>SqlMap Scope</c> 一一对应。
   /// </summary>
-  private const string MedicalRecognitionReportScope = "MedicalRecognitionReport";
+  /// <remarks>每个互认配置方法都逐调用传入该作用域名，不使用 <c>SetContext</c> 修改仓储上下文，避免共享仓储实例之间的作用域串扰。</remarks>
+  private const string MutualRecognitionItemScope = "MutualRecognitionItem";
+  /// <summary>
+  /// 唯一约束冲突的 SQLSTATE 值，当前目标数据库 Provider 为 PostgreSQL。
+  /// </summary>
+  private const string UniqueViolationSqlState = "23505";
   /// <summary>
   /// 分类语句集的作用域名。
   /// </summary>
@@ -71,29 +80,70 @@ public partial class MedicalRecognitionReportRepository : IMedicalRecognitionRep
   /// <inheritdoc/>
   public async Task<MedicalStandardItem?> GetMedicalStandardItemByIdAsync(Guid id) => await dataMapper.QuerySingleAsync<MedicalStandardItem>(new { Id = id }, scope: MedicalStandardItemScope, sqlId: "GetMedicalStandardItemById");
   /// <inheritdoc/>
+  public async Task<MedicalStandardItem?> GetMedicalStandardItemByCodeAsync(string code) => await dataMapper.QuerySingleAsync<MedicalStandardItem>(new { Code = code }, scope: MedicalStandardItemScope, sqlId: "GetMedicalStandardItemByCode");
+  /// <inheritdoc/>
   public async Task<bool> MedicalStandardItemCodeExistsAsync(string code) => await dataMapper.QuerySingleAsync<long>(new { Code = code }, scope: MedicalStandardItemScope, sqlId: "MedicalStandardItemCodeExists") > 0;
   /// <summary>
-  /// 插入一条互认项目配置记录，并记录本次操作人。
+  /// 插入一条互认项目配置记录，并把唯一约束冲突翻译为领域可识别的重复配置异常。
   /// </summary>
   /// <param name="value">待保存的互认项目配置实体，含组织编码、关联的标准项目标识与编码、可互认时间天数。</param>
-  /// <returns>受影响行数，插入成功为 1；调用方以大于 0 判定写入成功。</returns>
-  public async Task<int> CreateMutualRecognitionItemAsync(MutualRecognitionItem value) => await dataMapper.InsertAsync(value, scope: MedicalRecognitionReportScope, sqlId: "CreateMutualRecognitionItem");
+  /// <returns>受影响行数，插入成功为 1。</returns>
+  /// <exception cref="DuplicateMutualRecognitionItemException">写入违反“组织编码 + 标准项目编码”唯一约束时抛出。</exception>
+  public async Task<int> CreateMutualRecognitionItemAsync(MutualRecognitionItem value)
+  {
+    try
+    {
+      return await dataMapper.InsertAsync(value, scope: MutualRecognitionItemScope, sqlId: "CreateMutualRecognitionItem");
+    }
+    catch (Exception exception) when (IsUniqueConstraintViolation(exception))
+    {
+      // 唯一约束冲突是持久化事实，这里只翻译异常类型；重复配置的业务文案由领域层给出。
+      throw new DuplicateMutualRecognitionItemException("同一组织下已存在同一标准项目的互认项目配置。", exception);
+    }
+  }
   /// <summary>
-  /// 按配置标识更新可互认时间天数；不改变组织编码与启用状态。
+  /// 在当前组织范围内按配置标识读取互认项目配置。
   /// </summary>
-  /// <param name="value">携带配置标识、本次可互认时间天数与操作人的实体。</param>
-  /// <returns>受影响行数：命中该配置为 1，配置不存在为 0。可互认时间天数或操作人为空值时对应字段不参与更新，因此该语句无法把天数改为 0。</returns>
-  public async Task<int> UpdateMutualRecognitionItemConfigurationAsync(MutualRecognitionItem value) => await dataMapper.UpdateAsync(value, scope: MedicalRecognitionReportScope, sqlId: "UpdateMutualRecognitionItemConfiguration");
+  /// <param name="id">配置标识。</param>
+  /// <param name="organizationCode">可信组织编码，其他组织的同标识配置不会被返回。</param>
+  /// <returns>互认项目配置实体；配置不存在或不属于该组织时返回 <see langword="null"/>。</returns>
+  public async Task<MutualRecognitionItem?> GetMutualRecognitionItemByIdAsync(Guid id, string organizationCode) => await dataMapper.QuerySingleAsync<MutualRecognitionItem>(new { Id = id, OrganizationCode = organizationCode }, scope: MutualRecognitionItemScope, sqlId: "GetMutualRecognitionItemById");
+  /// <summary>
+  /// 按配置标识与可信组织更新可互认时间天数和操作字段。
+  /// </summary>
+  /// <param name="value">携带配置标识、可信组织、本次可互认时间天数与操作字段的实体。</param>
+  /// <returns>受影响行数：命中该组织内的该配置为 1，配置不存在、越组织或天数相同不会阻止更新；未命中为 0。</returns>
+  public async Task<int> UpdateMutualRecognitionItemConfigurationAsync(MutualRecognitionItem value) => await dataMapper.UpdateAsync(value, scope: MutualRecognitionItemScope, sqlId: "UpdateMutualRecognitionItemConfiguration");
   /// <summary>
   /// 将指定互认项目配置由停用改为启用。
   /// </summary>
-  /// <param name="value">携带配置标识与本次操作人、操作时间的启用命令。</param>
-  /// <returns>受影响行数：命中该配置为 1，配置不存在为 0；与其他目录对象的启停不同，本语句不带“当前必须为停用态”的条件，重复启用同样会刷新操作人与操作时间。</returns>
-  public async Task<int> EnableMutualRecognitionItemAsync(EnableMutualRecognitionItemCommand value) => await dataMapper.UpdateAsync(value, scope: MedicalRecognitionReportScope, sqlId: "EnableMutualRecognitionItem");
+  /// <param name="value">携带配置标识、可信组织与操作字段的启用命令。</param>
+  /// <returns>受影响行数：该组织内该配置当前为停用态并更新成功为 1；已处于启用态、配置不存在或越组织为 0，调用方据此区分幂等与并发结果。</returns>
+  public async Task<int> EnableMutualRecognitionItemAsync(EnableMutualRecognitionItemCommand value) => await dataMapper.UpdateAsync(value, scope: MutualRecognitionItemScope, sqlId: "EnableMutualRecognitionItem");
   /// <summary>
   /// 将指定互认项目配置由启用改为停用。
   /// </summary>
-  /// <param name="value">携带配置标识与本次操作人、操作时间的停用命令。</param>
-  /// <returns>受影响行数：命中该配置为 1，配置不存在为 0；与其他目录对象的启停不同，本语句不带“当前必须为启用态”的条件，重复停用同样会刷新操作人与操作时间。</returns>
-  public async Task<int> DisableMutualRecognitionItemAsync(DisableMutualRecognitionItemCommand value) => await dataMapper.UpdateAsync(value, scope: MedicalRecognitionReportScope, sqlId: "DisableMutualRecognitionItem");
+  /// <param name="value">携带配置标识、可信组织与操作字段的停用命令。</param>
+  /// <returns>受影响行数：该组织内该配置当前为启用态并更新成功为 1；已处于停用态、配置不存在或越组织为 0，调用方据此区分幂等与并发结果。</returns>
+  public async Task<int> DisableMutualRecognitionItemAsync(DisableMutualRecognitionItemCommand value) => await dataMapper.UpdateAsync(value, scope: MutualRecognitionItemScope, sqlId: "DisableMutualRecognitionItem");
+  /// <summary>
+  /// 判断数据映射器抛出的异常是否由唯一约束冲突引起。
+  /// </summary>
+  /// <remarks>
+  /// 框架的数据映射器把数据库异常统一包装为 <c>DBException</c>，原始异常保留在内部异常链上，
+  /// 因此必须沿内部异常链查找框架中立的数据库异常类型，再按 SQLSTATE 判断冲突，
+  /// 不在本仓储引用具体数据库 Provider 的类型或错误码。
+  /// 当前目标数据库 Provider 的唯一约束冲突 SQLSTATE 为 23505；其他 Provider 未提供该值时按普通数据库错误继续向外传播。
+  /// </remarks>
+  /// <param name="exception">数据映射器抛出的异常。</param>
+  /// <returns>内部异常链上存在唯一约束冲突时为 <see langword="true"/>。</returns>
+  private static bool IsUniqueConstraintViolation(Exception exception)
+  {
+    for (Exception? current = exception; current is not null; current = current.InnerException)
+    {
+      if (current is DbException databaseException && databaseException.SqlState == UniqueViolationSqlState) return true;
+    }
+
+    return false;
+  }
 }

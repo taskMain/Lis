@@ -6,9 +6,9 @@ using Dy.MedicalRecognition.Domain.Queries;
 namespace Dy.MedicalRecognition.Application.Queries;
 
 /// <summary>
-/// 标准项目目录四类只读查询的应用服务实现。
+/// 标准项目目录与互认项目配置只读查询的应用服务实现。
 /// </summary>
-/// <remarks>四个查询都只筛选与投影，不修改数据，也不判断业务状态。</remarks>
+/// <remarks>全部查询都只筛选与投影，不修改数据，也不判断业务状态。</remarks>
 public sealed class MedicalRecognitionReportQueryAppService : ApplicationService, IMedicalRecognitionReportQueryAppService
 {
   /// <summary>
@@ -83,6 +83,36 @@ public sealed class MedicalRecognitionReportQueryAppService : ApplicationService
   }
 
   /// <summary>
+  /// 查询标准项目互认配置列表并映射为只读模型。
+  /// </summary>
+  /// <remarks>
+  /// 只返回可信当前组织自己的配置；标准项目名称、类型、分类与分组按当前标准目录实时关联。
+  /// 不可用原因只表达所属分类、分组或标准项目停用，按“分类 → 分组 → 标准项目”返回第一条，目录三层全部启用时为 null。
+  /// </remarks>
+  /// <param name="request">互认配置列表查询条件。</param>
+  /// <returns>互认配置只读模型集合；无匹配配置时返回空集合。</returns>
+  /// <exception cref="ArgumentNullException">查询条件为 null 时抛出，此时无法判定调用方意图的筛选范围。</exception>
+  /// <exception cref="ValidationException">组织编码缺失或为空白文本，标准项目编码已传入但为空白文本，或者配置状态已传入但不是已定义的配置状态枚举值时抛出；空白文本不代表“不过滤”，而是无效的筛选条件。</exception>
+  /// <exception cref="InvalidOperationException">无法解析可信当前组织，或请求组织与可信当前组织不一致时抛出；此时不返回该组织的数据，也不降级为空集合。</exception>
+  public async Task<IEnumerable<RecognitionProjectConfigurationReadModel>> QueryRecognitionProjectConfigurationListAsync(RecognitionProjectConfigurationListQueryRequest request)
+  {
+    MedicalRecognitionRequestValidator.Validate(request);
+
+    // 组织范围只信服务端可信当前组织：请求组织与之不一致即拒绝，不返回其他组织的数据、也不降级为空集合。
+    // 可信组织与写入侧共用统一解析点，先去除首尾空白再判定，空白组织一律拒绝。
+    string currentOrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定有效的当前组织。");
+    // 请求组织与可信组织同源，两侧都可能带首尾空白：比较与下传统一用去空白后的可信值，
+    // 否则可信组织带空白时会出现"写入成功、查询被误判为越权"的读写不对称。
+    if (!string.Equals(request.OrganizationCode.Trim(), currentOrganizationCode, StringComparison.Ordinal))
+    {
+      throw new InvalidOperationException("请求组织与当前登录组织不一致，不能查询该组织的互认配置。");
+    }
+
+    IEnumerable<RecognitionProjectConfigurationListItem> items = await repository.QueryRecognitionProjectConfigurationListAsync(currentOrganizationCode, request.StandardProjectCode, request.ConfigurationStatus);
+    return items.Select(Map);
+  }
+
+  /// <summary>
   /// 把一个项目类型下的目录明细组装为项目类型节点。
   /// </summary>
   /// <param name="type">按项目类型分组的目录明细，组内仍为平铺记录。</param>
@@ -148,4 +178,38 @@ public sealed class MedicalRecognitionReportQueryAppService : ApplicationService
     ItemId = item.ItemId, CategoryId = item.CategoryId, GroupId = item.GroupId, ItemType = item.ItemType, Code = item.Code, Name = item.Name, IsValid = item.IsValid, Remark = item.Remark
   };
 
+  /// <summary>
+  /// 把互认配置查询结果映射为只读模型。
+  /// </summary>
+  /// <param name="item">查询端口返回的互认配置投影，含标准目录三层的启用状态。</param>
+  /// <returns>互认配置列表只读模型。</returns>
+  private static RecognitionProjectConfigurationReadModel Map(RecognitionProjectConfigurationListItem item) => new()
+  {
+    ConfigurationId = item.ConfigurationId,
+    StandardProjectCode = item.StandardProjectCode,
+    StandardItemName = item.StandardItemName,
+    ItemType = item.ItemType,
+    CategoryName = item.CategoryName,
+    GroupName = item.GroupName,
+    RecognitionDurationDays = item.RecognitionDurationDays,
+    ConfigurationStatus = item.IsValid ? ConfigurationStatus.Enabled : ConfigurationStatus.Disabled,
+    UnavailableReason = ResolveUnavailableReason(item)
+  };
+
+  /// <summary>
+  /// 按所属分类、所属分组、标准项目的顺序派生第一条目录停用原因。
+  /// </summary>
+  /// <remarks>
+  /// 只表达标准目录停用：目录三层全部启用时为 null，即使配置自身已停用也保持 null，配置自身的状态只由配置状态字段表达。
+  /// </remarks>
+  /// <param name="item">查询端口返回的互认配置投影，含标准目录三层的启用状态。</param>
+  /// <returns>第一条目录停用原因文案；目录三层全部启用时为 null。</returns>
+  private static string? ResolveUnavailableReason(RecognitionProjectConfigurationListItem item)
+  {
+    if (!item.CategoryIsValid) return "所属分类已停用";
+    if (!item.GroupIsValid) return "所属分组已停用";
+    if (!item.ItemIsValid) return "标准项目已停用";
+
+    return null;
+  }
 }

@@ -9,12 +9,18 @@
 
   <ItemGroup>
     <PackageReference Include="Dy.Apron.Abstractions" />
+    <PackageReference Include="Dy.Base.Application.Contracts" />
     <PackageReference Include="Dy.Core.Abstractions" />
     <PackageReference Include="Dy.Core.SourceGen" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Dy.MedicalRecognition.Application.Contracts\Dy.MedicalRecognition.Application.Contracts.csproj" />
     <ProjectReference Include="..\Dy.MedicalRecognition.Domain\Dy.MedicalRecognition.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Dy.MedicalRecognition.Tests" />
   </ItemGroup>
 </Project>

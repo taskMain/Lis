@@ -352,7 +352,7 @@ Command('SaveOrganizationHospitalBranchRecognitionAmountCommand')[
     1. 当前金额必须不小于零且最多保留两位小数；零为有效配置。
     2. 未创建金额记录不阻碍匹配、采纳或互认处理结果保存。
     3. 当前组织必须已建立该标准项目的互认配置；配置或目录当前停用不阻止金额维护。
-    4. 平台管理员可以维护所有组织、医院和院区的金额；医院管理员只能维护自己医院内具有数据权限的院区金额，提交其他医院或无权院区时拒绝保存。
+    4. 平台管理员可以维护所有组织、医院和院区的金额；医院管理员只能维护可信上下文所属医院及其院区的金额，提交其他医院或不属于该医院的院区时拒绝保存。
 ]
 DomainEvent('OrganizationHospitalBranchRecognitionAmountSavedEvent','组织医院院区互认项目金额已保存')
 FacadeCommand('SubmitCompleteLaboratoryReportCommand')[

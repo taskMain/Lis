@@ -1,34 +1,90 @@
-<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+<SqlMap Scope="MutualRecognitionItem" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义互认项目配置的通用查询字段清单，供按组织读取单条配置和全量查询语句复用。
+      结果：输出配置标识、组织编码、标准项目关联、可互认时间和操作审计字段，各字段业务含义见行内注释。
+    -->
     <Statement Id="MutualRecognitionItemColumns">
-      id, organization_code, standard_item_id, standard_project_code, recognition_duration_days, is_valid, oper_id, oper_time
+      id,                          <!-- 配置标识（主键） -->
+      organization_code,           <!-- 组织编码，配置归属范围 -->
+      standard_item_id,            <!-- 标准项目标识，服务端按编码解析 -->
+      standard_project_code,       <!-- 标准项目编码，经校验的目录编码 -->
+      recognition_duration_days,   <!-- 可互认时间天数 -->
+      is_valid,                    <!-- 是否启用 -->
+      oper_id,                     <!-- 操作人标识 -->
+      oper_time                    <!-- 操作时间 -->
     </Statement>
+    <!--
+      功能：查询互认项目配置的全部记录，用于不区分启用状态地读取配置全量数据。
+      结果：返回配置的完整字段清单，不接收任何筛选参数，也没有显式排序，返回顺序由数据库决定、调用方不得依赖。
+    -->
     <Statement Id="QueryAllMutualRecognitionItem">
       select
       <Include RefId="MutualRecognitionItemColumns" />
-      from mutual_recognition_item
+      from mrec_mutual_recognition_item
     </Statement>
+    <!--
+      功能：新增一条互认项目配置，把可信组织与已解析的标准项目关联起来。
+      结果：写入配置标识、组织编码、标准项目标识与编码、可互认时间、启用状态和操作字段；
+      配置固定以启用状态创建，启用状态按项目既有约定写成常量、不接请求参数（与标准目录三张表的新增语句一致，
+      也保证调用方无法通过请求决定记录初始是否启用）；操作时间显式取命令时间而不是数据库当前时间，
+      使写入时间与领域事件时间一致。
+    -->
     <Statement Id="CreateMutualRecognitionItem">
-      insert into mutual_recognition_item (id, organization_code, standard_item_id, standard_project_code, recognition_duration_days, is_valid, oper_id, oper_time) values ($Id, $OrganizationCode, $StandardItemId, $StandardProjectCode, $RecognitionDurationDays, $IsValid, $OperId, current_timestamp)
+      insert into mrec_mutual_recognition_item (
+        id,                         <!-- 配置标识（主键），由仓储在插入前生成 -->
+        organization_code,          <!-- 组织编码，取自可信组织上下文 -->
+        standard_item_id,           <!-- 标准项目标识，由服务端按编码解析 -->
+        standard_project_code,      <!-- 标准项目编码，经校验的目录编码 -->
+        recognition_duration_days,  <!-- 可互认时间天数，请求正整数 -->
+        is_valid,                   <!-- 是否启用，新增固定写入 true -->
+        oper_id,                    <!-- 操作人标识 -->
+        oper_time                   <!-- 操作时间，取命令携带的服务端当前时间 -->
+      ) values ($Id, $OrganizationCode, $StandardItemId, $StandardProjectCode, $RecognitionDurationDays, true, $OperId, $OperTime)
     </Statement>
+    <!--
+      功能：按配置标识与可信组织修改该配置的可互认时间天数，并记录本次操作人和操作时间。
+      结果：只影响同时命中主键与组织编码的一行；组织归属、标准项目与启用状态均不在本语句的变更范围内，
+      因此越组织标识不会改动任何数据，相同天数同样会刷新操作字段并影响 1 行。
+    -->
     <Statement Id="UpdateMutualRecognitionItemConfiguration">
-      update mutual_recognition_item
-      <Set>
-        <IsNotEmpty Prepend="," Property="RecognitionDurationDays">
-          recognition_duration_days = $RecognitionDurationDays
-        </IsNotEmpty>
-        <IsNotEmpty Prepend="," Property="OperId">
-          oper_id = $OperId
-        </IsNotEmpty>
-        oper_time = current_timestamp
-      </Set>
-      where id = $Id
+      update mrec_mutual_recognition_item set
+        recognition_duration_days = $RecognitionDurationDays,  <!-- 可互认时间天数，本次修改后的值 -->
+        oper_id = $OperId,                                     <!-- 操作人标识 -->
+        oper_time = $OperTime                                  <!-- 操作时间，取命令携带的服务端当前时间 -->
+      where id = $Id and organization_code = $OrganizationCode
     </Statement>
+    <!--
+      功能：将指定互认项目配置由停用改为启用，并记录本次操作人和操作时间。
+      结果：仅当该配置同时命中主键与可信组织编码且当前处于停用态时才更新 1 行；
+      重复启用、配置不存在或越组织都影响 0 行，调用方据此区分幂等与并发结果。
+    -->
     <Statement Id="EnableMutualRecognitionItem">
-      update mutual_recognition_item set is_valid = true, oper_id = $OperId, oper_time = current_timestamp where id = $Id
+      update mrec_mutual_recognition_item set
+        is_valid = true,        <!-- 是否启用，置为启用 -->
+        oper_id = $OperId,      <!-- 操作人标识 -->
+        oper_time = $OperTime   <!-- 操作时间，取命令携带的服务端当前时间 -->
+      where id = $Id and organization_code = $OrganizationCode and is_valid = false
     </Statement>
+    <!--
+      功能：将指定互认项目配置由启用改为停用，并记录本次操作人和操作时间。
+      结果：仅当该配置同时命中主键与可信组织编码且当前处于启用态时才更新 1 行；
+      重复停用、配置不存在或越组织都影响 0 行，调用方据此区分幂等与并发结果。
+    -->
     <Statement Id="DisableMutualRecognitionItem">
-      update mutual_recognition_item set is_valid = false, oper_id = $OperId, oper_time = current_timestamp where id = $Id
+      update mrec_mutual_recognition_item set
+        is_valid = false,       <!-- 是否启用，置为停用 -->
+        oper_id = $OperId,      <!-- 操作人标识 -->
+        oper_time = $OperTime   <!-- 操作时间，取命令携带的服务端当前时间 -->
+      where id = $Id and organization_code = $OrganizationCode and is_valid = true
+    </Statement>
+    <!--
+      功能：在可信组织范围内按配置标识读取单条互认项目配置，供修改、启用与停用前的归属校验和并发复读使用。
+      结果：命中时返回一行配置字段清单，未命中时返回空结果；其他组织的同标识配置不会被返回，
+      使越组织标识与配置不存在得到同一结果，不泄漏其他组织的配置。
+    -->
+    <Statement Id="GetMutualRecognitionItemById">
+      select <Include RefId="MutualRecognitionItemColumns" /> from mrec_mutual_recognition_item where id = $Id and organization_code = $OrganizationCode
     </Statement>
   </Statements>
 </SqlMap>

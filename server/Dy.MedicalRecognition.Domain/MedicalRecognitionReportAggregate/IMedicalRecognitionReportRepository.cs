@@ -145,6 +145,16 @@ public partial interface IMedicalRecognitionReportRepository : IRepository
   /// <returns>标准项目实体。</returns>
   Task<MedicalStandardItem?> GetMedicalStandardItemByIdAsync(Guid id);
   /// <summary>
+  /// 按标准项目编码精确读取单个标准项目。
+  /// </summary>
+  /// <remarks>
+  /// 供应用层把调用方提交的标准项目编码解析为服务端目录标识，调用方不能直接提交内部标识；
+  /// 启用中与已停用的项目都会被返回，当前是否有效由领域层判断；不存在时返回 <see langword="null"/>。
+  /// </remarks>
+  /// <param name="code">标准项目编码。</param>
+  /// <returns>标准项目实体。</returns>
+  Task<MedicalStandardItem?> GetMedicalStandardItemByCodeAsync(string code);
+  /// <summary>
   /// 统计同编码的标准项目是否已存在。
   /// </summary>
   /// <remarks>用于新建标准项目前的编码查重。</remarks>
@@ -154,25 +164,35 @@ public partial interface IMedicalRecognitionReportRepository : IRepository
   /// <summary>
   /// 插入一条互认项目配置记录。
   /// </summary>
+  /// <remarks>同一可信组织与同一标准项目只能存在一条配置，重复写入由组织与标准项目唯一约束拒绝。</remarks>
   /// <param name="mutualRecognitionItem">待插入的互认项目配置实体。</param>
   /// <returns>受影响行数。</returns>
+  /// <exception cref="DuplicateMutualRecognitionItemException">写入违反组织与标准项目唯一约束时抛出。</exception>
   Task<int> CreateMutualRecognitionItemAsync(MutualRecognitionItem mutualRecognitionItem);
   /// <summary>
-  /// 按配置标识更新可互认时间天数；不改变组织编码与启用状态。
+  /// 在指定组织范围内按配置标识读取互认项目配置。
   /// </summary>
-  /// <param name="mutualRecognitionItem">携带配置标识与本次天数的实体。</param>
+  /// <remarks>供修改、启用与停用前校验配置归属；其他组织的同标识配置不会被返回，不存在或越组织统一返回 <see langword="null"/>。</remarks>
+  /// <param name="id">配置标识。</param>
+  /// <param name="organizationCode">可信组织编码。</param>
+  /// <returns>互认项目配置实体。</returns>
+  Task<MutualRecognitionItem?> GetMutualRecognitionItemByIdAsync(Guid id, string organizationCode);
+  /// <summary>
+  /// 按配置标识与可信组织更新可互认时间天数；不改变组织编码、标准项目与启用状态。
+  /// </summary>
+  /// <param name="mutualRecognitionItem">携带配置标识、可信组织、本次天数与操作字段的实体。</param>
   /// <returns>受影响行数。</returns>
   Task<int> UpdateMutualRecognitionItemConfigurationAsync(MutualRecognitionItem mutualRecognitionItem);
   /// <summary>
-  /// 将指定互认项目配置由停用改为启用；不带“当前必须为停用态”的条件。
+  /// 将指定互认项目配置由停用改为启用；仅当前为停用态且属于可信组织时才实际更新。
   /// </summary>
-  /// <param name="enableMutualRecognitionItemCommand">启用命令。</param>
+  /// <param name="enableMutualRecognitionItemCommand">启用命令，携带配置标识、可信组织与操作字段。</param>
   /// <returns>受影响行数。</returns>
   Task<int> EnableMutualRecognitionItemAsync(EnableMutualRecognitionItemCommand enableMutualRecognitionItemCommand);
   /// <summary>
-  /// 将指定互认项目配置由启用改为停用；不带“当前必须为启用态”的条件。
+  /// 将指定互认项目配置由启用改为停用；仅当前为启用态且属于可信组织时才实际更新。
   /// </summary>
-  /// <param name="disableMutualRecognitionItemCommand">停用命令。</param>
+  /// <param name="disableMutualRecognitionItemCommand">停用命令，携带配置标识、可信组织与操作字段。</param>
   /// <returns>受影响行数。</returns>
   Task<int> DisableMutualRecognitionItemAsync(DisableMutualRecognitionItemCommand disableMutualRecognitionItemCommand);
 }
