@@ -7,11 +7,11 @@ using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
 namespace Dy.MedicalRecognition.Repository.MedicalRecognitionReportAggregate;
 
 /// <summary>
-/// 标准项目分类、分组、标准项目与互认项目配置的读写实现。
+/// 标准项目分类、分组、标准项目、互认项目配置与组织医院院区互认项目金额的读写实现。
 /// </summary>
 /// <remarks>
 /// 只发映射文件中已有的语句，不判断业务状态、存在性与名称编码可用性，均由领域层判定；并发下的名称与编码重复由数据库唯一索引兜底。
-/// 互认项目配置写入的唯一约束冲突由本层识别为持久化事实并翻译为重复配置异常，是否构成业务拒绝仍由领域层决定。
+/// 互认项目配置写入与金额新增的唯一约束冲突由本层识别为持久化事实并翻译为对应异常，是否构成业务拒绝仍由领域层决定。
 /// </remarks>
 public partial class MedicalRecognitionReportRepository : IMedicalRecognitionReportRepository, IHasDataMapper
 {
@@ -20,6 +20,10 @@ public partial class MedicalRecognitionReportRepository : IMedicalRecognitionRep
   /// </summary>
   /// <remarks>每个互认配置方法都逐调用传入该作用域名，不使用 <c>SetContext</c> 修改仓储上下文，避免共享仓储实例之间的作用域串扰。</remarks>
   private const string MutualRecognitionItemScope = "MutualRecognitionItem";
+  /// <summary>
+  /// 组织医院院区互认项目金额语句集的作用域名；与 <c>OrganizationHospitalBranchRecognitionAmount.xml</c> 的 <c>SqlMap Scope</c> 一一对应。
+  /// </summary>
+  private const string OrganizationHospitalBranchRecognitionAmountScope = "OrganizationHospitalBranchRecognitionAmount";
   /// <summary>
   /// 唯一约束冲突的 SQLSTATE 值，当前目标数据库 Provider 为 PostgreSQL。
   /// </summary>
@@ -126,6 +130,52 @@ public partial class MedicalRecognitionReportRepository : IMedicalRecognitionRep
   /// <param name="value">携带配置标识、可信组织与操作字段的停用命令。</param>
   /// <returns>受影响行数：该组织内该配置当前为启用态并更新成功为 1；已处于停用态、配置不存在或越组织为 0，调用方据此区分幂等与并发结果。</returns>
   public async Task<int> DisableMutualRecognitionItemAsync(DisableMutualRecognitionItemCommand value) => await dataMapper.UpdateAsync(value, scope: MutualRecognitionItemScope, sqlId: "DisableMutualRecognitionItem");
+  /// <summary>
+  /// 按组织编码与标准项目编码读取互认项目配置，供金额保存前校验保存前提。
+  /// </summary>
+  /// <param name="organizationCode">组织编码。</param>
+  /// <param name="standardProjectCode">标准项目编码。</param>
+  /// <returns>互认项目配置实体；未建立时返回 <see langword="null"/>。</returns>
+  public async Task<MutualRecognitionItem?> GetMutualRecognitionItemByOrganizationAndProjectAsync(string organizationCode, string standardProjectCode) => await dataMapper.QuerySingleAsync<MutualRecognitionItem>(new { OrganizationCode = organizationCode, StandardProjectCode = standardProjectCode }, scope: MutualRecognitionItemScope, sqlId: "GetMutualRecognitionItemByOrganizationAndProject");
+  /// <summary>
+  /// 按四个业务键读取单条金额记录。
+  /// </summary>
+  /// <param name="organizationCode">组织编码。</param>
+  /// <param name="hospitalCode">医院编码。</param>
+  /// <param name="branchCode">院区编码。</param>
+  /// <param name="standardProjectCode">标准项目编码。</param>
+  /// <returns>金额记录实体；该业务键尚无记录时返回 <see langword="null"/>。</returns>
+  public async Task<OrganizationHospitalBranchRecognitionAmount?> GetOrganizationHospitalBranchRecognitionAmountByBusinessKeyAsync(
+    string organizationCode, string hospitalCode, string branchCode, string standardProjectCode) =>
+    await dataMapper.QuerySingleAsync<OrganizationHospitalBranchRecognitionAmount>(
+      new { OrganizationCode = organizationCode, HospitalCode = hospitalCode, BranchCode = branchCode, StandardProjectCode = standardProjectCode },
+      scope: OrganizationHospitalBranchRecognitionAmountScope,
+      sqlId: "GetOrganizationHospitalBranchRecognitionAmountByBusinessKey");
+  /// <summary>
+  /// 插入一条金额记录，并把四列业务键的唯一约束冲突翻译为领域可识别的并发保存异常。
+  /// </summary>
+  /// <param name="value">待保存的金额记录实体，含四个业务键、当前金额与操作字段。</param>
+  /// <returns>受影响行数，插入成功为 1。</returns>
+  /// <exception cref="DuplicateOrganizationHospitalBranchRecognitionAmountException">写入违反四个业务键的唯一约束时抛出。</exception>
+  public async Task<int> CreateOrganizationHospitalBranchRecognitionAmountAsync(OrganizationHospitalBranchRecognitionAmount value)
+  {
+    try
+    {
+      return await dataMapper.InsertAsync(value, scope: OrganizationHospitalBranchRecognitionAmountScope, sqlId: "InsertOrganizationHospitalBranchRecognitionAmount");
+    }
+    catch (Exception exception) when (IsUniqueConstraintViolation(exception))
+    {
+      // 唯一约束冲突是持久化事实，这里只翻译异常类型；并发保存的业务文案由领域层给出。
+      throw new DuplicateOrganizationHospitalBranchRecognitionAmountException("同一组织、医院、院区与标准项目的金额记录已存在。", exception);
+    }
+  }
+  /// <summary>
+  /// 按记录标识与四个业务键列条件更新当前金额与操作字段。
+  /// </summary>
+  /// <param name="value">携带记录标识、四个业务键、本次金额与操作字段的实体。</param>
+  /// <returns>受影响行数：同时命中主键与四个业务键列为 1；记录不存在、业务键被改动或并发改动定位条件时为 0。</returns>
+  public async Task<int> UpdateOrganizationHospitalBranchRecognitionAmountAsync(OrganizationHospitalBranchRecognitionAmount value) =>
+    await dataMapper.UpdateAsync(value, scope: OrganizationHospitalBranchRecognitionAmountScope, sqlId: "UpdateOrganizationHospitalBranchRecognitionAmount");
   /// <summary>
   /// 判断数据映射器抛出的异常是否由唯一约束冲突引起。
   /// </summary>

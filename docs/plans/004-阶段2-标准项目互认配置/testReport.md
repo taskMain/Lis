@@ -47,11 +47,11 @@ Ticket 01-06 已交付批次的已执行证据。命令均在仓库根执行；"
 | SqlMap 注册键（V23 静态/注册面） | `dotnet test ... --filter "FullyQualifiedName~Runtime_registration_reports_full_sql_ids_without_opening_database" -l "console;verbosity=detailed"`（主线程执行，原文摘录） | 互认侧 7 条：`MutualRecognitionItem.{CreateMutualRecognitionItem, UpdateMutualRecognitionItemConfiguration, EnableMutualRecognitionItem, DisableMutualRecognitionItem, GetMutualRecognitionItemById, MutualRecognitionItemColumns, QueryAllMutualRecognitionItem}`；查询侧含 `MedicalRecognitionReportQuery.QueryRecognitionProjectConfigurationList`；标准项目侧含新增 `MedicalStandardItem.GetMedicalStandardItemByCode`。旧聚合键 `MedicalRecognitionReport.CreateMutualRecognitionItem` 已不存在，且无其他调用点引用旧键 |
 | 写入侧 SqlMap 映射（V17 静态面） | 静态核对 `MutualRecognitionItem.xml`、仓储 scope 常量与调用点 | `Scope` 与 `MutualRecognitionItemScope` 同为 `MutualRecognitionItem`；互认语句引用的物理表只有 `mrec_mutual_recognition_item`；四个写方法与新增读取方法逐调用显式传 `scope`/`sqlId`，无 `SetContext`，无 `current_timestamp`；启停语句带 `organization_code` 与 `is_valid` 原状态条件 |
 | DDL 静态核对（V18/V25 静态面） | 逐项人工/脚本比对 `Scripts/mutual_recognition_item.sql` 与 `Server/design.md` 列定义 | 8 列列序、类型、可空性一致；无默认值、无 `varchar(n)`、无外键；表注释 1 + 列注释 8 + 索引注释 1；唯一索引 `ux_mrec_mutual_recognition_org_project` 覆盖 `(organization_code, standard_project_code)` 且无状态过滤 |
-| 后端 OpenAPI 契约实测（Ticket 06 输入） | `GET http://localhost:5008/openapi/v1.json`（Development 环境，受管后台作业） | 22 个 path（该数字为该轮时点口径，批次10/11 后为 23）；含 `/Api/MedicalRecognitionReportQuery/QueryRecognitionProjectConfigurationList` 与四个互认写端点；`CreateMutualRecognitionItemRequest` 属性为 `standardProjectCode`/`recognitionDurationDays`（**已无 `organizationCode`**）；查询请求 `required` 为 `organizationCode`；`/auth/login` 仍存在（排除规则必要） |
-| 累计 API Client 生成与契约校验（C22/C24） | `pnpm -F @dy/api-client-medical-recognition prepare-openapi` → `generate` → `typecheck` → `build`（后端 5008 实测提供 OpenAPI） | 稳定 OpenAPI 22 path（生成前 21，净增 1 个查询端点；**2026-09-16 批次10 修枚举契约、批次11 新增 `/Api/EnumMetadata/GetEnumMetadata` 后，冻结文档为 23 path，见"枚举中文来源（LisCenter 同口径，2026-09-16）"**）；`generate` 成功且未用 `--clean-output`；`typecheck` exit 0；`build` exit 0（esm 72.12KB / cjs 87.65KB / dts 98.89KB）；主线程独立复跑一致；`src/index.ts` SHA256 前后一致（未被覆盖）；`organizationCode` 由 4 处收敛为仅查询请求 3 处；生成物无 `api/auth` 目录、锁文件 `excludePatterns` 保持 `/auth/login` |
+| 后端 OpenAPI 契约实测（Ticket 06 输入） | `GET http://localhost:5014/openapi/v1.json`（Development 环境，受管后台作业） | 22 个 path（该数字为该轮时点口径，批次10/11 后为 23）；含 `/Api/MedicalRecognitionReportQuery/QueryRecognitionProjectConfigurationList` 与四个互认写端点；`CreateMutualRecognitionItemRequest` 属性为 `standardProjectCode`/`recognitionDurationDays`（**已无 `organizationCode`**）；查询请求 `required` 为 `organizationCode`；`/auth/login` 仍存在（排除规则必要） |
+| 累计 API Client 生成与契约校验（C22/C24） | `pnpm -F @dy/api-client-medical-recognition prepare-openapi` → `generate` → `typecheck` → `build`（后端 5014 实测提供 OpenAPI） | 稳定 OpenAPI 22 path（生成前 21，净增 1 个查询端点；**2026-09-16 批次10 修枚举契约、批次11 新增 `/Api/EnumMetadata/GetEnumMetadata` 后，冻结文档为 23 path，见"枚举中文来源（LisCenter 同口径，2026-09-16）"**）；`generate` 成功且未用 `--clean-output`；`typecheck` exit 0；`build` exit 0（esm 72.12KB / cjs 87.65KB / dts 98.89KB）；主线程独立复跑一致；`src/index.ts` SHA256 前后一致（未被覆盖）；`organizationCode` 由 4 处收敛为仅查询请求 3 处；生成物无 `api/auth` 目录、锁文件 `excludePatterns` 保持 `/auth/login` |
 | 前端组件与适配层基线（C1-C3、C6、C8、C10-C11、C13-C21、C23 的组件/纯逻辑面） | `cd client; pnpm -F dy-medical-recognition test` / `build` / `lint` | 4 文件通过、**73 passed / 2 skipped**（75）、exit 0；新增 39 条用例（组件 21 + 适配层 18）；`build`（tsc -b + vite build）exit 0；`lint` exit 0（3 条为未触碰文件的既有 react-refresh 警告）；主线程独立复跑一致。组织接缝按结案口径接入 `LoginUserManager.getOrgID()` + `useAuth()`（`@dy/auth` 0.1.39 与 `@dy/auth-react` 实测导出）（括号内为**后补标注**：该行是组件基线轮次的快照，当时为 4 文件 73 passed / 2 skipped、新增 39 条；**Ticket 07 完成真实接线后的时点为 5 文件 85 passed / 2 skipped（87）**——适配层 `recognitionProjectsApi.test.ts` 27 条、组件 `RecognitionProjects.test.tsx` 21 条、`routes.test.ts` 3 条、阶段1 `standardCatalogApi.test.ts` 15 条 + `StandardCatalog.test.tsx` 21 条（2 skip）；**批次11 时点值为 6 文件 105 passed / 2 skipped（107）**（终值见本报告"门禁终值"节；本行其余括号标注同为各轮时点值），见"枚举中文来源（LisCenter 同口径，2026-09-16）"节；接线已用生成端点完成、`pendingIntegration` 已移除，C 编号覆盖声明已由独立复核确认，见 `Client/审查-Ticket07接线复核.md` §3） |
 | 前端既有配置未被改动 | `git status --short -- client/apps/dy-medical-recognition`；`git show HEAD:...vite.config.ts` | 应用目录仅有新增未跟踪的 `src/pages/recognitionProjects/`；`vite.config.ts` 的 `dangerouslyIgnoreUnhandledErrors` 属阶段1 既有提交（`51a5d15`），非本轮引入，未放宽测试 |
-| 宿主链路与组织取值（V22 运行面、C12 前置） | 受管后台作业启动后端 5008 + 前端 3008；Chrome DevTools MCP 从宿主登录页登录；读取 localStorage 与宿主菜单接口 | 后端 `localhost:5008` 就绪（OpenAPI 22 path，该数字为该轮时点口径，批次10/11 后为 23）；无 token 调用业务接口返回 **401**）；前端 dev server `http://localhost:3008/subApps/medical-recognition/` 就绪；从宿主 `http://183.224.180.166:35000/login` 登录，**入口选「检验检查结果互认平台」**（登录后标题一致、`subAppCode=medical-recognition`）；**劫持已生效**（全局开关 `true`，含 `{"matchKey":"medical-recognition","origin":"http://localhost:3008","enabled":true}`）；**token 载荷实测 `org:"01"`、`sub:"medical-recognition"`、`usr:"3a217eb3-…"`，`login-user.orgID="01"`、`hosID="0101"`、`branchID="0101001"`、`isAdmin=false`** —— V22 的"真实 token 是否携带 org"由此确认 |
+| 宿主链路与组织取值（V22 运行面、C12 前置） | 受管后台作业启动后端 5014 + 前端 3008；Chrome DevTools MCP 从宿主登录页登录；读取 localStorage 与宿主菜单接口 | 后端 `localhost:5014` 就绪（OpenAPI 22 path，该数字为该轮时点口径，批次10/11 后为 23）；无 token 调用业务接口返回 **401**）；前端 dev server `http://localhost:3008/subApps/medical-recognition/` 就绪；从宿主 `http://183.224.180.166:35000/login` 登录，**入口选「检验检查结果互认平台」**（登录后标题一致、`subAppCode=medical-recognition`）；**劫持已生效**（全局开关 `true`，含 `{"matchKey":"medical-recognition","origin":"http://localhost:3008","enabled":true}`）；**token 载荷实测 `org:"01"`、`sub:"medical-recognition"`、`usr:"3a217eb3-…"`，`login-user.orgID="01"`、`hosID="0101"`、`branchID="0101001"`、`isAdmin=false`** —— V22 的"真实 token 是否携带 org"由此确认 |
 | 宿主菜单可达性（C12） | 展开宿主菜单 + 读 `QueryAllMenu` / `QueryUserRoleMenu` 原始响应 | **菜单已正确创建**：「互认项目」`id=3a23b778-2073-1357-6159-a7d67ae96891`，`parentId` 为父菜单「检验检查结果互认」，`parameter.webRoute="medical-recognition/recognition-projects"`（与代码路由一致）。**但未分配给该账号角色**：`QueryUserRoleMenu` 仅返回父菜单与「标准项目目录维护」两个 id，新菜单不在其中 → 菜单不可达，当时 C12 及依赖菜单进入的 Host 用例保持 `Blocked`。**后续已闭环**：补齐角色-菜单授权后菜单出现并可进入，C12 等 Host 用例随后实测通过（见下方"菜单与组织取值"与"逐条用例证据"） |
 | 页面挂载与组织缺失防御（排查性直达，**不计入宿主验收**） | 在浏览器中直达 `http://localhost:3008/subApps/medical-recognition/recognition-projects`（该 tab 无宿主 token，属排查手段） | 路由可挂载：页面标题「互认项目」+ 副标题「标准项目互认配置」；组织不可用时给出阻断提示「当前无法从登录凭证确定可信组织范围…请从宿主登录后重新进入本页面」；**全程零业务 API 请求**（仅 `config.development.json`），符合"不伪造组织、不退化、不发请求"的设计要求。仅证明路由与防御分支，**不能替代宿主菜单验收** |
 | 目标库只读核对与 DDL 元数据（V18/V25 真实库面） | dbx 只读连接 `协同平台外网`（PostgreSQL `183.224.180.166:15432` / `DysoftHIS`）查 `information_schema.columns`、`pg_indexes`、`obj_description` | 在 `public` schema 建立 `mrec_mutual_recognition_item` 后逐项核实：**8 列**列序与类型为 `id uuid / organization_code text / standard_item_id uuid / standard_project_code text / recognition_duration_days integer / is_valid boolean / oper_time timestamptz / oper_id uuid`，全部 `NOT NULL` 且 `column_default` 均为 `NULL`（无数据库默认值）；8 条中文列注释与设计逐字一致；表注释为「互认项目配置」；索引两条——主键 `mrec_mutual_recognition_item_pkey (id)` 与唯一索引 `ux_mrec_mutual_recognition_org_project (organization_code, standard_project_code)`，后者 `indexdef` **无 WHERE 过滤条件**、索引注释为「同一组织标准项目互认配置唯一（含停用配置）」；无外键。**说明**：V18/V25 声明的层级本就是"真实库元数据"面，故 dbx 只读元数据是该用例规定的取证手段；它不用于、也不能替代任何应用行为证据（见 C# Backend Testing §3） |
@@ -77,7 +77,7 @@ Ticket 01-06 已交付批次的已执行证据。命令均在仓库根执行；"
 |---|---|
 | 宿主入口 | `http://183.224.180.166:35000/login`，登录入口选**「检验检查结果互认平台」**（登录后标题一致、`subAppCode=medical-recognition`） |
 | 账号 | `yangkj`（宿主显示名 杨康健，`isAdmin=false`），密码按整体测试规范第 1 节登记 |
-| 被控进程 | 后端 `Dy.MedicalRecognition.exe` PID 48256 监听 `localhost:5008`（受管后台作业）；前端 `vite` 监听 `http://localhost:3008/subApps/medical-recognition/`（受管后台作业） |
+| 被控进程 | 后端 `Dy.MedicalRecognition.exe` PID 48256 监听 `localhost:5014`（受管后台作业）；前端 `vite` 监听 `http://localhost:3008/subApps/medical-recognition/`（受管后台作业） |
 | 控制工具 | Chrome DevTools MCP（Chrome/152），未固定 Profile |
 | 劫持生效证据 | 全局开关 `"true"`；映射行含 `{"matchKey":"medical-recognition","origin":"http://localhost:3008","enabled":true}`；Network 中子应用文档 `reqid=24 GET localhost:3008/subApps/medical-recognition/recognition-projects [200]`、`@vite/client [200]`、`src/main.tsx?t=… [200]` 均来自 `localhost:3008` |
 | Console | 无业务错误；仅既有 antd `Alert.message` 弃用警告 1 条（阶段1 同源） |
@@ -163,7 +163,7 @@ Ticket 01-06 已交付批次的已执行证据。命令均在仓库根执行；"
 
 **为什么重取**：2026-09-16 实施了两批整改（批次A 后端契约与口径 8 项、批次B 前端质量 8 项，另含主线程复核时发现并修复的 B2 入口门控缺失与 B4 antd 弃用 `rowKey` 参数两处）。按 [Testing Baseline](../../../.agents/instructions/testing-baseline.md) §5「生产代码再次变化时，与变更影响重叠的证据失效并重跑目标、直接影响、受影响项目和适用运行验证」，上表 2026-09-15 的宿主证据对**受影响用例**失效，本节即为重取结果；未受影响项按下文"证据失效与重取"复用。
 
-**执行环境（与 2026-09-15 同链路）**：宿主 `http://183.224.180.166:35000/login` → 入口「检验检查结果互认平台」→ 菜单「互认项目」；后端为批次A 后**重新构建并重启**的 `localhost:5008`（受管后台作业），前端 `localhost:3008`（受管后台作业）；Chrome DevTools MCP；劫持生效证据：`reqid=47 GET localhost:3008/subApps/medical-recognition/recognition-projects [200]`、`@vite/client [200]`、`src/main.tsx [304]`。**环境项登记**：执行时段为 2026-09-16 当日；宿主入口、登录入口与菜单项同上；账号沿用该链路（宿主账号 `yangkj`，宿主显示名与权限位、密码见"Ticket 08 宿主验收执行结果"的"环境与进程"表与 `.agents/instructions/test-environment.md` 第 1 节，本报告不复制凭据）。**证据边界**：本节未单独登记浏览器版本与会话标识、控制工具版本与逐条请求的绝对时刻（沿用同链路的受管 Chrome DevTools MCP 实例，未固定 Profile）；需要这些维度时按"Ticket 08 宿主验收执行结果"的"环境与进程"表核对。
+**执行环境（与 2026-09-15 同链路）**：宿主 `http://183.224.180.166:35000/login` → 入口「检验检查结果互认平台」→ 菜单「互认项目」；后端为批次A 后**重新构建并重启**的 `localhost:5014`（受管后台作业），前端 `localhost:3008`（受管后台作业）；Chrome DevTools MCP；劫持生效证据：`reqid=47 GET localhost:3008/subApps/medical-recognition/recognition-projects [200]`、`@vite/client [200]`、`src/main.tsx [304]`。**环境项登记**：执行时段为 2026-09-16 当日；宿主入口、登录入口与菜单项同上；账号沿用该链路（宿主账号 `yangkj`，宿主显示名与权限位、密码见"Ticket 08 宿主验收执行结果"的"环境与进程"表与 `.agents/instructions/test-environment.md` 第 1 节，本报告不复制凭据）。**证据边界**：本节未单独登记浏览器版本与会话标识、控制工具版本与逐条请求的绝对时刻（沿用同链路的受管 Chrome DevTools MCP 实例，未固定 Profile）；需要这些维度时按"Ticket 08 宿主验收执行结果"的"环境与进程"表核对。
 
 | 用例 | 重取证据（批次A/B 后代码） |
 |---|---|
@@ -266,7 +266,7 @@ Spec 轴代理违反只读约束执行了 `git checkout -- server/Dy.MedicalReco
 | 手写数值枚举镜像（`[0,1]`/`[1,2]`） | 原根因的平台级生成缺陷已于 2026-09-16 立项修复（OpenAPI 现带 `enum`/`x-enumNames`/`x-enumDescriptions`，生成端为 `number \| null`）；页面仍保留本地常量作为筛选项与文案来源，故取值须继续与后端枚举一致，由回归用例守卫 |
 | 冻结 OpenAPI 与真实后端输出的一致性 | 由生成入口每次真实下载 + 归一保证；测试只能对账已提交文件，无法在离线用例里重跑后端。真实输出与冻结文档的对账按宿主实测人工步骤执行（`prepare-openapi` 输出的 path 数与两类修正计数逐次记录在本报告各轮小节），不假装为自动化守卫 |
 | `RecognitionProjects.tsx` 的 `columns` 每次渲染重建；筛选区状态列宽固定 `minmax(200px, 260px)` | 本轮之前既有实现；`rows`/`tableRows` 已 memo，未观察到列处理成为瓶颈；枚举中文若超过 4 字的溢出属未证实猜测，需实测后再改 |
-| 阶段1 只读模型上的枚举（`MedicalStandardUsageStatus`、`LaboratoryResultType`、`MedicalReportType` 等）没有服务端中文、未登记进枚举契约 | 本轮枚举契约覆盖范围限定为阶段2 契约；阶段1 页面文案仍为前端本地实现，扩展需同时迁移阶段1 契约与页面，故按残余登记，待阶段1 页面下次改动时一并设计 |
+| 阶段1 只读模型上的枚举（`MedicalStandardUsageStatus`、`LaboratoryResultType`、`MedicalReportType` 等）没有服务端中文、未登记进枚举契约 | 本轮枚举契约覆盖范围限定为阶段2 契约；阶段1 页面文案仍为前端本地实现，扩展需同时迁移阶段1 契约与页面，故按残余登记，待阶段1 页面下次改动时一并设计。**追记（2026-09-17）：`MedicalStandardUsageStatus` 这一项已消除**——阶段1 按 `S1-D32` 完成迁移（登记 `[EnumDescriptor]`/`[Description("未使用")/("已使用")]`、只读模型交付 `ItemTypeText`/`UsageStatusText`、页面改取服务端随行文案，阶段1 矩阵新增 `C75`）；`LaboratoryResultType`、`MedicalReportType` 等后续阶段枚举仍按各自阶段处理 |
 | `scripts/prepare-openapi.mjs` 的归一只有 stdout 计数、无单测 | 该脚本位于生成包内且包无测试设施；真实对账依赖每次生成时的输出留档（见"增量复审与整改"的部分成立项） |
 | 子应用类型解析依赖被 gitignore 的包 `dist`，`client` 根的 `build` 只构建 apps | 干净检出或只改 `src` 未重建包时会失败或按旧契约通过；验证路径固定为"先 `pnpm -F @dy/api-client-medical-recognition build`，再跑子应用 `build`/`test`"，本轮按此顺序执行 |
 | `.kiota.log` 的删除是全工作区唯一暂存变更，其余改动未暂存 | 提交时必须用 `git add -A`（或分层 `git add`），否则只提交该删除；规则本身已在 `.gitignore:213` 生效 |
@@ -323,6 +323,8 @@ Spec 轴代理违反只读约束执行了 `git checkout -- server/Dy.MedicalReco
 
 `server/Dy.MedicalRecognition.Tests/Stage2EnumContractTests.cs`：①两个枚举源码启用 `[EnumDescriptor]` 与成员中文说明；②两个程序集含生成的 `XxxDescriptorList`；③注册表恰好登记这两个枚举且取值/名称/中文与业务一致（只守"不得多登记、不得漏掉这两个、顺序与取值稳定"，**不检测新增枚举漏登记**——该场景由阶段2 契约类型扫描用例守卫，见下节）；④转换器为已存在架构补齐取值与说明且不改无关架构、不新增架构；⑤冻结的 OpenAPI 同时具备取值集合与归一后的 `$ref`（任一环节回退即失败）；⑥生成物按数值读写且无按上下文命名的回退类型。
 
+**追记（2026-09-17）**：本节描述的是当轮的**两个**枚举；注册表与上述守卫已随阶段1 枚举协作契约（`S1-D32`）扩展为**三个**——程序集描述器列表、转换器补齐取值/名称/中文、冻结契约取值与文案、生成端按数值读写、注册表取值/名称/中文断言的 Theory 数据均已补入 `MedicalStandardUsageStatus`，两处「两个枚举」的注释同步改为三个。当前口径以测试文件为准。
+
 **静态失败基线（修复前实测，非行为 RED）**：修复前冻结文档中两个枚举为 `{"type":"integer"}`、生成物为 `ConfigurationStatus | …_configurationStatusMember1 | null` 且序列化走 `writeObjectValue`——上述 ⑤⑥ 的断言在修复前必然失败。按 [Testing Baseline](../../../.agents/instructions/testing-baseline.md) §1.4 与 `AGENTS.md` 第 2 节闸门 4，此类静态 finding 以静态证据记录，未伪造行为 RED（编译失败与断言失败都不算行为 RED）。
 
 ### 门禁
@@ -354,13 +356,15 @@ LisCenter 的枚举中文来源方式（后端 `xxxText` + `EnumMetadata` 查询
 ### 前端取用（F8）
 
 - `src/hooks/useEnumMetadata.ts`（新增）：按 API Client 实例 + 枚举名缓存请求（`WeakMap`），失败时清除缓存以便重试，同步异常并入失败路径；`useEnumMetadata(enumName, fallback)` 加载成功即替换，失败或返回空集合时保留兜底选项。
-- 页面展示文本改取契约文本（`row.itemTypeText` / `row.configurationStatusText`）；配置状态筛选的选项标签与启停动作文案同源取自元数据；本地常量（`MEDICAL_ITEM_TYPE_TEXTS`、`CONFIGURATION_STATUS_TEXTS`）降级为兜底，不再作为展示主来源。
+- 页面展示文本改取契约文本（`row.itemTypeText` / `row.configurationStatusText`）；配置状态筛选的选项标签与启停动作文案同源取自元数据；本地常量（`MEDICAL_ITEM_TYPE_TEXTS`、`CONFIGURATION_STATUS_TEXTS`）降级为兜底，不再作为展示主来源。**追记（2026-09-17）**：项目类型与配置状态的取值域和兜底文案都已抽到跨页面共享模块（`src/shared/medicalItemType.ts`、`src/shared/configurationStatus.ts`，阶段 1/2/3 共用一份），本模块按原名字转发，调用方与用例的导入位置不变；只服务本页面的选项管线（`CONFIGURATION_STATUS_METADATA_FALLBACK`、`toConfigurationStatusFilterOptions`、`configurationStatusActionText`、`configurationStatusTagColor`）仍留在本适配层。
 
 ### 回归守卫（`Stage2EnumMetadataQueryTests` 批次11 时点为 12 个用例方法、展开 27 条；同批的 `Stage2EnumContractTests` 为 9 个方法、展开 16 条；两文件在后续批次继续补守卫，当前展开口径见本报告"门禁终值"节）
 
 `server/Dy.MedicalRecognition.Tests/Stage2EnumMetadataQueryTests.cs`：①两个枚举的元数据精确值、顺序与中文说明（期望值硬编码，不与登记注册表再比一次）；②拒绝未登记、大小写不符、空白与空请求（含精确错误文案）；③结果只读（非数组、写入抛 `NotSupportedException`）；④元数据服务只消费静态注册表（剥离注释后源码不含 `DescriptorList.List`、`System.Reflection`、`Dictionary<string, Type>`、`GetFields(`、`GetCustomAttributes(`、`Enum.GetValues(`），并有 5 条变体自校验；⑤只读模型契约文本两例；⑥越界取值：项目类型返回 `null`、配置状态抛出；⑦冻结 OpenAPI 暴露 `POST /Api/EnumMetadata/GetEnumMetadata` 且只读模型含两个文本字段；⑧生成物含 `enumMetadata/getEnumMetadata`（动词、参数前缀、返回类型与 URI 模板）与两个文本字段；⑨契约程序集全部公开类型上的枚举（含可空、数组与泛型集合元素）与白名单双向比对，阶段1 的 9 个枚举按名排除且排除清单本身校验不过期；⑩`x-enumDescriptions` 与枚举源码中的 `[Description]` 声明逐字一致。既有 `Stage2ContractTests.Read_model_matches_the_published_field_shape` 的字段集期望随契约变化同步更新（新增两个文本属性，其中 `ItemTypeText` 可空）。
 
 **静态失败基线（非行为 RED）**：新增用例引用的类型（`IEnumMetadataAppService`、`EnumMetadataAppService`、`RecognitionProjectConfigurationReadModel.ItemTypeText`/`ConfigurationStatusText`）与冻结 OpenAPI 的 `/Api/EnumMetadata/GetEnumMetadata`、生成物的 `itemTypeText`/`configurationStatusText` 在本轮之前都不存在，故这些用例在本轮之前分别是**编译期失败**（后端）与断言失败（契约/生成物面）。按 [Testing Baseline](../../../.agents/instructions/testing-baseline.md) §1.4 与 `AGENTS.md` 第 2 节闸门 4，静态 finding 以静态证据记录，未伪造行为 RED；本节的"基线"指静态失败，不作为行为 RED 计入。
+
+**追记（2026-09-17）**：①元数据精确值用例的 Theory 现已含 `MedicalStandardUsageStatus`（三个枚举）；②上文的"两个枚举"在其后批次继续扩充，当前以测试文件为准；③第⑨项当时写的"阶段1 的 9 个枚举按名排除"现为 **8 个**——`MedicalStandardUsageStatus` 已登记进白名单、不再属于排除范围，排除清单"不得过期、不得侵占已登记枚举"的校验同步生效；④`OpenApi_enum_contract_matches_the_enum_source_declarations` 的 Theory 同样已含第三个枚举。
 
 ### 门禁与宿主证据
 
@@ -371,7 +375,7 @@ LisCenter 的枚举中文来源方式（后端 `xxxText` + `EnumMetadata` 查询
 | 客户端包 | `typecheck` exit 0、`build` exit 0 |
 | 文档 | 0 断链 / 0 列数错误；`git diff --check` exit 0 |
 
-宿主实测（真实宿主菜单进入「互认项目」，2026-09-16）：页面加载即发起 `POST http://localhost:5008/Api/EnumMetadata/GetEnumMetadata`，请求体 `{"enumName":"ConfigurationStatus"}`，响应 `200` + `[{"value":1,"name":"Enabled","description":"启用"},{"value":2,"name":"Disabled","description":"停用"}]`；列表查询响应的每一行都含 `itemTypeText`（检验）与 `configurationStatusText`（启用）；页面显示 5 行、类型「检验」、配置状态「启用」；筛选切「停用」显示 0 行、重置后恢复 5 行（筛选仍在本地执行，元数据只提供文案）。验收后关闭前后端服务。
+宿主实测（真实宿主菜单进入「互认项目」，2026-09-16）：页面加载即发起 `POST http://localhost:5014/Api/EnumMetadata/GetEnumMetadata`，请求体 `{"enumName":"ConfigurationStatus"}`，响应 `200` + `[{"value":1,"name":"Enabled","description":"启用"},{"value":2,"name":"Disabled","description":"停用"}]`；列表查询响应的每一行都含 `itemTypeText`（检验）与 `configurationStatusText`（启用）；页面显示 5 行、类型「检验」、配置状态「启用」；筛选切「停用」显示 0 行、重置后恢复 5 行（筛选仍在本地执行，元数据只提供文案）。验收后关闭前后端服务。
 
 ## 增量复审与整改（2026-09-16）
 
@@ -412,6 +416,8 @@ LisCenter 的枚举中文来源方式（后端 `xxxText` + `EnumMetadata` 查询
 ### 阶段1 枚举不纳入本轮（登记为残余）
 
 `MedicalStandardUsageStatus`（0 未使用、1 使用中）出现在两个已发布的阶段1 只读模型（分类/分组列表的 `usageStatus`）上，但没有 `[EnumDescriptor]`/`[Description]`、未登记，冻结契约中仍是纯 `integer`，前端仍自持取值与中文（`standardCatalogApi.ts`、`StandardCatalog.tsx` 的"未被使用/已被下级使用"）。阶段1 契约上另有多个同类枚举（`LaboratoryResultType`、`MedicalReportType` 等）。**本轮的枚举契约覆盖范围为阶段2 互认配置契约 + 生效目录的项目类型**；**不扩展**，阶段1 枚举按残余登记，待阶段1 页面下次改动时再一并设计（届时需同时确定中文措辞、只读模型文本字段与页面迁移）。
+
+**追记（2026-09-17，残余已消除）**：上述阶段1 枚举迁移已由阶段1 的 `S1-D32` 完成，本节描述的"未登记、纯 `integer`、前端自持中文"不再是当前状态。当前事实：`MedicalStandardUsageStatus` 已加 `[EnumDescriptor]` 与成员 `[Description("未使用")/("已使用")]` 并登记进白名单；阶段1 的分类、分组、标准项目与有效目录类型只读模型交付 `ItemTypeText`/`UsageStatusText`；冻结 OpenAPI 中该枚举带 `enum`/`x-enumNames`/`x-enumDescriptions`，生成端为数值；前端按「随行文案 → 枚举元数据 → 本地兜底」取值，展示文案为「未使用 / 已使用」（本节所写的「1 使用中」与「未被使用 / 已被下级使用」均为当时的表述）。阶段1 侧证据见 [阶段1 测试报告](../003-阶段1-标准项目目录维护/testReport.md) 第四十二轮（前端矩阵新增 `C75`）。`LaboratoryResultType`、`MedicalReportType` 等后续阶段枚举不在该迁移范围，仍待各自阶段处理。
 
 ### 部分成立并登记
 
@@ -645,18 +651,18 @@ LisCenter 的枚举中文来源方式（后端 `xxxText` + `EnumMetadata` 查询
 |---|---|
 | 可信上下文 | 组织 `01`、医院 `0101`（取自 `dy-auth:login-user`；本轮只登记这两个非敏感编码） |
 | 开发地址拦截 | 全局开关 `dy-web-micro:dev-url-intercepts-enabled` = `"true"`；本项目映射 `{"matchKey":"medical-recognition","origin":"http://localhost:3008","enabled":true}`（该键共 2 条映射） |
-| 后端 | `dotnet run --no-build --project Dy.MedicalRecognition/Dy.MedicalRecognition.csproj`，PID `30568`，监听 5008（`::1` 与 `127.0.0.1`）；`GET http://localhost:5008/openapi/v1.json` HTTP 200（71753 字节） |
+| 后端 | `dotnet run --no-build --project Dy.MedicalRecognition/Dy.MedicalRecognition.csproj`，PID `30568`，监听 5014（`::1` 与 `127.0.0.1`）；`GET http://localhost:5014/openapi/v1.json` HTTP 200（71753 字节） |
 | 前端 | `pnpm -F dy-medical-recognition dev`，PID `26776`，vite 8.2.2，监听 3008（仅 `::1`，与 [Test Environment](../../../.agents/instructions/test-environment.md) 第 4 节的记载一致） |
 | 浏览器 | Chrome DevTools MCP 受管会话（独立 user-data-dir，不使用日常 Profile） |
 | 日志留档 | 仓库外临时目录（不入版本控制）：`%TEMP%\mrec-backend.log`、`%TEMP%\mrec-frontend.log`；截图 `%TEMP%\mrec-host-acceptance-20260916-ok.png` |
-| 收尾 | 两个进程已退出，端口 5008 / 3008 已释放；未关闭其他项目的进程或浏览器 |
+| 收尾 | 两个进程已退出，端口 5014 / 3008 已释放；未关闭其他项目的进程或浏览器 |
 
 ### 入口与拦截生效证据（Network）
 
 - `GET http://localhost:3008/subApps/medical-recognition/recognition-projects [304]`
 - `GET http://localhost:3008/subApps/medical-recognition/@vite/client [200]`、`src/main.tsx [304]`、`node_modules/.vite/deps/*.js?v=… [200]`
 - Console 出现 `[vite] connected.`
-- 业务接口全部打本地后端：`POST http://localhost:5008/Api/EnumMetadata/GetEnumMetadata [200]`、`POST …/MedicalRecognitionReportQuery/QueryRecognitionProjectConfigurationList [200]`、`POST …/QueryEffectiveMedicalStandardCatalog [200]`
+- 业务接口全部打本地后端：`POST http://localhost:5014/Api/EnumMetadata/GetEnumMetadata [200]`、`POST …/MedicalRecognitionReportQuery/QueryRecognitionProjectConfigurationList [200]`、`POST …/QueryEffectiveMedicalStandardCatalog [200]`
 
 ### 页面与写入门控证据（DOM 与文本原文引用）
 
@@ -739,6 +745,10 @@ LisCenter 的枚举中文来源方式（后端 `xxxText` + `EnumMetadata` 查询
 - 作用域方案与运行证据分开，阶段2实际注册键由V23验证；不裁定阶段1当前探测结果。
 - 不分页风险引用 S2-D7，不创建外键引用 S2-D5。
 - 不创建 `StandardItemId` 外键为已确认设计，不属于遗漏。
+
+## 测试侧未处理拒绝观测补齐（2026-09-17）
+
+`RecognitionProjects.test.tsx` 的两条写失败用例原先让写失败的拒绝逃逸到进程，由 `vite.config.ts` 的全局忽略兜住。按总体设计 5.2（写失败只由宿主统一展示、页面不得自行捕获），两条用例改为在**用例内局部**安装 `process.on('unhandledRejection')` 观测器并断言恰好收到该笔拒绝、用例结束即移除监听；`vite.config.ts` 的全局忽略随之撤除，未预期到的拒绝今后会真实判红。本阶段用例的判定与结论不变（96 通过）；撤除后前端全量为 204 通过 | 2 跳过、0 未处理错误。本轮只改测试代码与测试配置，未改动生产代码、未改变任何用例的判定。
 
 ## 结论
 

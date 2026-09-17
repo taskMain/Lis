@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.2.3",
+    "@dy/api-client-base": "0.1.39",
     "@dy/api-client-medical-recognition": "workspace:*",
     "@dy/auth": "^0.1.39",
     "@dy/auth-react": "^0.1.39",
+    "@dy/components-base": "0.1.4",
     "@dy/micro-sdk": "^0.1.39",
     "antd": "^6.4.3",
     "dayjs": "^1.11.20",

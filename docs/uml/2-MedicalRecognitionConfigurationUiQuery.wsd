@@ -29,10 +29,12 @@ ReadModel('MedicalStandardCategoryListReadModel')[
     --属性--
     分类ID(CategoryId Guid)
     项目类型(ItemType MedicalItemType)
+    项目类型中文(ItemTypeText String?)
     分类名称(Name String)
     是否启用(IsValid Boolean)
     备注(Remark String?)
     使用情况(UsageStatus MedicalStandardUsageStatus)
+    使用情况中文(UsageStatusText String)
 ]
 ReadModel('MedicalStandardGroupListReadModel')[
     标准医疗项目分组列表
@@ -43,6 +45,7 @@ ReadModel('MedicalStandardGroupListReadModel')[
     是否启用(IsValid Boolean)
     备注(Remark String?)
     使用情况(UsageStatus MedicalStandardUsageStatus)
+    使用情况中文(UsageStatusText String)
 ]
 ReadModel('MedicalStandardItemListReadModel')[
     标准医疗项目列表
@@ -51,6 +54,7 @@ ReadModel('MedicalStandardItemListReadModel')[
     分类ID(CategoryId Guid)
     分组ID(GroupId Guid)
     项目类型(ItemType MedicalItemType)
+    项目类型中文(ItemTypeText String?)
     标准项目编码(Code String)
     标准项目名称(Name String)
     是否启用(IsValid Boolean)
@@ -85,6 +89,7 @@ ReadModel('EffectiveMedicalStandardCatalogTypeReadModel')[
     当前有效项目类型目录
     --属性--
     项目类型(ItemType MedicalItemType)
+    项目类型中文(ItemTypeText String?)
     分类目录(Categories EffectiveMedicalStandardCatalogCategoryReadModel)
 ]
 ReadModel('EffectiveMedicalStandardCatalogCategoryReadModel')[
@@ -123,10 +128,12 @@ ReadModel('RecognitionProjectConfigurationReadModel')[
     标准项目编码(StandardProjectCode String)
     标准项目名称(StandardItemName String)
     项目类型(ItemType MedicalItemType)
+    项目类型中文(ItemTypeText String?)
     分类名称(CategoryName String)
     分组名称(GroupName String)
     可互认时间天数(RecognitionDurationDays Integer)
     配置状态(ConfigurationStatus ConfigurationStatus)
+    配置状态中文(ConfigurationStatusText String)
     当前不可用原因(UnavailableReason String?)
 ]
 ReadModel('RecognitionAmountReadModel')[
@@ -135,12 +142,14 @@ ReadModel('RecognitionAmountReadModel')[
     标准项目编码(StandardProjectCode String)
     标准项目名称(StandardProjectName String)
     项目类型(ItemType MedicalItemType)
+    项目类型中文(ItemTypeText String?)
     分类名称(CategoryName String)
     分组名称(GroupName String)
     组织名称(OrganizationName String)
     医院名称(HospitalName String)
     院区名称(BranchName String)
     互认配置状态(ConfigurationStatus ConfigurationStatus)
+    配置状态中文(ConfigurationStatusText String)
     当前不可用原因(UnavailableReason String?)
     当前金额(CurrentAmount Decimal?)
     金额已配置(IsAmountConfigured Boolean)

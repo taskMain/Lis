@@ -4,18 +4,78 @@ import type {
   MedicalStandardGroupListReadModel,
   MedicalStandardItemListReadModel,
 } from '@dy/api-client-medical-recognition'
+import {
+  MEDICAL_ITEM_TYPES,
+  MEDICAL_ITEM_TYPE_TEXTS,
+  UNKNOWN_MEDICAL_ITEM_TYPE_TEXT,
+  isMedicalItemTypeValue,
+  type MedicalItemTypeValue,
+} from '../../shared/medicalItemType'
 
-export const ITEM_TYPES = [0, 1] as const
-export type ItemTypeValue = (typeof ITEM_TYPES)[number]
-export type UsageStatusValue = 0 | 1
+/**
+ * 项目类型取值集合、取值域判定与兜底文案：定义已上移到跨页面共享模块 `src/shared/medicalItemType.ts`
+ * （阶段 2、阶段 3 适配层使用同一份事实），本模块只按阶段 1 的既有名字转发，调用方与用例无需改变导入位置。
+ */
+export const ITEM_TYPES = MEDICAL_ITEM_TYPES
+export type ItemTypeValue = MedicalItemTypeValue
+export const ITEM_TYPE_TEXTS = MEDICAL_ITEM_TYPE_TEXTS
+export { UNKNOWN_MEDICAL_ITEM_TYPE_TEXT, isMedicalItemTypeValue }
+/** 使用情况取值集合：只服务本页面，故不放进共享模块，但仍在此集中声明一次并由 `isUsageStatusValue` 判定。 */
+export const USAGE_STATUS_VALUES = Object.freeze([0, 1] as const)
+export type UsageStatusValue = (typeof USAGE_STATUS_VALUES)[number]
+
+/** 使用情况取值域判定：字符串、`NaN`、越界数字与缺失一律为假。 */
+export function isUsageStatusValue(value: unknown): value is UsageStatusValue {
+  return typeof value === 'number' && (USAGE_STATUS_VALUES as readonly number[]).includes(value)
+}
+
+/**
+ * 使用情况兜底文案；服务端只读模型已交付 `usageStatusText`，本表只在该契约字段缺失时兜底展示。
+ * 中文与后端 `MedicalStandardUsageStatus` 的 `[Description]` 一致，避免同一状态在不同来源下出现两种中文。
+ */
+export const USAGE_STATUS_TEXTS: Readonly<Record<UsageStatusValue, string>> = Object.freeze({ 0: '未使用', 1: '已使用' })
+
+/**
+ * 枚举元数据选项的最小形状；与 `useEnumMetadata` 的 `EnumMetadataOption` 结构一致。
+ * 本模块只声明结构而不从 hooks 反向导入，保持「页面 → 适配层 → 生成契约」的依赖方向。
+ */
+export interface EnumMetadataOptionLike {
+  value: number
+  label: string
+  name: string
+}
+
+/**
+ * 项目类型表单与筛选的兜底选项：枚举元数据接口不可用或返回空集合时仍可维护目录。
+ * 中文取自共享文案出口（`src/shared/medicalItemType.ts`），页面不再自己持有这份业务事实。
+ */
+export const ITEM_TYPE_METADATA_FALLBACK: readonly (EnumMetadataOptionLike & { value: ItemTypeValue })[] = [
+  { value: MEDICAL_ITEM_TYPES[0], name: 'Laboratory', label: ITEM_TYPE_TEXTS[MEDICAL_ITEM_TYPES[0]] },
+  { value: MEDICAL_ITEM_TYPES[1], name: 'Examination', label: ITEM_TYPE_TEXTS[MEDICAL_ITEM_TYPES[1]] },
+]
+
+/**
+ * 把枚举元数据选项收窄为项目类型选项：只保留已确认取值。
+ * 后端 `MedicalItemType` 取值集合封闭，未登记取值不可达；此处保留防御是为了让表单与筛选
+ * 不出现语义无法判定的项（契约若新增取值，先改共享模块的取值域即可，判定随之一致）。
+ */
+export function toItemTypeOptions(
+  options: readonly Pick<EnumMetadataOptionLike, 'value' | 'label'>[],
+): { value: ItemTypeValue; label: string }[] {
+  return options.flatMap((option) => (isMedicalItemTypeValue(option.value) ? [{ value: option.value, label: option.label }] : []))
+}
 
 export interface StandardCategory {
   id: string | null
   itemType: ItemTypeValue | null
+  /** 项目类型官方文案，取自服务端枚举 Description；缺失时为 null，由页面回退到枚举元数据。 */
+  itemTypeText: string | null
   name: string | null
   remark: string | null
   isValid: boolean | null
   usageStatus: UsageStatusValue | null
+  /** 使用情况官方文案，取自服务端枚举 Description；缺失时为 null。 */
+  usageStatusText: string | null
 }
 
 export interface StandardGroup {
@@ -25,6 +85,8 @@ export interface StandardGroup {
   remark: string | null
   isValid: boolean | null
   usageStatus: UsageStatusValue | null
+  /** 使用情况官方文案，取自服务端枚举 Description；缺失时为 null。 */
+  usageStatusText: string | null
 }
 
 export interface StandardItem {
@@ -32,6 +94,8 @@ export interface StandardItem {
   categoryId: string | null
   groupId: string | null
   itemType: ItemTypeValue | null
+  /** 项目类型官方文案，取自服务端枚举 Description；缺失时为 null，由页面回退到枚举元数据。 */
+  itemTypeText: string | null
   code: string | null
   name: string | null
   remark: string | null
@@ -98,21 +162,29 @@ export function resolveTreeScope(data: CatalogData, scope: TreeScope, showDisabl
 }
 
 function mapItemType(value: number | null | undefined): ItemTypeValue | null {
-  return value === 0 || value === 1 ? value : null
+  return isMedicalItemTypeValue(value) ? value : null
 }
 
 function mapUsageStatus(value: number | null | undefined): UsageStatusValue | null {
-  return value === 0 || value === 1 ? value : null
+  return isUsageStatusValue(value) ? value : null
+}
+
+/** 服务端文案空串与纯空白都视作缺失，交由调用方回退。 */
+function serverText(value: string | null | undefined): string | null {
+  const text = value?.trim()
+  return text ? text : null
 }
 
 function mapCategory(value: MedicalStandardCategoryListReadModel): StandardCategory {
   return {
     id: value.categoryId ?? null,
     itemType: mapItemType(value.itemType),
+    itemTypeText: serverText(value.itemTypeText),
     name: value.name ?? null,
     remark: value.remark ?? null,
     isValid: value.isValid ?? null,
     usageStatus: mapUsageStatus(value.usageStatus),
+    usageStatusText: serverText(value.usageStatusText),
   }
 }
 
@@ -124,6 +196,7 @@ function mapGroup(value: MedicalStandardGroupListReadModel): StandardGroup {
     remark: value.remark ?? null,
     isValid: value.isValid ?? null,
     usageStatus: mapUsageStatus(value.usageStatus),
+    usageStatusText: serverText(value.usageStatusText),
   }
 }
 
@@ -133,6 +206,7 @@ function mapItem(value: MedicalStandardItemListReadModel): StandardItem {
     categoryId: value.categoryId ?? null,
     groupId: value.groupId ?? null,
     itemType: mapItemType(value.itemType),
+    itemTypeText: serverText(value.itemTypeText),
     code: value.code ?? null,
     name: value.name ?? null,
     remark: value.remark ?? null,

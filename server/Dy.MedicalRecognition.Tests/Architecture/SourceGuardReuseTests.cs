@@ -24,7 +24,11 @@ public sealed class SourceGuardReuseTests
     "Stage1ArchitectureTests.cs",
     "Stage2EnumContractTests.cs",
     "Stage2EnumMetadataQueryTests.cs",
-    "Stage2WritePathTests.cs"
+    "Stage2WritePathTests.cs",
+    // 阶段 3 的金额写入用例按语法节点判定写入路径不含累加运算，因此登记为共享语法工具的消费方。
+    "Stage3WritePathTests.cs",
+    // 阶段 3 的金额查询用例按语法节点判定两个入口先校验公共请求，因此同样登记为共享语法工具的消费方。
+    "Stage3QueryTests.cs"
   ];
 
   /// <summary>测试工程内不得重复声明的方法名：这两份私有实现历史上各复制过一次。</summary>

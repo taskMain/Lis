@@ -28,6 +28,10 @@ import { EnableMedicalStandardItemRequestBuilderRequestsMetadata, type EnableMed
 // @ts-ignore
 import { EnableMutualRecognitionItemRequestBuilderRequestsMetadata, type EnableMutualRecognitionItemRequestBuilder } from './enableMutualRecognitionItem/index.js';
 // @ts-ignore
+import { SaveBranchRecognitionAmountRequestBuilderRequestsMetadata, type SaveBranchRecognitionAmountRequestBuilder } from './saveBranchRecognitionAmount/index.js';
+// @ts-ignore
+import { SaveOrganizationHospitalBranchRecognitionAmountRequestBuilderRequestsMetadata, type SaveOrganizationHospitalBranchRecognitionAmountRequestBuilder } from './saveOrganizationHospitalBranchRecognitionAmount/index.js';
+// @ts-ignore
 import { type UpdateMedicalStandardCategoryRequestBuilder, UpdateMedicalStandardCategoryRequestBuilderRequestsMetadata } from './updateMedicalStandardCategory/index.js';
 // @ts-ignore
 import { type UpdateMedicalStandardGroupRequestBuilder, UpdateMedicalStandardGroupRequestBuilderRequestsMetadata } from './updateMedicalStandardGroup/index.js';
@@ -93,6 +97,14 @@ export interface MedicalRecognitionReportRequestBuilder extends BaseRequestBuild
      */
     get enableMutualRecognitionItem(): EnableMutualRecognitionItemRequestBuilder;
     /**
+     * The SaveBranchRecognitionAmount property
+     */
+    get saveBranchRecognitionAmount(): SaveBranchRecognitionAmountRequestBuilder;
+    /**
+     * The SaveOrganizationHospitalBranchRecognitionAmount property
+     */
+    get saveOrganizationHospitalBranchRecognitionAmount(): SaveOrganizationHospitalBranchRecognitionAmountRequestBuilder;
+    /**
      * The UpdateMedicalStandardCategory property
      */
     get updateMedicalStandardCategory(): UpdateMedicalStandardCategoryRequestBuilder;
@@ -151,6 +163,12 @@ export const MedicalRecognitionReportRequestBuilderNavigationMetadata: Record<Ex
     },
     enableMutualRecognitionItem: {
         requestsMetadata: EnableMutualRecognitionItemRequestBuilderRequestsMetadata,
+    },
+    saveBranchRecognitionAmount: {
+        requestsMetadata: SaveBranchRecognitionAmountRequestBuilderRequestsMetadata,
+    },
+    saveOrganizationHospitalBranchRecognitionAmount: {
+        requestsMetadata: SaveOrganizationHospitalBranchRecognitionAmountRequestBuilderRequestsMetadata,
     },
     updateMedicalStandardCategory: {
         requestsMetadata: UpdateMedicalStandardCategoryRequestBuilderRequestsMetadata,

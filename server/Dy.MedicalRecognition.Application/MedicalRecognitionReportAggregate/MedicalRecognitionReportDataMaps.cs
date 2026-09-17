@@ -20,6 +20,11 @@ using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
 [assembly: ObjectMap(typeof(UpdateMutualRecognitionItemConfigurationRequest), typeof(UpdateMutualRecognitionItemConfigurationCommand), ObjectMapMode.OneWay)]
 [assembly: ObjectMap(typeof(EnableMutualRecognitionItemRequest), typeof(EnableMutualRecognitionItemCommand), ObjectMapMode.OneWay)]
 [assembly: ObjectMap(typeof(DisableMutualRecognitionItemRequest), typeof(DisableMutualRecognitionItemCommand), ObjectMapMode.OneWay)]
+// 两个金额保存请求的当前金额不参与自动映射：请求侧金额可空（必填校验据此生效），
+// 而生成的映射把可空金额的缺省值静默写成 0，会把"未提交金额"落成一次真实的零元写入；
+// 因此该字段由应用入口在公共请求校验通过后按已确定非空的值显式写入命令。
+[assembly: ObjectMap(typeof(SaveOrganizationHospitalBranchRecognitionAmountRequest), typeof(SaveOrganizationHospitalBranchRecognitionAmountCommand), ObjectMapMode.OneWay, excludedProperties: ["CurrentAmount"])]
+[assembly: ObjectMap(typeof(SaveBranchRecognitionAmountRequest), typeof(SaveOrganizationHospitalBranchRecognitionAmountCommand), ObjectMapMode.OneWay, excludedProperties: ["CurrentAmount"])]
 [assembly: ObjectMap(typeof(MedicalStandardCategory), typeof(MedicalStandardCategoryDto), ObjectMapMode.TwoWay)]
 [assembly: ObjectMap(typeof(MedicalStandardGroup), typeof(MedicalStandardGroupDto), ObjectMapMode.TwoWay)]
 [assembly: ObjectMap(typeof(MedicalStandardItem), typeof(MedicalStandardItemDto), ObjectMapMode.TwoWay)]

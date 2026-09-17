@@ -167,6 +167,19 @@
 
 标准项目的使用情况本阶段**既不展示也不返回**，两个项目相关 ReadModel 不新增该字段（S1-D21）。
 
+**ReadModel 随行枚举文案**（S1-D32）：
+
+| ReadModel | 新增字段 | 取值与性质 |
+|---|---|---|
+| `MedicalStandardCategoryListReadModel` | `ItemTypeText String?`、`UsageStatusText String` | 分别取 `ItemType` 与 `UsageStatus` 枚举成员上的 `Description`；类型文案可空（未登记取值返回 `null`），使用情况文案非空（取值集合封闭，未登记取值按严格解析抛出，不静默降级） |
+| `MedicalStandardGroupListReadModel` | `UsageStatusText String` | 同上，分组不含项目类型故不返回类型文案 |
+| `MedicalStandardItemListReadModel` | `ItemTypeText String?` | 同分类的类型文案 |
+| `EffectiveMedicalStandardCatalogTypeReadModel` | `ItemTypeText String?` | 同上；层级内其余明细不涉及枚举字段 |
+
+文案由 SourceGen 描述器投影，不在 SQL 内写中文、不在应用层维护第二份文案表；相对原生成基线为**有意扩大公共契约**，已同步 UML2。
+
+**发布契约的形状差异**：四处中文都是只读计算属性，ASP.NET 生成的 OpenAPI 会把它们一律声明为可空（生成端为 `string | null`），与本阶段 C# 侧「使用情况文案非空」的声明不同形；该行为与阶段 2、阶段 3 的同类字段同构（`RecognitionProjectConfigurationReadModel.ConfigurationStatusText`、`RecognitionAmountReadModel.ConfigurationStatusText` 均已在代码中注明），前端按「无文案即回退」处理，不存在运行期缺陷。核对发布契约时按 OpenAPI 的可空形状判定，不按 C# 声明判定。
+
 ### 查询语义
 
 按 [Backend Command Query Event](../../../../.agents/instructions/backend-command-query-event.md) 第 3 节，每个查询必须定义范围、空值语义、稳定唯一排序和分页策略。入参一律以 UML 声明为准。
@@ -213,7 +226,7 @@
 | `IMedicalRecognitionReportQueryAppService` | 公开 Query Service 契约 | Contracts `Queries` | Host 端点 / 调用方 | 继承 `IApplicationService`，声明下表四个查询及公共 Request/ReadModel 签名 | Domain 查询端口或内部投影、SQL、写入 |
 | `MedicalRecognitionReportQueryAppService` | AppService | Application `Queries` | Host 经公开查询服务契约调用 | 继承 `ApplicationService` 并实现 `IMedicalRecognitionReportQueryAppService`；调用 Domain 查询端口、组装公共 ReadModel | SQL、写入 |
 
-`ItemType` 使用 `MedicalItemType` 枚举，不用 `object`；`Remark` 可空；分类与分组 List ReadModel 含 `UsageStatus`（S1-D13、S1-D21、S1-D22）。
+`ItemType` 使用 `MedicalItemType` 枚举，不用 `object`；`Remark` 可空；分类与分组 List ReadModel 含 `UsageStatus`（S1-D13、S1-D21、S1-D22）；三处含项目类型的 ReadModel 与分类、分组 List ReadModel 另含随行枚举文案字段（S1-D32）。
 
 ### 公开查询服务契约
 
@@ -459,7 +472,7 @@ V30 的数据由平台正常业务路径在新表中建立，回读核对分组�
 | V23 | 标准项目列表查询，按分类/分组/编码/名称/是否启用组合筛选，编码与名称分别验证字面符号 | Integration | 各条件按 UML 入参生效，组合为与关系；`Code`、`Name` 分别输入 `A_B` 时命中含字面 `A_B` 的值而不命中 `AXB`，输入 `A%B` 时命中含字面 `A%B` 的值而不命中 `AXXB`；输入单个 `%` 或 `_` 只匹配含对应字符的值，不变成匹配全部 | 需要 | 不需要 | 多项目合法数据；分别准备含 `A_B`、`A%B` 的值及 `AXB`、`AXXB` 对照，另有不含符号的数据；编码保持全平台唯一 |
 | V24 | 当前有效标准目录查询 | Integration | 仅返回自身、所属分组、所属分类均启用的项目，按类型/分类/分组组织为层级结构（业务规则 5、S1-D6） | 需要 | 不需要 | 含停用对象的目录数据 |
 | V25 | 当前有效标准目录查询，含已停用分类下的启用项目 | Integration | 该项目不出现（三级均启用才有效） | 需要 | 不需要 | 停用分类 + 启用项目 |
-| V26 | 全部查询返回字段与 UML ReadModel 一致；核对公开查询服务契约与本模块服务端操作范围 | Contract | `ItemType` 为枚举而非 `object`；层级集合为嵌套结构；四处 `Remark` 可空；分类/分组 `UsageStatus` 枚举数值为 Unused=0、InUse=1；项目不含使用情况（S1-D13/S1-D22）。`IMedicalRecognitionReportQueryAppService` 的四个方法、请求及返回类型与公开契约表逐项一致；本模块公开的 12 个写命令与 4 个查询逐项齐全，HTTP 方法及路径与对应操作一致；分类、分组、标准项目均无公开物理删除操作 | 不需要 | 不需要 | 按本文 Command-Event 表的 12 个命令及公开查询服务契约表的 4 个方法建立预期清单，对照契约声明、本轮服务端实际端点注册清单及 OpenAPI；不以客户端生成范围或页面按钮代替服务端证据，不执行真实删除 |
+| V26 | 全部查询返回字段与 UML ReadModel 一致；核对公开查询服务契约与本模块服务端操作范围 | Contract | `ItemType` 为枚举而非 `object`；层级集合为嵌套结构；四处 `Remark` 可空；分类/分组 `UsageStatus` 枚举数值为 Unused=0、InUse=1；项目不含使用情况（S1-D13/S1-D22）；分类、项目与有效目录类型含 `ItemTypeText`，分类、分组含 `UsageStatusText`，取值与枚举成员 `Description` 一致，且**发布契约的可空形状与 C# 声明不同形**（只读计算属性在 OpenAPI/生成端一律可空，S1-D32）。`IMedicalRecognitionReportQueryAppService` 的四个方法、请求及返回类型与公开契约表逐项一致；本模块公开的 12 个写命令与 4 个查询逐项齐全，HTTP 方法及路径与对应操作一致；分类、分组、标准项目均无公开物理删除操作 | 不需要 | 不需要 | 按本文 Command-Event 表的 12 个命令及公开查询服务契约表的 4 个方法建立预期清单，对照契约声明、本轮服务端实际端点注册清单及 OpenAPI；不以客户端生成范围或页面按钮代替服务端证据，不执行真实删除 |
 | V27 | 查询在空结果时的返回 | Integration | 三个列表返回空集合；有效目录返回根对象及空 `ItemTypes` 集合，与公开契约一致，不返回 `null` 或异常 | 需要 | 不需要 | 空表或筛选无命中 |
 | V28 | 四个查询在测试样本规模下的响应 | Integration | 一次返回完整结果，不分页（S1-D7） | 需要 | 不需要 | 在平台新表中独立准备 325 条合法项目及父级作为测试样本，不代表平台现存数据量，不读取或复制其他系统旧数据 |
 | V29 | 两个合法请求创建同一新分类名称，验证唯一索引拒绝及异常翻译 | Integration | 恰好一条成功、另一条由实际唯一索引拒绝并返回可识别的业务冲突而非原生数据库错误，最终仅一条记录；记录翻译前数据库异常及约束名，失败路径不登记成功事件（S1-D5）。只有普通查重拒绝不算该分支通过 | 需要 | 需要 | 名称未占用、身份与参数合法；仅测试装配的真实仓储装饰器在两个请求均完成实际查重且结果为未占用后放行写入，等待须有超时并在失败时释放；写入和异常翻译仍走真实链路，不伪造数据库异常，不新增生产入口或跨行锁协议 |

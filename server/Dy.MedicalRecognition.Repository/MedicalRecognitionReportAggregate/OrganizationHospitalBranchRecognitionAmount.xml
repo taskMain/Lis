@@ -1,12 +1,62 @@
-<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+<SqlMap Scope="OrganizationHospitalBranchRecognitionAmount" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义组织医院院区互认项目金额的通用查询字段清单，供按业务键读取单行语句复用。
+      结果：输出金额记录标识、四个业务键列、当前金额和操作审计字段，各字段业务含义见行内注释；
+      列顺序与建表脚本列序一致。
+    -->
     <Statement Id="OrganizationHospitalBranchRecognitionAmountColumns">
-      id, organization_code, hospital_code, branch_code, standard_project_code, current_amount, oper_id, oper_time
+      id,                       <!-- 金额记录标识（主键） -->
+      organization_code,        <!-- 组织编码 -->
+      hospital_code,            <!-- 医院编码 -->
+      branch_code,              <!-- 院区编码 -->
+      standard_project_code,    <!-- 标准项目编码 -->
+      current_amount,           <!-- 当前金额 -->
+      oper_time,                <!-- 操作时间 -->
+      oper_id                   <!-- 操作人标识 -->
     </Statement>
-    <Statement Id="QueryAllOrganizationHospitalBranchRecognitionAmount">
-      select
-      <Include RefId="OrganizationHospitalBranchRecognitionAmountColumns" />
-      from organization_hospital_branch_recognition_amount
+    <!--
+      功能：按组织、医院、院区与标准项目四个业务键列读取单个组织医院院区互认项目金额记录，供保存前判断该业务键是否已有金额。
+      结果：命中时返回一行金额字段清单，未命中时返回空结果；不区分任何状态，四个业务键列由调用方从可信上下文与请求提供，
+      四个列上的唯一索引保证至多命中一行，因此调用方据此在"新增"与"更新"之间二选一。
+    -->
+    <Statement Id="GetOrganizationHospitalBranchRecognitionAmountByBusinessKey">
+      select <Include RefId="OrganizationHospitalBranchRecognitionAmountColumns" /> from mrec_organization_hospital_branch_recognition_amount
+      <!-- 业务键定位：四个业务键列必须全部相等才命中；唯一索引 ux_mrec_org_hos_brh_project 覆盖这四列，不使用其它筛选条件 -->
+      where organization_code = $OrganizationCode and hospital_code = $HospitalCode and branch_code = $BranchCode and standard_project_code = $StandardProjectCode
+    </Statement>
+    <!--
+      功能：新增一条组织医院院区互认项目金额，把某组织、医院、院区下某标准项目的当前金额落库。
+      结果：写入记录标识、四个业务键列、当前金额与操作字段；
+      操作时间显式取命令携带的服务端时间而不是数据库当前时间，使写入时间与领域事件时间一致，
+      全部列都显式绑定参数、不依赖任何数据库默认值；并发首次保存同一业务键时由唯一索引兜底、由仓储翻译为业务拒绝。
+    -->
+    <Statement Id="InsertOrganizationHospitalBranchRecognitionAmount">
+      insert into mrec_organization_hospital_branch_recognition_amount (
+        <!-- 参数顺序与下面的值列表逐位对应，全部来自命令与可信上下文，不含数据库默认值 -->
+        id,                       <!-- 金额记录标识（主键），由 Manager 在插入前生成 -->
+        organization_code,        <!-- 组织编码，平台管理员入口取请求，医院管理员入口取可信上下文 -->
+        hospital_code,            <!-- 医院编码，来源同组织编码 -->
+        branch_code,              <!-- 院区编码，两个入口均取请求，且已校验归属 -->
+        standard_project_code,    <!-- 标准项目编码，取已建立互认配置的项目编码 -->
+        current_amount,           <!-- 当前金额，请求提供且已通过非负、最多两位小数校验 -->
+        oper_time,                <!-- 操作时间，取命令携带的服务端当前时间 -->
+        oper_id                   <!-- 操作人标识，取自可信身份上下文 -->
+      ) values ($Id, $OrganizationCode, $HospitalCode, $BranchCode, $StandardProjectCode, $CurrentAmount, $OperTime, $OperId)
+    </Statement>
+    <!--
+      功能：按记录标识与四个业务键列更新该条金额的当前金额，并记录本次操作人和操作时间。
+      结果：只影响同时命中主键与四个业务键列的一行；四个业务键列不在变更范围内，
+      因此业务键被改动、记录已被删除或并发改动的语句都影响 0 行，调用方据此区分并发冲突与业务拒绝；
+      四个业务键列全部参与条件判断，避免标识命中却落到别的组织、医院、院区或项目上。
+    -->
+    <Statement Id="UpdateOrganizationHospitalBranchRecognitionAmount">
+      update mrec_organization_hospital_branch_recognition_amount set
+        current_amount = $CurrentAmount,  <!-- 当前金额，本次保存后的值 -->
+        oper_time = $OperTime,            <!-- 操作时间，取命令携带的服务端当前时间 -->
+        oper_id = $OperId                 <!-- 操作人标识，取自可信身份上下文 -->
+      <!-- 条件定位：主键与四个业务键列同时相等才更新，与读取语句使用同一组业务键列 -->
+      where id = $Id and organization_code = $OrganizationCode and hospital_code = $HospitalCode and branch_code = $BranchCode and standard_project_code = $StandardProjectCode
     </Statement>
   </Statements>
 </SqlMap>

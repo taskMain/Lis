@@ -134,6 +134,22 @@ public sealed class Stage1SqlMapProbeTests
     // 语句标识被改名或作用域被改动时没有任何用例会失败。
     Assert.Contains("MutualRecognitionItem.MutualRecognitionItemColumns", registeredKeys);
     Assert.Contains("MutualRecognitionItem.QueryAllMutualRecognitionItem", registeredKeys);
+
+    // 阶段 3 追加核对：组织医院院区互认项目金额的字段清单、按业务键读取、新增与更新语句必须全部注册在实体作用域下，
+    // 且两个旧聚合作用域键（字段清单、已移除的无 where 全量查询）必须消失；
+    // 缺少这些断言时，金额映射的作用域被改回聚合名、或语句标识被改名，都不会让任何用例失败，V24 会静默通过。
+    Assert.DoesNotContain("MedicalRecognitionReport.OrganizationHospitalBranchRecognitionAmountColumns", registeredKeys);
+    Assert.DoesNotContain("MedicalRecognitionReport.QueryAllOrganizationHospitalBranchRecognitionAmount", registeredKeys);
+    Assert.Contains("OrganizationHospitalBranchRecognitionAmount.OrganizationHospitalBranchRecognitionAmountColumns", registeredKeys);
+    Assert.Contains("OrganizationHospitalBranchRecognitionAmount.GetOrganizationHospitalBranchRecognitionAmountByBusinessKey", registeredKeys);
+    Assert.Contains("OrganizationHospitalBranchRecognitionAmount.InsertOrganizationHospitalBranchRecognitionAmount", registeredKeys);
+    Assert.Contains("OrganizationHospitalBranchRecognitionAmount.UpdateOrganizationHospitalBranchRecognitionAmount", registeredKeys);
+
+    // 阶段 3 追加核对：互认项目金额保存的"当前组织是否已建立该标准项目配置"读取语句注册在实体作用域下，
+    // 以及金额列表查询语句注册在独立查询作用域下；
+    // 缺少这两条断言时，语句标识或作用域被改名只在运行时表现为"找不到语句"，静态检查不会失败。
+    Assert.Contains("MutualRecognitionItem.GetMutualRecognitionItemByOrganizationAndProject", registeredKeys);
+    Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionAmountList", registeredKeys);
   }
 
   /// <summary>

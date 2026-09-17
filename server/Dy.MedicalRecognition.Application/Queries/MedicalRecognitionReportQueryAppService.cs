@@ -1,14 +1,17 @@
 using Dy.MedicalRecognition.Application.Contracts.Queries;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
+using Dy.MedicalRecognition.Application.Validation;
+using Dy.Base.Application.Contracts.OrganizationAggregate;
+using Dy.Base.Application.Contracts.UserAggregate;
 using System.ComponentModel.DataAnnotations;
 using Dy.MedicalRecognition.Domain.Queries;
 
 namespace Dy.MedicalRecognition.Application.Queries;
 
 /// <summary>
-/// 标准项目目录与互认项目配置只读查询的应用服务实现。
+/// 标准项目目录、互认项目配置与互认项目金额只读查询的应用服务实现。
 /// </summary>
-/// <remarks>全部查询都只筛选与投影，不修改数据，也不判断业务状态。</remarks>
+/// <remarks>全部查询都只筛选与投影，不修改数据，也不判断业务状态；查询不产生写入、审计事件或消息。</remarks>
 public sealed class MedicalRecognitionReportQueryAppService : ApplicationService, IMedicalRecognitionReportQueryAppService
 {
   /// <summary>
@@ -17,10 +20,39 @@ public sealed class MedicalRecognitionReportQueryAppService : ApplicationService
   private readonly IMedicalRecognitionReportQueryRepository repository;
 
   /// <summary>
-  /// 接收标准项目目录的只读查询端口作为数据来源。
+  /// 金额查询入口解析组织、医院与院区路径所用的解析点。
   /// </summary>
+  /// <remarks>
+  /// 一次调用只解析一批目标路径，组织全量只读一次、每家不同医院读取一次院区，
+  /// 因此外部组织服务的读取次数不随返回行数增长。
+  /// </remarks>
+  private readonly OrganizationPathResolver organizationPathResolver;
+
+  /// <summary>
+  /// 医院管理员金额查询入口解析可信组织与可信医院所用的解析点。
+  /// </summary>
+  /// <remarks>令牌已提供组织与医院两层时不读取用户档案；令牌缺失的层由当前登录用户档案补齐。</remarks>
+  private readonly TrustedScopeResolver trustedScopeResolver;
+
+  /// <summary>
+  /// 接收标准项目目录的只读查询端口与外部服务作为数据来源。
+  /// </summary>
+  /// <remarks>
+  /// 组织路径解析器与可信范围解析器都在构造函数内建立：两者都是应用层内部类型，不能出现在公开构造函数的参数上；
+  /// 可信范围解析所用的外部用户服务同样只在构造函数内转交内部解析点。
+  /// </remarks>
   /// <param name="repository">目录只读查询端口。</param>
-  public MedicalRecognitionReportQueryAppService(IMedicalRecognitionReportQueryRepository repository) => this.repository = repository;
+  /// <param name="organizationAppService">提供组织、医院与院区主数据的外部组织服务。</param>
+  /// <param name="userAppService">提供当前登录用户组织与医院归属的外部用户服务，用于补齐令牌缺失的可信层。</param>
+  public MedicalRecognitionReportQueryAppService(
+    IMedicalRecognitionReportQueryRepository repository,
+    IOrganizationAppService organizationAppService,
+    IUserAppService userAppService)
+  {
+    this.repository = repository;
+    organizationPathResolver = new OrganizationPathResolver(organizationAppService);
+    trustedScopeResolver = new TrustedScopeResolver(userAppService);
+  }
 
   /// <summary>
   /// 查询分类列表并映射为只读模型。
@@ -110,6 +142,70 @@ public sealed class MedicalRecognitionReportQueryAppService : ApplicationService
 
     IEnumerable<RecognitionProjectConfigurationListItem> items = await repository.QueryRecognitionProjectConfigurationListAsync(currentOrganizationCode, request.StandardProjectCode, request.ConfigurationStatus);
     return items.Select(Map);
+  }
+
+  /// <summary>
+  /// 查询互认项目金额列表并映射为只读模型（平台管理员入口）。
+  /// </summary>
+  /// <remarks>
+  /// 组织、医院与院区按请求使用，服务端校验三者存在、启用且父子归属正确，不要求请求组织等于可信上下文组织，
+  /// 因此平台管理员可以查询其他组织的金额；权限由权限系统负责，不在服务端做组织相等校验、也不静默过滤。
+  /// 行集由该组织已建立的互认配置驱动，未配置金额的行按“未配置”返回；名称与归属由组织路径解析一次性批量读取取得。
+  /// </remarks>
+  /// <param name="request">金额列表查询条件，携带请求的组织、医院、院区与可选标准项目编码。</param>
+  /// <returns>金额只读模型集合；该组织未建立互认配置时返回空集合。</returns>
+  /// <exception cref="ArgumentNullException">查询条件为 null 时抛出，此时无法判定调用方意图的筛选范围。</exception>
+  /// <exception cref="ValidationException">组织、医院或院区缺失或为空白文本，或标准项目编码为空白文本时抛出；空白文本不代表“不过滤”，而是无效的筛选条件。</exception>
+  /// <exception cref="InvalidOperationException">请求的组织、医院或院区不存在、已停用或父子归属不匹配时抛出；此时不返回该范围的数据，也不降级为空集合。</exception>
+  public async Task<IEnumerable<RecognitionAmountReadModel>> QueryRecognitionAmountListAsync(RecognitionAmountListQueryRequest request)
+  {
+    MedicalRecognitionRequestValidator.Validate(request);
+
+    OrganizationPathResolver.OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
+      [new OrganizationPathResolver.OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode)],
+      "业务拒绝：组织不存在或已停用。",
+      "业务拒绝：医院不存在、已停用或不属于所选组织。",
+      "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
+
+    IEnumerable<RecognitionAmountListItem> items =
+      await repository.QueryRecognitionAmountListAsync(path.OrganizationCode, path.HospitalCode, path.BranchCode, request.StandardProjectCode);
+    return items.Select(item => Map(item, path));
+  }
+
+  /// <summary>
+  /// 查询本院区互认项目金额列表并映射为只读模型（医院管理员入口）。
+  /// </summary>
+  /// <remarks>
+  /// 组织与医院只取自可信上下文，请求不提交也不得覆盖；可信上下文的组织层与医院层按同一规则解析：
+  /// 登录令牌该层非空白即取令牌值，令牌该层缺失或空白时用当前登录用户档案的 <c>OrgId</c>/<c>HosId</c> 补齐，
+  /// 令牌与用户档案都提供该层且不一致即拒绝，补齐后该层仍为空即拒绝，不使用默认值、不降级为空值；
+  /// 请求院区必须存在、启用且属于可信医院与可信组织，不属于即拒绝，不返回其他医院的数据、也不降级为空集合；
+  /// 院区层不参与可信回落。其余查询与映射与平台管理员入口完全相同，两个入口共用同一投影与同一原因派生。
+  /// </remarks>
+  /// <param name="request">金额列表查询条件，只携带请求院区与可选标准项目编码。</param>
+  /// <returns>金额只读模型集合；该组织未建立互认配置时返回空集合。</returns>
+  /// <exception cref="ArgumentNullException">查询条件为 null 时抛出，此时无法判定调用方意图的筛选范围。</exception>
+  /// <exception cref="ValidationException">院区缺失或为空白文本，或标准项目编码为空白文本时抛出；空白文本不代表“不过滤”，而是无效的筛选条件。</exception>
+  /// <exception cref="InvalidOperationException">
+  /// 可信上下文中取不到组织或医院时抛出，此时不使用默认值、不降级为空值；
+  /// 请求院区不存在、已停用或不属于可信医院时同样抛出，此时不返回其他医院的数据、也不降级为空集合。
+  /// </exception>
+  public async Task<IEnumerable<RecognitionAmountReadModel>> QueryBranchRecognitionAmountListAsync(BranchRecognitionAmountListQueryRequest request)
+  {
+    // 可信组织与医院的解析先于公共请求校验：可信范围不成立时不需要、也不得读取任何业务数据。
+    TrustedScopeResolver.TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
+      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
+    MedicalRecognitionRequestValidator.Validate(request);
+
+    OrganizationPathResolver.OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
+      [new OrganizationPathResolver.OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, request.BranchCode)],
+      "业务拒绝：组织不存在或已停用。",
+      "业务拒绝：医院不存在、已停用或不属于所选组织。",
+      "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
+
+    IEnumerable<RecognitionAmountListItem> items =
+      await repository.QueryRecognitionAmountListAsync(path.OrganizationCode, path.HospitalCode, path.BranchCode, request.StandardProjectCode);
+    return items.Select(item => Map(item, path));
   }
 
   /// <summary>
@@ -205,6 +301,51 @@ public sealed class MedicalRecognitionReportQueryAppService : ApplicationService
   /// <param name="item">查询端口返回的互认配置投影，含标准目录三层的启用状态。</param>
   /// <returns>第一条目录停用原因文案；目录三层全部启用时为 null。</returns>
   private static string? ResolveUnavailableReason(RecognitionProjectConfigurationListItem item)
+  {
+    if (!item.CategoryIsValid) return "所属分类已停用";
+    if (!item.GroupIsValid) return "所属分组已停用";
+    if (!item.ItemIsValid) return "标准项目已停用";
+
+    return null;
+  }
+
+  /// <summary>
+  /// 把金额查询结果与已校验的组织路径映射为只读模型。
+  /// </summary>
+  /// <remarks>
+  /// 三层名称取组织路径解析的一次性批量读取结果，不按行读取外部组织服务；
+  /// “金额已配置”按当前金额是否有值派生，零元同样为真，与从未配置区分；
+  /// 配置状态只由配置自身的启用状态决定，目录停用不改变该字段。
+  /// </remarks>
+  /// <param name="item">查询端口返回的金额行投影，含当前金额与标准目录三层状态。</param>
+  /// <param name="path">已校验通过的组织路径，提供组织、医院与院区名称。</param>
+  /// <returns>金额列表只读模型。</returns>
+  private static RecognitionAmountReadModel Map(RecognitionAmountListItem item, OrganizationPathResolver.OrganizationPath path) => new()
+  {
+    StandardProjectCode = item.StandardProjectCode,
+    StandardProjectName = item.StandardItemName,
+    ItemType = item.ItemType,
+    CategoryName = item.CategoryName,
+    GroupName = item.GroupName,
+    OrganizationName = path.OrganizationName,
+    HospitalName = path.HospitalName,
+    BranchName = path.BranchName,
+    ConfigurationStatus = item.ConfigurationIsValid ? ConfigurationStatus.Enabled : ConfigurationStatus.Disabled,
+    UnavailableReason = ResolveUnavailableReason(item),
+    CurrentAmount = item.CurrentAmount,
+    IsAmountConfigured = item.CurrentAmount.HasValue
+  };
+
+  /// <summary>
+  /// 按所属分类、所属分组、标准项目的顺序派生第一条目录停用原因。
+  /// </summary>
+  /// <remarks>
+  /// 只表达标准目录停用：目录三层全部启用时为 null，即使配置自身已停用或金额尚未配置也保持 null，
+  /// 配置自身的状态只由配置状态字段表达，金额是否配置只由金额与已配置字段表达。
+  /// </remarks>
+  /// <param name="item">查询端口返回的金额行投影，含标准目录三层的启用状态。</param>
+  /// <returns>第一条目录停用原因文案；目录三层全部启用时为 null。</returns>
+  private static string? ResolveUnavailableReason(RecognitionAmountListItem item)
   {
     if (!item.CategoryIsValid) return "所属分类已停用";
     if (!item.GroupIsValid) return "所属分组已停用";

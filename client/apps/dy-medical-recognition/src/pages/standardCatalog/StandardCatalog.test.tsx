@@ -1,5 +1,5 @@
 /**
- * 阶段 1 前端 Component 层用例（测试矩阵 C57 / C58 / C62 / C63 / C64 / C65 / C68 / C69）。
+ * 阶段 1 前端 Component 层用例（测试矩阵 C57 / C58 / C62 / C63 / C64 / C65 / C68 / C69 / C75）。
  *
  * 装配边界（遵循 Frontend Testing 第 2 节「mock 位于 Client/适配层边界，并保持真实契约形态」）：
  * 1. `./standardCatalogApi` 只替换 12 个 I/O 函数（读取与写入），其余纯函数
@@ -14,7 +14,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { StandardCatalog } from './StandardCatalog'
 import type { CatalogData, StandardCategory, StandardGroup, StandardItem } from './standardCatalogApi'
 
@@ -102,7 +102,9 @@ const cat = (
   itemType: 0 | 1 = 0,
   isValid = true,
   usageStatus: 0 | 1 = 0,
-): StandardCategory => ({ id, itemType, name, remark: null, isValid, usageStatus })
+  /** 服务端随行枚举文案；不传即模拟契约字段缺失，用于验证页面回退到枚举元数据/本地兜底。 */
+  texts: { itemTypeText?: string | null; usageStatusText?: string | null } = {},
+): StandardCategory => ({ id, itemType, name, remark: null, isValid, usageStatus, itemTypeText: texts.itemTypeText ?? null, usageStatusText: texts.usageStatusText ?? null })
 
 const grp = (
   id: string,
@@ -110,7 +112,9 @@ const grp = (
   name: string,
   isValid = true,
   usageStatus: 0 | 1 = 0,
-): StandardGroup => ({ id, categoryId, name, remark: null, isValid, usageStatus })
+  /** 服务端随行使用情况文案；不传即模拟契约字段缺失。 */
+  usageStatusText: string | null = null,
+): StandardGroup => ({ id, categoryId, name, remark: null, isValid, usageStatus, usageStatusText })
 
 const itm = (
   id: string,
@@ -119,7 +123,9 @@ const itm = (
   code: string,
   name: string,
   isValid = true,
-): StandardItem => ({ id, categoryId, groupId, itemType: 0, code, name, remark: null, isValid })
+  /** 服务端随行项目类型文案；不传即模拟契约字段缺失。 */
+  itemTypeText: string | null = null,
+): StandardItem => ({ id, categoryId, groupId, itemType: 0, code, name, remark: null, isValid, itemTypeText })
 
 const EMPTY: CatalogData = { categories: [], groups: [], items: [] }
 const CHAIN: CatalogData = {
@@ -167,6 +173,24 @@ async function openCreateGroup(index = 0) {
 
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset()
+})
+
+/**
+ * 用例内未处理拒绝观测器的兜底登记：用例挂死或超时时用例内的 `finally` 不会执行，而
+ * `unhandledRejection` 是进程级监听，残留后会让 vitest 以「监听器数 > 1」判定调用方自行处理、
+ * 不再上报自己的未处理拒绝，等于静默关掉该 worker 内后续用例的检测。因此除用例内 `finally`
+ * 摘除外，再于 `afterEach` 无条件兜底摘一次。
+ *
+ * 该登记是**文件级单值**：装有观测器的用例之间不得并发（不得加 `.concurrent`、也不得开启
+ * `sequence.concurrent`），否则先结束者的 `afterEach` 会摘掉后结束者仍在使用的监听。
+ * 这个禁用条件随本条登记一起失效——将来若需要并发，先把这里换成一个 `Set`。
+ */
+let activeUnhandledRejectionObserver: ((reason: unknown) => void) | null = null
+
+afterEach(() => {
+  if (activeUnhandledRejectionObserver === null) return
+  process.off('unhandledRejection', activeUnhandledRejectionObserver)
+  activeUnhandledRejectionObserver = null
 })
 
 describe('C58 组件加载与重载的乱序响应', () => {
@@ -357,19 +381,40 @@ describe('C64 可信身份未就绪与失效（Component 层可覆盖部分）',
   })
 
   it('写请求因身份失效被拒绝时：不重放、不误关弹窗、不误报成功、不触发重载', async () => {
-    await renderLoaded({ categories: [cat('c1', '甲分类')], groups: [grp('g1', 'c1', '甲分组')], items: [itm('i1', 'c1', 'g1', 'A-1', '甲项目')] })
-    api.updateItemRemark.mockRejectedValueOnce(new Error('身份已失效'))
-    const readsBefore = api.queryCategories.mock.calls.length
+    /**
+     * 写失败的拒绝只由宿主统一展示，页面不得自行捕获（总体设计 5.2）。本用例**局部**安装未处理
+     * 拒绝的观测器、用例结束即移除：既不依赖也不改动 `vite.config.ts` 的全局设置，因此
+     * 「页面未吞掉本次写失败、也未额外产生别的拒绝」在这里是可判红的（判定点见下）。
+     */
+    const unhandled: unknown[] = []
+    const onUnhandledRejection = (reason: unknown) => { unhandled.push(reason) }
+    activeUnhandledRejectionObserver = onUnhandledRejection
+    process.on('unhandledRejection', onUnhandledRejection)
+    try {
+      await renderLoaded({ categories: [cat('c1', '甲分类')], groups: [grp('g1', 'c1', '甲分组')], items: [itm('i1', 'c1', 'g1', 'A-1', '甲项目')] })
+      const rejection = new Error('身份已失效')
+      api.updateItemRemark.mockRejectedValueOnce(rejection)
+      const readsBefore = api.queryCategories.mock.calls.length
 
-    click(screen.getByLabelText('修改备注：甲项目'))
-    await modal().findByLabelText('备注')
-    await change(modal().getByLabelText('备注'), '保留的备注')
-    click(modal().getByRole('button', { name: /保\s*存/ }))
+      click(screen.getByLabelText('修改备注：甲项目'))
+      await modal().findByLabelText('备注')
+      await change(modal().getByLabelText('备注'), '保留的备注')
+      click(modal().getByRole('button', { name: /保\s*存/ }))
 
-    await waitFor(() => expect(api.updateItemRemark).toHaveBeenCalledTimes(1))
-    await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
-    expect((modal().getByLabelText('备注') as HTMLTextAreaElement).value).toBe('保留的备注')
-    expect(api.queryCategories.mock.calls.length).toBe(readsBefore)
+      await waitFor(() => expect(api.updateItemRemark).toHaveBeenCalledTimes(1))
+      // 页面不捕获该拒绝：观测必须恰好收到写失败这一笔；页面若自行捕获、改判成功或额外产生拒绝即判红。
+      await act(async () => {})
+      await waitFor(() => expect(unhandled).toEqual([rejection]))
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
+      expect((modal().getByLabelText('备注') as HTMLTextAreaElement).value).toBe('保留的备注')
+      expect(api.queryCategories.mock.calls.length).toBe(readsBefore)
+      // 收尾再判一次：观测窗口到用例结束为止，断言之后到达的杂散拒绝同样不得漏判。
+      expect(unhandled).toEqual([rejection])
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection)
+      // 仅当登记的仍是本次观测器时才清空：超时用例迟到的 finally 不得解除后续用例的兜底。
+      if (activeUnhandledRejectionObserver === onUnhandledRejection) activeUnhandledRejectionObserver = null
+    }
   })
 
   it.skip('身份有效切换会清理选择/缓存/表单/弹窗 —— 页面无身份消费点，待负责人裁定归属', () => {
@@ -392,18 +437,37 @@ describe('C65 依赖未就绪与未知枚举防御', () => {
     expect(screen.getByRole('button', { name: /重\s*试/ })).toBeInTheDocument()
   })
 
-  it('未知使用情况到达页面时显示未知，不默认映射为未被使用', async () => {
+  it('未知使用情况到达页面时显示未知，不默认映射为未使用', async () => {
     await renderLoaded({
-      categories: [{ id: 'c1', itemType: 0, name: '甲分类', remark: null, isValid: true, usageStatus: null }],
-      groups: [{ id: 'g1', categoryId: 'c1', name: '甲分组', remark: null, isValid: true, usageStatus: null }],
+      categories: [{ id: 'c1', itemType: 0, name: '甲分类', remark: null, isValid: true, usageStatus: null, itemTypeText: null, usageStatusText: null }],
+      groups: [{ id: 'g1', categoryId: 'c1', name: '甲分组', remark: null, isValid: true, usageStatus: null, usageStatusText: null }],
       items: [],
     })
 
     click(screen.getByLabelText('编辑分组：甲分组'))
     await screen.findByLabelText('分组名称')
     expect(screen.getByText('未知')).toBeInTheDocument()
-    expect(screen.queryByText('未被使用')).not.toBeInTheDocument()
-    expect(screen.queryByText('已被下级使用')).not.toBeInTheDocument()
+    expect(screen.queryByText('未使用')).not.toBeInTheDocument()
+    expect(screen.queryByText('已使用')).not.toBeInTheDocument()
+  })
+
+  /**
+   * 越界数值不得被渲染成空文本：适配层会把未知取值收窄为 `null`，但展示层仍需自己兜住取值域，
+   * 否则任何绕过适配层的调用都会让「使用情况」显形为空白（既不是中文也不是「未知」）。
+   * 这里直接以越界数值装配页面，锁定展示层自身的取值域判断。
+   */
+  it('越界使用情况数值显示未知，不渲染为空文本', async () => {
+    await renderLoaded({
+      categories: [{ id: 'c1', itemType: 0, name: '甲分类', remark: null, isValid: true, usageStatus: 7 as unknown as StandardCategory['usageStatus'], itemTypeText: null, usageStatusText: null }],
+      groups: [],
+      items: [],
+    })
+
+    click(screen.getByLabelText('编辑分类：甲分类'))
+    await screen.findByLabelText('分类名称')
+    expect(modal().getByText('未知')).toBeInTheDocument()
+    expect(screen.queryByText('未使用')).not.toBeInTheDocument()
+    expect(screen.queryByText('已使用')).not.toBeInTheDocument()
   })
 
   it('适配层不把未知枚举值默认映射为已知值（真实映射函数）', async () => {
@@ -423,7 +487,7 @@ describe('C65 依赖未就绪与未知枚举防御', () => {
           },
           queryMedicalStandardItemList: {
             post: vi.fn().mockResolvedValue([
-              { itemId: 'i1', categoryId: 'c1', groupId: 'g1', itemType: 7, code: 'X', name: '未知类型项目', remark: null, isValid: true },
+              { itemId: 'i1', categoryId: 'c1', groupId: 'g1', itemType: 7, code: 'X', name: '未知类型项目', remark: null, isValid: true, itemTypeText: null },
             ]),
           },
         },
@@ -449,7 +513,7 @@ describe('C65 依赖未就绪与未知枚举防御', () => {
 })
 
 describe('C68 状态过滤隐藏唯一停用下级时的类型冻结', () => {
-  it('隐藏停用下级后仍判为已被下级使用、项目类型仍置灰、名称与备注仍可编辑', async () => {
+  it('隐藏停用下级后仍判为已使用、项目类型仍置灰、名称与备注仍可编辑', async () => {
     await renderLoaded({
       categories: [cat('c1', '甲分类', 0, true, 1)],
       groups: [grp('g1', 'c1', '唯一停用分组', false)],
@@ -463,10 +527,44 @@ describe('C68 状态过滤隐藏唯一停用下级时的类型冻结', () => {
 
     click(screen.getByLabelText('编辑分类：甲分类'))
     await screen.findByLabelText('分类名称')
-    expect(screen.getByText('已被下级使用')).toBeInTheDocument()
+    expect(screen.getByText('已使用')).toBeInTheDocument()
     expect(screen.getByText('该分类下已存在分组（含已停用），项目类型不可修改。')).toBeInTheDocument()
     expect(screen.getByLabelText('分类名称')).toBeEnabled()
     expect(screen.getByLabelText('备注')).toBeEnabled()
+  })
+})
+
+describe('C75 枚举文案来源：服务端随行文案 → 枚举元数据 → 本地兜底', () => {
+  it('列表与编辑弹窗取服务端随行枚举文案，不按数值自拼中文', async () => {
+    await renderLoaded({
+      categories: [cat('c1', '甲分类', 0, true, 1, { itemTypeText: '检验（随行）', usageStatusText: '已使用（随行）' })],
+      groups: [grp('g1', 'c1', '甲分组', true, 1, '已使用（随行）')],
+      items: [itm('i1', 'c1', 'g1', 'A-1', '甲项目', true, '检验（随行）')],
+    })
+
+    // 列表「类型」列取项目自身的随行文案。
+    expect(screen.getByText('检验（随行）')).toBeInTheDocument()
+
+    // 分组编辑弹窗的使用情况取分组自身的随行文案。
+    click(screen.getByLabelText('编辑分组：甲分组'))
+    await screen.findByLabelText('分组名称')
+    expect(modal().getByText('已使用（随行）')).toBeInTheDocument()
+
+    // 树节点没有随行文案：本文件占位 Client 不提供枚举元数据端点，回退到本地兜底文案。
+    expect(screen.getByText('检查')).toBeInTheDocument()
+    expect(screen.queryByText('未知类型')).not.toBeInTheDocument()
+  })
+
+  it('随行文案缺失时回退到与后端同名的本地兜底文案，不显示成未知', async () => {
+    await renderLoaded({
+      categories: [cat('c1', '甲分类', 0, true, 1)],
+      groups: [grp('g1', 'c1', '甲分组', true, 0)],
+      items: [itm('i1', 'c1', 'g1', 'A-1', '甲项目')],
+    })
+
+    click(screen.getByLabelText('编辑分类：甲分类'))
+    await screen.findByLabelText('分类名称')
+    expect(modal().getByText('已使用')).toBeInTheDocument()
   })
 })
 

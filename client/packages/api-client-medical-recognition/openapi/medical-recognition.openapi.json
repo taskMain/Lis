@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5008/"
+      "url": "http://localhost:5014/"
     }
   ],
   "paths": {
@@ -477,6 +477,190 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/RecognitionProjectConfigurationReadModel"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryRecognitionAmountList": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionAmountListQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionAmountListQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionAmountListQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionAmountListQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionAmountListQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionAmountListQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionAmountReadModel"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionAmountReadModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionAmountReadModel"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionAmountReadModel"
+                  }
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionAmountReadModel"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryBranchRecognitionAmountList": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionAmountListQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionAmountListQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionAmountListQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionAmountListQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionAmountListQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionAmountListQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionAmountReadModel"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionAmountReadModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionAmountReadModel"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionAmountReadModel"
+                  }
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecognitionAmountReadModel"
                   }
                 }
               }
@@ -1811,10 +1995,181 @@
           {}
         ]
       }
+    },
+    "/Api/MedicalRecognitionReport/SaveOrganizationHospitalBranchRecognitionAmount": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveOrganizationHospitalBranchRecognitionAmountRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveOrganizationHospitalBranchRecognitionAmountRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveOrganizationHospitalBranchRecognitionAmountRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveOrganizationHospitalBranchRecognitionAmountRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveOrganizationHospitalBranchRecognitionAmountRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveOrganizationHospitalBranchRecognitionAmountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReport/SaveBranchRecognitionAmount": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBranchRecognitionAmountRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBranchRecognitionAmountRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBranchRecognitionAmountRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBranchRecognitionAmountRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBranchRecognitionAmountRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBranchRecognitionAmountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
     }
   },
   "components": {
     "schemas": {
+      "BranchRecognitionAmountListQueryRequest": {
+        "required": [
+          "branchCode"
+        ],
+        "type": "object",
+        "properties": {
+          "branchCode": {
+            "type": "string"
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ChangeMedicalStandardItemRemarkRequest": {
         "type": "object",
         "properties": {
@@ -2150,6 +2505,12 @@
           "itemType": {
             "$ref": "#/components/schemas/MedicalItemType"
           },
+          "itemTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "categories": {
             "type": "array",
             "items": {
@@ -2310,6 +2671,12 @@
           "itemType": {
             "$ref": "#/components/schemas/MedicalItemType"
           },
+          "itemTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "name": {
             "type": "string"
           },
@@ -2324,6 +2691,12 @@
           },
           "usageStatus": {
             "$ref": "#/components/schemas/MedicalStandardUsageStatus"
+          },
+          "usageStatusText": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2364,6 +2737,12 @@
           },
           "usageStatus": {
             "$ref": "#/components/schemas/MedicalStandardUsageStatus"
+          },
+          "usageStatusText": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -2422,6 +2801,12 @@
           "itemType": {
             "$ref": "#/components/schemas/MedicalItemType"
           },
+          "itemTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "code": {
             "type": "string"
           },
@@ -2440,7 +2825,19 @@
         }
       },
       "MedicalStandardUsageStatus": {
-        "type": "integer"
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "Unused",
+          "InUse"
+        ],
+        "x-enumDescriptions": [
+          "未使用",
+          "已使用"
+        ]
       },
       "QueryEnumMetadataRequest": {
         "required": [
@@ -2450,6 +2847,93 @@
         "properties": {
           "enumName": {
             "type": "string"
+          }
+        }
+      },
+      "RecognitionAmountListQueryRequest": {
+        "required": [
+          "organizationCode",
+          "hospitalCode",
+          "branchCode"
+        ],
+        "type": "object",
+        "properties": {
+          "organizationCode": {
+            "type": "string"
+          },
+          "hospitalCode": {
+            "type": "string"
+          },
+          "branchCode": {
+            "type": "string"
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RecognitionAmountReadModel": {
+        "type": "object",
+        "properties": {
+          "standardProjectCode": {
+            "type": "string"
+          },
+          "standardProjectName": {
+            "type": "string"
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "itemTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "categoryName": {
+            "type": "string"
+          },
+          "groupName": {
+            "type": "string"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "hospitalName": {
+            "type": "string"
+          },
+          "branchName": {
+            "type": "string"
+          },
+          "configurationStatus": {
+            "$ref": "#/components/schemas/ConfigurationStatus"
+          },
+          "configurationStatusText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unavailableReason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "currentAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "isAmountConfigured": {
+            "type": "boolean"
           }
         }
       },
@@ -2520,6 +3004,82 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "SaveBranchRecognitionAmountRequest": {
+        "required": [
+          "branchCode",
+          "standardProjectCode",
+          "currentAmount"
+        ],
+        "type": "object",
+        "properties": {
+          "branchCode": {
+            "type": "string"
+          },
+          "standardProjectCode": {
+            "type": "string"
+          },
+          "currentAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "changedProperties": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SaveOrganizationHospitalBranchRecognitionAmountRequest": {
+        "required": [
+          "organizationCode",
+          "hospitalCode",
+          "branchCode",
+          "standardProjectCode",
+          "currentAmount"
+        ],
+        "type": "object",
+        "properties": {
+          "organizationCode": {
+            "type": "string"
+          },
+          "hospitalCode": {
+            "type": "string"
+          },
+          "branchCode": {
+            "type": "string"
+          },
+          "standardProjectCode": {
+            "type": "string"
+          },
+          "currentAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "changedProperties": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

@@ -24,7 +24,7 @@
 
 使用现有 API Client 上下文，不在页面创建 Client。配置查询使用 `QueryRecognitionProjectConfigurationList`；写入使用 `1-MedicalRecognitionReport.wsd` 中已有的四个互认配置命令。新增后刷新配置列表和标准项目选择数据，保留组织和筛选条件。
 
-功能适配层负责把生成的 Request/ReadModel 转换为稳定视图模型：新增 Request 不提交组织编码；ReadModel 不包含创建/修改人和时间、两个独立状态字段，`UnavailableReason` 可为 `null`。配置状态与项目类型在生成端是数值（`number | null`，OpenAPI 已声明取值、成员名与中文说明），生成端不产出 TypeScript 枚举，取值与兜底文案由适配层的本地常量承载（取值须与后端枚举声明一致）。目录停用原因由后端实时返回，配置自身停用只由配置状态表达。
+功能适配层负责把生成的 Request/ReadModel 转换为稳定视图模型：新增 Request 不提交组织编码；ReadModel 不包含创建/修改人和时间、两个独立状态字段，`UnavailableReason` 可为 `null`。配置状态与项目类型在生成端是数值（`number | null`，OpenAPI 已声明取值、成员名与中文说明），生成端不产出 TypeScript 枚举；取值域、取值域判定与兜底文案由跨页面共享模块 `src/shared/configurationStatus.ts`、`src/shared/medicalItemType.ts` 承载（取值须与后端枚举声明一致），本适配层按原名字转发。目录停用原因由后端实时返回，配置自身停用只由配置状态表达。
 
 枚举中文来源（与 `Dy.LisCenter` 同口径）：**服务端是枚举中文的唯一来源，前端不再自持文案映射**。页面按两条路径取用：(1) 列表、只读资料等展示文本直接取只读模型交付的 `ItemTypeText` / `ConfigurationStatusText`，适配层不再用本地文案表推导展示；(2) 需要选项集合的下拉（配置状态筛选）用 `useEnumMetadata('ConfigurationStatus', fallback)` 从枚举元数据接口取 `value`/`label`。本地常量（`MEDICAL_ITEM_TYPE_TEXTS`、`CONFIGURATION_STATUS_TEXTS`、`CONFIGURATION_STATUSES`）降级为**接口不可用或字段缺失时的兜底**：页面在元数据加载失败时仍可用稳定取值渲染，不出现空下拉或空文案。`useEnumMetadata` 按 API Client 实例缓存同一枚举名的请求，失败时清除缓存以便重试；加载失败不改判为页面错误，仍由宿主统一展示 API 错误。
 

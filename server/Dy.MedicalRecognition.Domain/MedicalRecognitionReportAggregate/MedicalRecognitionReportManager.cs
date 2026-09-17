@@ -4,14 +4,20 @@ using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
 namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
 
 /// <summary>
-/// 维护标准目录的分类、分组与标准项目及其启停与归属规则，同时维护标准项目的互认项目配置。
+/// 维护标准目录的分类、分组与标准项目及其启停与归属规则，维护标准项目的互认项目配置，并维护组织医院院区互认项目金额。
 /// </summary>
 /// <remarks>
 /// 名称唯一性、下级归属、目录有效性与互认配置归属等业务拒绝由方法判断，成功变化由本类登记事件；
-/// 互认配置按可信组织范围读取与更新，影响行数决定是否登记事件。
+/// 互认配置按可信组织范围读取与更新，金额按四个业务键定位并按记录标识条件更新，影响行数决定是否登记事件；
+/// 金额只执行一条写语句，因此不控制事务。
 /// </remarks>
 public partial class MedicalRecognitionReportManager : DomainService
 {
+  /// <summary>
+  /// 金额允许的最大小数位数；与物理列 <c>numeric(18,2)</c> 的精度一致，禁止依赖数据库静默四舍五入。
+  /// </summary>
+  private const int AmountScale = 2;
+
   /// <summary>
   /// 读取与保存标准目录数据所需的仓储抽象。
   /// </summary>
@@ -373,6 +379,97 @@ public partial class MedicalRecognitionReportManager : DomainService
     if (current is null) throw new InvalidOperationException("业务拒绝：互认项目配置不存在。");
     if (current.IsValid == targetIsValid) return true;
     throw new InvalidOperationException("业务拒绝：互认项目配置状态已被其他操作变更，请刷新后重试。");
+  }
+
+  /// <summary>
+  /// 保存组织医院院区互认项目金额：业务键无记录时新增一条，有记录时按业务键条件覆盖当前金额与操作字段。
+  /// </summary>
+  /// <remarks>
+  /// 保存前提是当前组织已建立该标准项目编码的互认项目配置，未建立即拒绝；标准目录或互认配置停用都不阻断金额维护，因此只判配置存在、不判配置有效。
+  /// 金额只允许非负且最多两位小数，零元是有效配置；提交值与当前值相同也照常更新操作字段并登记事件，不做无变更短路。
+  /// 条件更新影响 0 行时按同一业务键复读一次：记录已不存在按不存在拒绝、复读金额已等于本次提交值按成功处理并登记事件，
+  /// 仍无法解释返回并发冲突并提示刷新后重试；只复读一次，不循环重试、不自动重放意图。
+  /// 新增命中四列唯一索引时按并发保存拒绝，不登记事件、不自动改用更新路径。
+  /// 本方法只执行一条写语句，因此不控制事务。
+  /// </remarks>
+  /// <param name="command">保存命令，携带四个业务键、本次金额与操作字段。</param>
+  /// <returns>保存成功返回 <see langword="true"/>。</returns>
+  /// <exception cref="InvalidOperationException">
+  /// 金额为负数或超过两位小数、当前组织未建立该标准项目的互认配置、
+  /// 并发首次保存命中唯一约束、条件更新影响 0 行且复读无法解释为成功，或影响行数大于 1 时抛出。
+  /// </exception>
+  public async Task<bool> SaveOrganizationHospitalBranchRecognitionAmountAsync(SaveOrganizationHospitalBranchRecognitionAmountCommand command)
+  {
+    if (command.CurrentAmount < decimal.Zero || decimal.Round(command.CurrentAmount, AmountScale) != command.CurrentAmount)
+      throw new InvalidOperationException("业务拒绝：金额不得小于零且最多两位小数。");
+    if (await repository.GetMutualRecognitionItemByOrganizationAndProjectAsync(command.OrganizationCode, command.StandardProjectCode) is null)
+      throw new InvalidOperationException("业务拒绝：当前组织未建立该标准项目的互认项目配置。");
+
+    OrganizationHospitalBranchRecognitionAmount? existing = await GetAmountByBusinessKeyAsync(command);
+    if (existing is null)
+    {
+      OrganizationHospitalBranchRecognitionAmount created = command.MapToOrganizationHospitalBranchRecognitionAmount();
+      created.Id = repository.CreateGuid();
+      try
+      {
+        if (await repository.CreateOrganizationHospitalBranchRecognitionAmountAsync(created) != 1) throw new InvalidOperationException("业务拒绝：金额保存影响的行数异常，未完成保存。");
+      }
+      catch (DuplicateOrganizationHospitalBranchRecognitionAmountException exception)
+      {
+        // 唯一约束冲突统一按并发保存拒绝，不向调用方暴露数据库错误细节，也不自动改用更新路径。
+        throw new InvalidOperationException("业务拒绝：该医院院区标准项目金额已被并发保存，请刷新后重试。", exception);
+      }
+
+      AddEvent(command.CreateOrganizationHospitalBranchRecognitionAmountSavedEvent(created.Id));
+      return true;
+    }
+
+    OrganizationHospitalBranchRecognitionAmount updated = command.MapToOrganizationHospitalBranchRecognitionAmount();
+    updated.Id = existing.Id;
+    int affectedRows = await repository.UpdateOrganizationHospitalBranchRecognitionAmountAsync(updated);
+    if (affectedRows == 1)
+    {
+      AddEvent(command.CreateOrganizationHospitalBranchRecognitionAmountSavedEvent(updated.Id));
+      return true;
+    }
+
+    if (affectedRows == 0) return await ResolveConcurrentAmountChangeAsync(command, updated.Id);
+    // 防御分支，物理不可达：更新语句按主键与四个业务键列等值定位，而四列唯一索引保证至多命中一行；保留该分支使影响行数异常时不被当成成功。
+    throw new InvalidOperationException("业务拒绝：金额保存影响的行数异常，未完成保存。");
+  }
+
+  /// <summary>
+  /// 按四个业务键读取单条金额记录。
+  /// </summary>
+  /// <param name="command">携带四个业务键的保存命令。</param>
+  /// <returns>金额记录；该业务键尚无记录时返回 <see langword="null"/>。</returns>
+  private async Task<OrganizationHospitalBranchRecognitionAmount?> GetAmountByBusinessKeyAsync(SaveOrganizationHospitalBranchRecognitionAmountCommand command) =>
+    await repository.GetOrganizationHospitalBranchRecognitionAmountByBusinessKeyAsync(
+      command.OrganizationCode, command.HospitalCode, command.BranchCode, command.StandardProjectCode);
+
+  /// <summary>
+  /// 条件更新影响 0 行时按同一业务键复读一次金额，区分并发同值成功、记录已不存在与并发冲突。
+  /// </summary>
+  /// <remarks>
+  /// 复读只进行一次、不循环重试：复读金额已等于本次提交值说明并发请求已完成同一动作，按成功返回并登记本次事件；
+  /// 复读读不到记录说明记录已被删除，与业务键定位使用同一拒绝口径；
+  /// 复读金额仍是别的值说明存在并发改动，返回提示刷新后重试的业务拒绝，不自动重放。
+  /// </remarks>
+  /// <param name="command">本次保存命令。</param>
+  /// <param name="id">本次更新尝试使用的金额记录标识。</param>
+  /// <returns>复读金额已等于本次提交值时返回 <see langword="true"/>。</returns>
+  /// <exception cref="InvalidOperationException">记录已不存在，或复读金额与本次提交值仍不同时抛出。</exception>
+  private async Task<bool> ResolveConcurrentAmountChangeAsync(SaveOrganizationHospitalBranchRecognitionAmountCommand command, Guid id)
+  {
+    OrganizationHospitalBranchRecognitionAmount? current = await GetAmountByBusinessKeyAsync(command);
+    if (current is null) throw new InvalidOperationException("业务拒绝：金额记录不存在。");
+    if (current.CurrentAmount == command.CurrentAmount)
+    {
+      AddEvent(command.CreateOrganizationHospitalBranchRecognitionAmountSavedEvent(id));
+      return true;
+    }
+
+    throw new InvalidOperationException("业务拒绝：金额已被其他操作变更，请刷新后重试。");
   }
 }
 

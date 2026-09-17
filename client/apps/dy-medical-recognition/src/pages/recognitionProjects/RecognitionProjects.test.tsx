@@ -18,7 +18,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { useSyncExternalStore } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   toSelectableOptionGroups,
   toSelectableStandardItems,
@@ -305,6 +305,24 @@ beforeEach(() => {
   clientRef.post.mockReset()
   clientRef.current = { api: { enumMetadata: { getEnumMetadata: { post: clientRef.post } } } }
   setMetadataOptions(null)
+})
+
+/**
+ * 用例内未处理拒绝观测器的兜底登记：用例挂死或超时时用例内的 `finally` 不会执行，而
+ * `unhandledRejection` 是进程级监听，残留后会让 vitest 以「监听器数 > 1」判定调用方自行处理、
+ * 不再上报自己的未处理拒绝，等于静默关掉该 worker 内后续用例的检测。因此除用例内 `finally`
+ * 摘除外，再于 `afterEach` 无条件兜底摘一次。
+ *
+ * 该登记是**文件级单值**：装有观测器的用例之间不得并发（不得加 `.concurrent`、也不得开启
+ * `sequence.concurrent`），否则先结束者的 `afterEach` 会摘掉后结束者仍在使用的监听。
+ * 这个禁用条件随本条登记一起失效——将来若需要并发，先把这里换成一个 `Set`。
+ */
+let activeUnhandledRejectionObserver: ((reason: unknown) => void) | null = null
+
+afterEach(() => {
+  if (activeUnhandledRejectionObserver === null) return
+  process.off('unhandledRejection', activeUnhandledRejectionObserver)
+  activeUnhandledRejectionObserver = null
 })
 
 /**
@@ -1626,63 +1644,91 @@ describe('C21 写成功但刷新失败', () => {
   })
 
   it('写入失败保留弹窗与输入，不重载也不进入刷新阻断态', async () => {
-    // 写失败会让 submit 的 promise 进入拒绝态；该 promise 交给 antd Modal 的 `onOk`，antd 不消费返回值，
-    // 于是产生 unhandled rejection。按 Frontend API Client 第 5 节页面**不得**为此新增捕获或提示
-    // （错误由宿主统一展示），这是实现与 antd 契约的固有组合，与阶段 1 的 C64 同类，vitest 侧已显式忽略。
-    await renderLoaded([row('c1', 'A01', '血常规')])
+    // 写失败的拒绝只由宿主统一展示，页面不得自行捕获（总体设计 5.2）。本用例**局部**安装未处理拒绝
+    // 的观测器、用例结束即移除：既不依赖也不改动 `vite.config.ts` 的全局设置，因此
+    // 「页面未吞掉写失败、也未额外产生别的拒绝」在这里是可判红的。
+    const unhandled: unknown[] = []
+    const onUnhandledRejection = (reason: unknown) => { unhandled.push(reason) }
+    activeUnhandledRejectionObserver = onUnhandledRejection
+    process.on('unhandledRejection', onUnhandledRejection)
+    try {
+      await renderLoaded([row('c1', 'A01', '血常规')])
 
-    const create = await openCreateForm('尿常规', '30')
-    api.createRecognitionProjectConfiguration.mockRejectedValueOnce(new Error('写入失败'))
-    click(within(create).getByRole('button', { name: /保\s*存/ }))
+      const create = await openCreateForm('尿常规', '30')
+      const rejection = new Error('写入失败')
+      api.createRecognitionProjectConfiguration.mockRejectedValueOnce(rejection)
+      click(within(create).getByRole('button', { name: /保\s*存/ }))
 
-    await waitFor(() => expect(api.createRecognitionProjectConfiguration).toHaveBeenCalledTimes(1))
-    await act(async () => {})
+      await waitFor(() => expect(api.createRecognitionProjectConfiguration).toHaveBeenCalledTimes(1))
+      await act(async () => {})
+      await waitFor(() => expect(unhandled).toEqual([rejection]))
 
-    expect(modalExists('新增互认项目配置')).toBe(true)
-    expect((within(create).getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('30')
-    expect(query()).toHaveBeenCalledTimes(1)
-    expect(screen.queryByText('写入已成功，数据待刷新')).not.toBeInTheDocument()
-    expect(screen.queryByText('互认配置数据待刷新')).not.toBeInTheDocument()
+      expect(modalExists('新增互认项目配置')).toBe(true)
+      expect((within(create).getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('30')
+      expect(query()).toHaveBeenCalledTimes(1)
+      expect(screen.queryByText('写入已成功，数据待刷新')).not.toBeInTheDocument()
+      expect(screen.queryByText('互认配置数据待刷新')).not.toBeInTheDocument()
 
-    // 失败后提交中状态必须归零，与成功路径的 loading 断言同一口径（写法见 C19 成功用例）。
-    expect(within(create).getByRole('button', { name: /保\s*存/ })).not.toHaveClass('ant-btn-loading')
-    await waitFor(() => expect(addButton()).toBeEnabled())
-    expect(screen.getByLabelText('修改可互认时间：血常规')).toBeEnabled()
+      // 失败后提交中状态必须归零，与成功路径的 loading 断言同一口径（写法见 C19 成功用例）。
+      expect(within(create).getByRole('button', { name: /保\s*存/ })).not.toHaveClass('ant-btn-loading')
+      await waitFor(() => expect(addButton()).toBeEnabled())
+      expect(screen.getByLabelText('修改可互认时间：血常规')).toBeEnabled()
+      // 收尾再判一次：观测窗口到用例结束为止，断言之后到达的杂散拒绝同样不得漏判。
+      expect(unhandled).toEqual([rejection])
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection)
+      // 仅当登记的仍是本次观测器时才清空：超时用例迟到的 finally 不得解除后续用例的兜底。
+      if (activeUnhandledRejectionObserver === onUnhandledRejection) activeUnhandledRejectionObserver = null
+    }
   })
 
   it('写入在途时禁止取消与关闭，失败仍留在弹窗并在提交结束后恢复可关闭', async () => {
-    // 本条同样把拒绝态 promise 交给 antd Modal 的 `onOk`，产生与上一条同类、已由 vitest 显式忽略的
-    // unhandled rejection（见 `vite.config.ts` 的 `dangerouslyIgnoreUnhandledErrors` 说明）。
-    await renderLoaded([row('c1', 'A01', '血常规')])
+    // 本条同样把拒绝态 promise 交给 antd Modal 的 `onOk`；页面不得自行捕获（总体设计 5.2），
+    // 故在本用例内局部观测该拒绝、用例结束即移除监听，使「恰好一笔且未被吞掉」在本条可判红。
+    const unhandled: unknown[] = []
+    const onUnhandledRejection = (reason: unknown) => { unhandled.push(reason) }
+    activeUnhandledRejectionObserver = onUnhandledRejection
+    process.on('unhandledRejection', onUnhandledRejection)
+    try {
+      await renderLoaded([row('c1', 'A01', '血常规')])
 
-    const create = await openCreateForm('尿常规', '30')
-    const write = deferred<void>()
-    api.createRecognitionProjectConfiguration.mockReturnValueOnce(write.promise)
-    const save = within(create).getByRole('button', { name: /保\s*存/ })
-    click(save)
+      const create = await openCreateForm('尿常规', '30')
+      const write = deferred<void>()
+      api.createRecognitionProjectConfiguration.mockReturnValueOnce(write.promise)
+      const save = within(create).getByRole('button', { name: /保\s*存/ })
+      click(save)
 
-    await waitFor(() => expect(api.createRecognitionProjectConfiguration).toHaveBeenCalledTimes(1))
-    expect(modalExists('新增互认项目配置')).toBe(true)
+      await waitFor(() => expect(api.createRecognitionProjectConfiguration).toHaveBeenCalledTimes(1))
+      expect(modalExists('新增互认项目配置')).toBe(true)
 
-    // 设计条目：写请求在途时全部关闭入口不可用，用户不能把一次尚未返回的写入从界面上抹掉
-    // （旧用例内编号 B6 只在本文件内使用，无外部登记表）。
-    // 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/Client/Pages/RecognitionProjects/RecognitionProjects.md`
-    // 第 2 节「状态机」的「写操作中」行（全部禁用；写失败保留弹窗与输入）。
-    expect(within(create).getByRole('button', { name: /取\s*消/ })).toBeDisabled()
-    expect(create.querySelector('.ant-modal-close')).toBeNull()
-    expect(within(create).getByRole('button', { name: /保\s*存/ })).toHaveClass('ant-btn-loading')
-    expect(modalExists('新增互认项目配置')).toBe(true)
+      // 设计条目：写请求在途时全部关闭入口不可用，用户不能把一次尚未返回的写入从界面上抹掉
+      // （旧用例内编号 B6 只在本文件内使用，无外部登记表）。
+      // 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/Client/Pages/RecognitionProjects/RecognitionProjects.md`
+      // 第 2 节「状态机」的「写操作中」行（全部禁用；写失败保留弹窗与输入）。
+      expect(within(create).getByRole('button', { name: /取\s*消/ })).toBeDisabled()
+      expect(create.querySelector('.ant-modal-close')).toBeNull()
+      expect(within(create).getByRole('button', { name: /保\s*存/ })).toHaveClass('ant-btn-loading')
+      expect(modalExists('新增互认项目配置')).toBe(true)
 
-    await act(async () => {
-      write.reject(new Error('写入失败'))
-    })
-    await act(async () => {})
+      const rejection = new Error('写入失败')
+      await act(async () => {
+        write.reject(rejection)
+      })
+      await act(async () => {})
+      await waitFor(() => expect(unhandled).toEqual([rejection]))
 
-    // 失败结果仍可见：弹窗与输入保留，提交中状态归零后取消/关闭恢复可用（零重载）。
-    expect(modalExists('新增互认项目配置')).toBe(true)
-    expect((within(create).getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('30')
-    expect(query()).toHaveBeenCalledTimes(1)
-    await waitFor(() => expect(within(create).getByRole('button', { name: /取\s*消/ })).toBeEnabled())
+      // 失败结果仍可见：弹窗与输入保留，提交中状态归零后取消/关闭恢复可用（零重载）。
+      expect(modalExists('新增互认项目配置')).toBe(true)
+      expect((within(create).getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('30')
+      expect(query()).toHaveBeenCalledTimes(1)
+      await waitFor(() => expect(within(create).getByRole('button', { name: /取\s*消/ })).toBeEnabled())
+      // 收尾再判一次：观测窗口到用例结束为止，断言之后到达的杂散拒绝同样不得漏判。
+      expect(unhandled).toEqual([rejection])
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection)
+      // 仅当登记的仍是本次观测器时才清空：超时用例迟到的 finally 不得解除后续用例的兜底。
+      if (activeUnhandledRejectionObserver === onUnhandledRejection) activeUnhandledRejectionObserver = null
+    }
   })
 })
 

@@ -1,46 +1,242 @@
 # 阶段 3 测试报告
 
+**阶段 3 已完成并于 2026-09-17 收口（负责人裁定，阶段状态 `Complete`）**：矩阵内可构造的用例已全部取得实际证据（`Passed` 48 / `Failed` 0），不可构造的 8 条已按环境边界逐条登记（`Blocked` 4：V29、V30、C3、C11；`NotRun` 4：V16、C15、C22、C23），另有 V27 的事件可见性子面记 `N/A` + `AcceptedRisk`。结论见本报告「结论」节；收口状态同时登记在 [总体计划进度表](../001-总体计划/impl.md) 的阶段状态列。
+
 ## 执行边界
 
-本报告记录阶段 3 的验证矩阵与执行结果。本报告当前不含任何已执行的业务用例。
+本报告记录阶段 3 的验证矩阵与执行结果。本轮为**六项生产代码修复后的聚焦复验轮**：在既有真实数据库与真实宿主链路上重跑受修复影响的用例，库内结果用 dbx 只读回读；未使用接口直连造数，未写库、未改表、未改请求绕过任何校验。
 
-- 报告状态：**未执行**。记录存在不代表负责人已批准收口或验收。
+- 报告状态：**阶段范围内可构造的用例已全部执行**。56 条中 48 条取得完整证据，其余 8 条为环境不可构造项，已按环境边界接受并逐条登记（见「已确认的验证降级」节）；无确认失败，无未决决策。
 - 矩阵版本：2026-09-16，后端 V1-V30（30 条），前端 C1-C26（26 条），总分母 56 条；多层级一条只计一次。
 - 后端矩阵定义见 [Server/design.md](Server/design.md) 的验证矩阵章节；前端矩阵定义见 [Client/testPlan.md](Client/testPlan.md)。
-- 起始提交与起始工作区状态：执行验证时记录，本报告不预填。
-- 本阶段当前只产出设计、SRS、UML 与阶段文档，**未修改 `server/` 或 `client/` 的任何实现文件，未安装依赖，未连接或写入数据库，未建表，未执行接口或页面验收**。工作区中 `server/`、`client/` 的既有改动与其他非阶段 3 改动不由本阶段产生。
-- 阻断前提：目标表 `mrec_organization_hospital_branch_recognition_amount` 未建立；后端 `Dy.Base.Application.Contracts` 引用未新增且组织服务无调用代码；前端两个依赖未安装。上述条件满足前，依赖它们的验证项无法执行。
-- 阶段根决策台账中的全部决策均已确认或按 `AcceptedRisk` 登记，**无 `Pending` 项、无待裁定项**。
+- 起始提交与起始工作区状态：`main`（`origin/main` 领先 3 个提交）；工作区中 `server/`、`client/` 与本阶段设计、实施文档的既有改动**不是本轮产生**，本轮只写入本报告，未修改任何实现文件、配置或矩阵编号。
+- 执行轮次使用的进程与地址：后端 `http://localhost:5014`、前端 Vite dev server `http://localhost:3008/subApps/medical-recognition/`、宿主 `http://183.224.180.166:35000`。三者由协调者以受管后台任务启动，本轮未启动、未关闭、未重启任何进程；浏览器为 Chrome DevTools MCP（页面 `pageId=1`、`pageId=3`，宿主页 `http://183.224.180.166:35000/`），进入前对两个宿主标签页各做一次忽略缓存的硬刷新；数据库只读取证使用 dbx MCP 连接 `70c7d4c1-bab7-4aab-bf5e-69fa544b55bc`（PostgreSQL `183.224.180.166:15432` / 库 `DysoftHIS` / schema `public`），只执行 `select`。
+- 本轮两个身份都重新经宿主登录页登录取证。实际登录令牌载荷（仅列非敏感声明，两个身份同形）：`org:"01"`、`sub:"medical-recognition"`、`usr:"<登录用户标识>"`；**两个身份的令牌都没有医院声明**。客户端存储 `dy-auth:login-user` 分别含 `orgID:"01"` 与各自的 `hosID`/`branchID`。
+- 资源来源与拦截核对：宿主 Network 中 `@vite/client`、`src/main.tsx`、`src/router/index.tsx`、`src/runtimeConfig.ts`、`@dy_components-base.js`、`recognitionAmounts/*` 与两个阶段 3 页面模块均来自 `http://localhost:3008`；Console 出现 `[vite] connecting.../connected.`（debug 级），拦截生效。
+- 阶段根决策台账中的全部决策均已确认或按 `AcceptedRisk` 登记，**无 `Pending` 项**。
+- **本轮归因修正**：上一轮把 25 条用例记 `NotRun`，理由统一写成"本轮层级为真实库与真实入口"。经逐条核对矩阵层级列与"真实数据库"列，其中 **20** 条的层级是 `Contract`/`Domain`/`Application`/`Query`/`Static`（宿主侧为 `Component`）且"真实数据库"列为"否"，不需要真实数据库即可取证，且后端与前端测试中存在指向该用例边界的具体断言；其余 5 条的"真实数据库"列为"是"（V11、V16、V20、V27）或宿主层上下文不可构造（C15）而保持 `NotRun`。本轮把前 20 条改按各自层级记录证据，并逐条写明证据复用条件（见「结果」表与「证据复用条件」节）。报告原先把"轮次范围"当成"用例范围"，导致统计系统性低报，本轮修正。此后追加的「补充取证」轮取得组织无互认配置的真实状态，使 V11、V20、V27 与 C10、C17 的五条取得完整真实证据，V16 仍因并发同步屏障不可构造而保持 `NotRun`。
+- **端口与地址口径**：本地后端端口统一为 `5014`——三处启动配置（`appsettings.json`、`appsettings.Development.json`、`Properties/launchSettings.json`）、`HttpConfig` 默认服务地址、前端 `config.development.json` 的 `apiBaseUrl` 与 `src/runtimeConfig.ts` 的回落地址同步；子应用生产配置 `public/config.json` 的 `apiBaseUrl` 登记为部署占位地址 `http://183.224.180.166:35014`（尚未部署），`baseApiBaseUrl` 为 `http://183.224.180.166:35001`。本报告内全部接口地址按当前环境端口 `5014` 统一书写，环境值以 [Test Environment](../../../.agents/instructions/test-environment.md) 为准。
 
 ## 已确认的验证降级
 
 **V29（平台管理员入口跨组织保存与查询）的跨组织真实宿主面降级**（决策 S3-D20）：
 
-- 原因：本环境无法维护第二个组织，跨组织的真实宿主面在本环境不可构造。
+- 原因：本环境无法维护第二个组织，跨组织的真实宿主面在本环境不可构造。本轮再次只读回读组织服务：`POST http://183.224.180.166:35001/Api/Organization/QueryAllOrganization` 返回 `200` 且响应体只有一项 `{"id":"01","name":"县医共体","isValid":true}`。
 - 落点：该用例以**应用层证据**为准并记 `AcceptedRisk`，真实宿主面记 `Blocked`。
 - 不因此改变取值口径（S3-D17）：平台管理员入口的组织、医院、院区仍按请求提交值使用，服务端仍校验三者存在、启用与父子归属。
 - 该降级同时意味着 **SRS F10 前置条件 2 中"组织、医院和院区范围由可信上下文确定，**或按平台管理员授权选择**"的第二个分支在本环境无法取得真实证据**。
 - `AcceptedRisk` 是决策标签，不计入测试结果统计，也不替代 `Passed`。
 
+**V27（无 WorkUnit 生产入口的写入与失败响应）的事件可见性子面记 `N/A` 并附 `AcceptedRisk`**：
+
+- 原因：本项目零 `IEventHandler` 实现、无事件持久化表、无专用观察点，事件不可见。
+- 落点：该子面记 `N/A` + `AcceptedRisk`；**该 `N/A` 不使整条 V27 结案**，V27 仍须由"数据库写入面 + 失败响应面 + 无脏写面"的真实证据单独取证。三个面均已取得：成功面与回读一致面为两个身份、两个院区各一次经宿主页面的新增写入；失败响应面与无脏写面见「补充取证」节（真实生产入口返回 `业务拒绝：当前组织未建立该标准项目的互认项目配置。`，回读 0 行、金额表总行数不变），故 V27 记 `Passed`。
+**阶段收口时接受的环境边界条目**（按 `AcceptedRisk` 登记；各条状态按实际证据保留，不因接受边界而改变）：
+
+| 条目 | 状态 | 环境边界的技术原因 | 该条已取得的证据 |
+|---|---|---|---|
+| V16 | `NotRun` | 真实并发同步屏障不可构造：两次提交被串行化为「插入 + 更新」，无法使两条 INSERT 真正交叠；授权范围不允许接口直连制造并发 | 应用层唯一冲突翻译由 `Stage3WritePathTests.Save_platform_amount_translates_unique_violation_into_business_rejection` 覆盖（另一层证据，不替代本层） |
+| V29 | `Blocked` | 环境无第二个组织（只读回读 `QueryAllOrganization` 仅 `01/县医共体`），跨组织真实宿主面不可构造（决策 S3-D20） | 应用层跨组织用例 + 平台页三级选择与三值请求的真实宿主证据 |
+| V30 | `Blocked` | 医院页院区下拉只列可信医院下的院区，第二类拒绝面（提交它医院院区）不可构造 | 允许面完整真实证据（两身份的默认可信院区、查询与保存请求体、落库回读） |
+| C3 | `Blocked` | 环境不存在 `branch_id` 为空的测试身份；授权范围不允许伪造令牌或改写认证存储 | 组件层用例 + 医院页只读可信范围副标题与院区默认值的真实证据 |
+| C11 | `Blocked` | 本条要求两类拒绝前置均取得，第二类（提交它医院院区）不可构造 | 第一类前置完整真实证据（业务拒绝文案、页面呈现、零脏写） |
+| C15 | `NotRun` | 与 C3 同一原因：不存在组织或医院缺失的测试身份上下文 | 组件层用例（阻断提示、不渲染院区下拉、零业务请求） |
+| C22 | `NotRun` | 无实际业务规模数据（金额表 11 行、组织 1 个、院区 4 个），"真实业务数据量下不出现卡顿、超时或内存问题"无对应规模证据 | "未新增分页"可观察；组件层断言页面不分页 |
+| C23 | `NotRun` | 组织服务选项请求失败的宿主层注入点未命中（子应用在宿主重开标签时未命中文档级钩子），本轮未再尝试 | 组件层用例以替身构造选项读取失败并断言组件自身提示 |
+
+- `AcceptedRisk` 是决策标签，不计入测试结果统计。
+
+## 证据复用条件
+
+按 [Testing Baseline](../../../.agents/instructions/testing-baseline.md) 第 5 节，生产代码变化后与变更影响不重叠的证据方可继续使用。本轮按层级记录证据时统一声明以下条件；逐条差异只在行内注明。
+
+- **代码版本**：本轮修复后的工作区版本（起始提交 `f923c34`，工作区含六项修复的未提交改动）。后端测试与前端测试都在该版本上重跑。
+- **impact 范围**：六项修复分别是——后端金额请求字段可空化（缺省金额改由必填校验拒绝）、后端可信范围返回值统一去空白编码、前端金额解析新增"内存面 + 序列化面"两道可精确表示性判据、前端医院页院区默认值改为随可信范围派生。契约、领域、应用、查询与静态层用例的断言边界落在这些改动**之外**的字段集合、可空性、拒绝文案、归属校验、原因派生、字段顺序与语句文本上，代码在修复后未再变更。
+- **环境**：`.NET 10.0.401`；后端测试用替身（`FakeReportRepository`、`FakeOrganizationAppService`、`StubUserAppService`、`TrustedRequestContext`、`RecordingEventQueue`），不连库、不发真实 HTTP；前端测试用 vitest + jsdom 与 `@testing-library/react`。
+- **时间**：后端 `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj --no-build --no-restore` → **测试总数 243、通过数 243、失败 0**，总时间 1.4694 秒；前端 `pnpm -F dy-medical-recognition exec vitest run src/pages/recognitionAmounts` → **Test Files 3 passed (3)、Tests 56 passed (56)**，耗时 7.30 秒。两次执行都在本轮、两个进程都在运行中的同一环境内完成。另以**完整重建**复核后端（不加 `--no-build`，即由当前工作区源码重新构建后执行）→ **失败 0、通过 243、总计 243**，耗时 956 毫秒；该次执行不依赖任何既有构建产物，断言对应的就是修复后代码。生产代码位于各自程序集而非测试程序集：`Dy.MedicalRecognition.Application.dll`（01:06:25）晚于 `MedicalRecognitionReportAppService.cs`（01:06:15）、`Dy.MedicalRecognition.Domain.dll`（01:06:36）晚于 `MedicalRecognitionReportManager.cs`（01:06:30），故 `--no-build` 那次复用的同样是修复后产物。
+- **复用理由**：这些用例的"真实数据库"列为"否"，其规定验证面在契约、领域、应用或组件层即可完整覆盖；重跑结果直接构成本轮证据，不需要真实库层证据补齐。
+- **不适用范围**：任何"真实数据库"列为"是"的用例（V1-V3、V7、V11、V15-V17、V20、V21、V23、V24、V27、V30）不使用本节复用，只用本轮真实库与真实宿主证据。
+
 ## 结果
 
 | 用例编号 | 验证面 | 状态 | 命令/操作及证据 | 未覆盖面/原因 |
 |---|---|---|---|---|
-| V1-V30 | 后端金额保存、查询、数据库静态与真实库面、事件、契约与语义修正 | `NotRun` | 未执行 | 尚未执行；目标表未建立；组织服务引用未就绪；V29 另按 S3-D20 降级 |
-| C1-C26 | 前端两个页面、契约、组件与宿主链路 | `NotRun` | 未执行 | 尚未执行；前端依赖未安装；菜单子项与角色授权未配置 |
+| V1 | 首次保存金额（无记录） | `Passed` | ① 医院管理员入口 `lisadmin`（可信范围 `01/CSYY2`）在院区 `CSYQ2-2`（该业务键库中本为 0 行）弹窗提交 `55.55`：`POST /Api/MedicalRecognitionReport/SaveBranchRecognitionAmount` 体 `{"branchCode":"CSYQ2-2","currentAmount":55.55,"standardProjectCode":"123"}` 返回 `200 true`；dbx 回读该业务键 1 行、`current_amount=55.55`、`oper_time=2026-09-17T02:13:33.518282+08:00`、`oper_id` 为该身份。② 医院管理员入口 `yangkj`（可信范围 `01/0101`）在院区 `0101001` 对未配置行 `222` 提交 `37.37`：同一端点返回 `200 true`；dbx 回读新增行 `01/0101/0101001/222 = 37.37`。 | — |
+| V2 | 覆盖已有金额 | `Passed` | 对 `CSYY2/CSYQ2-1/123` 提交同值 `66.66`（弹窗回填值不改）：`POST /Api/MedicalRecognitionReport/SaveBranchRecognitionAmount` 返回 `200 true`；dbx 回读仍为 **1 行**、`current_amount=66.66`（非累加）、`oper_time` 由 `00:35:47.841632` 更新为 `02:15:03.621658`、`oper_id` 不变。整表回读全表 11 行，无第二行落入同一业务键。 | — |
+| V3 | 保存零元 | `Passed` | 行 `CSYY1/CSYQ1-1/222` 库中 `current_amount=0.00`；平台页该行「当前金额」为 `<span class="recognition-amounts-number">0.00</span>`、「金额状态」为绿色 `已配置` 标签，与同屏未配置行的 `未配置` 标签在 DOM 结构与颜色上可区分。 | — |
+| V4 | 金额为负数 | `Passed` | **按层级记录**（`Contract`/`Domain`，真实数据库列"否"）。后端 `server/Dy.MedicalRecognition.Tests/Stage3WritePathTests.cs`：`Save_platform_amount_rejects_negative_amount_without_writing_or_registering_event` 以 `CurrentAmount = -0.01m` 断言 `error.Message == "业务拒绝：金额不得小于零且最多两位小数。"`、`repository.WriteCalls == 0`、`repository.Amounts` 空、`events.Events` 空；`Manager_rejects_negative_amount_and_amount_beyond_two_decimals` 以 `-1m` 在领域管理器上断言同一文案与零写入。前端同边界另有 `RecognitionAmounts.test.tsx` 的 C8 用例覆盖。复用条件见「证据复用条件」节。 | 本层覆盖负数在契约/领域层的拒绝与零写入；真实库面不属本条层级 |
+| V5 | 金额超过两位小数 | `Passed` | **按层级记录**（`Contract`/`Domain`）。`Stage3WritePathTests.Save_platform_amount_rejects_amount_with_more_than_two_decimal_places` 以 `1.005m` 断言同一拒绝文案与 `AssertNothingWritten`；`Manager_rejects_negative_amount_and_amount_beyond_two_decimals` 对 `0.001m`、`12.345m` 断言同一文案与零写入，并对照断言 `10.50m` 被接受且落库为 `10.50m`（判据不误伤合法两位小数）。 | 同上 |
+| V6 | 金额缺省或非数值 | `Passed` | **按层级记录**（`Contract`）。`Stage3WritePathTests.Amount_request_declares_required_amount` 三重断言：两个保存请求的 `CurrentAmount` 都带 `RequiredAttribute`；属性类型必须是 `decimal?`（可空是特性生效的前提，不可空时缺省会被反序列化为 `0` 使必填声明恒真）；`MedicalRecognitionRequestValidator.Validate` 对 `CurrentAmount = null` 抛 `ValidationException` 且消息含 `参数校验失败：当前金额不能为空。`，而 `CurrentAmount = 0m` 通过校验。对照用例 `Amount_request_accepts_zero_and_regular_amount` 断言 `0m` 与 `12.34m` 通过校验。修复已使"金额缺省被拒绝"成为真实行为并有断言，本条据此转正。 | 本层覆盖缺省与非空校验；"非数值文本"由请求反序列化与该契约断言共同约束，未单独构造非数值报文 |
+| V7 | 同值重复保存 | `Passed` | 弹窗回填 `66.66` 不改直接提交：请求已发出并返回成功；dbx 回读金额不变、`oper_time` 由 `00:35:47.841674` 段更新为 `02:15:03.621658`、`oper_id` 不变 → 无"无变更短路"。 | — |
+| V8 | 保存的组织不存在或已停用 | `Passed` | **按层级记录**（`Application`，真实数据库列"否"）。`server/Dy.MedicalRecognition.Tests/Stage3OrganizationPathTests.cs`：`Resolve_rejects_when_the_organization_does_not_exist` 与 `Resolve_rejects_when_the_organization_is_disabled` 分别以"启用组织集合无该编码"和"该组织 `isValid:false`"断言 `InvalidOperationException` 且消息为 `组织不可用。`。 | 未覆盖面：本条只覆盖应用层拒绝；"拒绝时零写库"由写入口的 `AssertNothingWritten` 类断言在 V4/V9/V10 同源路径覆盖 |
+| V9 | 保存的医院不存在、已停用或不属于该组织 | `Passed` | **按层级记录**（`Application`）。同文件三个用例分别断言：`Resolve_rejects_when_the_hospital_does_not_exist`（医院集合无该编码）、`Resolve_rejects_when_the_hospital_is_disabled`（医院 `isValid:false`，即使外部服务把它放进启用集合）、`Resolve_rejects_when_the_hospital_belongs_to_another_organization`（医院存在但父组织不匹配）——三者均抛 `InvalidOperationException` 且消息为 `医院不可用。` | 同上 |
+| V10 | 保存的院区不存在、已停用或不属于该医院 | `Passed` | **按层级记录**（`Application`）。同文件三个用例分别断言：`Resolve_rejects_when_the_branch_does_not_exist`（院区集合无该编码）、`Resolve_rejects_when_the_branch_is_disabled`（院区 `isValid:false`）、`Resolve_rejects_when_the_requested_branch_belongs_to_another_hospital`（父院区不匹配），另有 `..._belongs_to_another_organization`（父组织不匹配）——四者均抛 `InvalidOperationException` 且消息为 `院区不可用。` | 同上 |
+| V11 | 当前组织未建立该标准项目的互认配置 | `Passed` | 组织 `01` 的全部互认配置被删除后，经宿主医院管理员入口提交未配置行 `S1-D29-ITEM-20260915-001`：`POST /Api/MedicalRecognitionReport/SaveBranchRecognitionAmount` 返回 **500**，响应体与页面警示条均为 `业务拒绝：当前组织未建立该标准项目的互认项目配置。`，堆栈指向 `MedicalRecognitionReportManager.cs:line 406`；只读回读该业务键 **0 行**、金额表总行数不变（仍 **11 行**），即拒绝且无写入。`无事件` 由本条层级 `Domain` 的 `Stage3WritePathTests.Save_platform_amount_is_rejected_when_mutual_recognition_configuration_is_missing`（`Assert.Empty(events.Events)`）覆盖。取证序列见「补充取证」节 | 未覆盖面：生产入口无事件观察点，事件登记与否只在领域层断言，未在真实库观测 |
+| V12 | 平台管理员入口取值来源 | `Passed` | **按层级记录**（`Application`/`Contract`，真实数据库列"否"）。`Stage3WritePathTests.Platform_entrypoint_uses_request_path_and_trusted_operator_only`：在可信上下文为 `ORG-A` 时以请求组织 `ORG-B`、医院 `HOS-2`、院区 `BRH-2` 保存，断言落库三元组等于**请求值**（`saved.OrganizationCode == "ORG-B"` 等）、`saved.OperId == TrustedOperId`（操作人只来自可信上下文）；并断言 `SaveOrganizationHospitalBranchRecognitionAmountRequest` 上不存在 `OperId`、`OperTime`、`Id` 属性。本轮宿主侧另取得对照证据（见 C2：请求体确实携带三值）。 | 未覆盖面：本条不覆盖跨组织返回的金额与名称归属；该子面由 V29 的应用层用例 `Platform_entrypoint_queries_the_requested_organization_even_when_it_differs_from_the_trusted_context` 覆盖，宿主面仍是 S3-D20 已接受边界 |
+| V13 | 医院管理员入口取值来源与越权院区 | `Passed` | **按层级记录**（`Application`/`Contract`）。① 取值来源：`Stage3WritePathTests.Branch_entrypoint_takes_path_from_trusted_context_for_own_branch` 断言落库组织与医院取自可信上下文、院区取请求，并断言 `SaveBranchRecognitionAmountRequest` 上不存在 `OrganizationCode`、`HospitalCode`、`OperId`、`OperTime`。② 越权院区拒绝：`Branch_entrypoint_rejects_branch_of_another_hospital` 以另一家医院的院区提交，断言消息含 `院区` 且零写入零事件；`Stage3OrganizationPathTests.Resolve_rejects_when_the_requested_branch_belongs_to_another_hospital` 与 `..._belongs_to_another_organization` 给出同一拒绝的两条归属边界。 | 未覆盖面：本条按矩阵层级 `Application`/`Contract` 记录，「真实数据库」列为「否」，规定验证面即请求取值来源与越权院区拒绝，已由上述断言完整覆盖，属本层完整证据。**真实宿主层的越权院区提交面不属本条规定验证面**，由 C10/C11 承载；本轮在该层的观测为：医院页院区下拉只列可信医院下的院区（`yangkj` 选项集 `{总院}`），在 `yangkj` 会话中向院区下拉键入 `CSYQ2-1` 后选项集为空（`暂无数据`）、已选值仍为 `总院`、按回车不提交、列表仍为 `总院` 的 5 行且无新请求（Network 请求数无增长） |
+| V14 | 医院管理员入口可信组织或医院缺失，以及令牌缺失层由用户档案补齐 | `Passed` | **按层级记录**（`Application`，真实数据库列"否"）。① 缺失即拒绝：`Stage3WritePathTests.Branch_entrypoint_is_rejected_when_trusted_organization_or_hospital_is_missing` 对 `(null,"组织")`、`("   ","组织")`、`(null,"医院")`、`("   ","医院")` 四组断言"读不到用户档案时含 `用户`"与"档案为空时含该层文案"两种拒绝，并断言 `organizationService.OrganizationReadCount == 0`（在任何组织路径读取之前拒绝）。② 补齐语义：`Stage3TrustedScopeTests` 的 `Resolve_fills_the_missing_hospital_from_the_current_user_profile`、`Resolve_trims_the_profile_hospital_when_filling_the_missing_layer`、`Resolve_fills_both_layers_from_the_current_user_profile` 断言令牌缺失层由用户档案补齐；`Resolve_rejects_when_token_organization_conflicts_with_the_user_profile`、`Resolve_rejects_when_token_hospital_conflicts_with_the_user_profile` 断言令牌与档案同层不一致即拒绝。本轮宿主侧另取得该补齐路径的真实运行证据（两个身份令牌都不带医院声明，页面仍取到可信医院，见 C3/C4）。 | 未覆盖面：本条不覆盖"补齐后仍为空时不降级为空值"的宿主层呈现；该子面所属的 C3"可信院区缺失"上下文在本环境不可构造（见 C3 与「未覆盖面与残余风险」） |
+| V15 | 标准目录或互认配置停用后仍可保存金额 | `Passed` | 属"真实数据库"列为"是"的用例，本轮不重跑，保留上一轮已取得并已复核恢复的真实证据：经阶段 1 页停用分类 `S1-RETRY-CAT-20260914-001111` 后金额页 `123` 行原因列为 `所属分类已停用`、提交 `77.77` 成功且 dbx 回读 `77.77`；经阶段 2 页停用 `S1-D29-ITEM-20260915-001` 的互认配置后该行显示 `互认配置状态=停用`、提交 `88.88` 成功且 dbx 回读 `88.88`；两处均已恢复。本轮只读复核：组织 `01` 的 5 条互认配置 `is_valid` 全为 `true`，分类与分组状态为原状。 | 未覆盖面：本轮的目录/配置停用-恢复操作未重做（该面不经页面写库无法构造，属阶段 1/2 能力）；受影响性判断见「证据复用条件」的 impact 范围——六项修复不改动停用判定与原因派生。其余同上一轮 |
+| V16 | 并发首次保存同一业务键 | `NotRun` | 已实际发起双标签页近同时提交（上一轮）：同一新业务键两次提交相隔约 2.26 秒、两次均返回成功、dbx 回读恰 1 行且为后提交值。本轮未再尝试双标签页交叠。 | **未观察到唯一约束冲突**："真实数据库"列为"是"，同步屏障不可构造。两次读-判-写被串行化（先插入、后更新），无法使两条 INSERT 真正交叠。授权范围不允许接口直连造并发，故本层保持 `NotRun`；应用层唯一冲突翻译由 `Stage3WritePathTests.Save_platform_amount_translates_unique_violation_into_business_rejection`（断言 `DuplicateAmountMessage`、`InsertCalls==1`、`UpdateCalls==0`、无事件）覆盖，属另一层证据，不替代本层 |
+| V17 | 行集由互认配置驱动、金额 LEFT JOIN | `Passed` | ① 平台页本轮实测行数 = 5（`123`、`222`、`S1-D29-ITEM-20260915-001`、`S1-RETRY-ITEM-20260914-001`、`S1-RETRY-ITEM-20260914-002`），与 dbx 中组织 `01` 的配置数 `5` 一致。② 医院管理员入口两个身份各为 5 行且 `standardProjectCode` 集合与配置集合逐一相同；该业务键在库中无金额行时 5 行全部 `currentAmount:null`、`isAmountConfigured:false`（`yangkj` 首查响应），页面显示 `未配置` 且无数值；补写 `222` 后重查仅该行为 `37.37`/已配置 → LEFT JOIN 未把无金额行丢弃。 | — |
+| V18 | 返回字段集合 | `Passed` | **按层级记录**（`Query`/`Contract`，真实数据库列"否"）。① `Stage3QueryTests.Amount_read_model_exposes_only_the_designed_fields_with_four_names` 断言 `RecognitionAmountReadModel` 属性名集合恰好为 **14** 项（含 `ItemTypeText`、`ConfigurationStatusText`）、`OrganizationCode`/`HospitalCode`/`BranchCode`/`LastModifiedTime`/`LastModifiedBy`/`CategoryIsValid`/`GroupIsValid`/`ItemIsValid` 全部为 `null`（不存在），并断言四个名称取到 `示例组织`/`示例医院`/`示例院区`/`血常规`。② `Stage3WritePathTests.Save_requests_and_read_model_expose_only_the_designed_members` 从类型侧断言同一 14 项集合、`CurrentAmount` 为 `decimal?`、`ItemTypeText` 可空与 `ConfigurationStatusText` 非空（S3-D21）。宿主侧另有 C5 的 DOM 表头核对。 | 未覆盖面：本条不覆盖"已保存与未保存金额各一行"的数据行内容；该子面由 V17 与 C6/C7 覆盖 |
+| V19 | 名称与归属读取次数与行数无关 | `Passed` | **按层级记录**（`Application`）。`Stage3QueryTests.Organization_read_counts_do_not_grow_with_the_number_of_returned_rows` 在 10 行与 100 行两组数据下断言外部读取计数恒为 `(组织 1, 医院 1, 院区 1)` 且两组完全相等；`Stage3OrganizationPathTests.External_read_counts_do_not_grow_with_the_number_of_target_rows` 断言两条目标路径在 10 行与 100 行下计数相同且为 `(1, 1, 2)`。 | — |
+| V20 | 排序与空结果 | `Passed` | ① 排序：平台页 5 行顺序为 `123`、`222`、`S1-D29-ITEM-20260915-001`、`S1-RETRY-ITEM-20260914-001`、`S1-RETRY-ITEM-20260914-002`，即标准项目编码升序；医院管理员入口两个身份的 5 行响应与 DOM 同样为该升序（互认配置删除前的取证）。② 空结果：删除组织 `01` 全部互认配置后，`reqid=104` `POST /Api/MedicalRecognitionReportQuery/QueryBranchRecognitionAmountList` 体 `{"branchCode":"0101001"}` 返回 **200**、`content-type: application/json`、响应体 **`[]`**，即无互认配置时成功返回空集合。取证序列见「补充取证」节 | — |
+| V21 | `UnavailableReason` 与 `ConfigurationStatus` | `Passed` | 逐层独立停用后刷新实测（上一轮取得的真实证据，本轮只读复核状态未变）：仅停用分类 `S1-RETRY-CAT-20260914-001111` → 其下三行原因列 `所属分类已停用`；仅停用分组 `S1-RETRY-GRP-20260914-001` → 同一三行 `所属分组已停用`，另一分类 `S1-RETRY-CAT-20260914-002` 下两行为空；仅停用标准项目 `S1-D29-ITEM-20260915-001` → 该行 `标准项目已停用`，其余四行为空；三层全启用时各行原因为空；配置自身停用时 `ConfigurationStatus=停用` 且原因列为空（见 C19）。本轮只读复核：分类、分组、标准项目与 5 条配置的启用状态均为原状。 | 未覆盖面：本轮未重做逐层停用-恢复操作；受影响性判断见「证据复用条件」的 impact 范围 |
+| V22 | 医院管理员查询越权院区 | `Passed` | **按层级记录**（`Application`/`Query`，真实数据库列"否"）。`Stage3QueryTests.Branch_entrypoint_rejects_a_branch_of_another_hospital_without_degrading_to_an_empty_collection` 断言请求它医院院区抛 `InvalidOperationException` 且消息含 `院区`，并断言 `repository.CallCount == 0`、`repository.ReceivedQuery == null`（拒绝而不是降级为空集合）。 | 未覆盖面：本条按矩阵层级 `Application`/`Query` 记录，「真实数据库」列为「否」，规定验证面即请求院区不属于可信医院时拒绝且不降级为空集合，已由上述断言完整覆盖，属本层完整证据。**真实宿主层的越权院区查询面不属本条规定验证面**，由 C10/C11 承载（院区下拉只列可信医院院区，键入非可信院区后选项集为空且不提交） |
+| V23 | DDL 列序、类型、注释、唯一索引 | `Passed` | dbx 只读复核：`information_schema.columns` 返回 8 列且列序为 `id uuid` / `organization_code text` / `hospital_code text` / `branch_code text` / `standard_project_code text` / `current_amount numeric` / `oper_time timestamp with time zone` / `oper_id uuid`，`is_nullable` 全为 `NO`、默认值计数 `0`、无 `varchar(n)`；每列中文注释逐列命中（`主键ID`、`组织编码`、`医院编码`、`院区编码`、`标准项目编码`、`当前金额`、`操作时间`、`操作人`）；表注释为 `组织医院院区互认项目金额`；`pg_indexes` 返回 `ux_mrec_org_hos_brh_project` = `UNIQUE (organization_code, hospital_code, branch_code, standard_project_code)`（**无状态过滤**）与主键索引，索引注释为 `同一组织医院院区标准项目金额唯一` | — |
+| V24 | SqlMap scope 与物理表映射 | `Passed` | 源码静态复核（可引用既有结论，本轮未重跑）：`OrganizationHospitalBranchRecognitionAmount.xml` 的 `SqlMap Scope="OrganizationHospitalBranchRecognitionAmount"`，语句 Id 为 `OrganizationHospitalBranchRecognitionAmountColumns`、`GetOrganizationHospitalBranchRecognitionAmountByBusinessKey`、`InsertOrganizationHospitalBranchRecognitionAmount`、`UpdateOrganizationHospitalBranchRecognitionAmount`，全部只访问 `mrec_` 前缀表、无 `ON CONFLICT`/`LIMIT`/`OFFSET`/`NULLS FIRST`/标识符引号等方言特征；`MedicalRecognitionReportQuery.xml` 的金额列表语句同样只访问 `mrec_` 表并以 `mrec_mutual_recognition_item` 为行集、LEFT JOIN 金额表。语句键与调用点 `sqlId` 的一致性由 `Stage3SqlMapTests.Amount_sql_map_freezes_scope_statement_ids_and_removes_unused_query` 与 `..._targets_platform_tables_only_and_stays_provider_neutral` 覆盖。 | 运行时注册表内容未在本轮单独读取 |
+| V25 | 事件字段与失败不登记 | `Passed` | **按层级记录**（`Domain`，真实数据库列"否"）。`Stage3WritePathTests.Saved_event_fields_come_from_command_and_failures_register_no_event` 断言事件四个业务键与金额取自命令、`EventCreator == TrustedOperId`、`EventCreatedTime == CommandOperTime`、`EventType`、`AggregateId == MedicalRecognitionReportConst.AggregateId`、事件标识等于落库记录主键；四类失败路径各自以 `Assert.Empty(events.Events)`/`AssertNothingWritten` 断言不登记事件（校验失败见 V4/V5/V6 用例，唯一冲突见 V16 应用层用例，0 行与多于 1 行见 `Save_platform_amount_is_rejected_when_zero_rows_affected_and_record_is_gone`、`..._rejects_when_update_affects_more_than_one_row`）。 | — |
+| V26 | Request/ReadModel 契约 | `Passed` | **按层级记录**（`Contract`，真实数据库列"否"）。`Stage3WritePathTests.Save_requests_and_read_model_expose_only_the_designed_members` 断言两个保存请求的业务字段集合分别为 `["BranchCode","CurrentAmount","StandardProjectCode"]` 与 `["BranchCode","CurrentAmount","HospitalCode","OrganizationCode","StandardProjectCode"]`、读模型恰好 14 项且 `CurrentAmount` 为 `decimal?`、`ItemTypeText` 声明为可空引用、`ConfigurationStatusText` 声明为非空引用、`UnavailableReason` 声明为可空引用、`StandardProjectCode` 声明为非空引用、命名空间为 `...Application.Contracts.Queries`；`Stage3QueryTests.Amount_query_requests_expose_only_the_designed_members` 断言两个查询请求的字段集合并从类型侧排除 `OperId`/`OperTime`/`Id`/`IsValid`/`ConfigurationStatus`/`IsAuthorized`。 | — |
+| V27 | 无 WorkUnit 生产入口的写入与失败响应 | `Passed` | ① **成功面**：经宿主页面（无 WorkUnit 的真实生产入口）在 `CSYQ2-2/123` 与 `0101001/222` 两次新增写入，`SaveBranchRecognitionAmount` 均返回 `200 true` 且 dbx 回读一致（见 V1）；另在 `CSYQ2-1/123` 取得同值重复保存成功与 `oper_time` 更新（见 V2/V7）。② **失败响应面**：删除互认配置后经同一入口提交未配置行，返回 `业务拒绝：当前组织未建立该标准项目的互认项目配置。`，页面保留弹窗与输入、不刷新列表、不误报成功（见 C10）。③ **无脏写面**：失败后只读回读该业务键 0 行、金额表总行数不变（见「补充取证」节） | 事件可见性子面按设计记 `N/A` + `AcceptedRisk`，该子面不使本条结案；本条三个面均已取得 |
+| V28 | 实体语义与注释修正 | `Passed` | **按层级记录**（`Static`/`Domain`，真实数据库列"否"）。`Stage3WritePathTests.Amount_entity_semantics_describe_current_amount_maintenance_without_accumulation` 断言实体源码不含 `累计`/`累加`，含 `维护的互认项目当前金额`、`保存时由请求提交值覆盖`、`取命令携带的操作时间`；并对 `MedicalRecognitionReportManager.cs` 与 `OrganizationHospitalBranchRecognitionAmount.cs` 断言不存在 `+=`/`-=` 复合赋值、不存在以 `CurrentAmount` 为操作数的算术表达式。 | 未覆盖面：本条未覆盖"实体注释与 UML1 实体及 SRS F10 逐句一致"，只覆盖语义修正与无累加；该一致性属静态人工核对，本轮未做逐句比对 |
+| V29 | 平台管理员入口跨组织保存与查询 | `Blocked` | 按 **S3-D20** 登记：环境无第二个组织（本轮只读回读 `QueryAllOrganization` 响应仅 `01/县医共体`），跨组织真实宿主面不可构造；取值口径不因此改变。本轮追加真实宿主证据：平台管理员页范围三级均可选、级联正确（`县医共体` → 测试医院多选 → `测试院区1-1`/`1-2`/`2-1`/`2-2` 均可选）；查询请求体 `{"branchCode":"CSYQ1-1","hospitalCode":"CSYY1","organizationCode":"01"}` 与切换后 `{"branchCode":"CSYQ1-2",...}`、`{"branchCode":"CSYQ2-2",...}`、`{"branchCode":"CSYQ2-1",...}` 均携带三值并返回 `200`；零元行 `222` 显示 `0.00`/`已配置`、未配置行显示 `未配置`，均未回退；本条按矩阵口径以应用层证据为准，应用层由 `Stage3QueryTests.Platform_entrypoint_queries_the_requested_organization_even_when_it_differs_from_the_trusted_context` 覆盖（请求组织与可信上下文组织不同时仍按请求组织查询） | 已接受的环境边界，不作为阻塞项 |
+| V30 | 医院管理员入口的院区范围 | `Blocked` | **允许面本轮取得完整真实证据**：① `yangkj`（可信范围 `01/0101`）默认院区 `0101001`（总院），`POST /Api/MedicalRecognitionReportQuery/QueryBranchRecognitionAmountList` 体 `{"branchCode":"0101001"}` 返回 **200** 与 5 行（`hospitalName=县人民医院`、`branchName=总院`）；保存端点体 `{"branchCode":"0101001","currentAmount":37.37,"standardProjectCode":"222"}` 返回 **200 true**；dbx 回读 `organization_code=01`、`hospital_code=0101`、`branch_code=0101001`，与可信范围逐字一致且三列长度分别为 2/4/7（无首尾空白）。② `lisadmin`（可信范围 `01/CSYY2`）默认院区 `CSYQ2-1`，查询体 `{"branchCode":"CSYQ2-1"}` 与保存体 `{"branchCode":"CSYQ2-1","currentAmount":66.66,"standardProjectCode":"123"}` 分别返回 200 与 200 true，dbx 回读 `01/CSYY2/CSYQ2-1`。应用层同一拒绝由 `Stage3OrganizationPathTests.Resolve_rejects_when_the_requested_branch_belongs_to_another_hospital` 覆盖，属另一层证据、不替代本条真实库面。 | **"它医院院区拒绝"面未取得**：医院页院区下拉只列可信医院下的院区（`yangkj` 实测选项集 `{总院}`；`lisadmin` 实测选项集 `{测试院区2-2, 测试院区2-1}`）。本轮已尝试的手段：打开下拉读取真实选项集；在下拉内键入 `CSYQ2-1` 后选项集为空（`暂无数据`）、文本不成为选中值、已选值仍为 `总院`、按回车不提交、列表仍为 `总院` 的 5 行且 Network 无新请求。未使用接口直连或改请求绕过。按"只完成部分边界不记通过"，本条的拒绝面记 `Blocked`，整条保持 `Blocked`（允许面证据已完整，阻断原因由上一轮的"入口整体 500"收窄为"它医院院区提交路径不可达"） |
+| C1 | 平台管理员页范围选择 | `Passed` | 三级（组织/医院/院区）均可选且实际切换成功：组织 `县医共体` → 医院（选项含 `测试医院一`、`测试医院二` 等 10 项）→ 院区；范围切换后按新范围重载，实测 `测试院区1-1` → `测试院区1-2` 触发 `QueryRecognitionAmountList`（体含三值）并刷新列表，医院由 `测试医院一` 切到 `测试医院二` 后自动带出院区 `测试院区2-2` 并按其重载，再切 `测试院区2-1` 再次重载；切换与重载期间 Network 中**没有写请求**（该页本轮新增请求全部是 `QueryRecognitionAmountList` 与组织选项读取）。组件层 `RecognitionAmounts.test.tsx` 的 `C1：依次切换组织、医院、院区都按新范围重载，且不自动发起写请求` 同向覆盖。 | — |
+| C2 | 平台管理员页请求内容 | `Passed` | 查询请求体实测 `{"branchCode":"CSYQ1-1","hospitalCode":"CSYY1","organizationCode":"01"}`、`{"branchCode":"CSYQ1-2","hospitalCode":"CSYY1","organizationCode":"01"}`、`{"branchCode":"CSYQ2-2","hospitalCode":"CSYY2","organizationCode":"01"}`、`{"branchCode":"CSYQ2-1","hospitalCode":"CSYY2","organizationCode":"01"}` —— 均携带组织、医院、院区三值。保存请求体三值见上一轮实测与组件层 `recognitionAmountsApi.test.ts` 的 `C2 平台管理员页保存下发组织、医院、院区、标准项目编码与金额，不提交已变更属性集`。 | 未覆盖面：本轮未在平台页执行保存，平台页保存请求体的三值取自组件层断言与上一轮真实实测 |
+| C3 | 医院管理员页范围选择 | `Blocked` | 部分取得，两个身份分别实测：① 页面标题「本院区互认项目金额」，只读副标题分别为可信范围 `组织 01，医院 0101`（`yangkj`）与 `组织 01，医院 CSYY2`（`lisadmin`），组织与医院不渲染下拉；② 该页**只渲染 1 个下拉**，即院区下拉；③ **院区默认取可信院区**：`yangkj` 默认 `总院`（选项集仅 `{总院}`，无可比顺序）；`lisadmin` 默认 `测试院区2-1`，而该身份院区选项集顺序为 `{测试院区2-2, 测试院区2-1}`，默认值不是首项，故默认值取自可信院区而非"列表首项"；`lisadmin` 清空院区后显示占位 `请选择院区`、不做默认选中、表格置空为 `请选择院区后查看互认项目金额`、无 `维护金额` 入口且刷新按钮 `disabled`。 | ① **"可信院区缺失"的第二份身份上下文在本环境不可构造**：环境不存在 `branch_id` 为空的测试身份（两个账号的用户档案 `branch_id` 分别为 `0101001` / `CSYQ2-1`，均非空），授权范围不允许伪造令牌或改写认证存储，该子场景的**宿主层**无证据。② 上述清空院区是用户清空、不是可信院区缺失，不能替代该子场景。③ 本条**有组件层证据**：`BranchRecognitionAmounts.test.tsx` 的 `C3 可信院区缺失：不下拉默认选中、不发起任何请求，显式选择后才按院区查询` 以替身构造该上下文，覆盖"受控值保持为空、零业务请求、显式选择后才按院区查询"；**组件层通过不使整条记为 `Passed`**，本条因宿主层不可构造记 `Blocked` |
+| C4 | 医院管理员页请求内容 | `Passed` | 真实请求体逐条读取（Network）：① 查询 `POST /Api/MedicalRecognitionReportQuery/QueryBranchRecognitionAmountList` 体 `{"branchCode":"0101001"}`（`yangkj`）、`{"branchCode":"CSYQ2-1"}` 与切换后 `{"branchCode":"CSYQ2-2"}`（`lisadmin`）；② 保存 `POST /Api/MedicalRecognitionReport/SaveBranchRecognitionAmount` 体 `{"branchCode":"0101001","currentAmount":37.37,"standardProjectCode":"222"}`（`yangkj`）与 `{"branchCode":"CSYQ2-2","currentAmount":55.55,"standardProjectCode":"123"}`（`lisadmin`）。两个方向的请求体都**只含院区与标准项目编码**（保存另有本次金额），**不含 `organizationCode`、不含 `hospitalCode`**，与设计一致 | — |
+| C5 | 列表字段集合 | `Passed` | 两个页面 DOM 表头实测均为 `标准项目编码`/`标准项目名称`/`组织名称`/`医院名称`/`院区名称`/`当前金额`/`金额状态`/`互认配置状态`/`当前不可用原因`/`操作`；无组织/医院/院区编码列，无最后修改时间与最后修改人列。服务端响应携带 `itemType`/`itemTypeText`/`categoryName`/`groupName` 等未展示字段。**重开轮复核**：读模型已交付 `itemTypeText`/`configurationStatusText`（服务端枚举声明为中文唯一来源，S3-D21），其中**页面呈现 `configurationStatusText`**（`123` → `启用`、`222` → `停用`，与响应逐行一致）；`itemTypeText` 由读模型交付但**本阶段两个页面均不展示项目类型**，页面不得据此自建中文映射（设计口径见 [Client/design.md](Client/design.md)）。 | 未覆盖面：—（原"读模型未交付枚举中文、客户端自行映射"已由 S3-D21 消除；项目类型不在展示面内） |
+| C6 | 未配置呈现 | `Passed` | **重开轮**：`yangkj` 在 `0101001` 的 3 行中 `S1-D29-ITEM-20260915-001` 行为该呈现——「当前金额」列为 `未配置` 标记、「金额状态」为 `未配置`，响应中该行 `currentAmount:null`、`isAmountConfigured:false`。既往轮次：`lisadmin` 在 `CSYQ2-2` 的首查响应 5 行中 4 行为该呈现；`yangkj` 在 `0101001` 的 5 行中 4 行为该呈现。 | — |
+| C7 | 零元与未配置区分 | `Passed` | 同屏两行实测：`CSYY1/CSYQ1-1` 范围下 `222` 行「当前金额」为 `<span class="recognition-amounts-number">0.00</span>`、「金额状态」为绿色 `已配置`；未配置行为 `未配置` 标签。两者的 DOM 结构与标签颜色均不同。**重开轮**：本条判定的是金额列呈现，不在 S3-D21（新增响应枚举中文字段）的影响范围内，按 [Testing Baseline](../../../.agents/instructions/testing-baseline.md) 第 5 节复用既往同轮证据；复用条件为 impact 不重叠、版本为修复后工作区、环境为同一宿主链路、复用理由为变更只增加响应字段且不改金额列判定与呈现。 | — |
+| C8 | 金额输入校验 | `Passed` | 同一弹窗内实测：`-5` → 行内提示 `金额必须是不小于 0 且最多两位小数的数字`、输入框 `aria-invalid="true"`、弹窗与输入保留；`1.234` → 同一提示；空值 → `金额必填`。三次提交均**零写请求**。本轮另新增修复直接影响面证据：输入 `99999999999999.99`（双精度下会漂移为 `99999999999999.98`）→ 行内提示该文案、`aria-invalid="true"`、点「保存」后弹窗保持打开且**零写请求**（注入的 fetch 记录器无任何条目）；随后把同一输入框改为 `55.55` 提交即正常保存成功（见 F2）。组件层 `RecognitionAmounts.test.tsx` 的 `负数、三位小数、双精度无法精确表示的大额与空值都只给出行内提示，零写请求且保留弹窗与输入` 同向覆盖。 | — |
+| C9 | 金额保存成功 | `Passed` | 提交合法金额后请求返回 `200 true`；弹窗关闭（页面可见弹窗数 0）；随后发出 `QueryBranchRecognitionAmountList` 整表重载并把该行显示为 `55.55`/`已配置`（`lisadmin`）与 `37.37`/`已配置`（`yangkj`）。组件层 `RecognitionAmounts.test.tsx` 的 `C9 / C12 金额保存成功` 用例同向覆盖。 | — |
+| C10 | 金额保存失败 | `Passed` | **真实服务端拒绝场景**（删除组织 `01` 全部互认配置后，经宿主医院管理员入口提交未配置行 `S1-D29-ITEM-20260915-001`）：① 显示业务拒绝文案——页面警示条为 `业务拒绝：当前组织未建立该标准项目的互认项目配置。`，与响应体及 Console 同一文案；② 弹窗与输入保留——弹窗未关闭、金额输入框仍为 `77.77`；③ 不刷新列表——该请求之后无任何 `QueryBranchRecognitionAmountList` 请求，删除前加载的 5 行仍在；④ 不误报成功——无成功提示，仅上述错误警示。另观察到保存按钮由提交中恢复（`loading=false`、`disabled=false`）。取证序列见「补充取证」节 | — |
+| C11 | 保存被拒绝的两类前置 | `Blocked` | ① **已取得**：当前组织无该标准项目互认配置 → 删除组织 `01` 全部互认配置后，经宿主医院管理员入口提交未配置行，收到业务拒绝 `业务拒绝：当前组织未建立该标准项目的互认项目配置。`；页面呈现与 C10 一致（弹窗与输入保留、不刷新列表、不误报成功）；零脏写（只读回读该业务键 0 行、金额表总行数仍为 11 行）。② **未取得**：请求院区不属于可信医院 → 医院页院区下拉只列可信医院下的院区（`yangkj` 实测选项集 `{总院}`，`lisadmin` 实测选项集 `{测试院区2-2, 测试院区2-1}`），在 `yangkj` 会话内向该下拉键入 `CSYQ2-1` 后选项集为空（`暂无数据`）、已选值不变、按回车不提交、列表不刷新且无新请求。相关旁证：dbx 全表回读 11 行，非可信医院院区上不存在由另一身份写入的行（`0101001` 两行 `oper_id` 为 `yangkj`，`CSYQ2-1`/`CSYQ2-2` 各一行 `oper_id` 为 `lisadmin`） | 本条要求两类前置**均**收到业务拒绝，第二类前置在本环境的正常页面路径不可构造，且授权范围不允许接口直连或改写入参，故整条不记通过；阻断原因由上一轮的"两类前置均不可达"收窄为"仅第二类前置不可达"，第一类前置证据已完整 |
+| C12 | 同值重复保存 | `Passed` | 行 `CSYQ2-1/123` 弹窗回填当前值 `66.66` 不改直接提交：仍发出 `SaveBranchRecognitionAmount` 请求并返回成功，随后整表重载，列表值仍为 `66.66`；dbx 回读 `oper_time` 由 `00:35:47.841632` 更新为 `02:15:03.621658`、金额不变。组件层 `RecognitionAmounts.test.tsx` 与 `C9 / C12` 用例断言"回填当前值后不改直接提交仍发出写请求，成功后关闭弹窗并整表重载"。 | — |
+| C13 | 写成功但刷新失败 | `Passed` | **受控注入**（只让列表请求失败，见「受控失败注入记录」）：在 `CSYQ2-1` 行 `123` 弹窗提交同值 `66.66`；注入记录器显示 `SaveBranchRecognitionAmount 未拦截` → `QueryBranchRecognitionAmountList 被拦截`；弹窗关闭；页面顶部出现警示标题 `写入已成功，数据待刷新` 与说明 `写入已经成功，但重新读取金额列表失败；已有数据保留，维护操作暂不可用。` 并提供 `重试` 按钮；**未出现保存失败提示**（本页面无任何 toast/错误提示节点）。dbx 回读 `CSYQ2-1/123 = 66.66`、`oper_time=2026-09-17T02:15:03.621658+08:00` 证明写入未丢失。 | **页面内"重试恢复"未在本轮核对成功**：第二次注入的还原链有缺陷（`__mrecOrigFetch` 被绑定到已包装的 `fetch`），使该次注入后页面 `window.fetch` 处于损坏态，点 `重试` 与调用其 React `onClick` 都未再发出请求；已改用整页重载恢复 iframe realm 并在重载后核对（原始 `fetch`、无残留标记、警示消失、5 行重新加载、`维护金额` 全部可用）。失败属注入操作缺陷，不是产品缺陷；"清除注入后点重试恢复列表"这一子面本轮未取得页面内证据 |
+| C14 | 读取失败 | `Passed` | **受控注入**：单击刷新时拦截列表请求一次；页面保留原有 5 行数据（`123=55.55 已配置`、其余 4 行为 `未配置`），出现警示标题 `互认项目金额数据待刷新` 与说明 `读取失败，已有数据保留；维护操作暂不可用，可重试读取。`；全部 `维护金额` 按钮置为 `disabled=true`；表头与行数据未被清空 | **页面内"重试恢复"未核对成功**，原因与 C13 相同的注入还原缺陷；已用整页重载恢复并核对（重载后警示消失、写入口恢复可用）。组件层 `RecognitionAmounts.test.tsx` 的 `C14 读取失败与重试` 用例覆盖"保留已有数据、加载期间与失败后都禁用写入，重试成功后恢复" |
+| C15 | 组织不可用 | `NotRun` | 未取得宿主层证据：页面阻断分支需要"可信上下文缺少组织或医院"的身份上下文。本轮已尝试：`yangkj` 重新经宿主登录页登录，其令牌仍带 `org:"01"`、用户档案组织与医院均非空，页面正常出列表而非阻断分支。 | **已确认为环境边界**：环境不存在组织或医院缺失的测试身份，授权范围不允许伪造令牌或改写认证存储，该上下文的**宿主层**不可构造。本条**有组件层证据**：`BranchRecognitionAmounts.test.tsx` 的 `C15 可信组织或医院缺失` → `阻断提示、不渲染院区下拉、零业务请求，也不伪造组织或降级为空值`。**组件层通过不使整条记为 `Passed`**，本条保持 `NotRun` |
+| C16 | 排序 | `Passed` | 平台页 5 行按标准项目编码升序呈现（`123` < `222` < `S1-D29-ITEM-20260915-001` < `S1-RETRY-ITEM-20260914-001` < `S1-RETRY-ITEM-20260914-002`）；医院管理员入口两个身份的 5 行响应与 DOM 同样为该升序。 | — |
+| C17 | 空态 | `Passed` | 删除组织 `01` 全部互认配置后进入医院管理员入口：列表请求 `reqid=104` 返回 **200** 且响应体 **`[]`**，页面表格清空并显示空态 `暂无数据` 与文案 `当前范围没有互认项目金额配置`。组件层 `RecognitionAmounts.test.tsx` 的 `C17 空态` 用例以替身构造同一状态并断言空态文案与只读取一次，同向覆盖 | — |
+| C18 | 当前不可用原因 | `Passed` | 逐层独立停用后刷新实测（与 V21 同一组操作、上一轮取得的真实证据，本轮只读复核状态未变）：仅分类停用 → `所属分类已停用`；仅分组停用 → `所属分组已停用`；仅标准项目停用 → `标准项目已停用`；三层全启用 → 原因列为空。 | 未覆盖面：本轮未重做逐层停用-恢复操作；受影响性判断见「证据复用条件」的 impact 范围 |
+| C19 | 配置自身停用 | `Passed` | **重开轮**：经「互认项目」页停用 `222` 后，金额页该行「互认配置状态」显示 `停用`、「当前不可用原因」列为空，响应体该行为 `configurationStatus:2`、`configurationStatusText:"停用"`、`unavailableReason:null`；同轮 `S1-D29-ITEM-20260915-001` 保持启用。既往轮次：经阶段 2 页停用 `S1-D29-ITEM-20260915-001` 的互认配置后同样呈现。 | 未覆盖面：本轮只停用配置自身，未重做目录三层停用与恢复（该面由 V21、C18 覆盖） |
+| C20 | 停用状态下仍可维护金额 | `Passed` | 在上述配置停用状态下提交 `88.88`，保存成功，该行「金额状态」变为 `已配置`，「互认配置状态」仍为 `停用`，「当前不可用原因」列仍为空；目录停用状态下（分类停用）提交 `77.77` 同样成功且状态与原因列不因此改变（上一轮真实证据）。 | 未覆盖面：同上 |
+| C21 | 范围切换与未保存输入 | `Passed` | **按层级记录**（前端矩阵层级为 `Component`）。`RecognitionAmounts.test.tsx` 的 `C21 范围切换与未保存输入` → `切换院区时未保存的金额输入与旧范围数据一并清空，不带旧输入提交`；`BranchRecognitionAmounts.test.tsx` 的同名用例独立覆盖医院管理员入口。本轮本轮实际重跑：`pnpm -F dy-medical-recognition exec vitest run src/pages/recognitionAmounts` → Test Files 3 passed、Tests 56 passed，其中该用例通过。宿主侧旁证：范围切换在渲染期复位并清空行数据（`lisadmin` 由 `CSYQ2-1` 切到 `CSYQ2-2` 后表格不再出现旧范围行）。 | 未覆盖面：宿主层未构造"弹窗已打开且输入未提交时切换范围"的交互序列，只覆盖了范围切换后旧数据清空 |
+| C22 | 范围真实数据量与不分页 | `NotRun` | 已观察：两个身份数十次进入、切换与提交均正常返回、无超时；两个页面表格 `pagination={false}`，DOM 中不存在 `.ant-pagination`，组件层 `C16 排序与不分页` 用例断言页面不分页。 | **前提不满足**：本条的前提是"实际业务规模数据"，本轮真实数据规模仅为金额表 11 行、组织 1 个、互认配置 5 条（取证末为 0 条）与 4 个院区，属功能规模；"未新增分页"可观察，但"真实业务数据量下不出现卡顿、超时或内存问题"无对应规模证据，故不记 `Passed` |
+| C23 | 组件加载失败提示 | `NotRun` | 未取得 | 需要"组织服务选项请求失败"的受控注入。本轮受控注入只做 C13/C14（列表请求失败），未再尝试让组织服务选项请求失败；上一轮的文档级注入钩子在宿主重开子应用标签时未命中。本轮未新增生产测试入口或修改生产代码。组件层 `RecognitionAmounts.test.tsx` 的 `C23 组件自身加载失败提示` 用例以替身构造选项读取失败，属另一层证据 |
+| C24 | 累计 API Client 契约 | `Passed` | **按层级记录**（前端矩阵层级为 `Component`）。① 端点净增与保留：后端 `Stage2EnumContractTests.Frozen_openapi_keeps_the_expected_path_set_and_no_unnormalized_shapes` 冻结前端生成物 `client/packages/api-client-medical-recognition/openapi/medical-recognition.openapi.json` 的路径集合，字面量共 **27** 条 = 26 个业务路径 + 保留排除的 `/auth/login`，其中含本阶段 4 个端点（`SaveBranchRecognitionAmount`、`SaveOrganizationHospitalBranchRecognitionAmount`、`QueryBranchRecognitionAmountList`、`QueryRecognitionAmountList`），并断言归一化全量生效（无 `"oneOf"`、无 `["integer","string"]` 残留）。② 枚举数值读写：`Generated_client_reads_and_writes_enum_properties_as_numbers` 断言生成端把枚举属性映射为 `number` 并用 `writeNumberValue` 写出；`Application_module_registers_the_enum_open_api_transformer` 断言模块注册。③ 端到端可用：本轮真实宿主两个页面都经该生成客户端发起查询与保存并取得 `200`（见 C2/C4），说明端点、模型与序列化在运行时可用的。 | 未覆盖面：`src/index.ts` 未被覆盖与包 `typecheck`/`build` 不属本轮重跑范围（`dist` 构建产物修改时间 `2026-09-17 01:16:47` 晚于 `src` 最后修改 `2026-09-16 22:38:16`）；本条也不覆盖"阶段 1 与阶段 2 端点在生成物中逐一保留"的正面清单核对，只由路径集合等值断言隐含 |
+| C25 | 运行时配置 | `Passed` | 范围下拉与选项请求实测打到平台 Base 服务：`POST http://183.224.180.166:35001/Api/Organization/QueryAllOrganization`、`…/QueryAllValidHospitalByOrgId`、`…/QueryAllValidBranchByOrgId` 均返回 `200`，响应含 `{"id":"01","name":"县医共体"}`、`测试医院一`/`测试医院二`、`测试院区1-1`/`1-2`/`2-1`/`2-2`、`总院` 等真实选项。本轮两个身份下三类选项请求仍全部打到 `183.224.180.166:35001` 并返回 `200`；该轮取证时 `public/config.json` 尚未改动（`git diff` 为空，内容只有 `apiBaseUrl: http://localhost:5014`、无 `baseApiBaseUrl`），`public/config.development.json` 的 `baseApiBaseUrl` 为 `http://183.224.180.166:35001`；该缺口在轮次之后按环境规范闭合——`public/config.json` 现携带 `baseApiBaseUrl: http://183.224.180.166:35001`，其 `apiBaseUrl` 登记为部署占位地址 `http://183.224.180.166:35014`（尚未部署，本报告不核其可达性）。 | — |
+| C26 | 宿主链路 | `Passed` | 两个身份 × 两个页面分别从宿主菜单进入：① 菜单项「检验检查结果互认」展开后含 `标准项目目录维护`、`互认项目`、`互认项目金额维护`、`本院区互认项目金额`（本轮两个身份下实测均为该 4 项）；② 两个页面均在新标签载入并完成首屏加载（医院页出 5 行列表，平台页出三级选择器与空态提示）；③ 拦截生效：`@vite/client`、`src/main.tsx`、`src/router/index.tsx`、`src/runtimeConfig.ts`、`@dy_components-base.js`、`BranchRecognitionAmounts.tsx`、`recognitionAmounts/*` 均来自 `http://localhost:3008`，Console 出现 `[vite] connected.`（debug 级）；④ **Console 无业务错误**：`yangkj` 的医院页与 `lisadmin` 的平台页分别调用 `list_console_messages`（`types:["error"]` 与 `types:["error","warn"]`）均返回 **no console messages found**；完整 Console 只有 debug 级 `[vite]` 消息与浏览器自带 issue 建议（表单字段 id、本地网络请求兼容性），无业务错误。全量 Network 中**没有任何 5xx 响应**。 | 上一轮的 4 条 error 级消息与 2 条 500 响应经核对为上一页面会话的保留消息；上一轮的瞬时 `Npgsql` 连接被远端关闭 500 本轮**未再现**（无法复现） |
 
-业务统计：`Passed` 0 条、`Failed` 0 条、`Blocked` 0 条、`NotRun` 56 条、`N/A` 0 条、`PendingRetest` 0 条。
+业务统计：`Passed` 48 条、`Failed` 0 条、`Blocked` 4 条、`NotRun` 4 条、`N/A` 0 条、`PendingRetest` 0 条，合计 56 条（48+0+4+4）。
+
+- 逐条分布：`Passed` = V1、V2、V3、V4、V5、V6、V7、V8、V9、V10、V11、V12、V13、V14、V15、V17、V18、V19、V20、V21、V22、V23、V24、V25、V26、V27、V28、C1、C2、C4、C5、C6、C7、C8、C9、C10、C12、C13、C14、C16、C17、C18、C19、C20、C21、C24、C25、C26（共 48 条）；`Failed` = 无；`Blocked` = V29、V30、C3、C11（共 4 条）；`NotRun` = V16、C15、C22、C23（共 4 条）。
+- 本轮状态变更：**六项修复后的复验轮把上一轮 25 条 `NotRun` 中的 20 条**改为按各自层级记录并记 `Passed` —— V4、V5、V6、V8、V9、V10、V12、V13、V14、V18、V19、V22、V25、V26、V28、C21、C24（层级为 `Contract`/`Domain`/`Application`/`Query`/`Static`/`Component`，逐条给测试文件、用例名与关键断言，见「证据复用条件」），其中 `V6` 的转正依据是修复后的契约断言；**C15、C17 当时保持 `NotRun`**，只补记组件层证据与未覆盖面。**随后的「补充取证」轮**由负责人删除组织 `01` 的全部互认配置构造出无配置状态，使 **V11、V20、V27、C10、C17 五条取得完整真实证据并转正**（V11 拒绝且零写入、V20 空结果、V27 失败响应面与无脏写面、C10 四点呈现、C17 空态）。**V16 保持 `NotRun`**（真实并发同步屏障不可构造）。**V29、V30、C3、C11 四条 `Blocked` 的判定性不变**，本轮只更新证据与阻断原因：V30 的允许面证据已完整、阻断原因收窄为"它医院院区提交路径不可达"（上一轮的"入口整体 500"已消除），C3 的阻断原因是"可信院区缺失上下文不可构造"，C11 的阻断原因收窄为"仅第二类前置不可达"（第一类前置已取得完整证据），V29 按 S3-D20 维持。其余行状态不变，只补充或复核本轮证据。
+- **重开轮（S3-D21 枚举中文）**：读模型由 12 字段增至 14 字段，前端不再本地映射枚举中文；受影响用例 V18、V26、C5、C6、C19 的证据在本轮更新，C7 按影响范围复用既往证据。**矩阵统计口径不变**（仍 56 条：`Passed` 48 / `Failed` 0 / `Blocked` 4 / `NotRun` 4）；详见「重开轮：读模型枚举中文（S3-D21）」节。
+- 决策与责任标签（不计入上述统计，也不替代 `Passed`）：`AcceptedRisk` = S3-D20 覆盖的 V29 跨组织宿主面、V27 事件可见性子面、S3-D8 不分页、S3-D14 可空枚举筛选形态，以及阶段收口时接受的环境边界 V16、V30、C3、C11、C15、C22、C23（逐条原因与已取得证据见「已确认的验证降级」节）。
+- 子面登记（不单独计入合计，避免与所属用例重复计数）：V27 的事件可见性子面记 `N/A` + `AcceptedRisk`；该子面不使 V27 结案，V27 已按整条记入 `Passed`。
+
+## 受控失败注入记录
+
+以下注入**只在浏览器运行时向子应用 iframe 的 `window` 上安装一次性钩子**，未落盘、未改仓库文件、未新增生产测试入口，也未修改生产代码。
+
+共用注入形态（C13、C14）：在子应用 iframe 的 `window` 上保存 `fetch` 原引用，并以包装函数替换 `window.fetch`；包装函数按 URL 子串与方法匹配"只让目标请求失败"，命中时返回 `Promise.reject(new TypeError('mrec-injected-failure:<match>'))`，其余请求原样转发，同时记录每次请求的 URL、方法与是否被拦截；匹配规则带 `max` 次数上限。
+
+| 用例 | 注入方式 | 观察结果 | 还原步骤 | 还原后核对 |
+|---|---|---|---|---|
+| C13 | 拦截 `QueryBranchRecognitionAmountList`（POST，`max=1`，不拦截保存端点），在 `CSYQ2-1` 行 `123` 弹窗提交同值 `66.66` | 记录序列为 `SaveBranchRecognitionAmount 未拦截` → `QueryBranchRecognitionAmountList 被拦截`；弹窗关闭；出现 `写入已成功，数据待刷新` 警示与 `重试`；页面无保存失败提示；dbx 回读 `CSYQ2-1/123 = 66.66`、`oper_time=2026-09-17T02:15:03.621658+08:00` | 移除匹配规则并删除运行时标记；因该次注入的原引用绑定错误（见下）改为**整页重载** iframe 恢复原生 `fetch` | 重载后 `window.fetch` 为原生实现（`[native code]`）、`__mrecOrigFetch`/`__mrecMatch`/`__mrecFetchLog` 标记全部不存在、警示消失、5 行重新加载、`维护金额` 全部 `disabled=false` |
+| C14 | 拦截 `QueryBranchRecognitionAmountList`（POST，`max=1`），点击页面 `重新读取金额列表` | 请求被拦截 1 次；保留原 5 行（`123=55.55 已配置`，其余 4 行 `未配置`）；出现 `互认项目金额数据待刷新` 警示与 `重试`；全部 `维护金额` 按钮 `disabled=true`；表头未被清空 | 移除匹配规则；因原引用绑定错误改为**整页重载**恢复原生 `fetch` | 重载后原生 `fetch`、无残留标记、警示消失、写入口恢复可用 |
+| 注入操作缺陷（本轮发现，非产品缺陷） | 第一次注入的还原把 `window.fetch` 赋回保存的原引用并删除标记，该次核对应已生效；但随后为 C13 重新注入时把 `__mrecOrigFetch` 绑定到"当时已是包装函数"的 `fetch`，还原后 `window.fetch` 的调用链指向 `undefined`，页面所有请求失效 | C13 注入后点 `重试` 与直接调用该按钮的 React `onClick` 均未再发出请求；在该 iframe 内直接调用 `fetch` 抛 `TypeError: Cannot read properties of undefined (reading 'apply')` | 整页重载 iframe（重建 realm） | 重载后原生 `fetch`、无残留标记、页面恢复正常 |
+
+C15 与 C23 因所需的宿主层注入上下文不可构造，按 `NotRun` 登记，阻断原因见结果表。
+
+## 补充取证：组织无互认配置的拒绝面与空态
+
+保存被拒绝面与空结果面此前无法构造，原因是组织 `01` 恒有互认配置——金额页行集由互认配置驱动，可达行必为已配置行。本轮由项目负责人删除组织 `01` 的全部互认配置（5 行）以构造该状态；删除属环境数据准备，未改代码、未改请求、未绕过任何校验，负责人已确认该数据为开发阶段测试数据、不保留备份。
+
+**数据状态变更**：删除前 `mrec_mutual_recognition_item` 有组织 `01` 的 5 行配置（`123`、`222`、`S1-D29-ITEM-20260915-001`、`S1-RETRY-ITEM-20260914-001`、`S1-RETRY-ITEM-20260914-002`，全部启用），删除后该表为空。结果表中 V15、V21、C18、C19、C20 行内所记的只读复核（组织 `01` 的 5 条互认配置 `is_valid` 全为 `true`）描述的是**删除前**的状态；这些用例的停用类证据取自删除前的取证轮次。
+
+**拒绝面取证序列**（`yangkj`，医院管理员入口，可信范围 `01/0101`，院区 `0101001`）：页面在删除前已加载并保持 5 行，删除后再提交未配置行 `S1-D29-ITEM-20260915-001`。
+
+| 观测点 | 证据 |
+|---|---|
+| 请求 | `reqid=102` `POST http://localhost:5014/Api/MedicalRecognitionReport/SaveBranchRecognitionAmount`，请求体 `{"branchCode":"0101001","currentAmount":77.77,"standardProjectCode":"S1-D29-ITEM-20260915-001"}`，状态 **500** |
+| 拒绝文案 | 响应体首行 `System.InvalidOperationException: 业务拒绝：当前组织未建立该标准项目的互认项目配置。`，堆栈指向 `MedicalRecognitionReportManager.cs:line 406`；页面以警示条呈现同一文案 |
+| 弹窗与输入 | 提交后弹窗保持打开，金额输入框仍为 `77.77`；保存按钮由提交中恢复（`loading=false`、`disabled=false`） |
+| 不刷新列表 | 该请求之后没有任何 `QueryBranchRecognitionAmountList` 请求；页面上删除前加载的 5 行仍在，未被清空 |
+| 不误报成功 | 页面无成功提示，仅出现上述错误警示 |
+| 零脏写 | 只读回读业务键 `01/0101/0101001/S1-D29-ITEM-20260915-001` 命中 **0 行**；金额表总行数仍为 **11** |
+| Console | `[POST 500]` 记录上列异常与堆栈，另有 1 条 500 资源错误与 1 条 `Uncaught (in promise)`（页面按设计不吞掉写失败的拒绝） |
+
+**空结果与空态取证**：随后点击「重新读取金额列表」→ `reqid=104` `POST /Api/MedicalRecognitionReportQuery/QueryBranchRecognitionAmountList`，请求体 `{"branchCode":"0101001"}`，状态 **200**、`content-type: application/json`、响应体 **`[]`**；页面表格清空并显示空态 `暂无数据` 与文案 `当前范围没有互认项目金额配置`。
+
+**该状态仍未覆盖的面**：第二类拒绝前置（请求院区不属于可信医院）在本轮仍不可构造——医院页院区下拉只列可信医院下的院区，故 C11 不整条通过。
+
+## 本轮修复与回归事实
+
+### 六项修复的直接影响面（本轮取证的落点）
+
+- **F2（前端金额解析的两道可精确表示性判据）**：在医院管理员页 `CSYQ2-2` 行 `123` 弹窗输入 `99999999999999.99`，行内出现 `金额必须是不小于 0 且最多两位小数的数字`、输入框 `aria-invalid="true"`，点「保存」后弹窗保持打开且注入的 fetch 记录器**零条目**（零写请求）；同一输入框改为 `55.55` 后再提交即成功保存。修复后的判据在真实页面上生效且未误伤正常输入。
+- **F3（可信范围返回值统一去空白编码，落库口径）**：dbx 回读两次新增写入的三列编码与可信范围逐字一致且无首尾空白——`lisadmin` 为 `organization_code=01`、`hospital_code=CSYY2`、`branch_code=CSYQ2-2`（长度 2/5/7）；`yangkj` 为 `01`、`0101`、`0101001`（长度 2/4/7）。本环境外部编码无首尾空白，故结果与修复前相同。
+- **F6（医院页院区默认值随可信范围派生）**：`yangkj` 默认 `0101001`（总院）；`lisadmin` 默认 `CSYQ2-1`，而其院区选项集顺序为 `{测试院区2-2, 测试院区2-1}`，默认值不是首项，说明默认值取自可信院区；整页重载后默认值仍回到可信院区。切换院区（`CSYQ2-1` → `CSYQ2-2`）触发按新院区重载：查询体变为 `{"branchCode":"CSYQ2-2"}`，响应 5 行全部 `branchName=测试院区2-2`，旧院区 `CSYQ2-1` 的行与数据在表格中不残留。
+- **F1（正常金额保存未回归）**：两个身份各完成一次经宿主页面的真实保存，`SaveBranchRecognitionAmount` 返回 `200 true`，dbx 回读金额与请求值一致（`55.55`、`37.37`）；页面弹窗关闭并整表重载显示新值。页面无法省略金额字段，因此"金额缺省被拒绝"的缺省拒绝面由 V6 的契约断言覆盖，本层只确认未回归。
+- **后端金额请求字段可空化与可信范围去空白**：前者对应 V6 的三重契约断言（`RequiredAttribute` + `decimal?` + 校验器真实拒绝缺省），后者对应 `Stage3OrganizationPathTests.Resolve_accepts_codes_with_surrounding_whitespace_and_returns_trimmed_codes`（目标路径与外部主数据都带首尾空白时按去空白校验并返回去空白值）与 F3 的落库回读。
+
+### 医院管理员入口 500 的根因与修复
+
+- **缺陷现象**：从宿主菜单进入「本院区互认项目金额」即触发 `POST /Api/MedicalRecognitionReportQuery/QueryBranchRecognitionAmountList`（体 `{"branchCode":"0101001"}`）返回 **500**，响应体为开发者异常页，内容为 `System.InvalidOperationException: 无法确定当前可信医院。`，堆栈指向 `TrustedOrganizationResolver.ResolveHospitalOrThrow`（`HttpRequestInfo.HosId` 为空）。
+- **根因**：四个阶段 3 金额入口的可信医院只从登录令牌声明读取，而本环境的宿主登录令牌只携带 `org` 声明、**不携带 `hos`/`brh` 声明**，服务端 `HttpRequestInfo.HosId` 恒为空；客户端存储 `dy-auth:login-user.hosID` 有值但不是服务端可信来源，因此可信医院始终解析不出。
+- **修复语义**（源码位于 `server/Dy.MedicalRecognition.Application/Validation/TrustedScopeResolver.cs`）：四个金额入口共用可信范围解析点，组织层与医院层按同一规则解析——令牌该层非空白即取令牌值；令牌该层缺失或空白时用当前登录用户档案（`IUserAppService.GetUserByIdAsync` 的 `OrgId`/`HosId`）补齐；令牌与用户档案在同层都提供且不一致即拒绝；补齐后该层仍为空即拒绝，不使用默认值、不降级为空值；院区层不参与本解析。
+- **修后真实证据（500 → 200）**：本轮两个身份都从宿主登录页登录后经菜单进入，同一端点返回 **200** 并携带 5 行；保存端点返回 **200 true**；dbx 回读落库行为 `01/0101/0101001` 与 `01/CSYY2/CSYQ2-2`，即**补齐后的值被真正用于写入**。
+- **后端测试用例总数会随用例增删变化**，故本报告只记录本阶段验证矩阵的统计；本轮后端全量测试结果为测试总数 **243**、通过数 **243**、失败 **0**。
+
+### 测试账号登记
+
+两个身份都以同一宿主登录入口进入（本轮均重新登录取证），均持有「检验检查结果互认管理员」角色，因此都能看到本阶段的两个菜单项。凭据登记在 [Test Environment](../../../.agents/instructions/test-environment.md) 第 1 节，本报告不复制凭据。
+
+| 账号 | 宿主显示名 | 组织 | 可信医院 | 可信院区 | 本轮用途 |
+|---|---|---|---|---|---|
+| `yangkj` | 杨康健 | `01` | `0101`（县人民医院） | `0101001`（总院） | 医院页默认院区与列表、可信医院 `0101` 的保存与落库回读、越权院区提交尝试 |
+| `lisadmin` | 检验协同平台管理员 | `01` | `CSYY2`（测试医院二） | `CSYQ2-1`（测试院区2-1） | 第二个可信医院 `CSYY2`：院区默认值与选项顺序、院区切换重载、平台页三级选择与三值请求、写成功刷新失败与读取失败注入 |
+
+两个身份的令牌都只带 `org:"01"`、都不带医院声明，因此两者都必然走"用户档案补齐医院层"的同一路径。
+
+### 跨端契约快照
+
+`server/Dy.MedicalRecognition.Tests/Stage2EnumContractTests.cs` 冻结了前端 OpenAPI 生成物 `client/packages/api-client-medical-recognition/openapi/medical-recognition.openapi.json` 的路径集合，本轮复核其字面量共 **27** 条（26 个业务路径 + 保留排除的 `/auth/login`），含本阶段新增的 4 个端点，并在本轮后端全量测试中通过。改动前端生成物后必须跑后端全量测试；只跑前端 typecheck/build 不足以发现该不同步。
+
+## 重开轮：读模型枚举中文（S3-D21）
+
+按 [总体计划设计](../001-总体计划/design.md) 5.3「枚举协作契约」（适用于全部后续阶段），本阶段读模型补齐枚举中文、前端不再本地映射，故本阶段重开并重新登记相关用例证据。
+
+- **设计与契约**：新增阶段决策 `S3-D21`；`RecognitionAmountReadModel` 由 12 字段增至 14 字段，新增只读计算属性 `ItemTypeText`（可空，取值未登记时为 `null`）与 `ConfigurationStatusText`（非空，未登记取值按严格解析抛出），文本由服务端按枚举 `Description` 解析，与阶段 2 的 `S2-D15` 同口径；`docs/uml/2-MedicalRecognitionConfigurationUiQuery.wsd` 的两个读模型块同步补齐这两个字段（阶段 2 的实现当时未同步 UML，本轮一并修正）。
+- **RED → GREEN**：先取得可复现的断言失败（非编译错误）——V18 字段集合断言 12≠14、新用例以反射读取属性时 `Assert.NotNull` 失败，共 3 条失败；随后加入实现，并在属性成型后把反射断言收敛为类型化断言。新增用例覆盖：枚举中文按枚举声明解析（2 组数据）、未登记取值 `ItemTypeText` 降级为 `null`、未登记取值 `ConfigurationStatusText` 抛 `ExtensionException`。后端全量测试 **247 / 247 通过、0 失败**（原 243 条 + 4 条新用例）。
+- **契约与生成物**：`prepare-openapi`（path 仍 27 条）→ `generate`（`Client base url set to http://localhost:5014`）→ `typecheck` 0 → `build` 0；手写入口 `src/index.ts` SHA256 未变；`kiota-lock.json` 的 `descriptionHash` 更新，`excludePatterns` 仍为 `/auth/login`。
+- **前端**：适配层改为服务端文案优先，本模块两个文案函数降为兜底（服务端未交付或为空白时使用），行视图模型形状不变；新增用例断言服务端文案优先与空白回退。阶段 3 目录 **57 通过**；前端全量 **204 通过 | 2 跳过**（本轮净增 1 条），`build` 通过。前端全量报告的 3 个未处理错误经逐目录归因来自阶段 1（1 个）与阶段 2（2 个），本阶段目录为 0。**追记（2026-09-17）**：上述两个文案函数与取值域已上移到跨页面共享模块 `src/shared/medicalItemType.ts` 与 `src/shared/configurationStatus.ts`（阶段 1、阶段 2、阶段 3 共用一份），本适配层按原名字转发，页面与用例的导入位置与行为不变（服务端文案优先、空白与未知回退兜底文案的口径不变）。
+- **宿主复核**：经「互认项目」页按正常业务路径新建 3 条配置（`123` 启用、`222` 停用、`S1-D29-ITEM-20260915-001` 启用）后，在 `yangkj` 的医院管理员入口重新读取列表——`POST http://localhost:5014/Api/MedicalRecognitionReportQuery/QueryBranchRecognitionAmountList`，体 `{"branchCode":"0101001"}`，返回 `200`；响应体逐行携带服务端枚举中文（`123`：`itemTypeText":"检验"`、`configurationStatusText":"启用"`、`currentAmount:12.34`、`isAmountConfigured:true`；`222`：`configurationStatusText":"停用"`、`currentAmount:37.37`；`S1-D29-ITEM-20260915-001`：`configurationStatusText":"启用"`、`currentAmount:null`、`isAmountConfigured:false`）；页面逐行呈现与响应一致，Console 无 error 级与 warn 级消息。
+- **受影响用例**：V18、V26 改为 14 字段并含两个枚举中文；C5 增加"配置状态文案取服务端字段"的响应体与 DOM 证据；C6、C19 在本轮数据下重新观察；C7 的金额呈现边界不在本轮变更影响范围内，按 [Testing Baseline](../../../.agents/instructions/testing-baseline.md) 第 5 节复用既往同轮证据。**矩阵统计口径不变**（56 条：`Passed` 48 / `Failed` 0 / `Blocked` 4 / `NotRun` 4）。
 
 ## 未覆盖面与残余风险
 
-- **目标表未建立**：`mrec_organization_hospital_branch_recognition_amount` 只完成设计定义，DDL 尚未交付执行；表未建成前相关用例记 `NotRun`；实际执行验证时若表仍未建成，才记 `Blocked`。
-- **外部服务引用未就绪**：本项目 `server/` 尚未引用 `Dy.Base.Application.Contracts`，`appsettings.Development.json` 中的组织服务代理只有配置、没有调用代码；该包与 `Dy.Core.Abstractions` `1.1.0.54` 的组合本机没有构建先例，只有元数据级 API 存在性核对。批次 1 必须以实测 restore/build 确认，若失败则按 `Server/design.md` 登记的退路**先经负责人确认**后选定，不自行降级为不校验归属。
-- **前端依赖未实测**：`@dy/components-base@0.1.4` 的具名导出清单与 `@dy/api-client-base@0.1.39` 的类型声明本机无落盘证据；只完成 registry manifest 与 peer 区间核对。安装后的 `typecheck`/`build` 是批次 1 的硬闸门；另需确认 kiota overrides 与既有 `.102`/`.103` 并存不冲突，以及 `baseApiBaseUrl` 指向的 `183.224.180.166:35001` 可真实调用。
-- **跨组织真实宿主面**（S3-D20）：环境无第二个组织，V29 的真实宿主层永远无法在本环境取得证据；该缺口按 S3-D20 登记为已接受的环境边界，不再作为阻塞项。
+- **无法构造的面（逐条）**：① "可信院区缺失"的第二份身份上下文，**已确认为环境边界**：环境不存在 `branch_id` 为空的测试身份（两个账号的用户档案 `branch_id` 均非空），授权范围不允许伪造令牌或改写认证存储，该子场景的**宿主层**不可构造、无宿主层证据；② "请求院区不属于可信医院"的提交路径（医院页院区下拉只列可信医院下的院区；本轮在 `yangkj` 下键入 `CSYQ2-1` 后选项集为空、已选值不变、回车不提交且不触发请求）；③ 原"该组织无互认配置"的空结果面已在「补充取证」轮构造并取得证据（删除组织 `01` 的 5 条互认配置后，列表请求返回 200 与空集合、页面显示空态），该缺口已关闭；④ 真实并发同步屏障（双标签页提交曾被串行化为插入+更新，未观察到唯一约束冲突）；⑤ 组件加载失败注入（组织服务选项请求失败无法在宿主重开子应用时命中注入点）；⑥ 平台管理员入口的跨组织真实宿主面（环境只有 1 个组织，按 S3-D20 登记）。以上条目已按环境边界接受并逐条登记（见「已确认的验证降级」节）。
+- **业务拒绝的响应形态（框架行为，已接受）**：业务拒绝返回 **500**，响应体形态由运行时环境决定——Development 由 ASP.NET Core 的 `DeveloperExceptionPageMiddleware` 输出异常文本与调用堆栈，非 Development 不注册该中间件，异常直接上抛为 500。本项目与框架都没有注册全局异常处理器，本项目页面按设计不处理错误、也不自建异常管道；宿主侧经 `ErrorHandlerMiddleware` 上报的事件始终含状态码与消息，故宿主提示不依赖响应体内容。该行为两个项目口径一致，接受，不列为待办项。
+- **契约面风险（本阶段遗留）**：`currentAmount` 在生成客户端里是未定型节点（`UntypedNode`，`{ value, getValue() }`），适配层按结构取值与写值；`currentAmount` 的契约类型修复属生成管线范围。读模型的枚举中文已由 S3-D21 交付（`ItemTypeText`、`ConfigurationStatusText`），前端不再本地映射；生成端把这两个只读计算属性声明为可空，与阶段 2 同形。
+- **跨组织真实宿主面**（S3-D20）：环境只有 1 个组织（本轮只读回读确认），V29 的真实宿主层永远无法在本环境取得证据；该缺口按 S3-D20 登记为已接受的环境边界，不再作为阻塞项。
 - **可空枚举筛选形态**（S3-D14）：本阶段页面不下推枚举筛选、不手改生成物；生成管线侧状态不由本阶段管理。
 - **不分页**（S3-D8）：按 `AcceptedRisk` 登记，重审条件为出现可复现的卡顿、超时或内存问题。
 - **组件既有行为**：`BaseScopeSelector` 在非受控时自动选中首级第一项、加载失败使用 antd 静态 `message.error` 且无错误回调 prop 或错误回调导出；本阶段不改动组件源码，页面以受控范围值规避自动写入。
+- **受控注入的还原链脆弱**：本轮第二次注入把原引用绑定到已包装的 `fetch`，导致还原后页面请求失效，只能靠整页重载恢复。后续受控注入应只在未包装的 `window.fetch` 上取原引用，或在每次注入后以 `window.fetch.toString()` 是否含包装特征反向校验。
+- **已裁定项 1：新增的用户服务生产配置条目 → 已撤回**。`server/Dy.MedicalRecognition/appsettings.json` 中新增的 `Dy.Base.Application.Contracts.UserAggregate.IUserAppService` 外部服务代理条目已删除，该条目只保留在 `appsettings.Development.json`。处置理由：本项目既有的用户、组织、系统参数、字典四个框架服务代理都只登记在开发配置中，生产配置不带开发环境外部地址；生产部署配置不属本阶段交付范围。
+- **已裁定项 2：`TrustedOrganizationResolver.ResolveHospitalOrThrow` 死代码 → 已删除**，仅覆盖该方法的 3 个测试用例（共 5 条测试数据）同步整条删除。处置理由：阶段 3 四个金额入口已改用 `TrustedScopeResolver`，该方法无生产调用点，其"只读令牌声明、不做用户档案回落"的语义正是医院管理员入口 500 缺陷的成因。
+
+## 观察到的异常与疑似缺陷
+
+以下为执行中发现的现象，按可复现步骤记录，未做修饰。第 1-3、7 项为历史观测，第 4-6、8-9 项为本次取证观测。
+
+1. **医院管理员页入口 500（已修复，影响 C26 判定，历史观测）**：上一轮从宿主菜单进入「本院区互认项目金额」即触发 `POST http://localhost:5014/Api/MedicalRecognitionReportQuery/QueryBranchRecognitionAmountList` 返回 500，Console 出现 error 级消息。根因与修复语义见「本轮修复与回归事实」。本轮同一操作返回 200、Console 无 error 级消息；该缺陷未再现。开发环境异常页仍会把完整堆栈返回给客户端。
+2. **切换标签页不自动重载（历史观测，本轮未针对该行为取证）**：在「互认项目金额维护」页选中范围并加载完成后，切到「标准项目目录维护」修改目录状态，再切回金额页，列表仍是上次渲染的数据；单击一次「重新读取金额列表」后新原因文案才出现。
+3. **一次列表请求因数据库连接被远端关闭返回 500（历史观测，本轮未复现）**：`Npgsql.NpgsqlException … SocketException (10054): 远程主机强迫关闭了一个现有的连接`，用完全相同参数重试后返回 200。本轮跨两个身份、两个页面数十次请求**未再出现任何 5xx**。
+4. **本轮写库记录（经正常业务入口形成，开发环境保留、不清理）**：`mrec_organization_hospital_branch_recognition_amount` 当前 **11 行**。本轮新增 3 行：`CSYY2/CSYQ2-2/123 = 55.55`、`0101/0101001/222 = 37.37`，以及 `CSYY2/CSYQ2-1/123` 的同值重复保存把 `oper_time` 由 `00:35:47.841632` 更新为 `02:15:03.621658`（金额仍 `66.66`，不是新增行）。其余行来自更早轮次（`0101/0101001/123 = 12.34`；`CSYY1/CSYQ1-1` 上 5 行；`CSYY1/CSYQ1-2` 上 2 行；`CSYY2/CSYQ2-1/123 = 66.66`）。
+5. **目录与配置状态复核**：标准目录启用项目 5 个，唯一未配置的目录项自身为停用。组织 `01` 的 5 条互认配置在复验轮只读复核时为 `is_valid` 全 `true`；随后在「补充取证」轮被负责人删除以构造无配置状态，该表当前为空。
+6. **互认配置被删除以构造无配置状态（本轮观测）**：组织 `01` 的全部 5 条互认配置经负责人确认为开发阶段测试数据后删除（未保留备份），删除后金额页可达行集为空。该状态用于取得保存拒绝面与空结果面（见「补充取证」节）。**重开轮已按正常业务路径重建 3 条配置**（`123` 启用、`222` 停用、`S1-D29-ITEM-20260915-001` 启用），金额页当前为 3 行，空结果面不再是当前环境状态；需要恢复空态时由负责人按同一路径调整配置。
+7. **宿主菜单子项数量与执行约定不一致（低影响，历史观测）**：执行约定描述「检验检查结果互认」下有 5 个子项，实测该菜单展开后为 **4** 项（`标准项目目录维护`、`互认项目`、`互认项目金额维护`、`本院区互认项目金额`）。本阶段需要的两个菜单项均在其中且可达。
+8. **宿主不提供子应用路由的顶级直达（本次取证观测）**：在宿主新标签直接打开 `http://183.224.180.166:35000/subApps/medical-recognition/branch-recognition-amounts` 返回宿主服务器的 `404 - 找不到文件或目录。`。该路径只在宿主的子应用 iframe 内由 micro-app 路由渲染。记录以备核对直达类验收手段：不能以顶级直达替代宿主菜单链路。
+9. **业务拒绝以 HTTP 500 返回，Development 下带开发环境异常页（本次取证观测，属框架行为）**：删除互认配置后的保存拒绝返回 **500**、`content-type: text/plain`，响应体为异常文本与完整调用堆栈（`DeveloperExceptionPageMiddleware` 输出）。该中间件由 `WebApplication` 只在 Development 环境自动插入管道，非 Development 不注册；本项目与框架都没有注册全局异常处理器，`Dy.LisCenter/server` 同样没有，且其架构测试 `ExceptionPipelineArchitectureTests` 明文禁止生产代码出现 `ProblemDetails`/`ExceptionFilter` 等自建管道。页面上的 `业务拒绝：…` 文案由宿主统一提示处理：本项目两个页面按设计不处理错误（源码注释为"错误由宿主统一展示"），`@dy/kiota-middleware` 的 `ErrorHandlerMiddleware` 经 `createAuthenticatedAdapter()` 装配后会把任何非 2xx 的 `statusCode`/`message`/`responseBody` 等字段上报宿主，宿主因此始终有可提示内容。该行为属框架行为，两个项目口径一致，本项目不自建异常管道。
 
 ## 结论
 
-阶段 3 目前只有设计与文档产出，56 条业务用例全部为 `NotRun`，没有可声明的通过证据。阶段是否收口由项目负责人裁定；本报告不代作结论，也不把设计决策标签计入测试统计。
+阶段 3 取得 **48** 条用例的完整证据（`Passed`），无确认失败，**4** 条受阻（V29、V30、C3、C11），**4** 条未执行（V16、C15、C22、C23）；另有 V27 的事件可见性子面经范围确认不适用（记 `N/A` + `AcceptedRisk`，作为子面不单独计入合计）。
+
+阶段结论有三项。其一是**修复未引入回归**：两个身份都从宿主登录页重新登录，两个页面首屏加载正常、Console 无业务错误、全量请求无 5xx，四处真实写入（两处新增、一处覆盖同值、一处零元/未配置呈现）与 dbx 回读一致；六项修复的直接影响面逐一在真实页面或真实库上得到确认（F1、F2、F3、F6）。其二是**报告归因已修正**：原先 25 条 `NotRun` 中有 **20** 条的层级不需要真实数据库且已有指向该用例边界的具体断言，改按 `Contract`/`Domain`/`Application`/`Query`/`Static`/`Component` 各自层级记录证据，并逐条写明复用条件与未覆盖面；`V6` 据修复后的契约断言转正。其三是**无互认配置的状态已构造**：删除组织 `01` 的全部互认配置后取得保存被拒绝面与空结果面，使 `V11`、`V20`、`V27`、`C10`、`C17` 五条转正；`V16` 与 `C15`、`C22`、`C23` 保持 `NotRun`。
+
+剩余缺口集中在三处：一是两条安全边界的构造能力（非可信医院院区提交、可信院区缺失上下文）在本环境的正常页面路径上不可达，使 C11 的第二类前置、V30 的拒绝面、C3 与 C15 缺宿主层证据；二是真实并发同步屏障（V16）与实际业务规模数据（C22）在本环境不可构造；三是"组件加载失败"的宿主层构造仍未命中（C23），受控注入还暴露了还原链脆弱问题。此外跨组织宿主面按 S3-D20 为已接受的环境边界。上述条目均未记为通过，已按环境边界接受并逐条登记（见「已确认的验证降级」节）。阶段 3 的验证矩阵至此无可继续取证的条目。收口时点此前列出的两项部署前事项均已闭合或按框架行为接受：子应用生产配置 `public/config.json` 已携带 `baseApiBaseUrl`（`http://183.224.180.166:35001`），其 `apiBaseUrl` 登记为部署占位地址 `http://183.224.180.166:35014`（尚未部署）；业务拒绝的响应形态属框架行为，两个项目口径一致，本项目不自建异常管道（见「未覆盖面与残余风险」）。两者均不改变本阶段已取得的验证结论，也不属本阶段矩阵的验证面。本报告不把设计决策标签计入测试统计。

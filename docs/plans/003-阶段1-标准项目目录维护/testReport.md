@@ -1,12 +1,12 @@
 # 阶段 1 阶段测试报告
 
-**阶段 1 已完成并于 2026-09-15 收口（负责人裁定，阶段状态 `Complete`）：S1-D29 五项真实宿主验收已于 2026-09-15 完成，验收中发现的停用过滤缺陷已按测试基线修复并复测。** 后端领域、仓储、SqlMap、四个查询与静态契约测试已实现并通过；三张 `mrec_` 表已由负责人建表执行，真实宿主链路已取得业务读写证据。后端 V 矩阵与前端 C 矩阵均已完成逐条核对与补测（第 25–39 轮），**两张矩阵均无 `PendingRetest`**（V 矩阵 `Passed` 54 / `AcceptedRisk` 1 / `N/A` 1；前端 `C64` 宿主分支记 `N/A` 环境边界）。第 40 轮完成后端输入校验归位与过度封装清理，后端测试更新为 21/21。仍未闭合的移交项见 [impl.md](impl.md) 的待办与交接表，均为非阻塞既存项。
+**阶段 1 已完成并于 2026-09-15 收口（负责人裁定，阶段状态 `Complete`）：S1-D29 五项真实宿主验收已于 2026-09-15 完成，验收中发现的停用过滤缺陷已按测试基线修复并复测。** 后端领域、仓储、SqlMap、四个查询与静态契约测试已实现并通过；三张 `mrec_` 表已由负责人建表执行，真实宿主链路已取得业务读写证据。后端 V 矩阵与前端 C 矩阵均已完成逐条核对与补测（第 25–39 轮），**两张矩阵均无 `PendingRetest`**（V 矩阵 `Passed` 54 / `AcceptedRisk` 1 / `N/A` 1；前端 `C64` 宿主分支记 `N/A` 环境边界）。第 40 轮完成后端输入校验归位与过度封装清理，后端测试更新为 21/21（第 42 轮后为 **257 passed / 0 failed**，以「当前执行结果」表为准）。仍未闭合的移交项见 [impl.md](impl.md) 的待办与交接表，均为非阻塞既存项。
 
-**当前状态入口**：本报告顶部的「当前执行结果」表、「结论」章节与第 40 轮章节是当前执行依据；其余历史章节仅作带日期的历史快照，不代表当前计数、决策状态或验收结果。顶部表格未逐条复核的后端 V 用例仍按历史状态记录。
+**当前状态入口**：本报告顶部的「当前执行结果」表、「结论」章节与第 42 轮章节是当前执行依据；第 42 轮为最近一轮（枚举协作契约落地，2026-09-17），其余历史章节仅作带日期的历史快照，不代表当前计数、决策状态或验收结果。顶部表格未逐条复核的后端 V 用例仍按历史状态记录。
 
 **数据库基线更正（2026-09-11）**：负责人明确本平台尚未建表，并确认独立 `mrec_` 表、实体不带前缀。下方历史记录中的“三张共享表”“类型迁移”“既有索引例外”是此前错误推断，现已撤销，不再作为执行依据；历史查询观察本身不等于平台拥有这些表。
 
-**宿主入口更正（2026-09-15）**：正确登录入口是登录下拉框中的「检验检查结果互认平台」；第 23 轮记录的「登录后菜单缺失」为该轮入口未真正选中所致，按负责人纠正作废。登录后左上标题应为「检验检查结果互认平台」，菜单为父项「检验检查结果互认」、子项「标准项目目录维护」。
+**宿主入口更正（2026-09-15 当时口径）**：正确登录入口是登录下拉框中的「检验检查结果互认平台」；第 23 轮记录的「登录后菜单缺失」为该轮入口未真正选中所致，按负责人纠正作废。登录后左上标题应为「检验检查结果互认平台」，菜单为父项「检验检查结果互认」、子项「标准项目目录维护」。
 
 设计与矩阵见 [design.md](design.md)、[Server/design.md](Server/design.md)、[Client/testPlan.md](Client/testPlan.md)。
 
@@ -16,14 +16,15 @@
 
 | 验证面 | 状态 | 实际命令或操作 | 证据边界 |
 |---|---|---|---|
-| 前端测试（适配层/纯逻辑 15 项 + 组件级 19 项，另 2 项 skip 记录缺口） | `Passed` | `pnpm -F dy-medical-recognition test`（34 passed / 2 skipped） | 纯逻辑覆盖名称搜索裁剪与 scope 保持、状态树回退、必要祖先、停用过滤、备注原值语义与写请求契约；组件级覆盖 `C57`/`C58`/`C62`/`C63`/`C64`/`C65`/`C68`/`C69` 的渲染与交互分支；**均不替代宿主验收**，见第 31 与 39 轮 |
+| 前端测试（10 个文件：阶段 1 目录页适配层/纯逻辑 `standardCatalogApi.test.ts` 19 项、组件级 `StandardCatalog.test.tsx` 24 项（含 2 项 skip，即 22 项执行）与 `StandardCatalog.enumMetadata.test.tsx` 1 项，其余为阶段 2/3 页面与公共 hook） | `Passed` | `pnpm -F dy-medical-recognition exec vitest run`（**214 passed / 2 skipped**，10 个文件，0 未处理拒绝；第 42 轮更新，未处理拒绝的判据边界见第 42 轮后的证据边界补记） | 纯逻辑覆盖名称搜索裁剪与 scope 保持、状态树回退、必要祖先、停用过滤、备注原值语义、写请求契约与枚举随行文案映射；组件级覆盖 `C57`/`C58`/`C62`/`C63`/`C64`/`C65`/`C68`/`C69`/`C75` 的渲染与交互分支；**均不替代宿主验收**，见第 31、39 与 42 轮 |
 | 前端类型检查、构建与静态检查 | `Passed` | `pnpm -F dy-medical-recognition build`（`tsc -b && vite build`）、`pnpm -F dy-medical-recognition lint` | 构建通过；lint 0 error、3 条既有 react-refresh warning；不证明业务行为 |
 | S1-D29 五项真实宿主验收 | `Passed` | 宿主登录 → 「检验检查结果互认平台」→「检验检查结果互认」→「标准项目目录维护」，见第二十四轮 | 第 24 轮交互经 React 事件属性驱动；第 25 轮已以 trusted 输入在全新浏览器作用域复现页面可操作性 |
 | 前端 C 缺口补测（C30/C33/C44/C47/C48/C49/C50/C72/C73/C74） | `Passed` | 第 25 轮真实宿主 trusted 输入 + 静态核对 | 见第二十五轮 |
 | 前端宿主层补测（`C67` 使用情况正反分支、`C66` 类型冻结与备注清空回读、`C62` 宿主分支） | `Passed` | 第 32 轮真实宿主，12 次真实写入，逐条取实际请求体与后端回读响应 | 见第三十二轮；`C62` 两个适用层级均已取证；`C64` 宿主分支记环境边界（`N/A`），见 32.5 |
 | 后端 V 矩阵逐条核对与补测（终态） | `Passed` **54** / `AcceptedRisk` 1 / `N/A` 1（共 56 条，**无 `PendingRetest`**） | 第 25 轮逐条核对 → 第 26 轮 D1–D7 裁定 → 第 27/28 轮 C/D 类补测 → 第 30 轮 V22 补测 → 第 31 轮 V57 关闭 → 按各轮实测重排终态，见 [Server/V矩阵核对-20260915.md](Server/V矩阵核对-20260915.md) 第 11 节 | V54 记 `AcceptedRisk`（框架事务回滚不做故障注入）、V56 记 `N/A`（事件队列语义留待后续阶段）；**V 矩阵已无待补测项** |
 | V57 新建脚本列序/注释/物理映射静态核对 | `Passed`（第 31 轮关闭） | 静态核对三份 DDL、三条唯一索引、4 个 SqlMap/29 条 Statement 的物理映射与 Scope 与调用点一致性 | DDL/SqlMap/索引/Scope **全部一致**，见 [Server/V矩阵核对-20260915.md](Server/V矩阵核对-20260915.md) 第 11.3 节 |
-| 后端单元/静态/契约测试 | `Passed` | `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj --no-restore`（**9/9**，第 29 轮由 7 条增至 9 条） | 覆盖事务声明分布、请求校验先于映射、无手工事务 API、查询契约分层与 SqlMap 注册；不证明数据库可用 |
+| 后端单元/静态/契约测试 | `Passed` | `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj`（**257 passed / 0 failed**，全项目，第 42 轮更新） | 覆盖事务声明分布、请求校验先于映射、无手工事务 API、查询契约分层与 SqlMap 注册，以及阶段 1 只读模型随行枚举文案与声明可空性（`Stage1ReadModelEnumTextTests`）；不证明数据库可用 |
+| 阶段 1 枚举协作契约（`S1-D32`） | `Passed` | 后端随行文案字段 + 前端「随行文案 → 枚举元数据 → 本地兜底」取值 + 真实宿主只读验收，见第四十二轮 | 宿主证据为真实响应正文与页面 DOM；本轮未做写入，写入路径结论沿用第 32 轮 |
 | 解决方案构建 | `Passed` | `dotnet build server/Dy.MedicalRecognition.slnx --no-restore` | 第 29 轮整改后 0 错误 0 警告 |
 | 后端代码治理整改 | `Passed` | 第 29 轮按三方审查结论整改：请求校验前移、`[WorkUnit]` 由 12 处降为 2 处、SqlMap 29 条补注释、Manager 补注释、删死语句与无用注入 | 含真实页面复测（去掉特性后写入成功）与非法入参 6/6 被 Request 层拦截；详见第二十九轮 |
 | GitNexus 变更检测 | `Passed` | `gitnexus detect-changes --repo Dy.MedicalRecognition` | 风险 `low`；索引本身为 2026-09-14 状态且提示过期 |
@@ -40,7 +41,7 @@
 
 - **轮次与时间**：2026-09-14 09:41–09:44（Asia/Shanghai）；控制工具为 Luna 暴露的 Chrome DevTools MCP，页面 `pageId=1`，Chrome User-Agent 为 `Chrome/152.0.0.0`。未读取或固化浏览器 Profile 标识。本轮沿用负责人提供的后端已重新 build、0 警告 0 错误启动前提，未重复 build。
 - **宿主链路**：从 `http://183.224.180.166:35000/login` 登录，账号标识 `yangkj`，选择「检验检查结果互认平台」；宿主首页进入「检验检查互认」→「标准项目目录维护」。未直达本地路由，未改认证存储。
-- **进程与地址**：前端 PID `29856`，`node ... vite.js --host localhost`，监听 `localhost:3008`；后端 PID `43628`，`Dy.MedicalRecognition.exe`，监听 `localhost:5008`。两进程均为本轮前已运行服务，未重启或关闭。
+- **进程与地址**：前端 PID `29856`，`node ... vite.js --host localhost`，监听 `localhost:3008`；后端 PID `43628`，`Dy.MedicalRecognition.exe`，监听 `localhost:5014`。两进程均为本轮前已运行服务，未重启或关闭。
 - **资源来源**：宿主菜单打开后请求 `GET http://localhost:3008/subApps/medical-recognition/standard-catalog` 返回 `200`；`@vite/client`、`src/main.tsx`、页面源码均来自 `localhost:3008`，Console 出现 `[vite] connected.`，确认开发拦截生效。
 - **宿主认证证据**：宿主 `POST /Api/Auth/Login`（Network `reqid=39`）返回 `200` 和有效登录响应；本地 API 请求携带宿主签发的 Bearer token，未复制或注入 token。
 
@@ -50,9 +51,9 @@
 
 | Network | 请求 | 实际响应 | 原始关键证据 |
 |---|---|---:|---|
-| `reqid=102` | `http://localhost:5008/Api/MedicalRecognitionReportQuery/QueryMedicalStandardCategoryList` | `401` | `www-authenticate: Bearer error="invalid_token", error_description="The token is not valid before '09/14/2026 11:41:12'"` |
-| `reqid=103` | `http://localhost:5008/Api/MedicalRecognitionReportQuery/QueryMedicalStandardGroupList` | `401` | 同上 |
-| `reqid=104` | `http://localhost:5008/Api/MedicalRecognitionReportQuery/QueryMedicalStandardItemList` | `401` | 同上 |
+| `reqid=102` | `http://localhost:5014/Api/MedicalRecognitionReportQuery/QueryMedicalStandardCategoryList` | `401` | `www-authenticate: Bearer error="invalid_token", error_description="The token is not valid before '09/14/2026 11:41:12'"` |
+| `reqid=103` | `http://localhost:5014/Api/MedicalRecognitionReportQuery/QueryMedicalStandardGroupList` | `401` | 同上 |
+| `reqid=104` | `http://localhost:5014/Api/MedicalRecognitionReportQuery/QueryMedicalStandardItemList` | `401` | 同上 |
 
 API 响应 `Date` 为 `Mon, 14 Sep 2026 01:41:12 GMT`，即东八区 `2026-09-14 09:41:12`；响应中的认证错误明确认为 token 尚未生效至 `2026-09-14 11:41:12`，两者相差约 2 小时。前端随后按统一认证错误边界回到宿主 `/login`，页面未进入可操作目录态。
 
@@ -63,9 +64,9 @@ API 响应 `Date` 为 `Mon, 14 Sep 2026 01:41:12 GMT`，即东八区 `2026-09-14
 ### 2026-09-14 轮次（历史）：S1-D29 真实宿主前置复测
 
 - **时间**：2026-09-14 14:38（Asia/Shanghai）；控制工具为受管 Chrome CDP CLI，Chrome `152.0.7977.83`，目标页 `61DDE51EDE638F901694289B3BF31A79`。本轮未使用或读取其他浏览器会话。
-- **前置**：前端 PID `29856` 监听 `localhost:3008`，后端 PID `43628` 监听 `localhost:5008`；两者均为本轮前已运行进程，未重启、未关闭。
+- **前置**：前端 PID `29856` 监听 `localhost:3008`，后端 PID `43628` 监听 `localhost:5014`；两者均为本轮前已运行进程，未重启、未关闭。
 - **宿主链路**：从 `http://183.224.180.166:35000/login` 登录 `yangkj`，账号返回的唯一入口为「信息科」，登录后宿主标题为「检验协同-信息科」。本轮未直达 localhost 路由。
-- **Network**：宿主 `POST /Api/Auth/Login`、`QueryAllMenu`、`QueryUserRoleMenu` 正常页面请求均为 `200`；宿主菜单展开后未发现「检验检查互认」或「标准项目目录维护」。本轮没有请求 `localhost:3008` 或 `localhost:5008`，也没有业务写入请求。为核对菜单数据而执行的页面读取探针再次请求上述两个菜单 API 得到 `401`，该探针不是业务验收链路，未据此判定登录失败。
+- **Network**：宿主 `POST /Api/Auth/Login`、`QueryAllMenu`、`QueryUserRoleMenu` 正常页面请求均为 `200`；宿主菜单展开后未发现「检验检查互认」或「标准项目目录维护」。本轮没有请求 `localhost:3008` 或 `localhost:5014`，也没有业务写入请求。为核对菜单数据而执行的页面读取探针再次请求上述两个菜单 API 得到 `401`，该探针不是业务验收链路，未据此判定登录失败。
 - **DOM**：宿主菜单实际仅显示「检验协同」下的「标准项目管理」「院区项目目录管理」等项；目标菜单不存在，因此没有目录树、项目表、名称搜索、显示停用或右侧筛选 DOM。
 - **Console**：读取探针产生两条宿主菜单 API `401` 网络错误；目标子应用未加载，未产生本地前端 Console 证据。
 - **截图**：`C:\Users\test\.codex\visualizations\2026\09\14\01a099e7-59e0-78d2-918b-df4ee8e43dc9-host-login.png`、`host-home.png`、`host-menu.png`。
@@ -79,7 +80,7 @@ Console 同时记录 3 次本地 API `401`、统一错误边界 `[POST 401] ... 
 
 - 阶段、矩阵版本与范围：阶段 1 标准项目目录维护（F01）；后端矩阵见 [Server/design.md](Server/design.md) 的验证矩阵，前端矩阵见 [Client/testPlan.md](Client/testPlan.md)。2026-09-14 第 21/22 轮已在真实宿主完成阶段业务矩阵写入与读回；2026-09-15 第 24 轮完成 S1-D29 五项验收并修复停用过滤缺陷。
 - 起始提交及已有修改：本轮未创建提交；工作区既有未提交改动见 [阶段 0 实施记录](../002-阶段0-现状对齐/impl.md) 的工作区状态章节；第 24 轮修改范围仅本报告、`Client/impl.md`、阶段根 `impl.md` 与前端过滤函数及其单测。
-- 执行环境与非敏感身份：宿主 `183.224.180.166:35000`，账号标识 `yangkj`，入口「检验检查结果互认平台」，菜单「检验检查结果互认」→「标准项目目录维护」；前端资源 `localhost:3008`，API `localhost:5008`。浏览器与控制工具见第二十四轮。
+- 执行环境与非敏感身份：宿主 `183.224.180.166:35000`，账号标识 `yangkj`，入口「检验检查结果互认平台」，菜单「检验检查结果互认」→「标准项目目录维护」；前端资源 `localhost:3008`，API `localhost:5014`。浏览器与控制工具见第二十四轮。
 - 进程、日志及收尾：前端 PID `29856`、后端 PID `43628` 均保持运行；未重启或关闭服务。第 24 轮另起的独立 Chrome 实例（端口 `9333`、独立 profile）属本轮自行启动，仅登记归属，未关闭负责人或其他任务的浏览器。
 
 ## 结果
@@ -104,7 +105,7 @@ Console 同时记录 3 次本地 API `401`、统一错误边界 `[POST 401] ... 
 | C36、C39、C41 | 编辑分类弹窗不含启用开关、停用分类的新增分组入口禁用、新增项目归属联动与停用父级禁选 | `Passed` | 第 33 轮真实宿主只读核对（**零写入**） | 见第 33 轮 33.2 | 已覆盖 |
 | C38、C40、C43 | 类型冻结边界含已停用下级、分组归属只读与有下级项目分支、项目仅备注可改与清空读回 | `Passed` | 第 35 轮真实宿主写读：`C38` 启用分类后名称备注保存成功且类型仍置灰；`C40` 有下级项目分组改备注并还原；`C43` A 改新值 / B 清空，读回响应为 `null`，均已还原 | 见第 35 轮 35.1–35.3 | 已覆盖 |
 | C46 | 当前有效的停用原因（自身 / 分组 / 分类） | `Passed` | 第 36 轮真实宿主：三种停用原因均由正常停用操作准备，且以**实际渲染的 Tooltip 文本**逐条取证 | 见第 36 轮 36.1 | 已覆盖 |
-| C66、C68 | 类型冻结、使用情况展示与状态过滤叠加下的冻结判断 | `Passed` | `C68` 于第 31 轮组件级（隐藏唯一停用下级仍判为已被下级使用）；`C66` 于第 32 轮真实宿主（含停用两态与备注清空回读） | 见第 31 轮 31.2、第 32 轮 32.3 | 已覆盖 |
+| C66、C68 | 类型冻结、使用情况展示与状态过滤叠加下的冻结判断 | `Passed` | `C68` 于第 31 轮组件级（隐藏唯一停用下级仍判为已使用，第 42 轮按服务端文案更新）；`C66` 于第 32 轮真实宿主（含停用两态与备注清空回读） | 见第 31 轮 31.2、第 32 轮 32.3、第 42 轮 42.5 | 已覆盖 |
 | C51、C54 | 编辑分类改为已存在名称被拒、编辑分组同分类名称唯一（排除自身） | `Passed` | 第 34 轮真实宿主：`C51` 同类型与跨类型各 1 次被拒（均 HTTP 500）；`C54` 同分类重名 2 次被拒、跨分类同名与保留自身名各 1 次成功，分组名称与归属回读复原 | 见第 34 轮 34.1–34.2 | 已覆盖 |
 | C45 | 反向启停入口与父级停用下独立启用分组与项目 | `Passed` | 第 36 轮真实宿主：启用/停用对象各只提供反向入口、无同方向重复；父级停用时启用分组与项目均成功、父级状态不变、项目仍显示当前无效 | 见第 36 轮 36.2 | 已覆盖 |
 | C34、C35 | 新增分类的可见与过滤分支、本地字面过滤与类型单选 | `Passed` | 第 37 轮真实宿主：`C35` 三分支保存成功（B/C 经换筛选条件独立证明存在于重载响应）；`C34` 首尾空白/大小写/`%`/`_` 字面/纯空白撤销/仅分组名保留祖先/仅分类名保留下级/均不命中一起隐藏全部符合，过滤与类型切换**零请求** | 见第 37 轮 37.1–37.2 | 已覆盖 |
@@ -113,26 +114,31 @@ Console 同时记录 3 次本地 API `401`、统一错误边界 `[POST 401] ... 
 | C58–C69 | 前端异步状态、失败恢复与派生刷新 | 组件部分 `Passed`；宿主部分 `C62`/`C66`/`C67` `Passed`，`C64` 宿主分支 `N/A`（环境边界） | 第 31 轮组件级受控读取装配（16 项通过）；第 32 轮真实宿主完成 `C67`/`C66`/`C62` | 见第 31 轮 31.2、第 32 轮 32.2–32.4 | `C64` 宿主分支：宿主仅提供「退出登录」，无可达的身份 A→B 切换入口，token 失效需 2 小时或伪造身份（用例禁止注入身份/token），故记环境边界、不记通过；另有 2 项组件缺口见 31.3 |
 | C70–C73 | 停用可见性、必要祖先、选择回退与两侧独立过滤 | `Passed` | 第 24 轮完成 S1-D29 五项并修复停用过滤缺陷；第 25 轮补 C72/C73 | 第 24/25 轮读回；`standardCatalogApi.test.ts` 10/10 | 已覆盖 |
 | C74 | 原型开发环境可用与生产构建隔离 | `Passed` | 第 25 轮核对 `routes.tsx` 的条件注册与动态导入，并扫描生产产物 | `import.meta.env.DEV` 条件注册；`dist/` 内无原型模块、模拟数据、内存 store 或原型路由字符串 | 未在生产静态服务器上实访问原型路径 |
+| C75 | 枚举文案来源与回退 | `Passed` | 第 42 轮：Contract 4 条（随行文案映射与归一、选项收窄、取值域守卫与越界/字符串下标）、Component 3 条（随行文案优先、缺失回退、枚举元数据驱动），真实宿主只读取证见 42.4 | 见第 42 轮 42.3–42.5；全量 `pnpm -F dy-medical-recognition exec vitest run` 214 passed / 2 skipped | 本地兜底文案与后端 `Description` 无自动比对，见 42.7 |
 
-测试状态只使用 `NotRun / Passed / Failed / Blocked / PendingRetest / N/A`。当前有效后端用例为 V1–V58 排除 V42/V55，共 56 项；前端排除 C25/C26 占位共 72 项。第 21/22 轮的 `401 invalid_token` 阻断已由新会话与校准后的令牌窗口解除；第 23 轮的菜单阻断经负责人纠正为入口未真正选中，第 24 轮已按正确入口完成。依赖项目负责人完成新建表的用例现已具备表结构前提；**后端 V 编号的逐条汇总已于第 30 轮完成**（`Passed` 54 / `AcceptedRisk` 1 / `N/A` 1，无 `PendingRetest`，见 [Server/V矩阵核对-20260915.md](Server/V矩阵核对-20260915.md) 第 11 节）。前端侧第 31 轮补齐组件级测试环境并完成 `C58`–`C69` 的组件部分，第 32 轮完成 `C62`/`C66`/`C67` 的宿主部分；`C64` 宿主分支按环境边界记录。
+测试状态只使用 `NotRun / Passed / Failed / Blocked / PendingRetest / N/A`。当前有效后端用例为 V1–V58 排除 V42/V55，共 56 项；前端排除 C25/C26 占位共 **73 项**（第 42 轮新增 `C75`）。第 21/22 轮的 `401 invalid_token` 阻断已由新会话与校准后的令牌窗口解除；第 23 轮的菜单阻断经负责人纠正为入口未真正选中，第 24 轮已按正确入口完成。依赖项目负责人完成新建表的用例现已具备表结构前提；**后端 V 编号的逐条汇总已于第 30 轮完成**（`Passed` 54 / `AcceptedRisk` 1 / `N/A` 1，无 `PendingRetest`，见 [Server/V矩阵核对-20260915.md](Server/V矩阵核对-20260915.md) 第 11 节）。前端侧第 31 轮补齐组件级测试环境并完成 `C58`–`C69` 的组件部分，第 32 轮完成 `C62`/`C66`/`C67` 的宿主部分；`C64` 宿主分支按环境边界记录。
 
 ## 问题与残余风险
 
 | 问题 | 影响 | 责任范围 | 后续动作 | 复测结果 |
 |---|---|---|---|---|
 | ~~后端 V 编号未逐条汇总~~ | 第 21/22 轮已取得真实写读证据，第 25–30 轮补齐对照与补测 | 本阶段 | 已在核对表第 11 节给出终态 | **已闭合**：`Passed` 54 / `AcceptedRisk` 1 / `N/A` 1（共 56 条，无 `PendingRetest`） |
-| 停止过滤缺陷（第 24 轮发现并修复） | 关闭「显示停用」后停用分类与停用下级仍显示，违反 S1-D27/S1-D29 与 C68/C70 | 本阶段前端 | 已修正 `visibleCatalogCategories` 可见性判定并新增 3 条单测 | `Passed`：真机复测隐藏生效；前端测试 34 passed / 2 skipped |
+| 停止过滤缺陷（第 24 轮发现并修复） | 关闭「显示停用」后停用分类与停用下级仍显示，违反 S1-D27/S1-D29 与 C68/C70 | 本阶段前端 | 已修正 `visibleCatalogCategories` 可见性判定并新增 3 条单测 | `Passed`：真机复测隐藏生效；前端测试现为 214 passed / 2 skipped（第 24 轮当时为 34 passed / 2 skipped） |
 | ~~硬件级输入语义未取证~~ | 第 24 轮受管 Chrome 未交付 `mousedown`/`keydown` | 本阶段运行环境 | 第 25 轮以全新独立 profile 复测 | **已解除**：该轮 `Input.dispatchMouseEvent`/`insertText` 正常交付且 `isTrusted=true`，仅属第 24 轮会话个体状态 |
 | 作用域的框架解析顺序未经本项目探测 | 未命中的原因尚未确定；实体作用域对齐为已选方案，不等于已证实根因 | 实施阶段 | 首批次输出查找键与注册键；证据不符时暂停相关修复并修订设计 | 不适用 |
 | MVP 并发边界（S1-D23，AcceptedRisk） | 分类改类型与新增分组竞态、父级停用与新增竞态或竞争启停失败；不宣称已覆盖。分组固定归属后排除平台改挂路径 | 本平台；负责人已确认 | 不执行专门交错测试；发现实际异常或规模增长时重新评估，数据修复由负责人决定 | 不适用 |
 | 框架若干运行语义未核实 | 省略 `UseTransaction` 的含义、事务回滚时事件是否丢弃、重试语义 | 实施阶段 | 列为实施验证门；无安全观察点的事件观察按规范记 `N/A` | 不适用 |
 | 异常类型的框架翻译链路未经本项目验证 | 前端错误边界与多个 Host 用例建立在该链路上；第 22 轮唯一性/停用父级拒绝已在页面侧观察 | 实施阶段 | ~~用一次真实失败链路验证业务错误语义与提示文案~~ | **第 32 轮已验证**：以真实业务拒绝（重复分类名）取得后端 `500` + `System.InvalidOperationException: 业务拒绝：分类名称已存在。` → 宿主统一提示「业务拒绝：分类名称已存在。」，页面自身无错误文案，见第 32 轮 32.4 |
-| GitNexus 索引过期 | 索引停留在 `2026-09-14`，`gitnexus status` 提示需 `analyze` | 本阶段 | 需精确影响面时重新索引后再判定 | `detect-changes` 风险 `low` |
+| GitNexus 索引 | 2026-09-17 重建后索引名为 `Lis`，提交 `f923c34` | 本阶段 | `--repo` 参数用 `Lis`，并按该索引核对变更 | 第 42 轮 `detect-changes` 返回 61 文件 / 305 符号 / 53 流程（整改前 285 符号 / 44 流程），为未提交工作区相对 `f923c34` 的累计差异 |
 | 标准项目的「使用情况」范围延期 | SRS 与阶段设计已同步本阶段不展示也不返回，不影响分类分组使用情况 | 后续阶段 | 需恢复该能力时先明确口径和引用关系 | 不适用 |
+| 本地兜底枚举文案与后端 `Description` 无自动比对（第 42 轮引入） | 后端枚举文案变更后，兜底路径（契约字段缺失或元数据接口不可用）可能短暂显示旧文案 | 本阶段前端 | 枚举文案变更时同步本地兜底表；若后续出现频繁变更，再评估自动比对 | 不适用 |
+| UML 校验器不在本仓库（第 42 轮） | 第 42 轮的 UML2 改动只做文本检查，未经 `validate-wsd.ps1` | 本阶段文档 | 需要完整 UML 校验时由具备该脚本的环境执行 | 不适用 |
 
 ## 结论
 
-截至 2026-09-15，S1-D29 五项已在真实宿主取得验收证据，第 24 轮同时定位并修复了「显示停用」关闭后停用分类未隐藏的前端缺陷。后端 V 矩阵（`Passed` 54 / `AcceptedRisk` 1 / `N/A` 1，共 56 条）与前端 C 矩阵（排除占位共 72 条，`C64` 宿主分支记 `N/A` 环境边界）均已完成逐条核对与补测，**两张矩阵均无 `PendingRetest`**。前端测试 34 passed / 2 skipped、后端测试 21/21（第 40 轮新增 11 条输入边界 Contract 用例与 1 条查询侧架构断言）、前后端构建与静态检查均通过。**负责人已于 2026-09-15 裁定收口，阶段状态为 `Complete`**；尚未闭合的移交项（Provider 中立性与空值语义验证、XML 文档 Analyzer 治理、GitNexus 索引、阶段 2 既存问题）见 [impl.md](impl.md) 的待办与交接表。
+截至 2026-09-15，S1-D29 五项已在真实宿主取得验收证据，第 24 轮同时定位并修复了「显示停用」关闭后停用分类未隐藏的前端缺陷。后端 V 矩阵（`Passed` 54 / `AcceptedRisk` 1 / `N/A` 1，共 56 条）与前端 C 矩阵（排除占位共 **73 条**，`C64` 宿主分支记 `N/A` 环境边界）均已完成逐条核对与补测，**两张矩阵均无 `PendingRetest`**。前端测试 **214 passed / 2 skipped**、后端测试 **257 passed / 0 failed**（第 40 轮当时分别为 34 passed / 2 skipped 与 21/21，第 42 轮新增枚举协作契约用例后为当前值）、前后端构建与静态检查均通过。**负责人已于 2026-09-15 裁定收口，阶段状态为 `Complete`**；尚未闭合的移交项（Provider 中立性与空值语义验证、XML 文档 Analyzer 治理、GitNexus 索引、阶段 2 既存问题）见 [impl.md](impl.md) 的待办与交接表。
+
+**2026-09-17 补充（第 42 轮）**：收口后按总体设计 5.3 补做枚举协作契约（`S1-D32`），C 矩阵新增 `C75`（编号改为 C1–C75，排除占位共 73 条），`C55`/`C68` 的展示文案更新为服务端 `UsageStatusText`；前端全量 214 passed / 2 skipped、后端 257 passed / 0 failed，真实宿主只读验收取证完成，四方向独立复核后的整改见 42.8。阶段结论与 V 矩阵计数不变，残余项见 42.7 与「问题与残余风险」。
 
 ## 文档静态检查
 
@@ -336,14 +342,14 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 
 ## 第十四轮宿主验收（2026-09-13）
 
-本轮仅执行真实宿主页面验收，不修改生产代码，不创建分支/worktree/commit，不写数据库，不伪造目录数据。起始工作区保留本轮前已有修改；后端 `5008` 由 `Dy.MedicalRecognition` PID `45556` 监听，前端 `3008` 由现有 `node` PID `56892` 监听，均未关闭。
+本轮仅执行真实宿主页面验收，不修改生产代码，不创建分支/worktree/commit，不写数据库，不伪造目录数据。起始工作区保留本轮前已有修改；后端 `5014` 由 `Dy.MedicalRecognition` PID `45556` 监听，前端 `3008` 由现有 `node` PID `56892` 监听，均未关闭。
 
 | 项目 | 本轮证据 |
 |---|---|
 | 宿主与身份 | `http://183.224.180.166:35000/login`；账号显示 `杨康健`；登录入口选择「检验检查结果互认平台」；凭据未写入文件或报告 |
 | 开发拦截 | `/dev-settings` 页面显示全局启用、`medical-recognition` 映射到 `http://localhost:3008` 且行启用；未改动 localStorage |
 | 菜单与路由 | 宿主菜单「检验检查结果互认」→「标准项目目录维护」可达；iframe 最终路由 `http://183.224.180.166:35000/subApps/medical-recognition/standard-catalog`；子应用 URL 为 `http://localhost:3008/subApps/medical-recognition/standard-catalog` |
-| Network | 资源包含 `http://localhost:3008/subApps/medical-recognition/@vite/client`、`src/main.tsx`、`src/pages/standardCatalog/StandardCatalog.tsx`、HMR 时间戳资源；页面发起三个 `http://localhost:5008/Api/MedicalRecognitionReportQuery/QueryMedicalStandard*List` 查询 |
+| Network | 资源包含 `http://localhost:3008/subApps/medical-recognition/@vite/client`、`src/main.tsx`、`src/pages/standardCatalog/StandardCatalog.tsx`、HMR 时间戳资源；页面发起三个 `http://localhost:5014/Api/MedicalRecognitionReportQuery/QueryMedicalStandard*List` 查询 |
 | Console | 看到 `[vite] connected.`；宿主另有菜单查询 CORS 错误（`QueryAllMenu` 使用 credentials 时服务端返回 wildcard origin），但宿主已从现有菜单状态完成目标菜单进入 |
 | DOM | 正式页面包含标题、目录树类型切换、显示停用、树搜索、重新读取、新增项目、项目列表、编码/名称/状态筛选、重置和空态；不是占位页 |
 | 数据前提 | 页面实际显示无分类/分组和 0 项；未执行新增、编辑、启停或其他写操作。匿名直读三个本地查询返回 `401`，不作为宿主认证链路替代 |
@@ -366,13 +372,13 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 
 | 项目 | 结果 | 实际证据 |
 |---|---|---|
-| 端口 `5008` | `Passed` | `::1/127.0.0.1:5008` 由 `Dy.MedicalRecognition` PID `45556` 监听 |
+| 端口 `5014` | `Passed` | `::1/127.0.0.1:5014` 由 `Dy.MedicalRecognition` PID `45556` 监听 |
 | 端口 `3008` | `Passed` | `::1:3008` 由现有 `node` PID `56892` 监听 |
 | 宿主登录 | `Passed` | `http://183.224.180.166:35000/login`；账号 `yangkj`；页面显示“杨康健”；`/Api/Auth/Login` 返回 `200` |
 | 入口选择 | `Passed` | 选择「检验检查结果互认平台」后进入宿主首页 |
 | 开发拦截配置 | `Passed` | `/dev-settings` 显示全局启用，`medical-recognition -> http://localhost:3008` 且行启用；localStorage 读回一致，未修改 |
 | 目标菜单 | `Failed` | 登录后菜单没有「标准项目目录维护」，只有「标准项目管理」；`QueryAllMenu`、`QueryUserRoleMenu` 均返回 `200` |
-| 目标资源来源 | `Failed` | 实际点击「标准项目管理」挂载 `lis-center`：`/subApps/lis-center/infrastructure/standard-items/admin`；资源来自宿主 `35000/35001`，未出现 `http://localhost:3008` 或 `http://localhost:5008` |
+| 目标资源来源 | `Failed` | 实际点击「标准项目管理」挂载 `lis-center`：`/subApps/lis-center/infrastructure/standard-items/admin`；资源来自宿主 `35000/35001`，未出现 `http://localhost:3008` 或 `http://localhost:5014` |
 | 目标路由诊断 | `Failed` | 直接访问 `/subApps/medical-recognition/standard-catalog` 返回宿主 `404 - 找不到文件或目录`；该诊断不替代菜单验收 |
 
 ### 用例状态
@@ -389,14 +395,14 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 
 - 浏览器：Chrome `152.0.7977.83`；控制工具：browser-debugging-and-control CLI/CDP；会话：`Luna`；目标页 ID `18A1C97E450E28EADE665D81C23BAEF9`。
 - Console：登录和宿主菜单路径未发现本轮新增页面异常；目标页未加载，因此没有正式页面 Console 证据可供业务用例使用。
-- DOM/Network：宿主菜单 DOM 明确包含「标准项目管理」而非「标准项目目录维护」；`micro-app` 为 `lis-center_tab_1_v1`，资源仅来自 `183.224.180.166:35000/35001`。登录与菜单响应均记录为 `204` 预检加 `200` 实际响应；未观察到 `localhost:3008/5008` 请求。
+- DOM/Network：宿主菜单 DOM 明确包含「标准项目管理」而非「标准项目目录维护」；`micro-app` 为 `lis-center_tab_1_v1`，资源仅来自 `183.224.180.166:35000/35001`。登录与菜单响应均记录为 `204` 预检加 `200` 实际响应；未观察到 `localhost:3008/5014` 请求。
 - 持久化读回：`/dev-settings` 读回 `dy-web-micro:dev-url-intercepts=[{"matchKey":"medical-recognition","origin":"http://localhost:3008","enabled":true}]`；未改写。
 - 截图：`C:\Users\test\.codex\visualizations\2026\09\13\01a099e7-59e0-78d2-918b-df4ee8e43dc9\luna-after-login.png`、`luna-dev-settings.png`、`luna-standard-project-management.png`、`luna-direct-standard-catalog-diagnostic.png`。
 - 未执行数据持久化读回、业务写请求、错误恢复、重复启停、唯一性失败、备注限制、状态联动或刷新验证；不以 `lis-center` 现有未知数据替代本阶段数据。
 
 ### 阻塞责任与复测条件
 
-当前阻塞点是宿主菜单/路由未部署或未授权到本阶段 `medical-recognition` 页面，且正式页未从 `localhost:3008` 加载。复测前需由负责人确认宿主菜单「标准项目目录维护」指向 `standard-catalog`，并在同一 Luna 链路的 Network 中看到 `localhost:3008` 子应用资源及 `localhost:5008` 查询请求；随后再按正常页面路径创建唯一分类、分组和标准项目，继续执行上述 Blocked/NotRun 用例。
+当前阻塞点是宿主菜单/路由未部署或未授权到本阶段 `medical-recognition` 页面，且正式页未从 `localhost:3008` 加载。复测前需由负责人确认宿主菜单「标准项目目录维护」指向 `standard-catalog`，并在同一 Luna 链路的 Network 中看到 `localhost:3008` 子应用资源及 `localhost:5014` 查询请求；随后再按正常页面路径创建唯一分类、分组和标准项目，继续执行上述 Blocked/NotRun 用例。
 
 ## 第十六轮宿主验收：纠正登录入口（2026-09-13）
 
@@ -407,12 +413,12 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 | 验证面 | 状态 | 本轮证据 |
 |---|---|---|
 | 前端端口 `3008` | `Passed` | PowerShell `Get-NetTCPConnection`：`node` PID `56892` 监听 `3008` |
-| 后端端口 `5008` | `Passed` | PowerShell `Get-NetTCPConnection`：`Dy.MedicalRecognition` PID `45556` 监听 `5008` |
+| 后端端口 `5014` | `Passed` | PowerShell `Get-NetTCPConnection`：`Dy.MedicalRecognition` PID `45556` 监听 `5014` |
 | 宿主登录 | `Passed` | `http://183.224.180.166:35000/login`；账号 `yangkj`；页面显示「杨康健」；选择登录下拉框「检验检查结果互认平台」后进入平台首页 |
 | 正确宿主菜单 | `Passed` | 宿主菜单实际为「检验检查结果互认」→「标准项目目录维护」；未使用其他同类文字入口 |
 | 开发 URL 劫持 | `Passed` | `micro-app` 的 `url` 为 `http://localhost:3008/subApps/medical-recognition/standard-catalog`；DOM 注入样式含 Vite 开发源路径，Console 出现 `[vite] connected.` |
 | 目标路由 | `Passed` | 子应用目标路径为 `/subApps/medical-recognition/standard-catalog`；宿主顶层 URL 保持 `http://183.224.180.166:35000/`，由 micro-app 挂载目标路由 |
-| API 来源 | `Passed` | 三个查询请求均发往 `http://localhost:5008/Api/MedicalRecognitionReportQuery/QueryMedicalStandard{Category,Group,Item}List`，最终响应 HTTP `200` |
+| API 来源 | `Passed` | 三个查询请求均发往 `http://localhost:5014/Api/MedicalRecognitionReportQuery/QueryMedicalStandard{Category,Group,Item}List`，最终响应 HTTP `200` |
 | Console | `Passed` | 本轮捕获 `[vite] connecting...`、`[vite] connected.`；未捕获 error、warn 或 `Log.entryAdded` 错误 |
 | 页面形态 | `Passed` | 真实页面显示「标准项目目录维护」、目录树、显示停用、类型切换、搜索、重置、重新读取、标准项目列表及空态；不是占位页 |
 
@@ -438,7 +444,7 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 
 ## 第十七轮 Luna 真实宿主业务矩阵执行（2026-09-13）
 
-本轮按用户授权使用 Luna 执行真实宿主链路。未修改生产代码，未创建分支/worktree/commit，未直接写数据库，未执行物理删除；密码和 token 未写入报告。前端 `3008` 与后端 `5008` 均已监听。
+本轮按用户授权使用 Luna 执行真实宿主链路。未修改生产代码，未创建分支/worktree/commit，未直接写数据库，未执行物理删除；密码和 token 未写入报告。前端 `3008` 与后端 `5014` 均已监听。
 
 ### 实际写入结果
 
@@ -464,7 +470,7 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 
 - 详细非敏感证据：[luna-real-host-write-failure.md](../../../.codex/evidence/stage1-20260913/luna-real-host-write-failure.md)
 - 截图：`C:\Users\test\.codex\visualizations\2026\09\13\01a099e7-59e0-78d2-918b-df4ee8e43dc9\luna-stage1-create-category-failed.png`、`luna-stage1-reload-empty.png`
-- 目标链路：宿主登录入口正确，`micro-app` URL 为 `http://localhost:3008/subApps/medical-recognition/standard-catalog`，查询 API 为 `http://localhost:5008`
+- 目标链路：宿主登录入口正确，`micro-app` URL 为 `http://localhost:3008/subApps/medical-recognition/standard-catalog`，查询 API 为 `http://localhost:5014`
 
 ### 残余风险
 
@@ -483,7 +489,7 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 | 开发拦截配置 | `Passed` | `/dev-settings` 显示全局启用；`medical-recognition -> http://localhost:3008` 且行启用；localStorage 读回一致 |
 | 目标菜单 | `Failed` | 当前宿主菜单 DOM 仅有「检验检查结果互认」，展开后没有「标准项目目录维护」 |
 | 目标路由诊断 | `Failed` | 直接访问 `http://183.224.180.166:35000/subApps/medical-recognition/standard-catalog` 返回宿主 `404 - File or directory not found`；该诊断不替代菜单验收 |
-| 目标资源/API | `Blocked` | 未挂载目标 micro-app，未产生 `localhost:3008` 页面资源或 `localhost:5008` 业务查询/写请求 |
+| 目标资源/API | `Blocked` | 未挂载目标 micro-app，未产生 `localhost:3008` 页面资源或 `localhost:5014` 业务查询/写请求 |
 
 宿主 Network 资源包含 `35001/Api/Menu/QueryAllMenu` 与 `35001/Api/UserQuery/QueryUserRoleMenu`，但页面最终只渲染顶层菜单。Console 本轮未捕获新增错误；目标页面未加载，故没有正式业务页面 Console 证据。证据截图：
 
@@ -503,7 +509,7 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 
 ### 阻塞结论
 
-本轮未能复测 `is_valid` 修复，不是后端结果失败，而是宿主没有提供本阶段菜单与目标路由：页面没有进入 `standard-catalog`，且宿主目标路径返回 404。复测前需要负责人在宿主权限/菜单系统确认「检验检查结果互认」→「标准项目目录维护」已部署并指向 `standard-catalog`；随后在同一 Luna 链路确认 `localhost:3008` 资源与 `localhost:5008` 查询请求，再从 C1 重新执行下游业务矩阵。
+本轮未能复测 `is_valid` 修复，不是后端结果失败，而是宿主没有提供本阶段菜单与目标路由：页面没有进入 `standard-catalog`，且宿主目标路径返回 404。复测前需要负责人在宿主权限/菜单系统确认「检验检查结果互认」→「标准项目目录维护」已部署并指向 `standard-catalog`；随后在同一 Luna 链路确认 `localhost:3008` 资源与 `localhost:5014` 查询请求，再从 C1 重新执行下游业务矩阵。
 
 ## 第十九轮真实宿主业务矩阵：C1 修复后复测（2026-09-13）
 
@@ -541,7 +547,7 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 
 | 验证面 | 状态 | 实际证据 |
 |---|---|---|
-| 后端 `localhost:5008` | `Passed` | `Dy.MedicalRecognition.exe` 监听 5008；页面查询和写请求均到达该地址 |
+| 后端 `localhost:5014` | `Passed` | `Dy.MedicalRecognition.exe` 监听 5014；页面查询和写请求均到达该地址 |
 | 前端 `localhost:3008` | `Passed` | `node` 监听 3008；宿主 `micro-app[url]` 为 `http://localhost:3008/subApps/medical-recognition/standard-catalog` |
 | 宿主登录与入口 | `Passed` | 从 `http://183.224.180.166:35000/login` 登录 `yangkj`，入口选择「检验检查结果互认平台」，首页显示「杨康健」 |
 | 宿主菜单进入 | `Passed` | 通过「检验检查结果互认」→「标准项目目录维护」进入，未直达 localhost 路由 |
@@ -583,14 +589,14 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 | 验证面 | 状态 | 本轮证据 |
 |---|---|---|
 | 起始提交与工作区 | `SourceConfirmed` | 起始 `HEAD=5521cb6b5eb0ba0382eab0efc4c6fdcacfefa1c6`；工作区已有其他修改，本轮不回退、不清理，仅修改本报告 |
-| 后端 | `Passed` | `Dy.MedicalRecognition.exe` PID `43628`，监听 `localhost:5008` |
+| 后端 | `Passed` | `Dy.MedicalRecognition.exe` PID `43628`，监听 `localhost:5014` |
 | 前端 | `Passed` | `node` PID `29856`，监听 `localhost:3008` |
 | 浏览器会话 | `Passed` | Chrome `152.0.7977.83`；Chrome DevTools MCP；隔离会话 `medical-recognition-stage1-retry-20260914-01`；目标页 ID `2` |
 | 宿主登录与入口 | `Passed` | 从指定登录页登录 `yangkj`，入口选择「检验检查结果互认平台」，首页显示「杨康健」 |
 | 宿主菜单 | `Passed` | 实际点击「检验检查结果互认」→「标准项目目录维护」，未用本地路由直达验收 |
 | 开发地址拦截 | `Passed` | 本隔离会话在宿主 `/dev-settings` 配置并启用 `medical-recognition -> http://localhost:3008`；配置写入当前浏览器本地存储 |
 | 子应用资源 | `Passed` | Network 看到 `http://localhost:3008/.../@vite/client`、`src/main.tsx`、`StandardCatalog.tsx` 等 `200`；Console 看到 `[vite] connected.` |
-| API 来源 | `Passed` | 查询与写入均来自 `http://localhost:5008`；请求 `origin` 为宿主 `http://183.224.180.166:35000` |
+| API 来源 | `Passed` | 查询与写入均来自 `http://localhost:5014`；请求 `origin` 为宿主 `http://183.224.180.166:35000` |
 | Console | `Passed` | 未捕获新增页面 `error/warn`；存在浏览器 `issue` 级提示及 Vite `debug`，不影响本轮链路 |
 
 ### Token 时间与认证结果
@@ -635,7 +641,7 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 
 | 项目 | 状态 | 证据 |
 |---|---|---|
-| 后端 | `Passed` | PID `43628`，`localhost:5008` |
+| 后端 | `Passed` | PID `43628`，`localhost:5014` |
 | 前端 | `Passed` | PID `29856`，`localhost:3008` |
 | 宿主登录/入口/菜单 | `Passed` | 指定登录页、入口和菜单链路完成 |
 | 开发拦截和资源来源 | `Passed` | `localhost:3008` 资源 `200`，Console `[vite] connected.` |
@@ -682,7 +688,7 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 
 | 验证项 | 状态 | 实际证据 |
 |---|---|---|
-| 后端 `5008` | `Passed` | `Dy.MedicalRecognition.exe` PID `43628` 监听 `localhost:5008`；本轮未启动或关闭进程 |
+| 后端 `5014` | `Passed` | `Dy.MedicalRecognition.exe` PID `43628` 监听 `localhost:5014`；本轮未启动或关闭进程 |
 | 前端 `3008` | `Passed` | `node` PID `29856` 监听 `localhost:3008`；本轮未启动或关闭进程 |
 | 宿主登录 | `Passed` | 指定登录页可达；账号填写后入口列表出现「检验检查结果互认平台」；提交后宿主 URL 为 `http://183.224.180.166:35000/`，DOM 显示「杨康健」 |
 | 入口选择 | `Passed` | 通过登录页实际选择「检验检查结果互认平台」 |
@@ -693,7 +699,7 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 ### DOM / Network / Console 证据
 
 - **DOM**：宿主首页菜单 `[role=menuitem]` 实际文本包含「检验协同」「标准项目管理」「院区项目目录管理」，不包含要求的「检验检查互认」或「标准项目目录维护」；当前页面仍为宿主首页。
-- **Network**：页面资源记录包含宿主静态资源及宿主 API：`/Api/User/GetUserByUserName`、`/Api/UserQuery/QueryUserLoginEntry`、`/Api/SubApplication/GetSubApplicationById`、`/Api/Auth/Login`、`/Api/Menu/QueryAllMenu`、`/Api/UserQuery/QueryUserRoleMenu`；未发现本地 `localhost:3008` 子应用资源加载，也未进入 `localhost:5008` 业务查询。
+- **Network**：页面资源记录包含宿主静态资源及宿主 API：`/Api/User/GetUserByUserName`、`/Api/UserQuery/QueryUserLoginEntry`、`/Api/SubApplication/GetSubApplicationById`、`/Api/Auth/Login`、`/Api/Menu/QueryAllMenu`、`/Api/UserQuery/QueryUserRoleMenu`；未发现本地 `localhost:3008` 子应用资源加载，也未进入 `localhost:5014` 业务查询。
 - **Console**：菜单核对期间 CLI `console --live-only --raw` 未捕获新增事件；未发现本轮新增页面 `error/warn`。
 - **截图**：[s1d29-menu-blocked-20260914.png](C:/Users/test/.codex/visualizations/2026/09/14/s1d29-menu-blocked-20260914.png)。
 
@@ -720,7 +726,7 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 | 验证面 | 状态 | 本轮证据 |
 |---|---|---|
 | 起始提交与工作区 | `SourceConfirmed` | 起始 `HEAD=5521cb6b5eb0ba0382eab0efc4c6fdcacfefa1c6`；工作区已有其他修改，本轮不回退、不清理 |
-| 后端 `5008` | `Passed` | `Dy.MedicalRecognition.exe` PID `43628` 监听 `localhost:5008`；本轮未启动或关闭该进程 |
+| 后端 `5014` | `Passed` | `Dy.MedicalRecognition.exe` PID `43628` 监听 `localhost:5014`；本轮未启动或关闭该进程 |
 | 前端 `3008` | `Passed` | `node` PID `29856` 监听 `localhost:3008`（`vite --host localhost`）；本轮未启动或关闭该进程 |
 | 浏览器与控制工具 | `Passed` | Chrome `152.0.7977.83`；`browser-debugging-and-control` CLI/CDP，独立实例端口 `9333`、独立 `--home`/profile（不复用任何既有 Profile） |
 | 宿主登录与入口 | `Passed` | 从 `http://183.224.180.166:35000/login` 登录 `yangkj`；账号填写后入口列表出现「信息科」「检验协同测试科室2-1-1」「检验检查结果互认平台」「开发中心」；实际选择「检验检查结果互认平台」后，登录前入口控件显示值读回为「检验检查结果互认平台」，并留存登录前截图 |
@@ -728,7 +734,7 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 | 宿主菜单 | `Passed` | 实际点击父项「检验检查结果互认」展开，再点击子项「标准项目目录维护」进入；未直达 localhost 或宿主 `/subApps/...` 路由 |
 | 开发地址拦截 | `Passed` | 本隔离会话在宿主 origin 写入并启用 `medical-recognition -> http://localhost:3008`（同时置全局开关 `true`） |
 | 子应用资源来源 | `Passed` | 宿主 `micro-app[name=medical-recognition_tab_1_v1]` 的 `url` 为 `http://localhost:3008/subApps/medical-recognition/standard-catalog`；Console 出现 `[vite] connected.`，其调用栈指向 `http://localhost:3008/subApps/medical-recognition/@vite/client` |
-| 业务数据来源 | `Passed` | 页面读回第 21/22 轮既有真实数据（两套分类/分组与四条项目），并显示「范围：检验 · 5 项」，证明查询来自 `localhost:5008` 真实后端 |
+| 业务数据来源 | `Passed` | 页面读回第 21/22 轮既有真实数据（两套分类/分组与四条项目），并显示「范围：检验 · 5 项」，证明查询来自 `localhost:5014` 真实后端 |
 | Console | `Passed` | 目标子应用路径上未捕获新增 `error/warn` |
 
 ### 交互控制方式与边界（重要限制）
@@ -1872,7 +1878,7 @@ value=[probe-nocat]  Required=True ; RegularExpression("\\S")=False ; StringLeng
 | `Repository/Dy.MedicalRecognition.Repository.csproj` | 新增 `Dy.Earthrace` 包引用（`BooleanTypeHandler` / `TypeHandlerFactory` 位于该程序集，版本仍由 `Directory.Packages.props` 统一） |
 | `Tests/Stage1SqlMapProbeTests.cs` | 新增架构断言：XML 必须声明布尔参数映射并被语句引用、模块必须注册该处理器；运行时注册测试补上「先注册处理器」的前置条件 |
 
-依据 [Backend Architecture](../../../../.agents/instructions/backend-architecture.md) 5.1：「分页、**参数绑定**、标识符和其他数据库方言优先交给 ORM/DataMapper/Earthrace 的当前 Provider 适配层生成」。
+依据 [Backend Architecture](../../../.agents/instructions/backend-architecture.md) 5.1：「分页、**参数绑定**、标识符和其他数据库方言优先交给 ORM/DataMapper/Earthrace 的当前 Provider 适配层生成」。
 
 ### 41.4 验证
 
@@ -1894,3 +1900,91 @@ value=[probe-nocat]  Required=True ; RegularExpression("\\S")=False ; StringLeng
 - 跨 Provider 声明仍只有 PostgreSQL 实测证据；若要声明跨库，须按 5.1 第 5 条在目标 Provider 上重跑同一验证矩阵。
 - **包引用带来的模板文件**：给 Repository 工程加 `Dy.Earthrace` 引用后，该包的 content 模板 `EarthraceConfig.json`（Oracle 示例，带注释）被复制进 `server/Dy.MedicalRecognition.Repository/`。LisCenter 的 Repository 工程下存在同一个文件且已被 git 跟踪，属该项目家族的既有做法，因此保留不改；运行期实际配置仍只取宿主的 `Dy.MedicalRecognition/EarthraceConfig.json`（PostgreSql），本文件不参与运行。
 - **阶段 2 观察项（未改动阶段 2 代码）**：`MutualRecognitionItem.xml` 的 `UpdateMutualRecognitionItemConfiguration` 在 `<Set>` 内用 `<IsNotEmpty>` 包裹 `RecognitionDurationDays` 与 `OperId`，其语义为「参数为空则不改该列」；该配置的「清空/恢复」口径需阶段 2 自行确认（参照 LisCenter `R1-P005` 的同类陷阱）。该文件不绑定布尔参数，无本轮同类缺陷。
+
+## 测试侧未处理拒绝观测补齐（2026-09-17）
+
+`StandardCatalog.test.tsx` 的 C64 写失败用例原先让写失败的拒绝逃逸到进程，由 `vite.config.ts` 的全局忽略兜住。按总体设计 5.2（写失败只由宿主统一展示、页面不得自行捕获），该用例改为在**用例内局部**安装 `process.on('unhandledRejection')` 观测器并断言恰好收到该笔拒绝、用例结束即移除监听；`vite.config.ts` 的全局忽略随之撤除，未预期到的拒绝今后会真实判红。本阶段用例的判定与结论不变（34 通过 | 2 跳过）；撤除后前端全量为 204 通过 | 2 跳过、0 未处理错误（后续轮次新增用例后，当前全量值以「当前执行结果」表为准）。本轮只改测试代码与测试配置，未改动生产代码、未改变任何用例的判定。
+
+**证据边界（第 42 轮补记）**：vitest 以「未处理拒绝的监听器数 > 1」判定调用方自行处理并**跳过自己的上报**，因此装有观测器的 **4 处**写失败用例（分布在 3 个测试文件）里，「0 未处理错误」对它们不构成独立证据——这 4 处的判据是 `expect(unhandled).toEqual([rejection])` 的精确数组断言；观测器只覆盖各自用例的执行窗口。已按复核整改补 `afterEach` 无条件兜底摘除监听、并把用例内 `finally` 改为「仅当登记的仍是本次观测器时才清空」（见 42.8），因此即使用例挂死或超时也不会把监听器残留到该 worker 的后续用例。
+
+## 第四十二轮 枚举协作契约落地（S1-D32，2026-09-17）
+
+### 42.1 范围与设计依据
+
+本轮把总体设计 5.3 的枚举协作契约落到本阶段：查询只读模型交付随行枚举文案，页面按「随行文案 → 枚举元数据 → 本地兜底」取值，页面不再自持枚举中文。设计先行记录见 [design.md](design.md) 的 `S1-D32`；同步的契约与展示口径见 [Server/design.md](Server/design.md) 的「输出契约」与 [Client/design.md](Client/design.md) 的「枚举中文来源」。
+
+随行文案字段：`MedicalStandardCategoryListReadModel` 与 `MedicalStandardItemListReadModel` 与 `EffectiveMedicalStandardCatalogTypeReadModel` 含 `ItemTypeText String?`，`MedicalStandardCategoryListReadModel` 与 `MedicalStandardGroupListReadModel` 含 `UsageStatusText String`，取值来自枚举成员上的 `Description`（SourceGen 描述器投影，SQL 内不写中文，应用层不维护第二份文案表）。由此「使用情况」的展示文案由页面自拟的「未被使用 / 已被下级使用」改为与 UML2 枚举声明一致的「未使用 / 已使用」；派生口径（是否存在下级、含已停用）与 `S1-D21` 不变。
+
+### 42.2 失败测试先于实现
+
+- **后端**：新增 `Stage1ReadModelEnumTextTests`（反射读取只读模型属性形状与语义）后运行 `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj`，取得 **5 条断言失败**（两个中文属性用例各 2 个取值 + 1 条取值域与只读用例；属性缺失时先由 `Assert.NotNull` 判红），非编译失败。同轮另有**冻结枚举清单的既有用例**因注册表键集合由 2 项变为 3 项而失败，已在同一轮同步。声明可空性不在上述 5 条内：由本轮补记的 `Enum_text_properties_declare_the_expected_nullability`（`NullabilityInfoContext` 反射标注，与阶段 2 读模型同一判据）单独覆盖。
+- **前端组件**：`StandardCatalog.test.tsx` 的 C68 使用情况断言先按目标文案运行，取得 **1 条断言失败**（实际显示旧文案「已被下级使用」）。
+- **前端文案来源**：新增 `StandardCatalog.enumMetadata.test.tsx` 后，以「页面不读取枚举元数据接口」的临时改动作判别性核对，该用例按预期失败（`Unable to find an element with the text: 检验（元数据）`），确认该用例确实判定元数据来源而非兜底文案；随后恢复实现并复跑通过。该核对为实施后的判别性验证，不作为「失败测试先于实现」的证据。
+
+### 42.3 通过结果与命令
+
+| 验证面 | 命令或操作 | 结果 |
+|---|---|---|
+| 后端测试 | `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj` | **257 passed / 0 failed**（全项目，含本轮新增与同步的阶段 1 用例） |
+| 前端全量测试 | `pnpm -F dy-medical-recognition exec vitest run` | **214 passed / 2 skipped**（10 个文件；未处理拒绝的判据边界见本节末） |
+| 前端类型检查与构建 | `pnpm -F dy-medical-recognition exec tsc -b`、`pnpm -F dy-medical-recognition build` | 0 错误；构建通过（仅既有 chunk 体积提示） |
+| 前端静态检查 | `pnpm -F dy-medical-recognition lint` | 0 error / 3 条既有 react-refresh warning |
+
+前端新增与同步的用例共 **10 条**：`standardCatalogApi.test.ts` 新增 4 条（随行文案进入行模型、缺失/空串/纯空白归一为无文案、项目类型选项收窄且不带元数据附加字段、取值域守卫与未知文案同源且越界/错误类型都判为未知），`StandardCatalog.test.tsx` 新增 3 条（随行文案优先、随行文案缺失回退到与后端同名的兜底文案、越界使用情况数值显示「未知」而非空文本），`StandardCatalog.enumMetadata.test.tsx` 新增 1 条（树节点、范围文案、筛选分段器、列表「类型」列与表单下拉取枚举元数据），`recognitionAmountsApi.test.ts` 新增 2 条（越界取值与字符串下标都显示未知、取值域守卫只认已确认数值取值）；同时更新 C68 与 C65 的未知使用情况断言。后端新增 1 条声明可空性用例与 2 条枚举守卫数据项（程序集描述器列表、转换器输出与枚举源码声明的第三种来源比对），并把注册表取值/名称/中文与冻结契约的枚举断言补齐到三个枚举。`Stage1ReadModelEnumTextTests` 使用反射而不直接引用新属性，保证改动前以断言失败而非编译失败暴露缺口。
+
+**未处理拒绝的判据边界**：vitest 以「未处理拒绝的监听器数 > 1」跳过自己的上报，因此装有观测器的 **4 处**写失败用例（分布在 3 个测试文件）的判据是 `expect(unhandled).toEqual([rejection])` 精确数组断言，而不是「全量为 0 未处理拒绝」这一计数。
+
+### 42.4 真实宿主验收（只读，2026-09-17）
+
+- **宿主链路**：`http://183.224.180.166:35000` 登录 `yangkj`（左上标题「检验检查结果互认平台」）→ 菜单「检验检查结果互认」→「标准项目目录维护」；子应用来自 `http://localhost:3008/subApps/medical-recognition/standard-catalog`，后端 `localhost:5014`。
+- **枚举元数据接口**：`reqid=760` `POST /Api/EnumMetadata/GetEnumMetadata` 请求体 `{"enumName":"MedicalItemType"}`，响应 `200`，正文 `[{"value":0,"name":"Laboratory","description":"检验"},{"value":1,"name":"Examination","description":"检查"}]`；页面树节点、范围文案、类型筛选分段器与表单项目类型下拉均显示该文案。
+- **分类列表随行文案**：`reqid=761` `POST /Api/MedicalRecognitionReportQuery/QueryMedicalStandardCategoryList` 响应 `200`，正文逐行含 `itemTypeText`（`检验`/`检查`）与 `usageStatusText`（`未使用`/`已使用`）。
+- **项目列表随行文案**：`reqid=763` `POST /Api/MedicalRecognitionReportQuery/QueryMedicalStandardItemList` 响应 `200`，6 行均含 `itemTypeText":"检验"`；页面「类型」列显示「检验」。
+- **弹窗只读展示**：打开分类「S1-C35-AbC-20260915」（`usageStatus=1`）的编辑弹窗，使用情况显示「已使用」，旧文案「已被下级使用」未出现；项目类型下拉显示元数据文案「检验」。
+- **写入边界**：本轮宿主验收只执行读取与弹窗查看，取消关闭弹窗，未创建、修改、启停任何数据，未使用直接写库。
+
+### 42.5 用例与矩阵状态
+
+| 用例 | 状态 | 证据边界 |
+|---|---|---|
+| `C55` | `Passed`（文案更新） | 组件层与真实宿主弹窗均显示服务端文案「已使用 / 未使用」；宿主证据见 42.4，组件证据见 `StandardCatalog.test.tsx` 的 C75 用例 |
+| `C68` | `Passed` | 组件用例按服务端文案断言；判定点（隐藏停用下级仍按存在下级冻结类型）不变 |
+| `C75` | `Passed` | Contract：`standardCatalogApi.test.ts` 映射与选项收窄；Component：`StandardCatalog.test.tsx` 与 `StandardCatalog.enumMetadata.test.tsx`（含列表「类型」列在随行文案缺失时回退到元数据）；「元数据返回空集合 → 保留兜底」的起点由既有 hook 用例 `useEnumMetadata.test.ts`「keeps the fallback when the server returns an empty list」覆盖；真实宿主见 42.4 |
+| `C27` | `Passed`（字段清单扩展） | 本轮重新生成 API Client 后核对 27 条 path、4 处整数枚举联合与 3 处可空引用；`ItemTypeText`/`UsageStatusText` 进入生成类型并由适配层映射 |
+| `V26` | `Passed`（预期扩展） | 见 [Server/design.md](Server/design.md) 的 V26 预期；本轮以真实响应正文（42.4）对照字段与文案，V 矩阵统计不变 |
+
+### 42.6 文档同步与静态检查
+
+同步修改：`docs/uml/2-MedicalRecognitionConfigurationUiQuery.wsd`（本阶段三个 List ReadModel 与有效目录类型 ReadModel 增补随行文案字段；阶段 2 与阶段 3 读模型上的同类字段由各自阶段轮次同步，不属本轮范围）、[Server/design.md](Server/design.md)（输出契约新增字段表、V26 预期、ReadModel 字段小结）、[Client/design.md](Client/design.md)（使用情况呈现文案与枚举中文来源规则）、[Client/testPlan.md](Client/testPlan.md)（`C55`/`C68` 文案、新增 `C75`、编号说明改为 C1–C75 共 73 条）、[design.md](design.md)（`S1-D32`）、[impl.md](impl.md) 与 [Client/impl.md](Client/impl.md)（批次状态与用例清单）。执行的检查：UTF-8 解码、行尾空白、冲突标记与 `git diff --check` 通过；仓库内不存在历史轮次使用的 `validate-wsd.ps1`（该脚本位于仓库外），本轮**未执行 UML 校验器**，UML2 改动仅做上述文本检查，该限制如实登记在「问题与残余风险」。变更检测执行 `gitnexus detect-changes --repo Lis`：**61 个文件 / 305 个符号 / 53 条受影响流程 / 风险 `critical`**（复核整改前为 285 个符号 / 44 条流程），该结果是**未提交工作区相对提交 `f923c34` 的累计差异**（含阶段 2、阶段 3 与本轮），不是本轮增量；本仓库在 GitNexus 中的索引名为 `Lis`（路径 `E:\MedSync\Dy.MedicalRecognition`，索引时间 2026-09-17，提交 `f923c34`），历史轮次使用的 `--repo Dy.MedicalRecognition` 在当前索引列表中已不存在。
+
+### 42.7 残余与登记
+
+- 本地兜底文案与后端枚举 `Description` 同名同值，属兜底用途的第二份文本；后端枚举文案变更时须同步本地兜底表（已写入 [Client/design.md](Client/design.md) 与代码注释）。当前未建立自动比对，登记为残余风险。
+- 历史轮次报告中的「已被下级使用 / 未被使用」为当时快照，自本轮起页面文案以服务端 `UsageStatusText` 为准，不再回改历史记录。**跨阶段追记已写入阶段 2 报告**（2026-09-17）：`docs/plans/004-阶段2-标准项目互认配置/testReport.md` 的残余表条目、两处回归守卫描述与「阶段1 枚举不纳入本轮」一节均已加「已消除」追记，说明触发条件即本轮的 `S1-D32`，并列出当前事实（登记与 `[Description]`、只读模型文本字段、冻结契约与生成端、前端三来源取值、展示文案「未使用 / 已使用」）；同报告对两个测试文件的「两个枚举 / 9 个枚举按名排除」描述也一并加了追记（现为三个枚举、排除清单 8 项）。
+- 项目类型的取值域与兜底文案原在两处适配层各存一份；配置状态的取值域与兜底文案原在阶段 2、阶段 3 各存一份。本轮已按同一方式收编为共享模块：`src/shared/medicalItemType.ts`（阶段 1/2/3）与 `src/shared/configurationStatus.ts`（阶段 2/3），四个适配层模块按各自既有名字转发，调用方与用例导入位置不变；只服务单个页面的选项管线（阶段 1 的项目类型表单/筛选选项、阶段 2 的配置状态筛选选项与启停动作文案、色板）不进共享模块。**取值域判定也已单点化**：共享模块导出 `isMedicalItemTypeValue`/`isConfigurationStatusValue`，三个适配层的映射守卫、阶段 1 的选项收窄与页面筛选/提交判定全部改调该出口（阶段 1 另为「使用情况」在适配层集中声明 `USAGE_STATUS_VALUES` 与 `isUsageStatusValue`，该枚举只服务本页面），改动前散在 10 处（11 行；分类提交处原有的两行重复判定已合并为一次）的 `value === 0 || value === 1` 字面量判定已清零；文本表与取值集合并运行时冻结（`Object.freeze`），避免任一页面就地改写外溢到其它页面。
+- 收编后生产代码中的**项目类型/配置状态**中文只剩共享模块两处 `Record<…>` 表。阶段 1 的 `USAGE_STATUS_TEXTS`（`standardCatalogApi.ts`，`{0:'未使用',1:'已使用'}`）是第三张表，但它是「使用情况」这一**只服务本页**的枚举兜底，不属跨页重复，按 42.7 第 1 条残余登记（与后端 `[Description]` 同名同值、尚无自动比对）。阶段 1 目录页自身的「启用 / 停用」是分类/分组/项目启停动作文案（载体是 `bool?`，非 `ConfigurationStatus`），保持原样。
+- A2 原型（`src/pages/prototype/`）自持改造前的「未被使用 / 已被下级使用」文案与自己的类型域，且不引用 `src/shared/*`；本轮正式页文案改为「未使用 / 已使用」后两处口径差异扩大。原型仅作设计对照，不作为当前展示口径依据（`Client/design.md` 的原型隔离口径覆盖的是生产隔离，不覆盖文案口径）。
+- 枚举元数据是进程级静态表，前端按「API Client 实例 + 枚举名」缓存且成功后不失效；若该接口将来改为按组织交付文案，缓存身份维度与失效时机必须同步扩展（`useEnumMetadata` 已注明该边界）。（阶段 1 的「使用情况」也未接入该接口，属 42.7 第 1 条残余；改接需先走设计确认。）
+- 本轮宿主验收为只读；写入路径与宿主错误边界的结论沿用第 32 轮，不因本轮重复取证而升级。
+
+### 42.8 复核发现与整改（2026-09-17）
+
+本轮工作另经一轮只读复核，复核提出的问题已按下表整改：
+
+- 展示层 `usageLabel` 恢复了取值域兜底（越界数值显示「未知」而非空文本），并补 1 条以越界数值装配页面的用例锁定该判断；三处只传本地兜底文案的项目类型标签改传枚举元数据，消除「同屏两种中文」；项目类型选项收窄结果改为按元数据引用缓存。
+- 共享兜底函数由「是否等于 `null`」改为取值域判定（越界、`NaN`、`undefined` 与字符串下标一律落到「未知 / 未知类型」，不再返回空文本、也不把 `'1'` 这类字符串伪造成已知文案），并补 2 条用例；取值域守卫与只读表同批落地（见 42.7 第 3 条）。
+- `Stage1ReadModelEnumTextTests` 补 1 条声明可空性用例（`NullabilityInfoContext`，与阶段 2 读模型同一判据），并修正 42.2 对 RED 的口径（该文件当时产生 5 条断言失败，声明可空性不在其中）。
+- 枚举回归守卫补齐到三个枚举：程序集描述器列表、转换器补齐取值/名称/中文、冻结契约的枚举取值与文案、生成端按数值读写、注册表取值/名称/中文、以及「转换器输出与枚举源码声明逐字一致」的第三种来源比对；三处「两个枚举」的过期注释同步改为三个。
+- 新增的两个非空 `UsageStatusText` 属性补「发布契约（OpenAPI/生成端）为可空、C# 侧非空」注记，与阶段 3 同类字段的既有注记同构；`MedicalStandardUsageStatus.InUse` 的 XML 摘要与 `[Description]` 口径对齐，并补「存在下级即为已使用、与下级是否停用无关」。
+- 文档口径：本报告顶部计数、结论与本节数字按整改后的实测值更新（后端 **257 passed / 0 failed**、前端 **214 passed / 2 skipped**），并补齐未处理拒绝判据的证据边界（4 处观测器）、42.6 的同步清单与 `testPlan` 中 `C75` 的起点与编号说明。
+- 其余属跨阶段或仓库交付面的事项不在本阶段改动面内，本报告不再登记其处置动作，由负责人按需另行决定。
+
+复核后按负责人裁定另行完成的项（不改业务行为）：
+
+- **用例内观测器加兜底摘除**：4 处写失败用例的 `process.on('unhandledRejection')` 观测器在保留用例内 `finally` 摘除的同时，于三个测试文件（`StandardCatalog.test.tsx`、`RecognitionProjects.test.tsx`、`RecognitionAmounts.test.tsx`）各加 `afterEach` 无条件兜底摘除，并把 `finally` 改为「先 `process.off`，仅当登记的仍是本次观测器时才清空」——防「超时用例迟到的 `finally` 解除后续用例兜底」。原因是该事件为进程级监听，若用例挂死或超时导致 `finally` 不执行，残留监听会让 vitest 判定调用方自行处理、静默跳过自己的未处理拒绝上报。用例内的精确数组断言 `toEqual([rejection])` 保持不变。
+- **端口同步登记补全**：`.agents/instructions/test-environment.md` 的端口登记条目补齐本轮端口调整的实际同步点（`prepare-openapi.mjs` 默认地址、`medicalRecognitionClient.ts` 默认基址、以及 `Stage2EnumContractTests.cs` 中作为样例文本出现的本地地址），并注明该测试文件内的地址是样例文本、与枚举契约无关。
+- **`EnumDescriptorText` 查找去重**：`Get` 改为在 `GetOrNull` 的结果上把「取值未登记」升级为 `ExtensionException`，查找逻辑只保留一份；异常类型、文案与两方法的既有可空语义均不变，等价性由本轮前后各跑一次全量后端用例（257 passed / 0 failed）作为基线。
+- **阶段 2 报告追记**：见 42.7 的跨阶段追记条目。
+- **项目类型与配置状态的取值域、兜底文案与判定合并**：新增跨页面共享模块 `src/shared/medicalItemType.ts`（`MEDICAL_ITEM_TYPES`、`MedicalItemTypeValue`、`MEDICAL_ITEM_TYPE_TEXTS`、`UNKNOWN_MEDICAL_ITEM_TYPE_TEXT`、`medicalItemTypeText`、`isMedicalItemTypeValue`）与 `src/shared/configurationStatus.ts`（`CONFIGURATION_STATUSES`、`ConfigurationStatusValue`、具名启用/停用常量、`CONFIGURATION_STATUS_TEXTS`、`UNKNOWN_CONFIGURATION_STATUS_TEXT`、`configurationStatusText`、`isConfigurationStatusValue`）；阶段 1 的 `standardCatalogApi.ts`、阶段 2 的 `recognitionProjectsApi.ts`、阶段 3 的 `recognitionAmountsApi.ts` 改为按各自既有名字转发，调用方与用例导入位置不变（阶段 2 的三条本页选项管线仍留在该模块）。等价性：数值与中文逐项一致（0 检验/1 检查/未知类型；1 启用/2 停用/未知），阶段 3 目录用例与阶段 2 适配层用例在转发后原样通过；判定单点化后原散在 10 处的字面量判定改调共享守卫，文本表与取值集合并运行时冻结。收编后生产代码中的项目类型/配置状态中文只剩这两处表（由 grep 全仓核对），阶段 1 的 `USAGE_STATUS_TEXTS` 属只服务本页的使用情况兜底（见 42.7），目录页自身「启用 / 停用」的启停动作文案不属该枚举，保持原样。
+- **`git diff --check` 的覆盖边界**：该命令只检查已跟踪差异，本轮新增文件（`src/shared/`、两个新测试文件等）在未跟踪集合中，故另行对未跟踪文本文件做了行尾空白与文件末换行检查（0 处异常）；报告中凡用 `git diff --check` 作为检查项时按此边界理解。
+- **转发面清理**：阶段 2、阶段 3 适配层只转发被消费的符号（`isMedicalItemTypeValue`、`medicalItemTypeText`、`configurationStatusText`、`isConfigurationStatusValue`、`CONFIGURATION_STATUSES` 与具名状态常量），移除了零消费者的 `MEDICAL_ITEM_TYPES`、`MEDICAL_ITEM_TYPE_TEXTS`、`UNKNOWN_CONFIGURATION_STATUS_TEXT` 三处转发；共享模块仍对外提供这些符号，阶段 1 的使用情况兜底表 `USAGE_STATUS_TEXTS` 依其单页属性保留在阶段 1 适配层。

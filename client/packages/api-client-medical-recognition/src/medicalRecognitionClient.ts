@@ -41,7 +41,7 @@ export function createMedicalRecognitionClient(requestAdapter: RequestAdapter) {
     }
     
     if (requestAdapter.baseUrl === undefined || requestAdapter.baseUrl === null || requestAdapter.baseUrl === "") {
-        requestAdapter.baseUrl = "http://localhost:5008";
+        requestAdapter.baseUrl = "http://localhost:5014";
     }
     const pathParameters: Record<string, unknown> = {
         "baseurl": requestAdapter.baseUrl,

@@ -17,17 +17,18 @@ namespace Dy.MedicalRecognition.Tests;
 /// <remarks>
 /// 对应阶段 2 立项修复的跨阶段缺陷：框架只为枚举生成 <c>{"type":"integer"}</c>，缺少取值集合时 Kiota
 /// 会把可空枚举退化为空对象类型，请求体在线上被写成 <c>{}</c>。本文件是该修复的回归守卫，
-/// 覆盖阶段 1 与阶段 2 共用的两个枚举（<see cref="MedicalItemType"/>、<see cref="ConfigurationStatus"/>）。
+/// 覆盖阶段 1 与阶段 2 共用的三个枚举（<see cref="MedicalItemType"/>、<see cref="ConfigurationStatus"/>、<see cref="MedicalStandardUsageStatus"/>）。
 /// 全部为静态证据（源码、程序集、冻结的 OpenAPI 输入、生成物），不依赖数据库与宿主。
 /// 源码类判据按 Roslyn 语法树判定（不做文本或正则匹配），共享工具见 <see cref="SourceSyntaxGuard"/>。
 /// </remarks>
 public sealed class Stage2EnumContractTests
 {
   /// <summary>登记在 OpenAPI 注册表里的对外枚举名称，按登记顺序。</summary>
-  private static readonly string[] ExpectedEnumNames = [nameof(ConfigurationStatus), nameof(MedicalItemType)];
+  private static readonly string[] ExpectedEnumNames =
+    [nameof(ConfigurationStatus), nameof(MedicalItemType), nameof(MedicalStandardUsageStatus)];
 
   /// <summary>
-  /// 两个对外枚举都必须在源码声明处启用描述器生成：缺少特性时描述器不会生成，
+  /// 三个对外枚举都必须在源码声明处启用描述器生成：缺少特性时描述器不会生成，
   /// 注册表与 OpenAPI 随之失去取值集合。
   /// </summary>
   /// <param name="fileName">枚举源码文件名。</param>
@@ -36,6 +37,7 @@ public sealed class Stage2EnumContractTests
   [Theory]
   [InlineData("ConfigurationStatus.cs", nameof(ConfigurationStatus), "[Description(\"启用\")]", "[Description(\"停用\")]")]
   [InlineData("MedicalItemType.cs", nameof(MedicalItemType), "[Description(\"检验\")]", "[Description(\"检查\")]")]
+  [InlineData("MedicalStandardUsageStatus.cs", nameof(MedicalStandardUsageStatus), "[Description(\"未使用\")]", "[Description(\"已使用\")]")]
   public void Public_enums_opt_into_enum_descriptor_generation(string fileName, string enumName, string enabledDescription, string disabledDescription)
   {
     string source = File.ReadAllText(Path.Combine(
@@ -55,6 +57,7 @@ public sealed class Stage2EnumContractTests
   [Theory]
   [InlineData(nameof(ConfigurationStatus))]
   [InlineData(nameof(MedicalItemType))]
+  [InlineData(nameof(MedicalStandardUsageStatus))]
   public void Enum_assembly_contains_generated_descriptor_list(string enumName)
   {
     byte[] assemblyBytes = File.ReadAllBytes(typeof(ConfigurationStatus).Assembly.Location);
@@ -65,10 +68,10 @@ public sealed class Stage2EnumContractTests
   }
 
   /// <summary>
-  /// 注册表必须恰好登记这两个对外枚举，且取值、名称与中文说明与业务定义一致。
+  /// 注册表必须恰好登记这三个对外枚举，且取值、名称与中文说明与业务定义一致。
   /// </summary>
   /// <remarks>
-  /// 本用例只守"不得多登记、不得漏掉这两个、顺序与取值稳定"。
+  /// 本用例只守"不得多登记、不得漏掉这三个、顺序与取值稳定"。
   /// "阶段2 契约上新增枚举却漏登记"由
   /// <c>Stage2EnumMetadataQueryTests.Stage2_contract_enums_match_the_registry_whitelist</c> 按契约类型扫描枚举属性守卫。
   /// </remarks>
@@ -88,6 +91,12 @@ public sealed class Stage2EnumContractTests
     Assert.Equal([0, 1], medicalItemType.Select(descriptor => descriptor.Value).ToArray());
     Assert.Equal(["Laboratory", "Examination"], medicalItemType.Select(descriptor => descriptor.Name).ToArray());
     Assert.Equal(["检验", "检查"], medicalItemType.Select(descriptor => descriptor.Description).ToArray());
+
+    IReadOnlyList<IEnumDescriptor> medicalStandardUsageStatus =
+      MedicalRecognitionEnumDescriptorRegistry.Descriptors[nameof(MedicalStandardUsageStatus)];
+    Assert.Equal([0, 1], medicalStandardUsageStatus.Select(descriptor => descriptor.Value).ToArray());
+    Assert.Equal(["Unused", "InUse"], medicalStandardUsageStatus.Select(descriptor => descriptor.Name).ToArray());
+    Assert.Equal(["未使用", "已使用"], medicalStandardUsageStatus.Select(descriptor => descriptor.Description).ToArray());
   }
 
   /// <summary>
@@ -99,6 +108,7 @@ public sealed class Stage2EnumContractTests
   {
     OpenApiSchema configurationStatusSchema = new() { Enum = [JsonValue.Create(999)] };
     OpenApiSchema medicalItemTypeSchema = new() { Enum = [JsonValue.Create(999)] };
+    OpenApiSchema medicalStandardUsageStatusSchema = new() { Enum = [JsonValue.Create(999)] };
     OpenApiSchema unrelatedSchema = new();
     OpenApiDocument document = new()
     {
@@ -108,6 +118,7 @@ public sealed class Stage2EnumContractTests
         {
           [nameof(ConfigurationStatus)] = configurationStatusSchema,
           [nameof(MedicalItemType)] = medicalItemTypeSchema,
+          [nameof(MedicalStandardUsageStatus)] = medicalStandardUsageStatusSchema,
           ["UnrelatedSchema"] = unrelatedSchema
         }
       }
@@ -122,9 +133,12 @@ public sealed class Stage2EnumContractTests
     Assert.Equal([0, 1], medicalItemTypeSchema.Enum!.Select(value => value!.GetValue<int>()).ToArray());
     Assert.Equal(["Laboratory", "Examination"], ExtensionValues(medicalItemTypeSchema, "x-enumNames"));
     Assert.Equal(["检验", "检查"], ExtensionValues(medicalItemTypeSchema, "x-enumDescriptions"));
+    Assert.Equal([0, 1], medicalStandardUsageStatusSchema.Enum!.Select(value => value!.GetValue<int>()).ToArray());
+    Assert.Equal(["Unused", "InUse"], ExtensionValues(medicalStandardUsageStatusSchema, "x-enumNames"));
+    Assert.Equal(["未使用", "已使用"], ExtensionValues(medicalStandardUsageStatusSchema, "x-enumDescriptions"));
     Assert.Null(unrelatedSchema.Enum);
     Assert.Null(unrelatedSchema.Extensions);
-    Assert.Equal(3, document.Components.Schemas.Count);
+    Assert.Equal(4, document.Components.Schemas.Count);
   }
 
   /// <summary>
@@ -147,6 +161,11 @@ public sealed class Stage2EnumContractTests
     Assert.Equal([0, 1], medicalItemType["enum"]!.AsArray().Select(node => node!.GetValue<int>()).ToArray());
     Assert.Equal(["检验", "检查"], medicalItemType["x-enumDescriptions"]!.AsArray().Select(node => node!.GetValue<string>()).ToArray());
 
+    JsonNode medicalStandardUsageStatus = document["components"]!["schemas"]![nameof(MedicalStandardUsageStatus)]!;
+    Assert.Equal([0, 1], medicalStandardUsageStatus["enum"]!.AsArray().Select(node => node!.GetValue<int>()).ToArray());
+    Assert.Equal(["Unused", "InUse"], medicalStandardUsageStatus["x-enumNames"]!.AsArray().Select(node => node!.GetValue<string>()).ToArray());
+    Assert.Equal(["未使用", "已使用"], medicalStandardUsageStatus["x-enumDescriptions"]!.AsArray().Select(node => node!.GetValue<string>()).ToArray());
+
     JsonNode requestProperty = document["components"]!["schemas"]![
       "RecognitionProjectConfigurationListQueryRequest"]!["properties"]!["configurationStatus"]!;
     Assert.Null(requestProperty["oneOf"]);
@@ -154,7 +173,7 @@ public sealed class Stage2EnumContractTests
   }
 
   /// <summary>
-  /// 生成端必须把两个枚举属性按数值读写：属性类型为 <c>number | null</c>、序列化走 <c>writeNumberValue</c>，
+  /// 生成端必须把三个枚举属性按数值读写：属性类型为 <c>number | null</c>、序列化走 <c>writeNumberValue</c>，
   /// 且不再出现空对象回退类型；这三条正是缺陷期线上写出 <c>{}</c> 的直接原因。
   /// </summary>
   [Fact]
@@ -165,8 +184,10 @@ public sealed class Stage2EnumContractTests
 
     Assert.Contains("configurationStatus?: number | null;", models, StringComparison.Ordinal);
     Assert.Contains("itemType?: number | null;", models, StringComparison.Ordinal);
+    Assert.Contains("usageStatus?: number | null;", models, StringComparison.Ordinal);
     Assert.Contains("writer.writeNumberValue(\"configurationStatus\"", models, StringComparison.Ordinal);
     Assert.Contains("writer.writeNumberValue(\"itemType\"", models, StringComparison.Ordinal);
+    Assert.Contains("writer.writeNumberValue(\"usageStatus\"", models, StringComparison.Ordinal);
     Assert.DoesNotContain("_configurationStatusMember1", models, StringComparison.Ordinal);
     Assert.DoesNotContain("_itemTypeMember1", models, StringComparison.Ordinal);
     // 缺陷期实际存在的两个按上下文命名的回退类型：即使将来出现同名前缀的新类型，也必须由具体名称守卫回归。
@@ -302,7 +323,7 @@ public sealed class Stage2EnumContractTests
       {
         public void OnPostConfigureServices(object context)
         {
-          string address = "http://localhost:5008/";
+          string address = "http://localhost:5014/";
           context.Services.ConfigureAll<OpenApiOptions>(options =>
             options.AddDocumentTransformer(new MedicalRecognitionEnumOpenApiDocumentTransformer()));
         }
@@ -446,7 +467,7 @@ public sealed class Stage2EnumContractTests
   /// </summary>
   /// <remarks>
   /// 路径按**完整集合相等**断言（不是计数 + 几个 Contains），失败信息自带差异；
-  /// 下面的清单是 2026-09-16 真实后端输出 + 归一的快照，**新增或删除端点时必须同步本清单与生成入口**。
+  /// 下面的清单是**阶段 3 交付后**真实后端输出 + 归一的快照，**新增或删除端点时必须同步本清单与生成入口**。
   /// </remarks>
   [Fact]
   public void Frozen_openapi_keeps_the_expected_path_set_and_no_unnormalized_shapes()
@@ -472,13 +493,17 @@ public sealed class Stage2EnumContractTests
       "/Api/MedicalRecognitionReport/EnableMedicalStandardGroup",
       "/Api/MedicalRecognitionReport/EnableMedicalStandardItem",
       "/Api/MedicalRecognitionReport/EnableMutualRecognitionItem",
+      "/Api/MedicalRecognitionReport/SaveBranchRecognitionAmount",
+      "/Api/MedicalRecognitionReport/SaveOrganizationHospitalBranchRecognitionAmount",
       "/Api/MedicalRecognitionReport/UpdateMedicalStandardCategory",
       "/Api/MedicalRecognitionReport/UpdateMedicalStandardGroup",
       "/Api/MedicalRecognitionReport/UpdateMutualRecognitionItemConfiguration",
+      "/Api/MedicalRecognitionReportQuery/QueryBranchRecognitionAmountList",
       "/Api/MedicalRecognitionReportQuery/QueryEffectiveMedicalStandardCatalog",
       "/Api/MedicalRecognitionReportQuery/QueryMedicalStandardCategoryList",
       "/Api/MedicalRecognitionReportQuery/QueryMedicalStandardGroupList",
       "/Api/MedicalRecognitionReportQuery/QueryMedicalStandardItemList",
+      "/Api/MedicalRecognitionReportQuery/QueryRecognitionAmountList",
       "/Api/MedicalRecognitionReportQuery/QueryRecognitionProjectConfigurationList",
       "/auth/login"
     ];

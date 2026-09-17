@@ -13,7 +13,7 @@
 **两个保存入口。** `IMedicalRecognitionReportAppService` 新增两个方法：
 
 - `SaveOrganizationHospitalBranchRecognitionAmountAsync(SaveOrganizationHospitalBranchRecognitionAmountRequest)`：平台管理员入口。Request 提交 `OrganizationCode`、`HospitalCode`、`BranchCode`、`StandardProjectCode`、`CurrentAmount`；组织、医院、院区三个值按请求使用，服务端校验其存在、启用与父子归属。
-- `SaveBranchRecognitionAmountAsync(SaveBranchRecognitionAmountRequest)`：医院管理员入口。Request 只提交 `BranchCode`、`StandardProjectCode`、`CurrentAmount`；`OrganizationCode` 与 `HospitalCode` 由服务端从可信上下文注入，请求不提交也不得覆盖。
+- `SaveBranchRecognitionAmountAsync(SaveBranchRecognitionAmountRequest)`：医院管理员入口。Request 只提交 `BranchCode`、`StandardProjectCode`、`CurrentAmount`；`OrganizationCode` 与 `HospitalCode` 由服务端从可信上下文注入，请求不提交也不得覆盖。可信上下文的组织层与医院层按同一规则解析：登录令牌该层非空白即取令牌值，令牌该层缺失或空白时用当前登录用户档案的 `OrgId`/`HosId` 补齐，令牌与用户档案都提供该层且不一致即拒绝，补齐后该层仍为空即拒绝（S3-D11）。
 
 两个入口都从可信上下文 `HttpRequestInfo.UserId` 解析操作人为非空 `Guid`，无法解析或为 `Guid.Empty` 时拒绝；操作时间使用 `DateTimeOffset.UtcNow`。两个入口都要求当前组织已建立该标准项目编码的互认配置（SRS F10 前置条件 3 与备选流 3），未建立即拒绝保存。
 
@@ -22,11 +22,11 @@
 - `QueryRecognitionAmountListAsync(RecognitionAmountListQueryRequest)`：平台管理员入口，Request 提交 `OrganizationCode`（必填）、`HospitalCode`（必填）、`BranchCode`（必填）、`StandardProjectCode`（可选，字面包含）。
 - `QueryBranchRecognitionAmountListAsync(BranchRecognitionAmountListQueryRequest)`：医院管理员入口，Request 只提交 `BranchCode`（必填）与 `StandardProjectCode`（可选）；组织与医院来自可信上下文。
 
-两个入口的**取值口径与保存一致**（S3-D1、S3-D18）：平台管理员入口的组织、医院、院区取自请求提交值，服务端校验三者存在、启用且父子归属正确；医院管理员入口的组织与医院取自可信上下文（缺失即拒绝，不使用默认值、不降级为空值），请求院区必须属于可信医院，不属于即拒绝，不降级为空集合。**不得要求平台管理员入口的查询组织等于可信上下文组织**——那会使平台管理员无法查询其他组织、医院、院区的金额，与 SRS「互认项目金额维护」页面要求 1、UML2 的 `QueryRecognitionAmountList` 说明及本阶段 S3-D1 冲突。`RecognitionAmountReadModel` 字段固定为：`StandardProjectCode`、`StandardProjectName`、`ItemType`、`CategoryName`、`GroupName`、`OrganizationName`、`HospitalName`、`BranchName`、`ConfigurationStatus`、可空 `UnavailableReason`、可空 `CurrentAmount`、`IsAmountConfigured`；不返回组织编码、医院编码、院区编码，不返回最后修改时间与最后修改人。按标准项目编码升序，不分页。
+两个入口的**取值口径与保存一致**（S3-D1、S3-D11、S3-D18）：平台管理员入口的组织、医院、院区取自请求提交值，服务端校验三者存在、启用且父子归属正确；医院管理员入口的组织与医院取自可信上下文——登录令牌该层非空白即取令牌值，令牌该层缺失或空白时用当前登录用户档案补齐，令牌与用户档案都提供该层且不一致即拒绝，补齐后该层仍为空即拒绝（不使用默认值、不降级为空值），请求院区必须属于可信医院与可信组织，不属于即拒绝、不降级为空集合；**院区不做可信授权回落**，院区仍由请求提交并由组织路径解析校验归属（S3-D19）。**不得要求平台管理员入口的查询组织等于可信上下文组织**——那会使平台管理员无法查询其他组织、医院、院区的金额，与 SRS「互认项目金额维护」页面要求 1、UML2 的 `QueryRecognitionAmountList` 说明及本阶段 S3-D1 冲突。`RecognitionAmountReadModel` 字段固定为：`StandardProjectCode`、`StandardProjectName`、`ItemType`、`CategoryName`、`GroupName`、`OrganizationName`、`HospitalName`、`BranchName`、`ConfigurationStatus`、可空 `UnavailableReason`、可空 `CurrentAmount`、`IsAmountConfigured`、可空 `ItemTypeText`、非空 `ConfigurationStatusText`；不返回组织编码、医院编码、院区编码，不返回最后修改时间与最后修改人。两个枚举中文是只读计算属性，由服务端按枚举 `Description` 解析（`ItemTypeText` 取值未登记时为 `null`，`ConfigurationStatusText` 未登记取值按严格解析抛出），口径见 [总体计划设计](../../001-总体计划/design.md) 5.3 与本阶段 S3-D21。按标准项目编码升序，不分页。
 
 **分层职责。** Host 绑定 Request；Application 校验公共输入、解析可信组织/医院/操作人、编排外部组织服务、把编码解析为 Command 并调用 Manager；Domain Manager 校验业务不变量、维护持久化协调与事件登记；Repository 负责金额读写、业务键读取、唯一冲突识别与查询 SQL；Contracts 不引用 Domain Entity。Request、Command、ReadModel、Entity、DomainEvent 分离。
 
-组织服务契约已按字节级元数据核对（**尚未真实调用**）：`IOrganizationAppService` 提供 `QueryAllOrganizationAsync()`、`QueryAllValidHospitalByOrgIdAsync(OrgId)`、`QueryAllValidBranchByOrgIdAsync(OrgId)`、`QueryAllValidBranchByHosIdAsync(HosId)`、`GetOrganizationByIdAsync`/`GetHospitalByIdAsync`/`GetBranchByIdAsync`；组织、医院、院区的**业务编码由 `Id`（`String`）承载**、没有独立 `Code` 字段、启用状态由 `IsValid` 承载（以上为元数据级核对，**未逐类型绑定复核**）；**没有**父子归属的专用校验方法，需由调用方在内存比对 `HospitalDto.OrgId` 与 `BranchDto.OrgId`/`HosId`。本项目 `server/Dy.MedicalRecognition` 目前**未引用** `Dy.Base.Application.Contracts`，`appsettings.Development.json` 中的代理只有配置、没有调用代码；须在批次 1 新增该包引用与中央版本条目，并以实测 restore/build 确认（`Dy.Core.Abstractions` 为 `1.1.0.54` 而该包要求 `≥1.1.0.49`，本机无该组合的构建先例）。若实测 restore/build 失败，退路**须先经负责人确认后选定，不自行降级**：① 对齐 `Dy.Core.Abstractions` 到该包兼容的版本（**影响全解决方案的中央版本，须按 `repository-safety` 评估并取得负责人确认**）；② 改由 Host 侧在请求进入时提供组织路径数据，不新增服务端外部调用。无论选哪条，都不得降级为"不校验归属"。
+组织服务契约已按字节级元数据核对（**尚未真实调用**）：`IOrganizationAppService` 提供 `QueryAllOrganizationAsync()`、`QueryAllValidHospitalByOrgIdAsync(QueryAllValidHospitalByOrgIdRequest)`、`QueryAllValidBranchByOrgIdAsync(QueryAllValidBranchByOrgIdRequest)`、`QueryAllValidBranchByHosIdAsync(QueryAllValidBranchByHosIdRequest)`、`GetOrganizationByIdAsync`/`GetHospitalByIdAsync`/`GetBranchByIdAsync`（三者同样各接一个请求对象：`GetOrganizationByIdRequest`/`GetHospitalByIdRequest`/`GetBranchByIdRequest`）；三个按父级编码查询的方法**入参是请求对象**，各请求对象只承载一个字符串编码（`OrgId` 或 `HosId`），不是直传编码；组织、医院、院区的**业务编码由 `Id`（`String`）承载**、没有独立 `Code` 字段、启用状态由 `IsValid` 承载（以上为元数据级核对，**未逐类型绑定复核**）；**没有**父子归属的专用校验方法，需由调用方在内存比对 `HospitalDto.OrgId` 与 `BranchDto.OrgId`/`HosId`。本项目 `server/Dy.MedicalRecognition` 已引用 `Dy.Base.Application.Contracts` `1.0.0.184`，中央版本条目已就位，并已实测 restore/build 通过（`Dy.Core.Abstractions` 为 `1.1.0.54`，该包要求 `≥1.1.0.49`，该组合已在本解决方案构建成功）。外部组织服务接入不得改变归属校验口径：组织、医院、院区必须由服务端按外部服务的返回值校验存在、启用与父子归属，不因新增外部调用而放宽或省略该校验。
 
 ### 层目录与类型归属
 
@@ -61,7 +61,8 @@
 | `IMedicalRecognitionReportRepository` | 扩展既有仓储接口 | D/Aggregate | 金额按业务键读取、新建与覆盖写入 | Provider 类型 |
 | `MedicalRecognitionReportRepository` | 修改既有仓储 | R/Aggregate | 实现上述接口、影响行数检查、唯一冲突识别 | 决定金额是否可保存 |
 | `OrganizationPathResolver` | 新增应用内部服务 | A/Validation | 一次性批量读取组织、医院、院区，内存校验父子归属并返回名称三元组 | 公共契约、角色授权判断、按行查询 |
-| `TrustedOrganizationResolver` | 扩展既有内部解析点 | A | 增加可信医院解析（与既有可信组织解析同一去空白与拒绝口径） | 判断调用方是否有权 |
+| `TrustedOrganizationResolver` | 复用既有内部解析点 | A | 可信**组织**的唯一解析点：既有的同步去空白与取不到即拒绝口径不变，阶段 2 的五个调用点继续使用 | 医院解析、用户档案补齐、判断调用方是否有权 |
+| `TrustedScopeResolver` | 新增应用内部服务 | A/Validation | 阶段 3 四个入口共用的可信组织与医院解析点：令牌优先、缺失层按当前登录用户档案补齐、两者都有且不一致即拒绝，院区层不参与回落 | 公共契约、角色授权判断、按行查询 |
 | `IMedicalRecognitionReportQueryRepository` | 扩展既有查询仓储接口 | D/Queries | 金额列表内部投影查询 | 公共 ReadModel、授权判断 |
 | `MedicalRecognitionReportQueryRepository` | 扩展既有查询仓储 | R/Queries | SQL 关联互认配置、标准目录与金额，排序返回投影 | 领域写入 |
 | `RecognitionAmountListItem` | 新增内部投影 | D/Queries | 仓储返回金额行及目录三层状态，供 Application 派生原因与填充名称 | 充当公共契约 |
@@ -76,7 +77,7 @@
 
 两个入口解析完成后交给 Manager 的领域数据完全相同，入口差异只存在于 Application 的取值来源与校验顺序，因此不建立第二个 Command；S3-D3 记录了该收敛及其理由。事件不携带入口标识。
 
-**查询链**：Host → 查询 Request → `MedicalRecognitionReportQueryAppService` 解析可信组织（医院管理员入口另解析可信医院）→ `OrganizationPathResolver` 一次性批量读取并校验路径、同时取得组织/医院/院区名称 → 既有 `IMedicalRecognitionReportQueryRepository` 的新增方法 → `MedicalRecognitionReportQueryRepository` / `MedicalRecognitionReportQuery.xml`，以 `mrec_mutual_recognition_item` 为行集、按业务键 LEFT JOIN `mrec_organization_hospital_branch_recognition_amount`、关联标准目录取得名称/类型/分类/分组与三层启用状态，按标准项目编码升序 → `RecognitionAmountListItem` → Application 派生 `UnavailableReason`、填充名称与 `IsAmountConfigured`、映射 `RecognitionAmountReadModel`。查询不得产生写入、审计事件或消息。
+**查询链**：Host → 查询 Request → `MedicalRecognitionReportQueryAppService` 解析可信组织（医院管理员入口另解析可信医院）→ `OrganizationPathResolver` 一次性批量读取并校验路径、同时取得组织/医院/院区名称 → 既有 `IMedicalRecognitionReportQueryRepository` 的新增方法 → `MedicalRecognitionReportQueryRepository` / `MedicalRecognitionReportQuery.xml`，以 `mrec_mutual_recognition_item` 为行集、按业务键 LEFT JOIN `mrec_organization_hospital_branch_recognition_amount`、关联标准目录取得名称/类型/分类/分组与三层启用状态，按标准项目编码升序 → `RecognitionAmountListItem` → Application 派生 `UnavailableReason`、填充名称与 `IsAmountConfigured`、映射 `RecognitionAmountReadModel`（两个枚举中文由读模型按枚举描述派生）。查询不得产生写入、审计事件或消息。
 
 内部投影携带分类/分组/项目三层启用状态供派生原因，公共返回不泄漏这三层原始字段，只返回派生后的 `UnavailableReason`。金额未配置时 `CurrentAmount` 为 `null`；不以 `0` 冒充未配置。
 
@@ -103,9 +104,9 @@
 
 ### 保存归属与并发
 
-平台管理员入口按请求使用组织、医院、院区，并校验三者存在、启用且父子归属正确；不校验调用方是否有权访问该组织，权限由权限系统负责（S3-D2）。医院管理员入口的组织与医院只来自可信上下文，请求不提交；缺少任一层即拒绝，不使用默认值、不降级为空值；请求院区必须存在、启用且属于可信医院，否则拒绝。医院管理员只能在本医院（可信上下文所属医院）范围内选择院区（S3-D19）；**不引入"院区级数据权限"概念**，服务端不做该层校验，权限由权限系统负责（S3-D2）。
+平台管理员入口按请求使用组织、医院、院区，并校验三者存在、启用且父子归属正确；不校验调用方是否有权访问该组织，权限由权限系统负责（S3-D2）。医院管理员入口的组织与医院只来自可信上下文，请求不提交；可信上下文由登录令牌声明与当前登录用户档案共同构成，组织层与医院层按同一规则解析：令牌该层非空白即取令牌值，令牌该层缺失或空白时用当前登录用户档案补齐，令牌与用户档案都提供该层且不一致即拒绝，补齐后该层仍为空即拒绝，不使用默认值、不降级为空值（S3-D11）；请求院区必须存在、启用且属于可信医院与可信组织，否则拒绝。医院管理员只能在本医院（可信上下文所属医院）范围内选择院区（S3-D19），院区层不做可信授权回落；**不引入"院区级数据权限"概念**，服务端不做该层校验，权限由权限系统负责（S3-D2）。
 
-可信组织与医院的解析沿用既有 `TrustedOrganizationResolver` 的去空白与拒绝口径，新增 `ResolveHospitalOrThrow(string? hospitalCode, string missingHospitalMessage)`，不新建解析类。两个入口都以"当前组织已建立该标准项目编码的互认配置"为保存前提，不因互认配置停用或标准目录停用而阻断金额维护（SRS F10 业务规则 5）。
+阶段 3 的可信组织与可信医院由 `TrustedScopeResolver` 解析，不由 `TrustedOrganizationResolver` 提供医院：令牌某层缺失时按当前登录用户档案补齐该层，令牌与用户档案都提供且不一致即拒绝，补齐后该层仍为空即拒绝，全部判定先去除首尾空白。该解析只作用于阶段 3 的四个入口；阶段 2 的五个调用点继续用 `TrustedOrganizationResolver` 按令牌声明取可信组织，行为不变。两个入口都以"当前组织已建立该标准项目编码的互认配置"为保存前提，不因互认配置停用或标准目录停用而阻断金额维护（SRS F10 业务规则 5）。
 
 按业务键读取后：无记录则 `INSERT` 一条新行（`Id` 由 Manager 生成，操作字段取 Command）；有记录则按 `id` 与四个业务键列做条件 `UPDATE`，只更新 `current_amount`、`oper_time`、`oper_id`。`UPDATE` 影响 0 行时按同一业务键复读一次：记录已被删除（正常业务不可达）即拒绝，金额已被并发改为相同值即按成功处理并登记事件，仍无法解释即返回并发冲突并提示刷新后重试，不自动无限重试、不替用户循环重放意图。影响行数大于 1 视为持久化不变量异常，不返回成功、不登记事件。
 
@@ -177,7 +178,7 @@ V25 单元验证事件构造与登记规则，不能替代 V27 的真实生产�
 | V11 | 当前组织未建立该标准项目的互认配置 | Domain/Application | 拒绝，无写入、无事件 | 是 | 否 | 标准项目存在但无互认配置 |
 | V12 | 平台管理员入口取值来源 | Application/Contract | 请求的组织、医院、院区被采用；操作人只来自可信上下文；Request 不含操作人 | 否 | 否 | 可信身份 + 三个请求值 |
 | V13 | 医院管理员入口取值来源与越权院区 | Application/Contract | Request 不含组织与医院；组织与医院取可信上下文；请求院区不属于可信医院时拒绝 | 否 | 否 | 可信组织/医院；本医院院区与它医院院区 |
-| V14 | 医院管理员入口可信组织或医院缺失 | Application | 拒绝，不使用默认值、不降级为空值 | 否 | 否 | 缺少 `org` 或 `hos` 的身份上下文 |
+| V14 | 医院管理员入口可信组织或医院缺失，以及令牌缺失层由用户档案补齐 | Application | 令牌与用户档案都取不到该层时拒绝，不使用默认值、不降级为空值；令牌该层缺失而用户档案提供该层时按补齐后的范围继续，令牌与用户档案都提供且不一致时拒绝 | 否 | 否 | 缺少 `org` 或 `hos` 的身份上下文；令牌缺少 `hos` 且用户档案提供医院；令牌与用户档案的组织或医院不一致 |
 | V15 | 标准目录或互认配置停用后仍可保存金额 | Domain/Application | 成功，不因停用被阻断 | 是 | 否 | 目录/配置停用但互认配置存在 |
 | V16 | 并发首次保存同一业务键 | Repository/Application | 唯一约束兜底；冲突翻译为业务拒绝；库中恰 1 行、无脏写、无事件 | 是 | 否 | 正常接口建立互认配置后同步屏障并发提交 |
 | V17 | 行集由互认配置驱动、金额 LEFT JOIN | Query | 行数等于该组织已配置标准项目数；未配置行 `IsAmountConfigured=false`、`CurrentAmount` 为 `null` | 是 | 否 | 同一组织多个互认配置，其中部分已保存金额 |

@@ -1,40 +1,66 @@
 using System.ComponentModel.DataAnnotations;
+using Dy.Base.Application.Contracts.OrganizationAggregate;
+using Dy.Base.Application.Contracts.UserAggregate;
 using Dy.Core.Abstractions.Http;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Dtos;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
+using Dy.MedicalRecognition.Application.Validation;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
 
 namespace Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate;
 
 /// <summary>
-/// 标准目录与互认项目配置的写入口。
+/// 标准目录、互认项目配置与互认项目金额的写入口。
 /// </summary>
-/// <remarks>仅新建标准分组和新建标准项目声明显式事务；其余标准目录用例与四个互认项目配置用例各只有一条写语句，不声明显式事务。</remarks>
+/// <remarks>仅新建标准分组和新建标准项目声明显式事务；其余标准目录用例、四个互认项目配置用例与两个金额保存用例各只有一条写语句，不声明显式事务。</remarks>
 public partial class MedicalRecognitionReportAppService : ApplicationService, IMedicalRecognitionReportAppService
 {
   /// <summary>
-  /// 标准目录与互认项目配置的领域管理器。
+  /// 标准目录、互认项目配置与金额的领域管理器。
   /// </summary>
   private readonly MedicalRecognitionReportManager manager;
 
   /// <summary>
-  /// 互认项目配置写入口按标准项目编码解析服务端目录标识所需的仓储端口。
+  /// 互认项目配置写入口按标准项目编码解析服务端目录标识，以及金额保存前校验互认配置存在所需的仓储端口。
   /// </summary>
   private readonly IMedicalRecognitionReportRepository repository;
 
   /// <summary>
+  /// 金额保存入口校验组织、医院、院区路径所用的解析点。
+  /// </summary>
+  /// <remarks>一次调用只解析一批目标路径，读取次数不随请求条数增长。</remarks>
+  private readonly OrganizationPathResolver organizationPathResolver;
+
+  /// <summary>
+  /// 医院管理员金额保存入口解析可信组织与可信医院所用的解析点。
+  /// </summary>
+  /// <remarks>令牌已提供组织与医院两层时不读取用户档案；令牌缺失的层由当前登录用户档案补齐。</remarks>
+  private readonly TrustedScopeResolver trustedScopeResolver;
+
+  /// <summary>
   /// 初始化写入口。
   /// </summary>
-  /// <remarks>保留执行目录业务规则校验、数据读写与事件登记的领域管理器，以及按编码读取标准目录的仓储端口。</remarks>
-  /// <param name="manager">目录与互认配置领域管理器。</param>
-  /// <param name="repository">标准目录读取与互认配置归属校验使用的仓储端口。</param>
-  public MedicalRecognitionReportAppService(MedicalRecognitionReportManager manager, IMedicalRecognitionReportRepository repository)
+  /// <remarks>
+  /// 保留执行目录业务规则校验、数据读写与事件登记的领域管理器，按编码读取标准目录的仓储端口，以及组织路径解析所用的外部组织服务；
+  /// 可信范围解析所用的外部用户服务在构造函数内转交内部解析点。
+  /// </remarks>
+  /// <param name="manager">目录、互认配置与金额领域管理器。</param>
+  /// <param name="repository">标准目录读取、互认配置归属校验与保存前提校验使用的仓储端口。</param>
+  /// <param name="organizationAppService">提供组织、医院与院区主数据的外部组织服务。</param>
+  /// <param name="userAppService">提供当前登录用户组织与医院归属的外部用户服务，用于补齐令牌缺失的可信层。</param>
+  public MedicalRecognitionReportAppService(
+    MedicalRecognitionReportManager manager,
+    IMedicalRecognitionReportRepository repository,
+    IOrganizationAppService organizationAppService,
+    IUserAppService userAppService)
   {
     this.manager = manager;
     this.repository = repository;
+    organizationPathResolver = new OrganizationPathResolver(organizationAppService);
+    trustedScopeResolver = new TrustedScopeResolver(userAppService);
   }
 
   /// <summary>
@@ -346,5 +372,98 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
     disableMutualRecognitionItemCommand.OperId = userId;
     disableMutualRecognitionItemCommand.OperTime = DateTimeOffset.UtcNow;
     return await manager.DisableMutualRecognitionItemAsync(disableMutualRecognitionItemCommand);
+  }
+
+  /// <summary>
+  /// 保存组织医院院区互认项目金额（平台管理员入口）。
+  /// </summary>
+  /// <remarks>
+  /// 组织、医院与院区三个值按请求使用，服务端校验三者存在、启用且父子归属正确，不要求请求组织等于登录令牌的组织声明；
+  /// 互认配置存在性按解析去空白后的组织编码与请求标准项目编码校验，未建立即拒绝；
+  /// 操作人与操作时间由服务端写入，标准目录或互认配置停用都不阻断金额维护。
+  /// 三个请求值可能带首尾空白，去空白由组织路径解析点统一完成，写入命令使用解析结果。
+  /// 金额在契约上可空并声明必填，缺省由公共请求校验拒绝；校验通过后按已确定非空的值显式写入命令，不依赖自动映射。
+  /// </remarks>
+  /// <param name="request">保存金额请求，携带组织、医院、院区、标准项目编码与本次金额。</param>
+  /// <returns>是否保存成功。</returns>
+  /// <exception cref="ArgumentNullException">请求为 null 时抛出（请求校验先于一切判定，此时不进入领域调用、不写入任何数据）。</exception>
+  /// <exception cref="ValidationException">请求字段不满足契约声明的必填约束时抛出，此时不进入领域调用、不写入任何数据。</exception>
+  /// <exception cref="InvalidOperationException">
+  /// 登录令牌的用户标识不能解析为非空 Guid，或请求的组织、医院、院区不存在、已停用、父子归属不匹配时抛出；
+  /// 当前组织未建立该标准项目的互认配置、金额为负数或超过两位小数、并发首次保存命中唯一约束、
+  /// 条件更新影响 0 行且复读无法解释为成功或影响行数大于 1 时同样抛出，这些情况都不登记保存事件。
+  /// </exception>
+  public async Task<bool> SaveOrganizationHospitalBranchRecognitionAmountAsync(SaveOrganizationHospitalBranchRecognitionAmountRequest request)
+  {
+    MedicalRecognitionRequestValidator.Validate(request);
+    SaveOrganizationHospitalBranchRecognitionAmountCommand command = request.MapToSaveOrganizationHospitalBranchRecognitionAmountCommand();
+    // 金额由两个入口在公共请求校验通过后显式写入，因此请求侧金额不参与自动映射（见 MedicalRecognitionReportDataMaps.cs）：
+    // 自动映射对可空金额的缺省值静默写入 0，会把"未提交金额"变成一次真实的零元写入。
+    command.CurrentAmount = request.CurrentAmount!.Value;
+    // 平台管理员入口按请求的组织、医院、院区执行，跨组织同样放行：权限由权限系统负责，不在服务端做组织相等校验。
+    OrganizationPathResolver.OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
+      [new OrganizationPathResolver.OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode)],
+      "业务拒绝：组织不存在或已停用。",
+      "业务拒绝：医院不存在、已停用或不属于所选组织。",
+      "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
+    return await SaveAmountAsync(command, path);
+  }
+
+  /// <summary>
+  /// 保存本院区互认项目金额（医院管理员入口）。
+  /// </summary>
+  /// <remarks>
+  /// 组织与医院只取自可信上下文，请求不提交也不得覆盖；可信上下文的组织层与医院层按同一规则解析：
+  /// 登录令牌该层非空白即取令牌值，令牌该层缺失或空白时用当前登录用户档案的 <c>OrgId</c>/<c>HosId</c> 补齐，
+  /// 令牌与用户档案都提供该层且不一致即拒绝，补齐后该层仍为空即拒绝，不使用默认值、不降级为空值；
+  /// 请求院区必须存在、启用且属于可信医院与可信组织，否则拒绝，院区层不参与可信回落；
+  /// 其余校验与写入与平台管理员入口完全相同，两个入口映射到同一个命令与同一个领域方法。
+  /// </remarks>
+  /// <param name="request">保存金额请求，只携带院区、标准项目编码与本次金额。</param>
+  /// <returns>是否保存成功。</returns>
+  /// <exception cref="ArgumentNullException">请求为 null 时抛出（请求校验先于一切判定，此时不进入领域调用、不写入任何数据）。</exception>
+  /// <exception cref="ValidationException">请求字段不满足契约声明的必填约束时抛出，此时不进入领域调用、不写入任何数据。</exception>
+  /// <exception cref="InvalidOperationException">
+  /// 可信上下文的组织或医院取不到时抛出，不使用默认值、不降级为空值；
+  /// 用户标识不能解析为非空 Guid，或请求院区不存在、已停用、不属于可信医院时同样抛出；
+  /// 当前组织未建立该标准项目的互认配置、金额为负数或超过两位小数、并发首次保存命中唯一约束、
+  /// 条件更新影响 0 行且复读无法解释为成功或影响行数大于 1 时同样抛出，这些情况都不登记保存事件。
+  /// </exception>
+  public async Task<bool> SaveBranchRecognitionAmountAsync(SaveBranchRecognitionAmountRequest request)
+  {
+    // 可信组织与医院的解析先于公共请求校验：可信范围不成立时不需要、也不得读取任何业务数据。
+    TrustedScopeResolver.TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
+      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
+    MedicalRecognitionRequestValidator.Validate(request);
+    SaveOrganizationHospitalBranchRecognitionAmountCommand command = request.MapToSaveOrganizationHospitalBranchRecognitionAmountCommand();
+    // 金额来源与写入理由与平台管理员入口相同：自动映射会在金额缺省时静默写入 0，因此该字段不参与自动映射。
+    command.CurrentAmount = request.CurrentAmount!.Value;
+    command.OrganizationCode = trustedScope.OrganizationCode;
+    command.HospitalCode = trustedScope.HospitalCode;
+    OrganizationPathResolver.OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
+      [new OrganizationPathResolver.OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, request.BranchCode)],
+      "业务拒绝：组织不存在或已停用。",
+      "业务拒绝：医院不存在、已停用或不属于所选组织。",
+      "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
+    return await SaveAmountAsync(command, path);
+  }
+
+  /// <summary>
+  /// 用已校验的组织路径补齐金额保存命令的业务键与操作字段，并交给领域管理器保存。
+  /// </summary>
+  /// <remarks>两个入口的差异只体现在组织路径与命令字段的来源，解析完成后交给领域层的数据完全相同。</remarks>
+  /// <param name="command">已携带标准项目编码、非空金额与请求取值的保存命令。</param>
+  /// <param name="path">解析校验通过的组织路径，携带去空白后的三层业务编码。</param>
+  /// <returns>是否保存成功。</returns>
+  /// <exception cref="InvalidOperationException">用户标识不能解析为非空 Guid 时抛出；其余业务拒绝由领域管理器抛出。</exception>
+  private async Task<bool> SaveAmountAsync(SaveOrganizationHospitalBranchRecognitionAmountCommand command, OrganizationPathResolver.OrganizationPath path)
+  {
+    if (!Guid.TryParse(HttpRequestInfo?.UserId, out var userId) || userId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
+    command.OrganizationCode = path.OrganizationCode;
+    command.HospitalCode = path.HospitalCode;
+    command.BranchCode = path.BranchCode;
+    command.OperId = userId;
+    command.OperTime = DateTimeOffset.UtcNow;
+    return await manager.SaveOrganizationHospitalBranchRecognitionAmountAsync(command);
   }
 }

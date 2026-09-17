@@ -47,11 +47,11 @@ public sealed class Stage2WritePathTests
   /// <summary>可互认时间天数在测试中的合法取值。</summary>
   private const int ValidDurationDays = 30;
 
-  /// <summary>构建写入口，注入领域管理器与互认配置读写仓储端口。</summary>
+  /// <summary>构建写入口，注入领域管理器、互认配置读写仓储端口、外部组织服务与外部用户服务。</summary>
   /// <param name="repository">承载目录与配置数据的最小仓储替身。</param>
   /// <returns>可直接调用的写入口。</returns>
   private static MedicalRecognitionReportAppService CreateAppService(FakeReportRepository repository)
-    => new(new MedicalRecognitionReportManager(repository), repository);
+    => new(new MedicalRecognitionReportManager(repository), repository, new StubOrganizationAppService(), new StubUserAppService());
 
   /// <summary>构建领域管理器，用于绕过应用层直接校验领域规则。</summary>
   /// <param name="repository">承载目录与配置数据的最小仓储替身。</param>
@@ -1542,6 +1542,31 @@ public sealed class Stage2WritePathTests
     /// <param name="disableMedicalStandardItemCommand">停用命令。</param>
     /// <returns>不返回结果。</returns>
     public Task<int> DisableMedicalStandardItemAsync(DisableMedicalStandardItemCommand disableMedicalStandardItemCommand) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按组织与标准项目编码读取互认配置（阶段 3 金额保存前提校验）。</summary>
+    /// <param name="organizationCode">组织编码。</param>
+    /// <param name="standardProjectCode">标准项目编码。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<MutualRecognitionItem?> GetMutualRecognitionItemByOrganizationAndProjectAsync(string organizationCode, string standardProjectCode) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按四个业务键读取金额记录。</summary>
+    /// <param name="organizationCode">组织编码。</param>
+    /// <param name="hospitalCode">医院编码。</param>
+    /// <param name="branchCode">院区编码。</param>
+    /// <param name="standardProjectCode">标准项目编码。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<OrganizationHospitalBranchRecognitionAmount?> GetOrganizationHospitalBranchRecognitionAmountByBusinessKeyAsync(
+      string organizationCode, string hospitalCode, string branchCode, string standardProjectCode) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增金额记录。</summary>
+    /// <param name="organizationHospitalBranchRecognitionAmount">金额记录实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateOrganizationHospitalBranchRecognitionAmountAsync(OrganizationHospitalBranchRecognitionAmount organizationHospitalBranchRecognitionAmount) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：更新金额记录。</summary>
+    /// <param name="organizationHospitalBranchRecognitionAmount">金额记录实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> UpdateOrganizationHospitalBranchRecognitionAmountAsync(OrganizationHospitalBranchRecognitionAmount organizationHospitalBranchRecognitionAmount) => throw new NotSupportedException(UnusedMember);
 
     /// <summary>未使用的仓储成员统一提示，避免测试静默走过未被覆盖的写入路径。</summary>
     private const string UnusedMember = "本测试未使用该仓储成员。";

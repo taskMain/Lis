@@ -39,6 +39,7 @@ public sealed class Stage2EnumMetadataQueryTests
   [Theory]
   [InlineData(nameof(ConfigurationStatus), new[] { 1, 2 }, new[] { "Enabled", "Disabled" }, new[] { "启用", "停用" })]
   [InlineData(nameof(MedicalItemType), new[] { 0, 1 }, new[] { "Laboratory", "Examination" }, new[] { "检验", "检查" })]
+  [InlineData(nameof(MedicalStandardUsageStatus), new[] { 0, 1 }, new[] { "Unused", "InUse" }, new[] { "未使用", "已使用" })]
   public async Task Enum_metadata_query_returns_registry_metadata_in_declaration_order(
     string enumName,
     int[] expectedValues,
@@ -487,6 +488,7 @@ public sealed class Stage2EnumMetadataQueryTests
   [Theory]
   [InlineData(nameof(ConfigurationStatus))]
   [InlineData(nameof(MedicalItemType))]
+  [InlineData(nameof(MedicalStandardUsageStatus))]
   public async Task OpenApi_enum_contract_matches_the_enum_source_declarations(string enumName)
   {
     OpenApiSchema schema = new();
@@ -523,23 +525,24 @@ public sealed class Stage2EnumMetadataQueryTests
   /// 新增契约枚举却漏登记、或把阶段2 之外的枚举混进白名单，都会让用例失败。
   /// </summary>
   /// <remarks>
-  /// 扫描整个契约程序集（而不是手工列两个类型），新增请求或只读模型会自动纳入；
+  /// 扫描整个契约程序集（而不是手工列具体类型），新增请求或只读模型会自动纳入；
   /// 属性类型解包可空、数组与泛型集合元素；继承来的公开属性一并计入（契约字段当前均为自有属性）。
-  /// 阶段1 只读模型上的枚举（如 <c>MedicalStandardUsageStatus</c>）仍由前端本地派生中文，属既定边界，按名排除；
-  /// 排除项自身也必须确实出现在契约上且不得与白名单重叠，否则清单过期或侵占本阶段枚举都会让用例失败。
+  /// 下方排除清单承载的是**后续阶段读模型上的枚举**（报告生命周期、匹配、统计等，其展示口径随各自阶段设计确定），
+  /// 阶段 1 与阶段 2 只读模型上的枚举（<c>MedicalItemType</c>、<c>MedicalStandardUsageStatus</c>、<c>ConfigurationStatus</c>）
+  /// 均已登记，不再属于排除范围；
+  /// 排除项自身也必须确实出现在契约上且不得与白名单重叠，否则清单过期或侵占已登记枚举都会让用例失败。
   /// 已知边界：只扫属性，不扫方法签名（返回类型与参数）上的枚举；扫描范围含嵌套公开类型，
   /// 但当前契约程序集没有嵌套公开类型，因此该分支没有字段证据，只有扫描面本身。
   /// </remarks>
   [Fact]
   public void Stage2_contract_enums_match_the_registry_whitelist()
   {
-    string[] phase1ContractEnums =
+    string[] laterStageContractEnums =
     [
       "LaboratoryAbnormalFlag",
       "LaboratoryResultType",
       "MedicalReportLifecycleStatus",
       "MedicalReportType",
-      "MedicalStandardUsageStatus",
       "RecognitionNonAdoptionReason",
       "RecognitionResult",
       "SourceImageStatus",
@@ -558,14 +561,14 @@ public sealed class Stage2EnumMetadataQueryTests
 
     string[] registered = MedicalRecognitionEnumDescriptorRegistry.Descriptors.Keys.Order(StringComparer.Ordinal).ToArray();
 
-    // 契约上的枚举要么已登记，要么属于显式列出的阶段1 枚举（漏登记会在这里失败）。
-    Assert.Empty(contractEnums.Except(registered, StringComparer.Ordinal).Except(phase1ContractEnums, StringComparer.Ordinal));
-    // 白名单不得包含契约之外的枚举（避免把阶段1 枚举冒充本阶段覆盖）。
+    // 契约上的枚举要么已登记，要么属于显式列出的后续阶段枚举（漏登记会在这里失败）。
+    Assert.Empty(contractEnums.Except(registered, StringComparer.Ordinal).Except(laterStageContractEnums, StringComparer.Ordinal));
+    // 白名单不得包含契约之外的枚举（避免把后续阶段枚举冒充已覆盖范围）。
     Assert.Empty(registered.Except(contractEnums, StringComparer.Ordinal));
     // 排除清单不得过期：每一项都必须确实出现在契约上。
-    Assert.Empty(phase1ContractEnums.Except(contractEnums, StringComparer.Ordinal));
-    // 排除清单不得侵占本阶段枚举：把已登记枚举写进排除清单同样会让用例失败。
-    Assert.Empty(phase1ContractEnums.Intersect(registered, StringComparer.Ordinal));
+    Assert.Empty(laterStageContractEnums.Except(contractEnums, StringComparer.Ordinal));
+    // 排除清单不得侵占已登记枚举：把已登记枚举写进排除清单同样会让用例失败。
+    Assert.Empty(laterStageContractEnums.Intersect(registered, StringComparer.Ordinal));
   }
 
   /// <summary>

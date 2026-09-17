@@ -181,4 +181,37 @@ public partial interface IMedicalRecognitionReportAppService : IApplicationServi
   /// 复读已是停用状态按幂等成功返回、不抛出。停用不校验标准目录当前有效性。
   /// </exception>
   Task<bool> DisableMutualRecognitionItemAsync(DisableMutualRecognitionItemRequest request);
+
+  /// <summary>
+  /// 保存组织医院院区互认项目金额（平台管理员入口）：业务键无记录时新建，有记录时覆盖。
+  /// </summary>
+  /// <remarks>组织、医院与院区按请求使用并校验存在、启用与父子归属；操作人与操作时间由服务端写入。</remarks>
+  /// <param name="request">保存金额请求，携带组织、医院、院区、标准项目编码与本次金额。</param>
+  /// <returns>保存成功返回 <see langword="true"/>；本方法不返回 <see langword="false"/>，入参不合法、可信身份不可解析、业务拒绝与写入失败都以异常结束。</returns>
+  /// <exception cref="ArgumentNullException">请求为 null 时抛出（请求校验先于一切判定，此时不进入领域调用、不写入任何数据）。</exception>
+  /// <exception cref="ValidationException">组织编码、医院编码、院区编码或标准项目编码缺失、空串、纯空白，或当前金额未提交时抛出。</exception>
+  /// <exception cref="InvalidOperationException">
+  /// 用户标识不能解析为非空 Guid，或请求的组织、医院、院区不存在、已停用、父子归属不匹配时抛出；
+  /// 当前组织未建立该标准项目的互认配置、金额为负数或超过两位小数、并发首次保存命中唯一约束、
+  /// 条件更新影响 0 行且复读无法解释为成功或影响行数大于 1 时同样抛出。
+  /// 以上情况都没有写入金额，也没有登记保存事件。
+  /// </exception>
+  Task<bool> SaveOrganizationHospitalBranchRecognitionAmountAsync(SaveOrganizationHospitalBranchRecognitionAmountRequest request);
+
+  /// <summary>
+  /// 保存本院区互认项目金额（医院管理员入口）：组织与医院取可信上下文，院区取请求。
+  /// </summary>
+  /// <remarks>请求院区必须属于可信医院；其余与平台管理员入口相同，两个入口共用同一个命令与同一个保存事件。</remarks>
+  /// <param name="request">保存金额请求，只携带院区、标准项目编码与本次金额。</param>
+  /// <returns>保存成功返回 <see langword="true"/>；本方法不返回 <see langword="false"/>，入参不合法、可信上下文不可用、业务拒绝与写入失败都以异常结束。</returns>
+  /// <exception cref="ArgumentNullException">请求为 null 时抛出（请求校验先于一切判定，此时不进入领域调用、不写入任何数据）。</exception>
+  /// <exception cref="ValidationException">院区编码或标准项目编码缺失、空串、纯空白，或当前金额未提交时抛出。</exception>
+  /// <exception cref="InvalidOperationException">
+  /// 登录令牌的组织声明或医院声明取不到时抛出，不使用默认值、不降级为空值；
+  /// 用户标识不能解析为非空 Guid，或请求院区不存在、已停用、不属于可信医院时同样抛出；
+  /// 当前组织未建立该标准项目的互认配置、金额为负数或超过两位小数、并发首次保存命中唯一约束、
+  /// 条件更新影响 0 行且复读无法解释为成功或影响行数大于 1 时同样抛出。
+  /// 以上情况都没有写入金额，也没有登记保存事件。
+  /// </exception>
+  Task<bool> SaveBranchRecognitionAmountAsync(SaveBranchRecognitionAmountRequest request);
 }

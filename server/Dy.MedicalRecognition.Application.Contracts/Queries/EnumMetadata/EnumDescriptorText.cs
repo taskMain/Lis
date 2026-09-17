@@ -8,6 +8,8 @@ namespace Dy.MedicalRecognition.Application.Contracts.Queries.EnumMetadata;
 /// <remarks>
 /// 枚举中文的唯一来源是服务端枚举成员上的 <c>[Description]</c>，本类只做解析，不保存文案。
 /// 口径与同组织 <c>Dy.LisCenter</c> 一致：展示文本由服务端契约交付，生成端不产出 TS 枚举文案。
+/// 查找逻辑只保留一份（<see cref="GetOrNull{TEnum}(TEnum, IEnumerable{IEnumDescriptor})"/>），
+/// <see cref="Get{TEnum}(TEnum, IEnumerable{IEnumDescriptor})"/> 在其结果上把"取值未登记"升级为异常。
 /// </remarks>
 internal static class EnumDescriptorText
 {
@@ -28,15 +30,9 @@ internal static class EnumDescriptorText
   /// 枚举值不在静态描述列表中时抛出；传入其它枚举的描述列表同样会因元素类型不匹配落到该分支。
   /// </exception>
   internal static string Get<TEnum>(TEnum value, IEnumerable<IEnumDescriptor> descriptors)
-    where TEnum : struct, Enum
-  {
-    IEnumDescriptor? descriptor = descriptors.FirstOrDefault(item =>
-      item.EnumValue is TEnum enumValue &&
-      EqualityComparer<TEnum>.Default.Equals(enumValue, value));
-
-    return descriptor?.Description
+    where TEnum : struct, Enum =>
+    GetOrNull(value, descriptors)
       ?? throw new ExtensionException($"枚举 {typeof(TEnum).Name} 未找到取值 {value} 的描述；请确认传入的是该枚举自己的描述列表。");
-  }
 
   /// <summary>
   /// 从指定枚举的静态描述列表安全解析文本，未定义值返回 <see langword="null"/>。

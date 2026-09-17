@@ -5,12 +5,12 @@ description: "Skill for the Prototype area of Lis. 76 symbols across 8 files."
 
 # Prototype
 
-76 symbols | 8 files | Cohesion: 89%
+76 symbols | 8 files | Cohesion: 90%
 
 ## When to Use
 
 - Working with code in `client/`
-- Understanding how StandardCatalogVariantA, treeData, StandardCatalogVariantAPlus work
+- Understanding how StandardCatalogVariantA, render, treeData work
 - Modifying prototype-related functionality
 
 ## Key Files
@@ -18,10 +18,10 @@ description: "Skill for the Prototype area of Lis. 76 symbols across 8 files."
 | File | Symbols |
 |------|---------|
 | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeModals.tsx` | CategoryTypeTag, CreateCategoryModal, CreateGroupModal, CreateItemModal, EditCategoryModal (+14) |
-| `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeData.ts` | categoryItemType, categoryUsage, groupUsage, isCategoryTypeFrozen, matchesText (+7) |
+| `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeData.ts` | categoryItemType, categoryUsage, groupName, groupUsage, isCategoryTypeFrozen (+7) |
 | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeStore.tsx` | setCategoryValid, setGroupValid, setItemValid, usePrototypeStore, createCategory (+6) |
-| `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantA.tsx` | StandardCatalogVariantA, treeData, stop, render, render (+3) |
-| `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantAPlus.tsx` | StandardCatalogVariantAPlus, getVisibleCategories, visibleScope, nodeTitle, render (+3) |
+| `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantA.tsx` | StandardCatalogVariantA, render, treeData, stop, render (+3) |
+| `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantAPlus.tsx` | StandardCatalogVariantAPlus, getVisibleCategories, render, visibleScope, nodeTitle (+3) |
 | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantC.tsx` | StandardCatalogVariantC, saveInPlace, render, treeData, render (+2) |
 | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantB.tsx` | StandardCatalogVariantB, render, render, render, render (+1) |
 | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogPrototype.tsx` | PrototypeBody, StandardCatalogPrototype, VariantSwitcher, onKeyDown, move |
@@ -31,24 +31,27 @@ description: "Skill for the Prototype area of Lis. 76 symbols across 8 files."
 Start here when exploring this area:
 
 - **`StandardCatalogVariantA`** (Function) — `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantA.tsx:60`
+- **`render`** (Function) — `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantA.tsx:189`
 - **`treeData`** (Function) — `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantA.tsx:72`
 - **`StandardCatalogVariantAPlus`** (Function) — `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantAPlus.tsx:28`
 - **`getVisibleCategories`** (Function) — `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantAPlus.tsx:54`
-- **`visibleScope`** (Function) — `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantAPlus.tsx:66`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
 | `StandardCatalogVariantA` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantA.tsx` | 60 |
+| `render` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantA.tsx` | 189 |
 | `treeData` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantA.tsx` | 72 |
 | `StandardCatalogVariantAPlus` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantAPlus.tsx` | 28 |
 | `getVisibleCategories` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantAPlus.tsx` | 54 |
+| `render` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantAPlus.tsx` | 132 |
 | `visibleScope` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantAPlus.tsx` | 66 |
 | `StandardCatalogVariantB` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantB.tsx` | 48 |
 | `StandardCatalogVariantC` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantC.tsx` | 52 |
 | `categoryItemType` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeData.ts` | 186 |
 | `categoryUsage` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeData.ts` | 90 |
+| `groupName` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeData.ts` | 182 |
 | `groupUsage` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeData.ts` | 95 |
 | `isCategoryTypeFrozen` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeData.ts` | 107 |
 | `matchesText` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeData.ts` | 133 |
@@ -57,9 +60,6 @@ Start here when exploring this area:
 | `CreateCategoryModal` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeModals.tsx` | 54 |
 | `CreateGroupModal` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeModals.tsx` | 152 |
 | `CreateItemModal` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeModals.tsx` | 265 |
-| `EditCategoryModal` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeModals.tsx` | 93 |
-| `EditGroupModal` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeModals.tsx` | 215 |
-| `ItemRemarkModal` | Function | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeModals.tsx` | 355 |
 
 ## Execution Flows
 

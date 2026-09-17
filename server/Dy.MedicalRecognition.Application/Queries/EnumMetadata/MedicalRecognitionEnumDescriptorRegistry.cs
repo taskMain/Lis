@@ -22,6 +22,7 @@ internal static class MedicalRecognitionEnumDescriptorRegistry
       {
         [nameof(ConfigurationStatus)] = ToReadOnly(ConfigurationStatusDescriptorList.List),
         [nameof(MedicalItemType)] = ToReadOnly(MedicalItemTypeDescriptorList.List),
+        [nameof(MedicalStandardUsageStatus)] = ToReadOnly(MedicalStandardUsageStatusDescriptorList.List),
       });
 
   /// <summary>

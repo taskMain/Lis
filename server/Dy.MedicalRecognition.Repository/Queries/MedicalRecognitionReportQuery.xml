@@ -155,5 +155,53 @@
       <IsNotEmpty Prepend="and" Property="IsValid">m.is_valid = $IsValid</IsNotEmpty>  <!-- 可选筛选：按配置启用状态过滤，调用方已把启用/停用换算为布尔值，SQL 只比较布尔列 -->
       order by m.standard_project_code asc, m.id asc  <!-- 排序：按标准项目编码升序，并以配置标识作为稳定兜底键；同一组织内配置编码唯一，兜底键只保证顺序稳定 -->
     </Statement>
+    <!--
+      功能：查询指定组织、医院与院区范围内的互认项目金额列表，供平台管理员与医院管理员两个金额维护页面按标准项目查看当前金额与配置状态。
+      结果：行集由该组织已建立的互认配置驱动，因此行数等于该组织已配置的标准项目数，包含配置已停用的项目、不筛配置启用状态；
+      每行返回标准项目编码、标准项目名称、项目类型、分类名称、分组名称、当前金额、配置启用状态与标准目录三层的启用状态；
+      未配置金额的行金额列为空值，由应用层表达为“未配置”，不以 0 冒充；按标准项目编码升序返回，不分页；
+      未传标准项目编码时该条件不参与过滤。
+    -->
+    <Statement Id="QueryRecognitionAmountList">
+      select
+        m.standard_project_code,          <!-- 标准项目编码：行集驱动列，同时是金额表侧的业务键之一 -->
+        i.name as standard_item_name,     <!-- 标准项目名称：实时取自标准目录，互认配置与金额记录都不重复保存 -->
+        c.item_type,                      <!-- 项目类型：0=检验、1=检查，实时取自所属分类 -->
+        c.name as category_name,          <!-- 分类名称：实时取自标准目录 -->
+        g.name as group_name,             <!-- 分组名称：实时取自标准目录 -->
+        a.current_amount,                 <!-- 当前金额：金额表未命中时为空值，表示该项尚未配置金额；零元是有效配置 -->
+        m.is_valid as configuration_is_valid,  <!-- 配置自身的启用状态：只供应用层派生配置状态，不对外返回原始列 -->
+        c.is_valid as category_is_valid,  <!-- 所属分类的启用状态：供派生目录停用原因，不对外返回 -->
+        g.is_valid as group_is_valid,     <!-- 所属分组的启用状态：供派生目录停用原因，不对外返回 -->
+        i.is_valid as item_is_valid       <!-- 标准项目的启用状态：供派生目录停用原因，不对外返回 -->
+      from mrec_mutual_recognition_item m
+      <!--
+        处理：以互认配置为行集左连接金额表，连接键为组织编码、医院编码、院区编码与标准项目编码四个业务键列，
+        并把本次查询的医院与院区作为金额表侧的条件写在 ON 子句内。
+        原因：行集必须由该组织已建立的互认配置决定，未配置金额的项目同样要出现在页面上；
+        若把医院或院区条件写进 where，左连接会退化为内连接，从未配置过金额的行会整体消失，
+        页面也就无法区分“未配置”与“配置了其他院区”。
+        结果：每个已配置的标准项目恰好一行，金额表命中时取当前金额、未命中时该列为空值；行集不因金额表而放大或收缩。
+      -->
+      left join mrec_organization_hospital_branch_recognition_amount a
+        on a.organization_code = m.organization_code
+       and a.standard_project_code = m.standard_project_code
+       and a.hospital_code = $HospitalCode   <!-- 金额表侧条件：仅在 ON 子句中限定本次医院，保持左连接语义 -->
+       and a.branch_code = $BranchCode       <!-- 金额表侧条件：仅在 ON 子句中限定本次院区，保持左连接语义 -->
+      <!-- 关联原因：互认配置只保存标准项目标识，标准项目名称、项目类型、分类和分组都需要从标准目录实时取得，不重复保存在配置中 -->
+      join mrec_medical_standard_item i on i.id = m.standard_item_id
+      join mrec_medical_standard_group g on g.id = i.group_id
+      <!-- 关联原因：标准项目必须归属到与自己同分类的分组；附加 c.id = g.category_id 可避免历史不一致数据把跨分类的分组纳入查询结果 -->
+      join mrec_medical_standard_category c on c.id = i.category_id and c.id = g.category_id
+      where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+      and m.organization_code = $OrganizationCode  <!-- 组织范围：只返回该组织的互认配置；平台管理员入口取请求组织、医院管理员入口取可信组织 -->
+      <!--
+        处理：对用户输入的转义符 ! 先加倍，再将 % 转义为 !%、_ 转义为 !_，然后首尾拼接通配符并用 escape '!' 声明转义符。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符，使标准项目编码的“字面包含”匹配范围被放大，返回超出预期的金额行。
+        结果：按标准项目编码做字面包含匹配，用户输入的通配符字符只作为普通字符参与比较。
+      -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">m.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入标准项目编码时按标准项目编码做字面包含匹配 -->
+      order by m.standard_project_code asc  <!-- 排序：按标准项目编码升序；同一组织内配置编码唯一，因此该键即为稳定顺序键，不分页也不做分页截断 -->
+    </Statement>
   </Statements>
 </SqlMap>

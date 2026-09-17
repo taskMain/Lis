@@ -4,6 +4,20 @@ import type {
   RecognitionProjectConfigurationListQueryRequest,
   RecognitionProjectConfigurationReadModel,
 } from '@dy/api-client-medical-recognition'
+import {
+  isMedicalItemTypeValue,
+  medicalItemTypeText,
+  type MedicalItemTypeValue,
+} from '../../shared/medicalItemType'
+import {
+  CONFIGURATION_STATUSES,
+  CONFIGURATION_STATUS_TEXTS,
+  DISABLED_CONFIGURATION_STATUS,
+  ENABLED_CONFIGURATION_STATUS,
+  configurationStatusText,
+  isConfigurationStatusValue,
+  type ConfigurationStatusValue,
+} from '../../shared/configurationStatus'
 
 /**
  * 生成的契约类型经本模块转出，页面与测试只从适配层取类型，不依赖生成包深层路径或
@@ -42,45 +56,20 @@ export type {
  *       本模块的本地文案表只是"契约字段缺失或元数据接口不可用"时的兜底出口，页面不得再自拼中文。
  */
 
-/** 项目类型取值，与后端 `MedicalItemType` 数值一致（0 检验、1 检查）；契约按数值交互、生成端不产出 TS 枚举，故在此声明取值集合。 */
-export const MEDICAL_ITEM_TYPES = [0, 1] as const
-export type MedicalItemTypeValue = (typeof MEDICAL_ITEM_TYPES)[number]
+/** 项目类型的取值域判定与兜底文案已上移到跨页面共享模块 `src/shared/medicalItemType.ts`（阶段 1、阶段 3 使用同一份事实）。 */
+export { isMedicalItemTypeValue, medicalItemTypeText }
+export type { MedicalItemTypeValue }
 
-/**
- * 项目类型兜底文案；服务端只读模型已交付 `itemTypeText`（枚举中文的唯一来源），
- * 本表只在该契约字段缺失时兜底展示，页面不得直接用它覆盖服务端文案。
- */
-export const MEDICAL_ITEM_TYPE_TEXTS: Record<MedicalItemTypeValue, string> = { 0: '检验', 1: '检查' }
-
-/** 项目类型兜底文案出口：只接受已确认取值，未知与缺失一律显示「未知类型」。 */
-export function medicalItemTypeText(value: MedicalItemTypeValue | null): string {
-  return value === null ? '未知类型' : MEDICAL_ITEM_TYPE_TEXTS[value]
+/** 配置状态的取值域判定与兜底文案已上移到跨页面共享模块 `src/shared/configurationStatus.ts`（阶段 3 使用同一份事实）。 */
+export {
+  CONFIGURATION_STATUSES,
+  DISABLED_CONFIGURATION_STATUS,
+  ENABLED_CONFIGURATION_STATUS,
+  CONFIGURATION_STATUS_TEXTS,
+  configurationStatusText,
+  isConfigurationStatusValue,
 }
-
-/** 配置状态取值，与后端 `ConfigurationStatus` 数值一致（1 启用、2 停用）；契约按数值交互、生成端不产出 TS 枚举，故在此声明取值集合。 */
-export const CONFIGURATION_STATUSES = [1, 2] as const
-export type ConfigurationStatusValue = (typeof CONFIGURATION_STATUSES)[number]
-
-/**
- * 已确认配置状态的具名取值：调用方按名引用「启用 / 停用」，
- * 不再按取值集合的下标读取（下标语义只在本声明处体现一次）。
- */
-export const ENABLED_CONFIGURATION_STATUS: ConfigurationStatusValue = CONFIGURATION_STATUSES[0]
-export const DISABLED_CONFIGURATION_STATUS: ConfigurationStatusValue = CONFIGURATION_STATUSES[1]
-
-/**
- * 配置状态兜底文案：键集合与 `CONFIGURATION_STATUSES` 严格一致（TS 的映射类型会让两者缺一即编译失败）。
- * 服务端只读模型已交付 `configurationStatusText`，本表只在该契约字段缺失时兜底，不再作为展示主来源。
- */
-export const CONFIGURATION_STATUS_TEXTS: Record<ConfigurationStatusValue, string> = { 1: '启用', 2: '停用' }
-
-/** 未知状态（`null`）的安全展示文案；不默认成任一已确认状态。 */
-export const UNKNOWN_CONFIGURATION_STATUS_TEXT = '未知'
-
-/** 配置状态兜底文案；未知状态返回「未知」，不伪造为启用或停用。 */
-export function configurationStatusText(value: ConfigurationStatusValue | null): string {
-  return value === null ? UNKNOWN_CONFIGURATION_STATUS_TEXT : CONFIGURATION_STATUS_TEXTS[value]
-}
+export type { ConfigurationStatusValue }
 
 /**
  * 启停动作兜底文案：目标为启用时是「启用」、目标为停用时是「停用」。
@@ -273,13 +262,13 @@ export function buildConfigurationListQuery(
   }
 }
 
-/** 未知枚举一律映射为 `null`（安全展示并阻断依赖已知状态的写操作），不默认成已知值。 */
+/** 未知枚举一律映射为 `null`（安全展示并阻断依赖已知状态的写操作），不默认成已知值；判定走共享取值域守卫。 */
 function toMedicalItemType(value: number | null | undefined): MedicalItemTypeValue | null {
-  return value === 0 || value === 1 ? value : null
+  return isMedicalItemTypeValue(value) ? value : null
 }
 
 function toConfigurationStatus(value: number | null | undefined): ConfigurationStatusValue | null {
-  return value === 1 || value === 2 ? value : null
+  return isConfigurationStatusValue(value) ? value : null
 }
 
 /**

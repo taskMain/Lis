@@ -1,0 +1,7 @@
+.recognition-amounts-page { min-width: 0; max-width: 100%; }
+.recognition-amounts-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.recognition-amounts-header h2.ant-typography { margin: 0; }
+.recognition-amounts-scope { margin-bottom: 16px; }
+.recognition-amounts-number { font-variant-numeric: tabular-nums; }
+.recognition-amounts-failure { margin-bottom: 12px; }
+.recognition-amounts-prompt { margin-bottom: 12px; }

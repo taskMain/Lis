@@ -57,6 +57,16 @@ public sealed class MedicalRecognitionReportQueryRepository : IMedicalRecognitio
       IsValid = MapConfigurationStatusToIsValid(configurationStatus)
     }, scope: SqlScope, sqlId: "QueryRecognitionProjectConfigurationList");
 
+  /// <inheritdoc/>
+  public async Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode) =>
+    await dataMapper.QueryAsync<RecognitionAmountListItem>(new
+    {
+      OrganizationCode = organizationCode,
+      HospitalCode = hospitalCode,
+      BranchCode = branchCode,
+      StandardProjectCode = standardProjectCode
+    }, scope: SqlScope, sqlId: "QueryRecognitionAmountList");
+
   /// <summary>
   /// 把互认配置列表的状态筛选条件映射为互认配置表布尔启用列的比较值。
   /// </summary>

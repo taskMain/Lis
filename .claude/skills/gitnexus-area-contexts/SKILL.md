@@ -1,25 +1,26 @@
 ---
 name: gitnexus-area-contexts
-description: "Skill for the Contexts area of Lis. 4 symbols across 3 files."
+description: "Skill for the Contexts area of Lis. 4 symbols across 4 files."
 ---
 
 # Contexts
 
-4 symbols | 3 files | Cohesion: 100%
+4 symbols | 4 files | Cohesion: 100%
 
 ## When to Use
 
 - Working with code in `client/`
-- Understanding how ApiClientProvider, AppRoutes work
+- Understanding how ApiClientProvider, AppRoutes, loadRuntimeConfig work
 - Modifying contexts-related functionality
 
 ## Key Files
 
 | File | Symbols |
 |------|---------|
-| `client/apps/dy-medical-recognition/src/main.tsx` | initApp, loadConfig |
 | `client/apps/dy-medical-recognition/src/contexts/ApiClientContext.tsx` | ApiClientProvider |
+| `client/apps/dy-medical-recognition/src/main.tsx` | initApp |
 | `client/apps/dy-medical-recognition/src/router/index.tsx` | AppRoutes |
+| `client/apps/dy-medical-recognition/src/runtimeConfig.ts` | loadRuntimeConfig |
 
 ## Entry Points
 
@@ -27,6 +28,7 @@ Start here when exploring this area:
 
 - **`ApiClientProvider`** (Function) — `client/apps/dy-medical-recognition/src/contexts/ApiClientContext.tsx:9`
 - **`AppRoutes`** (Function) — `client/apps/dy-medical-recognition/src/router/index.tsx:5`
+- **`loadRuntimeConfig`** (Function) — `client/apps/dy-medical-recognition/src/runtimeConfig.ts:12`
 
 ## Key Symbols
 
@@ -34,8 +36,8 @@ Start here when exploring this area:
 |--------|------|------|------|
 | `ApiClientProvider` | Function | `client/apps/dy-medical-recognition/src/contexts/ApiClientContext.tsx` | 9 |
 | `AppRoutes` | Function | `client/apps/dy-medical-recognition/src/router/index.tsx` | 5 |
-| `initApp` | Function | `client/apps/dy-medical-recognition/src/main.tsx` | 33 |
-| `loadConfig` | Function | `client/apps/dy-medical-recognition/src/main.tsx` | 19 |
+| `loadRuntimeConfig` | Function | `client/apps/dy-medical-recognition/src/runtimeConfig.ts` | 12 |
+| `initApp` | Function | `client/apps/dy-medical-recognition/src/main.tsx` | 15 |
 
 ## How to Explore
 

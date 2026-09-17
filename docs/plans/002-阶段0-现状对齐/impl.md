@@ -285,7 +285,7 @@ DDL 脚本历史特征：19 个脚本全部为 PostgreSQL `create table if not e
 
 配置侧已确认：
 
-1. 监听地址三处一致，均为 `http://localhost:5008`（`appsettings.json`、`appsettings.Development.json`、`Properties/launchSettings.json`）。`launchSettings.json` 只有 1 个 profile，`launchUrl` 为 `scalar`。
+1. 监听地址三处一致，均为 `http://localhost:5014`（`appsettings.json`、`appsettings.Development.json`、`Properties/launchSettings.json`）。`launchSettings.json` 只有 1 个 profile，`launchUrl` 为 `scalar`。
 2. 不再使用 MQ 与 Redis，开发配置中不包含对应配置节。
 3. `EnableOpenApi` 在两个文件中类型不同（基文件为布尔 `true`，开发文件为字符串 `"true"`），`Protocols` 也不同（`Http1AndHttp2` 与 `Http1AndHttp2AndHttp3`）；这些属于框架生成骨架的既有差异，本阶段只记录不修改。
 4. `HttpConfig.HttpServiceConfigs` 以**接口完整名**为键，共 5 条远程服务（用户信息、组织信息、系统参数、字典、推送）；`FileServer`、`ExternalPush` 与 `HttpConfig.WrapResult` 仅出现在开发配置中。

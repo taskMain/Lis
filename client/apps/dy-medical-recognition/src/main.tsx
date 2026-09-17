@@ -6,29 +6,11 @@ import 'dayjs/locale/zh-cn'
 import { MicroSDK } from '@dy/micro-sdk'
 import { SubAppThemeProvider, setupSubAppDateLocale } from '@dy/micro-sdk/react'
 import { AuthProvider } from '@dy/auth-react'
+import { configureBaseComponents } from '@dy/components-base'
 import { AppRoutes } from './router'
 import { ApiClientProvider } from './contexts/ApiClientContext'
+import { loadRuntimeConfig, subAppBase } from './runtimeConfig'
 import './index.css'
-
-// 子应用 base 路径，独立运行时作为 BrowserRouter basename
-const subAppBase = '/subApps/medical-recognition'
-
-// 配置文件读取失败时使用本地开发后端地址
-const fallbackApiBaseUrl = 'http://localhost:5008'
-
-// 开发环境读取 config.development.json，生产环境读取 config.json
-const loadConfig = async () => {
-  try {
-    const configFile = import.meta.env.DEV
-      ? `${subAppBase}/config.development.json`
-      : `${subAppBase}/config.json`
-    const response = await fetch(configFile)
-    const config = await response.json()
-    return config.apiBaseUrl || fallbackApiBaseUrl
-  } catch {
-    return fallbackApiBaseUrl
-  }
-}
 
 // 初始化应用
 const initApp = async () => {
@@ -37,7 +19,10 @@ const initApp = async () => {
   // 微前端环境下使用主应用注入的基础路由，独立运行时使用固定路径
   const basename = window.__MICRO_APP_BASE_ROUTE__ || subAppBase
 
-  const apiBaseUrl = await loadConfig()
+  const runtimeConfig = await loadRuntimeConfig()
+
+  // 组件库的 Base API 地址只在此初始化一次
+  configureBaseComponents({ baseUrl: runtimeConfig.baseApiBaseUrl })
 
   // micro-app 生命周期钩子
   window.mount = () => {
@@ -51,7 +36,7 @@ const initApp = async () => {
     <StrictMode>
       <SubAppThemeProvider>
         <AuthProvider>
-          <ApiClientProvider baseUrl={apiBaseUrl}>
+          <ApiClientProvider baseUrl={runtimeConfig.apiBaseUrl}>
             <BrowserRouter basename={basename}>
               <AppRoutes />
             </BrowserRouter>

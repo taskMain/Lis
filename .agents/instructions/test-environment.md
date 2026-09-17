@@ -8,12 +8,12 @@
 |---|---|---|
 | 子系统业务编码 | 已确认：`medical-recognition` | 由负责人 2026-09-15 确认并登记；与第 4 节宿主拦截命中键取同一值。菜单与路由按所属阶段在宿主侧维护，不登记在本规范 |
 | 宿主地址与登录页 | 已确认：`http://183.224.180.166:35000`，登录页 `/login`，开发设置页 `/dev-settings` | 宿主后端 API 在 `http://183.224.180.166:35001`（登录、菜单、子应用信息） |
-| 平台 Base API / OpenAPI | 本项目自身 OpenAPI 已确认：`http://localhost:5008/openapi/v1.json`；对外依赖的平台 Base API 仍待配置 | 后端启动后可用；Scalar 调试页在 `http://localhost:5008/scalar` |
-| 本地后端端口及 OpenAPI / Scalar 地址 | 已确认：`5008`；当前运行中 | 三处启动配置已一致指向 5008：`appsettings.json`、`appsettings.Development.json`、`Properties/launchSettings.json`（后者以 `ASPNETCORE_URLS` 形式生效，改端口时三者必须同步）。OpenAPI `http://localhost:5008/openapi/v1.json`，Scalar `http://localhost:5008/scalar` |
+| 平台 Base API / OpenAPI | 本项目自身 OpenAPI 已确认：`http://localhost:5014/openapi/v1.json`；对外依赖的平台 Base API 仍待配置 | 后端启动后可用；Scalar 调试页在 `http://localhost:5014/scalar` |
+| 本地后端端口及 OpenAPI / Scalar 地址 | 已确认：`5014`（2026-09-17 调整）；当前运行中 | 三处启动配置已一致指向 5014：`appsettings.json`、`appsettings.Development.json`、`Properties/launchSettings.json`（后者以 `ASPNETCORE_URLS` 形式生效，改端口时三者必须同步）；`appsettings.Development.json` 的 `HttpConfig.HttpServiceConfigs.Default.Host` 与前端 `config.development.json`、`src/runtimeConfig.ts` 回落地址同步为同一端口。OpenAPI `http://localhost:5014/openapi/v1.json`，Scalar `http://localhost:5014/scalar` |
 | 前端开发端口、basename 与拦截命中键 | 已确认：端口 `3008`、basename `/subApps/medical-recognition`、宿主拦截命中键 `medical-recognition` | 端口来源 `apps/dy-medical-recognition/vite.config.ts` 的 `server.port`；`base` 与 `redirectBasePlugin` 均为 `/subApps/medical-recognition/`；拦截配置流程见第 4 节。**宿主菜单结构与各阶段子项/路由属于阶段信息，登记在对应阶段文档，不在本规范维护** |
 | 测试辅助服务端口和公网接收地址（需要时） | 待配置 | 阶段明确用途，负责人确认目标 |
-| 测试账号、角色、组织、医院与院区范围 | 账号已确认：`yangkj`（宿主显示名 杨康健）；登录入口「检验检查结果互认平台」；组织/医院/院区范围按实际登录返回登记（不属"待配置"项） | 从宿主登录页进入，入口选「检验检查结果互认平台」；不使用其他系统身份。各阶段菜单可达性由阶段文档与阶段报告记录，不在本规范维护 |
-| 测试密码 | 已确认并登记：账号 `yangkj`，密码 `123456` | 负责人 2026-09-15 明确要求直接登记在本规范，供各阶段测试复用，避免每次测试重新索取；**本行是项目唯一登记处**，其他文档与测试报告只引用本行，不另行复制凭据。密码变更时由负责人更新本行 |
+| 测试账号、角色、组织、医院与院区范围 | 账号已确认：`yangkj`（宿主显示名 杨康健，组织 `01` / 医院 `0101` / 院区 `0101001`）与 `lisadmin`（检验协同平台管理员，组织 `01` / 医院 `CSYY2` / 院区 `CSYQ2-1`）；两者使用同一登录入口与同一测试密码（见下行唯一登记处），均持有「检验检查结果互认管理员」角色；组织/医院/院区范围以实际登录返回为准（不属"待配置"项） | 从宿主登录页进入，入口选「检验检查结果互认平台」；不使用其他系统身份。两个账号分属两个不同医院，用于构造两个可信医院范围；各阶段菜单可达性由阶段文档与阶段报告记录，不在本规范维护 |
+| 测试密码 | 已确认并登记：账号 `yangkj` 与 `lisadmin` 共用，密码 `123456` | 负责人 2026-09-15 明确要求直接登记在本规范，供各阶段测试复用，避免每次测试重新索取；**本行是项目唯一登记处**，其他文档与测试报告只引用本行，不另行复制凭据。密码变更时由负责人更新本行 |
 | 数据库 Provider、版本与测试连接 | 已确认：PostgreSQL，`183.224.180.166:15432` / 用户 `postgres` / 库 `DysoftHIS` | 与 `Dy.LisCenter` 的配置指向同一实例与库，不代表共用表；TCP 15432 为历史连通证据。连接配置保持不变，实际初始化另须确认目标数据库与 schema。数据库只读取证可使用负责人确认的 dbx MCP（按阶段用例取证时引用对应阶段矩阵编号，本规范不携带具体用例号）；不得通过 dbx 或其他通道写入、迁移或修改数据库。连接串落在 `server/Dy.MedicalRecognition/EarthraceConfig.json`，属被仓库根 `.gitignore` 覆盖的 `appsettings.Development.json` 之外的**受版本控制**文件 |
 | 平台表初始化 | 目标库与 schema 已确认：`DysoftHIS` 的 `public`；平台自有业务表统一使用 `mrec_` 前缀 | 各阶段按所属范围交付最终 DDL，由负责人确认并执行，不提前创建后续阶段的表；**已完成建表的对象与状态属于阶段信息，登记在对应阶段文档与阶段 `testReport.md`，不在本规范维护** |
 | 外部系统地址 | 已确认并已配置 | 用户信息 / 组织信息 / 系统参数 / 字典 → `http://183.224.180.166:35001`；推送 → `http://183.224.180.166:35005`；文件服务 → `localhost:9333`。35001 与 35005 已验证 TCP 连通 |
@@ -26,6 +26,8 @@
 “待配置”不是可执行值。只在某操作确实依赖缺失配置时暂停该操作；不阻止独立的需求、设计、规范或不依赖环境的测试。不得回退到其他项目的地址、端口、编码、账号或组织标识。
 
 当前仍待配置的两项为：对外依赖的平台 Base API（见第 11 行）、按需启用的测试辅助服务（见第 14 行）。测试账号与密码已确认；组织/医院/院区范围按实际登录返回登记，属"使用时核实"的信息，不计入"待配置"。宿主地址、前后端端口、拦截配置、子系统业务编码、登录入口、目标库/schema 与外部系统地址保留已登记值，使用前按本规范核实。
+
+2026-09-17 端口占用与生产地址登记：本地后端端口于本日调整为 `5014`（三处启动配置、`HttpConfig` 默认服务地址、前端 `config.development.json` 的 `apiBaseUrl` 与 `src/runtimeConfig.ts` 回落地址同步）。**同轮同步点补全**：`client/packages/api-client-medical-recognition/scripts/prepare-openapi.mjs` 的默认 OpenAPI 地址、`client/packages/api-client-medical-recognition/src/medicalRecognitionClient.ts` 的默认基址，以及 `server/Dy.MedicalRecognition.Tests/Stage2EnumContractTests.cs` 中作为样例片段出现的本地地址字面量，均随本轮端口调整改为 `5014`；该测试文件内的地址只作样例文本，与枚举契约无关，登记在此以免日后按枚举改动误读该行。子应用生产配置 `client/apps/dy-medical-recognition/public/config.json` 登记为 `apiBaseUrl` = `http://183.224.180.166:35014`（本项目部署占位地址，**尚未正式部署**，本规范不核对其可达性）、`baseApiBaseUrl` = `http://183.224.180.166:35001`；两个配置文件都携带 `baseApiBaseUrl`，与 `Dy.LisCenter` 的同名配置口径一致。
 
 2026-09-11 用户澄清：先前发现的 `medical_standard_category`、`medical_standard_group`、`medical_standard_item` 是归属未确认的既存对象，不是本平台共享或既有资源。历史观测保留于阶段 0，不作为平台已建表、旧表迁移或索引继承依据。平台独立新建 `mrec_` 表，实体名不加前缀；同库不等于同表，不改名、复制、转换或修改其他系统的对象与数据。各阶段表的建立与核实结果按阶段记录，其完成状态以对应阶段 `testReport.md` 为准。
 
