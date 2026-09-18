@@ -52,6 +52,6 @@ note right of OrganizationService
 end note
 note right of PlatformSystemParameterSystem
   互认平台通过两个参数查询读取系统参数；外部系统不调用互认平台查询。
-  本院报告匹配参数缺失时使用默认关闭和默认四十八小时；参数非法或无法取得时，匹配查询失败。
+  本院报告匹配参数不设默认值；参数缺失、非法或无法取得时，匹配查询失败。
 end note
 @enduml
