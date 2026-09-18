@@ -5,13 +5,16 @@ using Dy.Base.Application.Contracts.UserAggregate;
 using Dy.Core.Abstractions.Domain.Dtos;
 using Dy.Core.Abstractions.EventBus;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
-using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
 using Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
-using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Events;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Events;
+using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Managers;
+using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Ports;
 using Dy.MedicalRecognition.Domain.Share.Enums;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Tests.Architecture;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -22,7 +25,7 @@ namespace Dy.MedicalRecognition.Tests;
 /// <summary>
 /// 阶段 3 互认项目金额保存写入的用例与领域行为校验：首次保存新建、覆盖不累加、零元算已配置、
 /// 金额非负与最多两位小数的领域拒绝、保存前提为互认配置存在、同值重复保存仍登记事件、
-/// 影响行数判定（0 行复读三分支与多行不变量）、并发首次保存的唯一冲突翻译、
+/// 影响行数判定（0 行复读三分支与多行不变量）、
 /// 两个入口的取值来源与院区归属、事件字段与失败不登记事件，以及契约字段与实体语义修正。
 /// </summary>
 /// <remarks>
@@ -74,9 +77,6 @@ public sealed class Stage3WritePathTests
   /// <summary>互认配置不存在时的业务拒绝文案。</summary>
   private const string MissingConfigurationMessage = "业务拒绝：当前组织未建立该标准项目的互认项目配置。";
 
-  /// <summary>并发首次保存同一业务键时的业务拒绝文案。</summary>
-  private const string DuplicateAmountMessage = "业务拒绝：该医院院区标准项目金额已被并发保存，请刷新后重试。";
-
   /// <summary>并发冲突无法由复读解释时的业务拒绝文案。</summary>
   private const string ConcurrentConflictMessage = "业务拒绝：金额已被其他操作变更，请刷新后重试。";
 
@@ -91,7 +91,8 @@ public sealed class Stage3WritePathTests
   /// <param name="organizationService">提供组织、医院与院区路径的外部组织服务替身。</param>
   /// <returns>可直接调用的写入口。</returns>
   private static MedicalRecognitionReportAppService CreateAppService(FakeReportRepository repository, FakeOrganizationAppService organizationService)
-    => new(new MedicalRecognitionReportManager(repository), repository, organizationService, new StubUserAppService());
+    => new(new MedicalRecognitionReportManager(repository), repository, organizationService, new StubUserAppService(),
+      new StubReportPdfFileStore(), new StubReportQueryRepository());
 
   /// <summary>构建写入口，并指定补齐令牌缺失层所用的外部用户服务替身。</summary>
   /// <param name="repository">承载金额与互认配置数据的最小仓储替身。</param>
@@ -100,7 +101,8 @@ public sealed class Stage3WritePathTests
   /// <returns>可直接调用的写入口。</returns>
   private static MedicalRecognitionReportAppService CreateAppService(
     FakeReportRepository repository, FakeOrganizationAppService organizationService, StubUserAppService userService)
-    => new(new MedicalRecognitionReportManager(repository), repository, organizationService, userService);
+    => new(new MedicalRecognitionReportManager(repository), repository, organizationService, userService,
+      new StubReportPdfFileStore(), new StubReportQueryRepository());
 
   /// <summary>构建领域管理器，用于绕过应用层直接校验领域规则。</summary>
   /// <param name="repository">承载金额与互认配置数据的最小仓储替身。</param>
@@ -321,22 +323,41 @@ public sealed class Stage3WritePathTests
   private static readonly PropertyInfo EventQueueProperty = typeof(EventBusFactory)
     .GetProperty(nameof(EventBusFactory.CurrentEventQueue), BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)!;
 
-  /// <summary>定位仓储工程中的 SqlMap 文件。</summary>
+  /// <summary>定位仓储工程中的互认配置 SqlMap 文件，固定在聚合目录内。</summary>
   /// <param name="fileName">SqlMap 文件名。</param>
   /// <returns>该 SqlMap 文件的绝对路径。</returns>
-  /// <exception cref="FileNotFoundException">仓储工程中未找到该 SqlMap 文件时抛出。</exception>
-  private static string FindRepositorySqlMap(string fileName)
-  {
-    string candidate = Path.Combine(SourceSyntaxGuard.FindRepositoryRoot(), "server", "Dy.MedicalRecognition.Repository", "MedicalRecognitionReportAggregate", fileName);
-    return File.Exists(candidate) ? candidate : throw new FileNotFoundException($"未找到仓储 SqlMap '{fileName}'。");
-  }
+  /// <remarks>
+  /// 映射文件的物理位置受宿主默认资源模式约束：程序集根命名空间下一层目录内的直接文件才会被注册，
+  /// 因此互认配置映射固定在 <c>MedicalRecognitionReportAggregate</c>。
+  /// </remarks>
+  /// <exception cref="FileNotFoundException">聚合目录内不存在该文件时抛出。</exception>
+  private static string FindRepositorySqlMap(string fileName) =>
+    SourceSyntaxGuard.FindRepositoryFile("MedicalRecognitionReportAggregate", fileName);
 
   /// <summary>读取领域层写路径源码文件并解析为语法树。</summary>
   /// <param name="fileName">领域层源码文件名。</param>
   /// <returns>该文件的编译单元语法树根节点。</returns>
-  private static CompilationUnitSyntax ReadDomainSource(string fileName) =>
-    SourceSyntaxGuard.Parse(File.ReadAllText(Path.Combine(
-      SourceSyntaxGuard.FindRepositoryRoot(), "server", "Dy.MedicalRecognition.Domain", "MedicalRecognitionReportAggregate", fileName)));
+  /// <remarks>
+  /// 领域源码只允许出现在聚合根目录与按角色划分的 <c>Managers</c>、<c>Ports</c> 子目录中；
+  /// 白名单之外的副本会让本用例失败，避免源码被挪走后断言读到错位的同名文件。
+  /// </remarks>
+  /// <exception cref="FileNotFoundException">三个允许目录内都不存在该文件时抛出。</exception>
+  private static CompilationUnitSyntax ReadDomainSource(string fileName)
+  {
+    string aggregateDirectory = Path.Combine(
+      SourceSyntaxGuard.FindRepositoryRoot(), "server", "Dy.MedicalRecognition.Domain", "MedicalRecognitionReportAggregate");
+    string[] allowedDirectories =
+    [
+      aggregateDirectory,
+      Path.Combine(aggregateDirectory, "Managers"),
+      Path.Combine(aggregateDirectory, "Ports")
+    ];
+    string[] matches = [.. allowedDirectories.Select(directory => Path.Combine(directory, fileName)).Where(File.Exists)];
+    string sourceFile = matches.Length == 1
+      ? matches[0]
+      : throw new FileNotFoundException($"聚合根目录、Managers 或 Ports 内未唯一找到领域源码 '{fileName}'（命中 {matches.Length} 处）。");
+    return SourceSyntaxGuard.Parse(File.ReadAllText(sourceFile));
+  }
 
   /// <summary>
   /// V1：首次保存（该业务键无记录）时新增恰好 1 行，行为字段取请求与可信操作信息，
@@ -739,25 +760,6 @@ public sealed class Stage3WritePathTests
     Assert.Single(events.Events.OfType<OrganizationHospitalBranchRecognitionAmountSavedEvent>());
   }
 
-  /// <summary>V16：并发首次保存同一业务键命中唯一约束时翻译为业务拒绝，不登记事件、不自动改用更新路径。</summary>
-  [Fact]
-  public async Task Save_platform_amount_translates_unique_violation_into_business_rejection()
-  {
-    UseTrustedContext();
-    FakeReportRepository repository = new();
-    FakeOrganizationAppService organizationService = CreateConfiguredOrganization(repository);
-    repository.ThrowDuplicateOnInsert = true;
-
-    (RecordingEventQueue events, InvalidOperationException error) = await SaveExpectingRejectionAsync(
-      () => CreateAppService(repository, organizationService).SaveOrganizationHospitalBranchRecognitionAmountAsync(PlatformRequest()));
-
-    Assert.Equal(DuplicateAmountMessage, error.Message);
-    // 唯一冲突不自动改用更新路径：只有一条写语句被尝试，且没有登记事件。
-    Assert.Equal(1, repository.InsertCalls);
-    Assert.Equal(0, repository.UpdateCalls);
-    Assert.Empty(events.Events);
-  }
-
   /// <summary>
   /// 影响行数 0 行的复读三分支之一：复读读不到记录时按记录已不存在拒绝，无写入、无事件。
   /// </summary>
@@ -933,7 +935,7 @@ public sealed class Stage3WritePathTests
     Assert.Null(typeof(RecognitionAmountReadModel).GetProperty("LastModifiedBy"));
     Assert.Null(typeof(RecognitionAmountReadModel).GetProperty("IsStandardCatalogValid"));
     Assert.Null(typeof(RecognitionAmountReadModel).GetProperty("IsAvailableForNewMatch"));
-    Assert.Equal("Dy.MedicalRecognition.Application.Contracts.Queries", typeof(RecognitionAmountReadModel).Namespace);
+    Assert.Equal("Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount", typeof(RecognitionAmountReadModel).Namespace);
   }
 
   /// <summary>两个保存入口各保持最多一条写语句，且都不声明 <c>WorkUnitAttribute</c>。</summary>
@@ -1162,9 +1164,6 @@ public sealed class Stage3WritePathTests
     /// <summary>最后一次更新写入的金额记录。</summary>
     public OrganizationHospitalBranchRecognitionAmount? LastUpdated { get; private set; }
 
-    /// <summary>为真时新增语句抛出仓储识别出的并发保存异常，用于校验领域层翻译。</summary>
-    public bool ThrowDuplicateOnInsert { get; set; }
-
     /// <summary>生成一个新的金额记录主键。</summary>
     /// <returns>新的主键标识。</returns>
     public Guid CreateGuid() => Guid.NewGuid();
@@ -1196,15 +1195,13 @@ public sealed class Stage3WritePathTests
       });
     }
 
-    /// <summary>新增一条金额记录，模拟影响行数与唯一冲突。</summary>
+    /// <summary>新增一条金额记录，模拟影响行数。</summary>
     /// <param name="amount">待插入金额记录。</param>
     /// <returns>受影响行数。</returns>
-    /// <exception cref="DuplicateOrganizationHospitalBranchRecognitionAmountException">用例要求模拟唯一约束冲突时抛出。</exception>
     public Task<int> CreateOrganizationHospitalBranchRecognitionAmountAsync(OrganizationHospitalBranchRecognitionAmount amount)
     {
       InsertCalls++;
       LastInserted = amount;
-      if (ThrowDuplicateOnInsert) throw new DuplicateOrganizationHospitalBranchRecognitionAmountException("金额记录与已有记录重复。", new InvalidOperationException("模拟数据库唯一约束冲突。"));
 
       (string, string, string, string) key = (amount.OrganizationCode, amount.HospitalCode, amount.BranchCode, amount.StandardProjectCode);
       if (ScriptedWriteRows.Count > 0)
@@ -1374,6 +1371,97 @@ public sealed class Stage3WritePathTests
     /// <param name="disableMedicalStandardItemCommand">停用命令。</param>
     /// <returns>不返回结果。</returns>
     public Task<int> DisableMedicalStandardItemAsync(DisableMedicalStandardItemCommand disableMedicalStandardItemCommand) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按证件键读取平台患者。</summary>
+    /// <param name="identityDocumentTypeCode">证件类型代码。</param>
+    /// <param name="identityDocumentNo">证件号码。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<PlatformPatient?> GetPlatformPatientByDocumentAsync(string identityDocumentTypeCode, string identityDocumentNo) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增平台患者。</summary>
+    /// <param name="platformPatient">平台患者实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreatePlatformPatientAsync(PlatformPatient platformPatient) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按报告标识读取报告。</summary>
+    /// <param name="id">报告标识。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<MedicalRecognitionReport?> GetMedicalRecognitionReportByIdAsync(Guid id) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按五个业务键定位报告。</summary>
+    /// <param name="organizationCode">组织编码。</param>
+    /// <param name="hospitalCode">医院编码。</param>
+    /// <param name="branchCode">院区编码。</param>
+    /// <param name="reportType">报告类型。</param>
+    /// <param name="reportNo">来源报告单号。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<MedicalRecognitionReport?> GetMedicalRecognitionReportByBusinessKeyAsync(
+      string organizationCode, string hospitalCode, string branchCode, MedicalReportType reportType, string reportNo) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增报告。</summary>
+    /// <param name="medicalRecognitionReport">报告实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateMedicalRecognitionReportAsync(MedicalRecognitionReport medicalRecognitionReport) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：更新报告的当前版本指向与检索列。</summary>
+    /// <param name="medicalRecognitionReport">报告实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> UpdateMedicalRecognitionReportCurrentVersionAsync(MedicalRecognitionReport medicalRecognitionReport) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：把报告作废。</summary>
+    /// <param name="medicalRecognitionReport">报告实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> VoidMedicalRecognitionReportAsync(MedicalRecognitionReport medicalRecognitionReport) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：读取报告当前最大版本序号。</summary>
+    /// <param name="reportId">报告标识。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> GetMedicalReportMaxVersionNumberAsync(Guid reportId) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按版本标识读取版本。</summary>
+    /// <param name="id">报告版本标识。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<MedicalReportVersion?> GetMedicalReportVersionByIdAsync(Guid id) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增报告版本。</summary>
+    /// <param name="medicalReportVersion">报告版本实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateMedicalReportVersionAsync(MedicalReportVersion medicalReportVersion) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增检验专项内容。</summary>
+    /// <param name="laboratoryReportContent">检验专项内容实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateLaboratoryReportContentAsync(LaboratoryReportContent laboratoryReportContent) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增普通检验结果。</summary>
+    /// <param name="laboratoryResultItem">普通检验结果实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateLaboratoryResultItemAsync(LaboratoryResultItem laboratoryResultItem) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增细菌鉴定结果。</summary>
+    /// <param name="laboratoryBacteriaResult">细菌鉴定结果实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateLaboratoryBacteriaResultAsync(LaboratoryBacteriaResult laboratoryBacteriaResult) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增药敏结果。</summary>
+    /// <param name="laboratoryAntimicrobialSusceptibility">药敏结果实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateLaboratoryAntimicrobialSusceptibilityAsync(LaboratoryAntimicrobialSusceptibility laboratoryAntimicrobialSusceptibility) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增检查专项内容。</summary>
+    /// <param name="examinationReportContent">检查专项内容实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateExaminationReportContentAsync(ExaminationReportContent examinationReportContent) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增检查项目。</summary>
+    /// <param name="examinationItem">检查项目实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateExaminationItemAsync(ExaminationItem examinationItem) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增检查部位。</summary>
+    /// <param name="examinationSite">检查部位实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateExaminationSiteAsync(ExaminationSite examinationSite) => throw new NotSupportedException(UnusedMember);
 
     /// <summary>未使用的仓储成员统一提示，避免测试静默走过未被覆盖的写入路径。</summary>
     private const string UnusedMember = "本测试未使用该仓储成员。";

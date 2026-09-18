@@ -1,9 +1,13 @@
 using Dy.Core.Abstractions.Http;
 
+using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
+using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
+using Dy.MedicalRecognition.Application.Contracts.Queries.StandardCatalog;
 namespace Dy.MedicalRecognition.Application.Contracts.Queries;
 
-/// <summary>提供标准医疗项目目录四项只读查询、互认项目配置列表查询，以及两个互认项目金额列表查询。</summary>
-public interface IMedicalRecognitionReportQueryAppService : IApplicationService
+/// <summary>提供标准医疗项目目录四项只读查询、互认项目配置列表查询、两个互认项目金额列表查询，以及报告管理端的报告列表、版本列表与版本详情查询。</summary>
+public partial interface IMedicalRecognitionReportQueryAppService : IApplicationService
 {
   /// <summary>按项目类型查询分类列表。</summary>
   Task<IEnumerable<MedicalStandardCategoryListReadModel>> QueryMedicalStandardCategoryListAsync(MedicalStandardCategoryListQueryRequest request);

@@ -75,6 +75,7 @@
 | 后端新功能设计 | [Backend Design Gates](.agents/instructions/backend-design-gates.md) |
 | 聚合、分层、类型、Repository、SQL/XML | [Backend Architecture](.agents/instructions/backend-architecture.md) |
 | Command、Query、事件、事务 | [Backend Command Query Event](.agents/instructions/backend-command-query-event.md) |
+| 分页（公共形状、窗口校验、SQL 窗口归属、前端控件） | [Pagination](.agents/instructions/pagination.md) |
 | Dy Framework 工作单元与事件顺序 | [Dy Framework WorkUnit](.agents/instructions/dy-framework-workunit.md) |
 | C# 实现 | [C# Backend Style](.agents/instructions/csharp-backend-style.md) |
 | C# 注释、复用、新增抽象 | [C# Documentation And Reuse](.agents/instructions/csharp-documentation-and-reuse.md) |

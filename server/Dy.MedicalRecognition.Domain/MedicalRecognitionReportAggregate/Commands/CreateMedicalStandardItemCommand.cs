@@ -1,7 +1,7 @@
 using Dy.Core.Abstractions.Domain;
 using Dy.Core.SourceGen;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
-using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Events;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Events;
 
 namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
 

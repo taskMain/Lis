@@ -1,0 +1,17 @@
+.report-management-page { min-width: 0; max-width: 100%; }
+.report-management-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.report-management-header h2.ant-typography { margin: 0; }
+.report-management-scope { margin-bottom: 16px; }
+.report-management-filters { margin-bottom: 12px; }
+.report-management-date-label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.report-management-date { height: 32px; padding: 0 8px; border: 1px solid var(--ant-color-border, #d9d9d9); border-radius: 6px; background: transparent; color: inherit; }
+.report-management-failure { margin-bottom: 12px; }
+.report-management-summary { display: block; margin-top: 12px; }
+.report-management-detail { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--ant-color-border, #f0f0f0); }
+.report-management-detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.report-management-detail-header h4.ant-typography { margin: 0 0 4px; }
+.report-management-version-body { margin-top: 20px; }
+.report-management-descriptions { margin-bottom: 16px; }
+.report-management-content { margin-top: 16px; }
+.report-management-bacteria { margin-bottom: 16px; }
+.report-management-examination-item { margin-bottom: 16px; }

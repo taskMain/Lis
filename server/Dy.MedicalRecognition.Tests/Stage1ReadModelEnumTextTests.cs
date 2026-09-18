@@ -1,6 +1,6 @@
 using System.Reflection;
 using Dy.Core.Extensions.Models;
-using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.StandardCatalog;
 using Dy.MedicalRecognition.Domain.Share.Enums;
 using Xunit;
 

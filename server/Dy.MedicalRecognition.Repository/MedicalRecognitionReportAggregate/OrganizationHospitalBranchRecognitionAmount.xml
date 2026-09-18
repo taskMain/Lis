@@ -29,9 +29,9 @@
       功能：新增一条组织医院院区互认项目金额，把某组织、医院、院区下某标准项目的当前金额落库。
       结果：写入记录标识、四个业务键列、当前金额与操作字段；
       操作时间显式取命令携带的服务端时间而不是数据库当前时间，使写入时间与领域事件时间一致，
-      全部列都显式绑定参数、不依赖任何数据库默认值；并发首次保存同一业务键时由唯一索引兜底、由仓储翻译为业务拒绝。
+      全部列都显式绑定参数、不依赖任何数据库默认值；并发首次保存同一业务键时由唯一索引兜底，数据库异常按原样向外传播。
     -->
-    <Statement Id="InsertOrganizationHospitalBranchRecognitionAmount">
+    <Statement Id="CreateOrganizationHospitalBranchRecognitionAmount">
       insert into mrec_organization_hospital_branch_recognition_amount (
         <!-- 参数顺序与下面的值列表逐位对应，全部来自命令与可信上下文，不含数据库默认值 -->
         id,                       <!-- 金额记录标识（主键），由 Manager 在插入前生成 -->

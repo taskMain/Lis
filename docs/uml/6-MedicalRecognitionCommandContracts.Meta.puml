@@ -42,23 +42,6 @@ class "报告作废请求" as MedicalReportVoidRequest <<Request>> {
     VoidedTime : DateTime
     VoidReason : Text
 }
-class "互认报告主体写入请求" as MedicalRecognitionReportWriteRequest <<InternalCommandRequest>> {
-    OrganizationCode : String
-    HospitalCode : String
-    BranchCode : String
-    ReportType : MedicalReportType
-    ReportNo : String
-}
-class "报告版本写入请求" as MedicalReportVersionWriteRequest <<InternalCommandRequest>> {
-    ReportVersionId : Guid
-    ReportId : Guid
-    VersionNumber : Integer
-    Report : MedicalReportVersionRequest
-    ReceivedTime : DateTime
-    PdfFileId : String
-    PdfFileStream : ByteArray
-    OriginalPdfFileName : String?
-}
 class "检验报告专项内容请求" as LaboratoryReportContentRequest <<Request>> {
     ReportCategoryCode : String?
     ReportCategoryName : String?
@@ -90,24 +73,24 @@ class "普通检验结果请求" as LaboratoryResultItemRequest <<Request>> {
     InstrumentName : String?
     DisplayOrder : Integer
     LaboratoryChargeItemCode : String?
-    InsuranceChargeItemCode : String?
+    MedicalInsuranceChargeItemCode : String?
     AbnormalFlag : LaboratoryAbnormalFlag?
     CriticalValueFlag : Boolean?
     InspectorId : String?
     InspectorName : String?
 }
-class "细菌鉴定结果请求" as BacterialIdentificationResultRequest <<Request>> {
+class "细菌鉴定结果请求" as LaboratoryBacteriaResultRequest <<Request>> {
     SourceDetailKey : String?
-    DetectionStatus : BacterialDetectionStatus
     SourceOrganismCode : String?
     SourceOrganismName : String?
     SourceResultText : Text
+    DetectionConclusion : Text
     ColonyCount : String?
     CultureMedium : String?
     CultureTime : String?
     CultureCondition : String?
+    DiscoveryMethod : String?
     DetectionMethod : String?
-    DetectionConclusion : Text
     Description : Text?
     InstrumentCode : String?
     InstrumentName : String?
@@ -115,9 +98,9 @@ class "细菌鉴定结果请求" as BacterialIdentificationResultRequest <<Reque
     TestPanelName : String?
     InspectorId : String?
     InspectorName : String?
-    DrugSusceptibilityResults : DrugSusceptibilityResultRequest[]
+    Susceptibilities : LaboratoryAntimicrobialSusceptibilityRequest[]
 }
-class "药敏结果请求" as DrugSusceptibilityResultRequest <<Request>> {
+class "药敏结果请求" as LaboratoryAntimicrobialSusceptibilityRequest <<Request>> {
     SourceDetailKey : String?
     DrugCode : String?
     DrugName : String
@@ -136,12 +119,10 @@ class "药敏结果请求" as DrugSusceptibilityResultRequest <<Request>> {
 }
 class "检验报告完整版本请求" as LaboratoryReportVersionRequest <<Request>> {
     ReportNo : String
-    Report : MedicalReportVersionRequest
-    LaboratoryContent : LaboratoryReportContentRequest
-    ResultItems : LaboratoryResultItemRequest[]
-    BacterialResults : BacterialIdentificationResultRequest[]
-    PdfFileStream : ByteArray
-    OriginalPdfFileName : String?
+    Version : MedicalReportVersionRequest
+    Content : LaboratoryReportContentRequest
+    Results : LaboratoryResultItemRequest[]
+    BacteriaResults : LaboratoryBacteriaResultRequest[]
 }
 class "检查报告专项内容请求" as ExaminationReportContentRequest <<Request>> {
     SourceExaminationTypeCode : String?
@@ -175,11 +156,9 @@ class "检查部位请求" as ExaminationSiteRequest <<Request>> {
 }
 class "检查报告完整版本请求" as ExaminationReportVersionRequest <<Request>> {
     ReportNo : String
-    Report : MedicalReportVersionRequest
-    ExaminationContent : ExaminationReportContentRequest
-    ExaminationItems : ExaminationItemRequest[]
-    PdfFileStream : ByteArray
-    OriginalPdfFileName : String?
+    Version : MedicalReportVersionRequest
+    Content : ExaminationReportContentRequest
+    Items : ExaminationItemRequest[]
 }
 class "互认匹配拟开项目请求" as RecognitionMatchProposedItemRequest <<Request>> {
     ItemType : MedicalItemType
@@ -303,13 +282,12 @@ class "互认引用事实" as RecognitionReferenceFact <<EventContract>> {
 LaboratoryReportVersionRequest --> MedicalReportVersionRequest : 包含
 LaboratoryReportVersionRequest --> LaboratoryReportContentRequest : 包含
 LaboratoryReportVersionRequest --> LaboratoryResultItemRequest : 包含多项
-LaboratoryReportVersionRequest --> BacterialIdentificationResultRequest : 包含多项
-BacterialIdentificationResultRequest --> DrugSusceptibilityResultRequest : 包含多项
+LaboratoryReportVersionRequest --> LaboratoryBacteriaResultRequest : 包含多项
+LaboratoryBacteriaResultRequest --> LaboratoryAntimicrobialSusceptibilityRequest : 包含多项
 ExaminationReportVersionRequest --> MedicalReportVersionRequest : 包含
 ExaminationReportVersionRequest --> ExaminationReportContentRequest : 包含
 ExaminationReportVersionRequest --> ExaminationItemRequest : 包含多项
 ExaminationItemRequest --> ExaminationSiteRequest : 包含多项
-MedicalReportVersionWriteRequest --> MedicalReportVersionRequest : 映射
 RecognitionMatchesResponse --> RecognitionMatchReportResponse : 包含多项
 RecognitionMatchesResponse --> RecognitionMatchItemResponse : 包含多项
 RecognitionMatchReportResponse --> RecognitionMatchLaboratoryContentResponse : 检验时包含

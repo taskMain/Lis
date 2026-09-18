@@ -1,7 +1,8 @@
 using System.Reflection;
-using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
 using Dy.MedicalRecognition.Application.Queries;
 using Dy.MedicalRecognition.Domain.Queries;
+using Dy.MedicalRecognition.Domain.Queries.Ports;
 using Dy.MedicalRecognition.Domain.Share.Enums;
 using Dy.MedicalRecognition.Repository.Queries;
 using Xunit;
@@ -374,6 +375,62 @@ public sealed class Stage2QueryTests
 
     /// <inheritdoc/>
     public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<long> CountMedicalReportListAsync(MedicalReportListFilter filter) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<MedicalReportListItem>> QueryMedicalReportListAsync(MedicalReportListFilter filter, int skipCount, int pageSize) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<MedicalReportVersionItem>> QueryMedicalReportVersionListAsync(Guid reportId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<MedicalReportVersionDetailItem?> GetMedicalReportVersionDetailAsync(Guid reportId, Guid reportVersionId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<MedicalReportScopeItem?> GetMedicalReportScopeAsync(Guid reportId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<MedicalRecognitionReportDetailCommon?> GetMedicalReportVersionCommonAsync(Guid reportVersionId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<LaboratoryReportContentItem?> GetLaboratoryReportContentAsync(Guid reportVersionId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsAsync(Guid reportVersionId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<LaboratoryBacteriaResultItem>> QueryLaboratoryBacteriaResultsAsync(Guid reportVersionId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<LaboratorySusceptibilityItem>> QueryLaboratorySusceptibilitiesAsync(Guid bacteriaResultId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<ExaminationReportContentItem?> GetExaminationReportContentAsync(Guid reportVersionId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsAsync(Guid reportVersionId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesAsync(Guid examinationItemId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) =>
       throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
   }
 }

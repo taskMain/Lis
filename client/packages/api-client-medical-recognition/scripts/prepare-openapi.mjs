@@ -17,7 +17,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-const defaultUrl = process.env.MEDICAL_RECOGNITION_OPENAPI_URL ?? 'http://localhost:5014/openapi/v1.json'
+const defaultUrl = process.env.MEDICAL_RECOGNITION_OPENAPI_URL ?? 'http://localhost:15014/openapi/v1.json'
 const sourceUrl = process.argv[2] ?? defaultUrl
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const outputPath = path.join(packageRoot, 'openapi', 'medical-recognition.openapi.json')

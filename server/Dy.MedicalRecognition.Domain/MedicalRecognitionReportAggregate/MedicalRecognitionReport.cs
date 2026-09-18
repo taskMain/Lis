@@ -42,6 +42,21 @@ public partial class MedicalRecognitionReport : Dy.Core.Abstractions.Domain.Enti
   /// </summary>
   public partial Guid CurrentVersionId { get; set; }
   /// <summary>
+  /// 报告时间；当前版本的报告时间冗余保存，使管理端列表的筛选、排序与索引不需要按当前版本反复关联。
+  /// </summary>
+  /// <remarks>取值来自当前版本，随当前版本指向在同一事务内更新，因此恒等于当前版本的报告时间；不参与版本顺序判断。</remarks>
+  public partial DateTime ReportTime { get; set; }
+  /// <summary>
+  /// 患者姓名；当前版本的患者姓名冗余保存，用于管理端列表的患者筛选。
+  /// </summary>
+  /// <remarks>取值来自当前版本，随当前版本指向在同一事务内更新；只作为明确输入的查询条件，不用于患者身份匹配。</remarks>
+  public partial string PatientName { get; set; }
+  /// <summary>
+  /// 证件号码；当前版本的证件号码冗余保存，用于管理端列表的患者筛选。
+  /// </summary>
+  /// <remarks>取值来自当前版本，随当前版本指向在同一事务内更新；只作为明确输入的查询条件，不用于患者身份匹配。</remarks>
+  public partial string IdentityDocumentNo { get; set; }
+  /// <summary>
   /// 生命周期状态；作废报告不再参与互认匹配。
   /// </summary>
   public partial MedicalReportLifecycleStatus Status { get; set; }

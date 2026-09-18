@@ -1,18 +1,19 @@
 using Dy.Core.Abstractions.Modularity;
 using Dy.Earthrace.Abstractions;
 using Dy.MedicalRecognition.Domain.Queries;
+using Dy.MedicalRecognition.Domain.Queries.Ports;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Dy.MedicalRecognition.Repository.Queries;
 
 /// <summary>
-/// 标准项目目录与互认项目配置的只读查询映射实现。
+/// 标准项目目录、互认项目配置、互认项目金额与报告管理端的只读查询映射实现。
 /// </summary>
 /// <remarks>
 /// 全部查询都只筛选与投影，不修改数据，也不判断业务状态。
 /// 返回的记录范围、排序和派生列含义由查询映射文件中同名的语句决定；空值语义统一为不传即不过滤。
 /// </remarks>
-public sealed class MedicalRecognitionReportQueryRepository : IMedicalRecognitionReportQueryRepository, ITransientDependency<IMedicalRecognitionReportQueryRepository>
+public sealed partial class MedicalRecognitionReportQueryRepository : IMedicalRecognitionReportQueryRepository, ITransientDependency<IMedicalRecognitionReportQueryRepository>
 {
   /// <summary>
   /// 本仓储所用语句集的作用域名。
@@ -33,19 +34,19 @@ public sealed class MedicalRecognitionReportQueryRepository : IMedicalRecognitio
 
   /// <inheritdoc/>
   public async Task<IEnumerable<MedicalStandardCategoryListItem>> QueryMedicalStandardCategoryListAsync(MedicalItemType? itemType) =>
-    await dataMapper.QueryAsync<MedicalStandardCategoryListItem>(new { ItemType = itemType }, scope: SqlScope, sqlId: "QueryMedicalStandardCategoryList");
+    await dataMapper.QueryAsync<MedicalStandardCategoryListItem>(new { ItemType = itemType }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<IEnumerable<MedicalStandardGroupListItem>> QueryMedicalStandardGroupListAsync(Guid? categoryId) =>
-    await dataMapper.QueryAsync<MedicalStandardGroupListItem>(new { CategoryId = categoryId }, scope: SqlScope, sqlId: "QueryMedicalStandardGroupList");
+    await dataMapper.QueryAsync<MedicalStandardGroupListItem>(new { CategoryId = categoryId }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<IEnumerable<MedicalStandardItemListItem>> QueryMedicalStandardItemListAsync(Guid? categoryId, Guid? groupId, string? code, string? name, bool? isValid) =>
-    await dataMapper.QueryAsync<MedicalStandardItemListItem>(new { CategoryId = categoryId, GroupId = groupId, Code = code, Name = name, IsValid = isValid }, scope: SqlScope, sqlId: "QueryMedicalStandardItemList");
+    await dataMapper.QueryAsync<MedicalStandardItemListItem>(new { CategoryId = categoryId, GroupId = groupId, Code = code, Name = name, IsValid = isValid }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<IEnumerable<EffectiveMedicalStandardCatalogItem>> QueryEffectiveMedicalStandardCatalogAsync(MedicalItemType? itemType, string? categoryName) =>
-    await dataMapper.QueryAsync<EffectiveMedicalStandardCatalogItem>(new { ItemType = itemType, CategoryName = categoryName }, scope: SqlScope, sqlId: "QueryEffectiveMedicalStandardCatalog");
+    await dataMapper.QueryAsync<EffectiveMedicalStandardCatalogItem>(new { ItemType = itemType, CategoryName = categoryName }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? standardProjectCode, ConfigurationStatus? configurationStatus) =>
@@ -55,7 +56,7 @@ public sealed class MedicalRecognitionReportQueryRepository : IMedicalRecognitio
       StandardProjectCode = standardProjectCode,
       // 配置状态筛选比较的是互认配置表的布尔启用列，映射结果由下面的纯映射方法给出。
       IsValid = MapConfigurationStatusToIsValid(configurationStatus)
-    }, scope: SqlScope, sqlId: "QueryRecognitionProjectConfigurationList");
+    }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode) =>
@@ -65,7 +66,7 @@ public sealed class MedicalRecognitionReportQueryRepository : IMedicalRecognitio
       HospitalCode = hospitalCode,
       BranchCode = branchCode,
       StandardProjectCode = standardProjectCode
-    }, scope: SqlScope, sqlId: "QueryRecognitionAmountList");
+    }, scope: SqlScope);
 
   /// <summary>
   /// 把互认配置列表的状态筛选条件映射为互认配置表布尔启用列的比较值。

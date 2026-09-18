@@ -1,12 +1,55 @@
-<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+<SqlMap Scope="LaboratoryReportContent" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义检验报告专项内容的通用查询字段清单，供按报告版本读取语句与新增语句复用。
+      结果：输出标本信息、检验时间线、报告类别、检验人与操作审计字段，各字段业务含义见行内注释。
+    -->
     <Statement Id="LaboratoryReportContentColumns">
-      id, report_version_id, report_category_code, report_category_name, report_remark, overall_abnormal_flag, source_order_serial_no, specimen_collected_time, specimen_submitted_time, laboratory_received_time, source_specimen_no, specimen_type_code, specimen_type_name, testing_completed_time, inspector_id, inspector_name, oper_id, oper_time
+      id,                         <!-- 检验专项内容标识（主键） -->
+      report_version_id,          <!-- 报告版本标识 -->
+      report_category_code,       <!-- 报告类别编码 -->
+      report_category_name,       <!-- 报告类别名称 -->
+      report_remark,              <!-- 报告备注 -->
+      overall_abnormal_flag,      <!-- 整体异常标识 -->
+      source_order_serial_no,     <!-- 来源医嘱流水号 -->
+      specimen_collected_time,    <!-- 标本采集时间 -->
+      specimen_submitted_time,    <!-- 标本送检时间 -->
+      laboratory_received_time,   <!-- 检验科接收时间 -->
+      source_specimen_no,         <!-- 院内标本号 -->
+      specimen_type_code,         <!-- 标本类型编码 -->
+      specimen_type_name,         <!-- 标本类型名称 -->
+      testing_completed_time,     <!-- 检测完成时间 -->
+      inspector_id,               <!-- 检验人ID -->
+      inspector_name,             <!-- 检验人名称 -->
+      oper_id,                    <!-- 操作人标识 -->
+      oper_time                   <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllLaboratoryReportContent">
-      select
-      <Include RefId="LaboratoryReportContentColumns" />
-      from laboratory_report_content
+    <!--
+      功能：按报告版本读取检验专项内容，供管理端版本详情返回该版本的检验内容。
+      结果：一个报告版本至多一条，命中时返回一行字段清单，未命中时返回空结果。
+    -->
+    <Statement Id="GetLaboratoryReportContentByVersion">
+      select <Include RefId="LaboratoryReportContentColumns" /> from mrec_laboratory_report_content where report_version_id = $ReportVersionId
+    </Statement>
+    <!--
+      功能：新增一条检验报告专项内容。
+      结果：写入标识、报告版本标识、报告类别、备注、整体异常标识、来源医嘱流水号、标本时间线与信息、
+      检测完成时间、检验人与操作字段；应填字段缺省时写空值，不参与接收判断。
+    -->
+    <Statement Id="CreateLaboratoryReportContent">
+      insert into mrec_laboratory_report_content (
+        id, report_version_id, report_category_code, report_category_name, report_remark,
+        overall_abnormal_flag, source_order_serial_no,
+        specimen_collected_time, specimen_submitted_time, laboratory_received_time,
+        source_specimen_no, specimen_type_code, specimen_type_name, testing_completed_time,
+        inspector_id, inspector_name, oper_id, oper_time
+      ) values (
+        $Id, $ReportVersionId, $ReportCategoryCode, $ReportCategoryName, $ReportRemark,
+        $OverallAbnormalFlag, $SourceOrderSerialNo,
+        $SpecimenCollectedTime, $SpecimenSubmittedTime, $LaboratoryReceivedTime,
+        $SourceSpecimenNo, $SpecimenTypeCode, $SpecimenTypeName, $TestingCompletedTime,
+        $InspectorId, $InspectorName, $OperId, $OperTime
+      )
     </Statement>
   </Statements>
 </SqlMap>

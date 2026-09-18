@@ -1,12 +1,61 @@
-<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+<SqlMap Scope="LaboratoryBacteriaResult" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义细菌鉴定结果的通用查询字段清单，供按报告版本读取语句与新增语句复用。
+      结果：输出来源明细标识、来源菌种、结果原文与检测结论、培养信息、检测方法、仪器与试验板、检测人与操作审计字段。
+    -->
     <Statement Id="LaboratoryBacteriaResultColumns">
-      id, report_version_id, source_detail_key, source_organism_code, source_organism_name, source_result_text, detection_conclusion, colony_count, culture_medium, culture_time, culture_condition, discovery_method, detection_method, description, instrument_code, instrument_name, test_panel_code, test_panel_name, inspector_id, inspector_name, oper_id, oper_time
+      id,                     <!-- 细菌鉴定结果标识（主键） -->
+      report_version_id,      <!-- 报告版本标识 -->
+      source_detail_key,      <!-- 来源明细标识 -->
+      source_organism_code,   <!-- 来源菌种编码 -->
+      source_organism_name,   <!-- 来源菌种名称 -->
+      source_result_text,     <!-- 来源结果原文 -->
+      detection_conclusion,   <!-- 检测结论 -->
+      colony_count,           <!-- 菌落计数 -->
+      culture_medium,         <!-- 培养基 -->
+      culture_time,           <!-- 培养时间 -->
+      culture_condition,      <!-- 培养条件 -->
+      discovery_method,       <!-- 发现方式 -->
+      detection_method,       <!-- 检测方法 -->
+      description,            <!-- 详细描述 -->
+      instrument_code,        <!-- 检测仪器编码 -->
+      instrument_name,        <!-- 检测仪器名称 -->
+      test_panel_code,        <!-- 试验板编码 -->
+      test_panel_name,        <!-- 试验板名称 -->
+      inspector_id,           <!-- 检测人ID -->
+      inspector_name,         <!-- 检测人名称 -->
+      oper_id,                <!-- 操作人标识 -->
+      oper_time               <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllLaboratoryBacteriaResult">
-      select
-      <Include RefId="LaboratoryBacteriaResultColumns" />
-      from laboratory_bacteria_result
+    <!--
+      功能：按报告版本读取细菌鉴定结果，供管理端版本详情展示该版本的细菌鉴定与药敏内容。
+      结果：返回该版本的全部细菌鉴定结果，按结果标识升序保证顺序稳定；无结果时返回空集合。
+    -->
+    <Statement Id="QueryLaboratoryBacteriaResultsByVersion">
+      select <Include RefId="LaboratoryBacteriaResultColumns" /> from mrec_laboratory_bacteria_result
+      where report_version_id = $ReportVersionId  <!-- 版本范围：只返回该报告版本的细菌鉴定结果 -->
+      order by id asc  <!-- 排序：按结果标识升序，保证同一版本内的返回顺序稳定 -->
+    </Statement>
+    <!--
+      功能：新增一条细菌鉴定结果。
+      结果：写入标识、报告版本标识、来源明细标识、来源菌种、结果原文与检测结论、培养信息、检测方法、
+      详细描述、仪器与试验板、检测人与操作字段；培养未检出时同样写入一条以表达未检出，菌种编码与名称写空值。
+    -->
+    <Statement Id="CreateLaboratoryBacteriaResult">
+      insert into mrec_laboratory_bacteria_result (
+        id, report_version_id, source_detail_key, source_organism_code, source_organism_name,
+        source_result_text, detection_conclusion, colony_count, culture_medium, culture_time,
+        culture_condition, discovery_method, detection_method, description,
+        instrument_code, instrument_name, test_panel_code, test_panel_name,
+        inspector_id, inspector_name, oper_id, oper_time
+      ) values (
+        $Id, $ReportVersionId, $SourceDetailKey, $SourceOrganismCode, $SourceOrganismName,
+        $SourceResultText, $DetectionConclusion, $ColonyCount, $CultureMedium, $CultureTime,
+        $CultureCondition, $DiscoveryMethod, $DetectionMethod, $Description,
+        $InstrumentCode, $InstrumentName, $TestPanelCode, $TestPanelName,
+        $InspectorId, $InspectorName, $OperId, $OperTime
+      )
     </Statement>
   </Statements>
 </SqlMap>

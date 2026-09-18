@@ -1,12 +1,104 @@
 <SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义互认报告的通用查询字段清单，供按业务键读取与按主键读取语句复用。
+      结果：输出报告身份、来源归属、当前版本指向、三个检索列、生命周期状态与操作审计字段，各字段业务含义见行内注释。
+    -->
     <Statement Id="MedicalRecognitionReportColumns">
-      id, organization_code, hospital_code, branch_code, report_type, report_no, patient_id, current_version_id, status, voided_time, void_reason, oper_id, oper_time
+      id,                    <!-- 报告标识（主键） -->
+      organization_code,     <!-- 组织编码，来自可信调用身份 -->
+      hospital_code,         <!-- 医院编码，来自可信调用身份 -->
+      branch_code,           <!-- 院区编码，来自可信调用身份 -->
+      report_type,           <!-- 报告类型 -->
+      report_no,             <!-- 来源报告单号 -->
+      patient_id,            <!-- 平台患者标识 -->
+      current_version_id,    <!-- 当前版本标识，指向本报告自己的一个版本 -->
+      report_time,           <!-- 报告时间，当前版本的报告时间冗余保存 -->
+      patient_name,          <!-- 患者姓名，当前版本的患者姓名冗余保存 -->
+      identity_document_no,  <!-- 证件号码，当前版本的证件号码冗余保存 -->
+      status,                <!-- 生命周期状态 -->
+      voided_time,           <!-- 作废时间 -->
+      void_reason,           <!-- 作废原因 -->
+      oper_id,               <!-- 操作人标识 -->
+      oper_time              <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllMedicalRecognitionReport">
-      select
-      <Include RefId="MedicalRecognitionReportColumns" />
-      from medical_recognition_report
+    <!--
+      功能：按组织、医院、院区、报告类型与报告单号定位报告，供完整报告提交时判定新建还是追加版本。
+      结果：命中时返回一行报告字段清单，未命中时返回空结果；五个业务键列上的唯一索引保证至多命中一行；
+      不筛选生命周期状态，因此已作废报告同样命中，由领域层判定是否拒绝追加。
+    -->
+    <Statement Id="GetMedicalRecognitionReportByBusinessKey">
+      select <Include RefId="MedicalRecognitionReportColumns" /> from mrec_medical_recognition_report
+      <!-- 定位键：五个业务键列同时相等即命中，生命周期状态不参与定位 -->
+      where organization_code = $OrganizationCode and hospital_code = $HospitalCode and branch_code = $BranchCode
+        and report_type = $ReportType and report_no = $ReportNo
+    </Statement>
+    <!--
+      功能：按报告标识读取单条报告，供下载与版本详情按报告标识校验归属后定位报告。
+      结果：命中时返回一行报告字段清单，未命中时返回空结果。
+    -->
+    <Statement Id="GetMedicalRecognitionReportById">
+      select <Include RefId="MedicalRecognitionReportColumns" /> from mrec_medical_recognition_report where id = $Id
+    </Statement>
+    <!--
+      功能：新增一份当前有效的互认报告，并把三个检索列与当前版本指向一次写入。
+      结果：写入报告标识、来源归属、报告类型与单号、平台患者标识、当前版本指向、报告时间、患者姓名、证件号码、
+      生命周期状态、作废事实和操作字段；生命周期状态按当前有效常量写入，不接请求参数；
+      作废时间与作废原因写入空值，使新建报告没有作废事实；操作时间显式取命令时间而不是数据库当前时间，
+      使写入时间与领域事件时间一致。
+    -->
+    <Statement Id="CreateMedicalRecognitionReport">
+      insert into mrec_medical_recognition_report (
+        id,                    <!-- 报告标识（主键），由仓储在插入前生成 -->
+        organization_code,     <!-- 组织编码，取自可信调用身份 -->
+        hospital_code,         <!-- 医院编码，取自可信调用身份 -->
+        branch_code,           <!-- 院区编码，取自可信调用身份 -->
+        report_type,           <!-- 报告类型，由调用的接入接口确定 -->
+        report_no,             <!-- 来源报告单号，取自请求 -->
+        patient_id,            <!-- 平台患者标识，由患者解析步骤产生 -->
+        current_version_id,    <!-- 当前版本标识，指向本次追加的版本 -->
+        report_time,           <!-- 报告时间，取本次版本的报告时间 -->
+        patient_name,          <!-- 患者姓名，取本次版本的规范形式取值 -->
+        identity_document_no,  <!-- 证件号码，取本次版本的规范形式取值 -->
+        status,                <!-- 生命周期状态，新建固定写入当前有效 -->
+        voided_time,           <!-- 作废时间，新建写入空值 -->
+        void_reason,           <!-- 作废原因，新建写入空值 -->
+        oper_id,               <!-- 操作人标识 -->
+        oper_time              <!-- 操作时间，取命令携带的服务端当前时间 -->
+      ) values ($Id, $OrganizationCode, $HospitalCode, $BranchCode, $ReportType, $ReportNo, $PatientId, $CurrentVersionId,
+        $ReportTime, $PatientName, $IdentityDocumentNo, $Status, null, null, $OperId, $OperTime)
+    </Statement>
+    <!--
+      功能：追加版本后把当前版本指向与报告主体上的报告时间、患者姓名、证件号码一次更新，并刷新操作字段。
+      结果：只影响主键命中的一行；三个检索列与当前版本指向在同一语句内更新，因此报告主体上的三列恒等于当前版本的对应取值；
+      生命周期状态、作废事实与报告身份列都不在本语句的变更范围内。
+    -->
+    <Statement Id="UpdateMedicalRecognitionReportCurrentVersion">
+      update mrec_medical_recognition_report set
+        current_version_id = $CurrentVersionId,    <!-- 当前版本指向，改为本次追加的版本 -->
+        report_time = $ReportTime,                 <!-- 报告时间，改为本次版本的报告时间 -->
+        patient_name = $PatientName,               <!-- 患者姓名，改为本次版本的规范形式取值 -->
+        identity_document_no = $IdentityDocumentNo, <!-- 证件号码，改为本次版本的规范形式取值 -->
+        oper_id = $OperId,                         <!-- 操作人标识 -->
+        oper_time = $OperTime                      <!-- 操作时间，取命令携带的服务端当前时间 -->
+      where id = $Id
+    </Statement>
+    <!--
+      功能：把报告作废事实写入，并记录本次操作人和操作时间。
+      结果：仅当报告主键命中且当前处于未作废状态时才更新 1 行；
+      重复作废、报告不存在都影响 0 行，调用方据此区分幂等与冲突；
+      只改变生命周期状态、作废时间、作废原因与操作字段，不生成内容版本、不物理删除。
+      原状态写成字面量 1（有效）：条件更新必须带原状态才能让影响行数表达并发结果，
+      而框架按实体属性绑定参数时会用实体上的目标状态覆盖同名列，因此原状态不接实体属性。
+    -->
+    <Statement Id="VoidMedicalRecognitionReport">
+      update mrec_medical_recognition_report set
+        status = $Status,           <!-- 生命周期状态，置为已作废 -->
+        voided_time = $VoidedTime,  <!-- 作废时间，取请求提交的作废时间 -->
+        void_reason = $VoidReason,  <!-- 作废原因，取请求提交的作废原因 -->
+        oper_id = $OperId,          <!-- 操作人标识 -->
+        oper_time = $OperTime       <!-- 操作时间，取命令携带的服务端当前时间 -->
+      where id = $Id and status = 1
     </Statement>
   </Statements>
 </SqlMap>

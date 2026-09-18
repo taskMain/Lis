@@ -41,7 +41,7 @@ export function createMedicalRecognitionClient(requestAdapter: RequestAdapter) {
     }
     
     if (requestAdapter.baseUrl === undefined || requestAdapter.baseUrl === null || requestAdapter.baseUrl === "") {
-        requestAdapter.baseUrl = "http://localhost:5014";
+        requestAdapter.baseUrl = "http://localhost:15014";
     }
     const pathParameters: Record<string, unknown> = {
         "baseurl": requestAdapter.baseUrl,
@@ -53,7 +53,7 @@ export function createMedicalRecognitionClient(requestAdapter: RequestAdapter) {
  */
 export interface MedicalRecognitionClient extends BaseRequestBuilder<MedicalRecognitionClient> {
     /**
-     * The Api property
+     * The api property
      */
     get api(): ApiRequestBuilder;
 }

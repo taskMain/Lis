@@ -84,12 +84,15 @@ public sealed class Stage1SqlMapProbeTests
     var builder = Activator.CreateInstance(builderType)!;
     RegisterBooleanTypeHandler(earthraceAssembly);
     Invoke(builder, "UseHybridConfig", options!);
+    // 按本项目固定的资源命名形态注册：程序集根命名空间 + 一层目录 + 文件名，即 `{程序集名}.*.*.xml`。
+    // 宿主实际还能再吃一层目录（对照项目 Dy.LisCenter 的两级目录映射即依赖这一点），更深则要靠
+    // EmbeddedResource 的 LogicalName 压平；本项目不使用这些形态，映射文件固定与其仓储类同目录。
+    // 这里不能按内嵌资源清单反推命名空间、也不能用 `**` 这类更宽松的通配：两者都会把"文件在磁盘上存在"
+    // 当成"宿主能注册"，映射文件被挪进子目录后写侧作用域全部漏注册，本用例仍会通过。
     Invoke(builder, "AddSqlMaps", Enum.Parse(resourceType, "Embedded"),
-      "Dy.MedicalRecognition.Repository.MedicalRecognitionReportAggregate.**,Dy.MedicalRecognition.Repository",
+      "Dy.MedicalRecognition.Repository.*.*.xml,Dy.MedicalRecognition.Repository",
       repositoryAssembly);
-    Invoke(builder, "AddSqlMaps", Enum.Parse(resourceType, "Embedded"),
-      "Dy.MedicalRecognition.Repository.Queries.**,Dy.MedicalRecognition.Repository",
-      repositoryAssembly);
+
     Invoke(builder, "Build");
 
     var sqlConfig = builderType.GetProperty("SqlConfig")!.GetValue(builder)!;
@@ -111,8 +114,8 @@ public sealed class Stage1SqlMapProbeTests
     Assert.Contains("MedicalStandardItem.CreateMedicalStandardItem", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryMedicalStandardCategoryList", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryEffectiveMedicalStandardCatalog", registeredKeys);
-    Assert.Contains("MedicalRecognitionReport.QueryAllRecognitionReference", registeredKeys);
-    Assert.Contains("MedicalRecognitionReport.RecognitionReferenceColumns", registeredKeys);
+    Assert.Contains("RecognitionReference.QueryAllRecognitionReference", registeredKeys);
+    Assert.Contains("RecognitionReference.RecognitionReferenceColumns", registeredKeys);
 
     // 阶段 2 追加核对：互认项目配置的写入、启停与按组织读取语句必须注册在实体作用域下，
     // 查询语句注册在独立查询作用域，且五个旧聚合作用域键（新增、修改、启用、停用、按标识读取）必须全部消失；
@@ -142,7 +145,7 @@ public sealed class Stage1SqlMapProbeTests
     Assert.DoesNotContain("MedicalRecognitionReport.QueryAllOrganizationHospitalBranchRecognitionAmount", registeredKeys);
     Assert.Contains("OrganizationHospitalBranchRecognitionAmount.OrganizationHospitalBranchRecognitionAmountColumns", registeredKeys);
     Assert.Contains("OrganizationHospitalBranchRecognitionAmount.GetOrganizationHospitalBranchRecognitionAmountByBusinessKey", registeredKeys);
-    Assert.Contains("OrganizationHospitalBranchRecognitionAmount.InsertOrganizationHospitalBranchRecognitionAmount", registeredKeys);
+    Assert.Contains("OrganizationHospitalBranchRecognitionAmount.CreateOrganizationHospitalBranchRecognitionAmount", registeredKeys);
     Assert.Contains("OrganizationHospitalBranchRecognitionAmount.UpdateOrganizationHospitalBranchRecognitionAmount", registeredKeys);
 
     // 阶段 3 追加核对：互认项目金额保存的"当前组织是否已建立该标准项目配置"读取语句注册在实体作用域下，
@@ -150,7 +153,96 @@ public sealed class Stage1SqlMapProbeTests
     // 缺少这两条断言时，语句标识或作用域被改名只在运行时表现为"找不到语句"，静态检查不会失败。
     Assert.Contains("MutualRecognitionItem.GetMutualRecognitionItemByOrganizationAndProject", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionAmountList", registeredKeys);
+
+    // 阶段 4 追加核对：报告采集与生命周期十张表的映射语句必须注册在各自的实体名作用域下，
+    // 报告实体的实体名与聚合名恰好相同，因此这里逐键断言而不只看作用域名称；缺少这些断言时，
+    // 作用域被改回聚合级或语句标识被改名只在运行时表现为"找不到语句"，静态检查不会失败。
+    foreach ((string scope, string[] statementIds) in Stage4SqlMapStatements)
+    {
+      foreach (string statementId in statementIds) Assert.Contains($"{scope}.{statementId}", registeredKeys);
+    }
+
+    // 每个实体必须使用自己的作用域名：框架按作用域名注册语句集合，同一作用域被多个映射文件使用时，
+    // 后注册的文件会整体替换先前注册的语句集合，先注册实体的语句键随之消失并只在运行期表现为找不到语句。
+    // 因此匹配与引用四个实体也各自使用实体名作用域，且旧的聚合名作用域键必须全部消失。
+    foreach ((string scope, string[] statementIds) in new (string, string[])[]
+    {
+      ("RecognitionMatchRecord", ["RecognitionMatchRecordColumns", "QueryAllRecognitionMatchRecord"]),
+      ("RecognitionMatchItem", ["RecognitionMatchItemColumns", "QueryAllRecognitionMatchItem"]),
+      ("RecognitionProcessingResult", ["RecognitionProcessingResultColumns", "QueryAllRecognitionProcessingResult"]),
+      ("RecognitionReference", ["RecognitionReferenceColumns", "QueryAllRecognitionReference"])
+    })
+    {
+      foreach (string statementId in statementIds) Assert.Contains($"{scope}.{statementId}", registeredKeys);
+      Assert.DoesNotContain($"MedicalRecognitionReport.{statementIds[0]}", registeredKeys);
+    }
   }
+
+  /// <summary>
+  /// 映射文件固定放在宿主默认资源模式覆盖的形态：程序集根命名空间 + 一层目录 + 文件名，且与它的仓储类同目录。
+  /// </summary>
+  /// <remarks>
+  /// 宿主不按目录名注册，而是用默认模式片段（位于 <c>Dy.Earthrace.Abstractions.dll</c>）匹配内嵌资源的逻辑名。
+  /// 实测与对照项目 <c>Dy.LisCenter</c> 一致：根下一级与两级目录的映射文件都会被注册，更深则需要在该文件的
+  /// <c>EmbeddedResource</c> 上写 <c>LogicalName</c> 把逻辑名压回浅层（LisCenter 对唯一一份三级目录的映射就是这么做的）。
+  /// 本项目不使用 <c>LogicalName</c>，映射文件与其仓储类同目录、固定在一级；本断言钉住这一约定，
+  /// 避免再次出现「把映射文件挪进子目录 → 逻辑名变深 → 写侧作用域全部未注册」而编译与静态断言都不失败的情况。
+  /// </remarks>
+  [Fact]
+  public void Sql_map_resources_stay_directly_under_one_folder()
+  {
+    var repositoryAssembly = LoadAssembly(FindHostOutputDirectory(), "Dy.MedicalRecognition.Repository.dll");
+    string assemblyName = repositoryAssembly.GetName().Name!;
+
+    string[] sqlMapResources =
+    [
+      .. repositoryAssembly.GetManifestResourceNames()
+        .Where(name => name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(name => name, StringComparer.Ordinal)
+    ];
+
+    Assert.Equal(20, sqlMapResources.Length);
+    foreach (string resource in sqlMapResources)
+    {
+      Assert.StartsWith($"{assemblyName}.", resource, StringComparison.Ordinal);
+
+      // 去掉程序集前缀与 .xml 后缀后，只允许剩下「一层目录 + 文件名」之间那一个点。
+      string relative = resource[(assemblyName.Length + 1)..^4];
+      Assert.Equal(1, relative.Count(character => character == '.'));
+
+      // 变异证据：多嵌一层目录的资源名必须被判出与本项目约定不符，证明该判据对目录深度敏感。
+      Assert.Equal(2, $"{relative}.Extra".Count(character => character == '.'));
+    }
+  }
+
+  /// <summary>
+  /// 阶段 4 十张报告表的实体名作用域与语句标识清单；与各映射文件的 <c>SqlMap Scope</c> 与 <c>Statement Id</c> 逐字一致。
+  /// </summary>
+  private static readonly (string Scope, string[] StatementIds)[] Stage4SqlMapStatements =
+  [
+    ("PlatformPatient", ["PlatformPatientColumns", "GetPlatformPatientByDocument", "CreatePlatformPatient"]),
+    ("MedicalRecognitionReport",
+      [
+        "MedicalRecognitionReportColumns", "GetMedicalRecognitionReportByBusinessKey", "GetMedicalRecognitionReportById",
+        "CreateMedicalRecognitionReport", "UpdateMedicalRecognitionReportCurrentVersion", "VoidMedicalRecognitionReport"
+      ]),
+    ("MedicalReportVersion",
+      [
+        "MedicalReportVersionColumns", "GetMedicalReportMaxVersionNumber", "GetMedicalReportVersionById",
+        "QueryMedicalReportVersionList", "CreateMedicalReportVersion"
+      ]),
+    ("LaboratoryReportContent", ["LaboratoryReportContentColumns", "GetLaboratoryReportContentByVersion", "CreateLaboratoryReportContent"]),
+    ("LaboratoryResultItem", ["LaboratoryResultItemColumns", "QueryLaboratoryResultItemsByVersion", "CreateLaboratoryResultItem"]),
+    ("LaboratoryBacteriaResult", ["LaboratoryBacteriaResultColumns", "QueryLaboratoryBacteriaResultsByVersion", "CreateLaboratoryBacteriaResult"]),
+    ("LaboratoryAntimicrobialSusceptibility",
+      [
+        "LaboratoryAntimicrobialSusceptibilityColumns", "QueryLaboratoryAntimicrobialSusceptibilitiesByBacteria",
+        "CreateLaboratoryAntimicrobialSusceptibility"
+      ]),
+    ("ExaminationReportContent", ["ExaminationReportContentColumns", "GetExaminationReportContentByVersion", "CreateExaminationReportContent"]),
+    ("ExaminationItem", ["ExaminationItemColumns", "QueryExaminationItemsByVersion", "CreateExaminationItem"]),
+    ("ExaminationSite", ["ExaminationSiteColumns", "QueryExaminationSitesByItem", "CreateExaminationSite"])
+  ];
 
   /// <summary>
   /// 校验绑定布尔参数的查询语句声明了布尔参数映射与类型处理器，并被该语句引用。
@@ -478,8 +570,13 @@ public sealed class Stage1SqlMapProbeTests
     var directory = new DirectoryInfo(AppContext.BaseDirectory);
     while (directory is not null)
     {
-      var candidate = Path.Combine(directory.FullName, "Dy.MedicalRecognition.Repository", "MedicalRecognitionReportAggregate", fileName);
-      if (File.Exists(candidate)) return candidate;
+      var repositoryDirectory = Path.Combine(directory.FullName, "Dy.MedicalRecognition.Repository");
+      if (Directory.Exists(repositoryDirectory))
+      {
+        var matches = Directory.GetFiles(repositoryDirectory, fileName, SearchOption.AllDirectories);
+        if (matches.Length == 1) return matches[0];
+      }
+
       directory = directory.Parent;
     }
 

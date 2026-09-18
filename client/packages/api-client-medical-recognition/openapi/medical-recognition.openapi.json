@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5014/"
+      "url": "http://localhost:15014/"
     }
   ],
   "paths": {
@@ -36,6 +36,161 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/api/v1/report-pdf/laboratory-report": {
+      "post": {
+        "tags": [
+          "ReportPdfFile"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ReportJson": {
+                    "type": "string"
+                  },
+                  "PdfFile": {
+                    "$ref": "#/components/schemas/IFormFile"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/api/v1/report-pdf/examination-report": {
+      "post": {
+        "tags": [
+          "ReportPdfFile"
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ReportJson": {
+                    "type": "string"
+                  },
+                  "PdfFile": {
+                    "$ref": "#/components/schemas/IFormFile"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/api/v1/report-pdf/{reportId}/versions/{reportVersionId}/pdf": {
+      "get": {
+        "tags": [
+          "ReportPdfFile"
+        ],
+        "parameters": [
+          {
+            "name": "reportId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reportVersionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         },
         "security": [
@@ -662,6 +817,329 @@
                   "items": {
                     "$ref": "#/components/schemas/RecognitionAmountReadModel"
                   }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryMedicalReportList": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportListQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportListQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportListQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportListQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportListQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportListQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfMedicalReportListReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfMedicalReportListReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfMedicalReportListReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfMedicalReportListReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfMedicalReportListReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryBranchMedicalReportList": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchReportListQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchReportListQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchReportListQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchReportListQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchReportListQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchReportListQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfMedicalReportListReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfMedicalReportListReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfMedicalReportListReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfMedicalReportListReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfMedicalReportListReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryMedicalReportVersionList": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionListQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionListQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionListQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionListQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionListQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionListQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MedicalReportVersionListReadModel"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MedicalReportVersionListReadModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MedicalReportVersionListReadModel"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MedicalReportVersionListReadModel"
+                  }
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MedicalReportVersionListReadModel"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryMedicalReportVersionDetail": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionDetailQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionDetailQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionDetailQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionDetailQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionDetailQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionDetailQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MedicalReportVersionDetailQueryReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MedicalReportVersionDetailQueryReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MedicalReportVersionDetailQueryReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/MedicalReportVersionDetailQueryReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/MedicalReportVersionDetailQueryReadModel"
                 }
               }
             }
@@ -2149,6 +2627,391 @@
           {}
         ]
       }
+    },
+    "/Api/MedicalRecognitionReport/SubmitCompleteLaboratoryReport": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteReportSubmissionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteReportSubmissionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteReportSubmissionRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteReportSubmissionRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteReportSubmissionRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteReportSubmissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReport/SubmitCompleteExaminationReport": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteReportSubmissionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteReportSubmissionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteReportSubmissionRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteReportSubmissionRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteReportSubmissionRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteReportSubmissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReport/VoidLaboratoryReport": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVoidRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVoidRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVoidRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVoidRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVoidRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVoidRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReport/VoidExaminationReport": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVoidRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVoidRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVoidRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVoidRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVoidRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVoidRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReport/OpenReportVersionPdf": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionPdfQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionPdfQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionPdfQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionPdfQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionPdfQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/MedicalReportVersionPdfQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportPdfDownload"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportPdfDownload"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportPdfDownload"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportPdfDownload"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportPdfDownload"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
     }
   },
   "components": {
@@ -2163,6 +3026,55 @@
             "type": "string"
           },
           "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "BranchReportListQueryRequest": {
+        "required": [
+          "branchCode"
+        ],
+        "type": "object",
+        "properties": {
+          "branchCode": {
+            "type": "string"
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageRequestDto"
+          },
+          "reportDateFrom": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "reportDateTo": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "reportType": {
+            "$ref": "#/components/schemas/MedicalReportType"
+          },
+          "reportNo": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "identityDocumentNo": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "patientName": {
             "type": [
               "null",
               "string"
@@ -2193,6 +3105,25 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "CompleteReportSubmissionRequest": {
+        "required": [
+          "reportJson",
+          "pdfFileId",
+          "pdfFileName"
+        ],
+        "type": "object",
+        "properties": {
+          "reportJson": {
+            "type": "string"
+          },
+          "pdfFileId": {
+            "type": "string"
+          },
+          "pdfFileName": {
+            "type": "string"
           }
         }
       },
@@ -2607,6 +3538,600 @@
           }
         }
       },
+      "ExaminationItemReadModel": {
+        "type": "object",
+        "properties": {
+          "sourceProjectName": {
+            "type": "string"
+          },
+          "sourceProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExaminationSiteReadModel"
+            }
+          }
+        }
+      },
+      "ExaminationReportContentViewReadModel": {
+        "type": "object",
+        "properties": {
+          "sourceExaminationTypeCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceExaminationTypeName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reportRemark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "overallAbnormalFlag": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "findings": {
+            "type": "string"
+          },
+          "conclusion": {
+            "type": "string"
+          },
+          "conditionDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "examinationPurpose": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceDiagnosisCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceDiagnosisName": {
+            "type": "string"
+          },
+          "examinationTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "examinerId": {
+            "type": "string"
+          },
+          "examinerName": {
+            "type": "string"
+          },
+          "sourceImageStatus": {
+            "$ref": "#/components/schemas/SourceImageStatus"
+          },
+          "sourceImageStatusText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageAccessUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "examinationMethod": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "deviceCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "deviceName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExaminationItemReadModel"
+            }
+          }
+        }
+      },
+      "ExaminationSiteReadModel": {
+        "type": "object",
+        "properties": {
+          "siteName": {
+            "type": "string"
+          },
+          "sourceSiteCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "IFormFile": {
+        "type": "string",
+        "format": "binary"
+      },
+      "LaboratoryAbnormalFlag": {
+        "enum": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "Normal",
+          "High",
+          "Low",
+          "OtherAbnormal"
+        ],
+        "x-enumDescriptions": [
+          "正常",
+          "偏高",
+          "偏低",
+          "其他异常"
+        ]
+      },
+      "LaboratoryAntimicrobialSusceptibilityReadModel": {
+        "type": "object",
+        "properties": {
+          "sourceDetailKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "drugCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "drugName": {
+            "type": "string"
+          },
+          "susceptibilityCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceConclusionText": {
+            "type": "string"
+          },
+          "resistanceResultCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "diskContent": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "micValue": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inhibitionZoneDiameter": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "referenceValue": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "inspectorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inspectorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "testingMethod": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "testPanelOrder": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "LaboratoryBacteriaResultReadModel": {
+        "type": "object",
+        "properties": {
+          "sourceDetailKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceOrganismCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceOrganismName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceResultText": {
+            "type": "string"
+          },
+          "detectionConclusion": {
+            "type": "string"
+          },
+          "colonyCount": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cultureMedium": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cultureTime": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "cultureCondition": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "discoveryMethod": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "detectionMethod": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instrumentCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instrumentName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "testPanelCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "testPanelName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inspectorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inspectorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "susceptibilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaboratoryAntimicrobialSusceptibilityReadModel"
+            }
+          }
+        }
+      },
+      "LaboratoryReportContentViewReadModel": {
+        "type": "object",
+        "properties": {
+          "reportCategoryCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reportCategoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reportRemark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "overallAbnormalFlag": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceOrderSerialNo": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "specimenCollectedTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "specimenSubmittedTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "laboratoryReceivedTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "sourceSpecimenNo": {
+            "type": "string"
+          },
+          "specimenTypeCode": {
+            "type": "string"
+          },
+          "specimenTypeName": {
+            "type": "string"
+          },
+          "testingCompletedTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "inspectorId": {
+            "type": "string"
+          },
+          "inspectorName": {
+            "type": "string"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaboratoryResultItemReadModel"
+            }
+          },
+          "bacteriaResults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LaboratoryBacteriaResultReadModel"
+            }
+          }
+        }
+      },
+      "LaboratoryResultItemReadModel": {
+        "type": "object",
+        "properties": {
+          "sourceDetailKey": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceProjectName": {
+            "type": "string"
+          },
+          "sourceProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceResultText": {
+            "type": "string"
+          },
+          "resultType": {
+            "$ref": "#/components/schemas/LaboratoryResultType"
+          },
+          "resultTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "loincCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unit": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "referenceRange": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "testingMethod": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instrumentCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instrumentName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "displayOrder": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "abnormalFlag": {
+            "$ref": "#/components/schemas/LaboratoryAbnormalFlag"
+          },
+          "abnormalFlagText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "criticalValueFlag": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "laboratoryChargeItemCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "medicalInsuranceChargeItemCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inspectorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inspectorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "LaboratoryResultType": {
+        "enum": [
+          1,
+          2,
+          3
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "Numeric",
+          "Qualitative",
+          "Textual"
+        ],
+        "x-enumDescriptions": [
+          "数值型",
+          "定性型",
+          "文本型"
+        ]
+      },
       "LoginRequest": {
         "required": [
           "subApplication",
@@ -2652,6 +4177,333 @@
           "检验",
           "检查"
         ]
+      },
+      "MedicalReportLifecycleStatus": {
+        "enum": [
+          1,
+          2
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "Effective",
+          "Voided"
+        ],
+        "x-enumDescriptions": [
+          "有效",
+          "已作废"
+        ]
+      },
+      "MedicalReportListReadModel": {
+        "type": "object",
+        "properties": {
+          "reportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organizationCode": {
+            "type": "string"
+          },
+          "hospitalCode": {
+            "type": "string"
+          },
+          "branchCode": {
+            "type": "string"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "hospitalName": {
+            "type": "string"
+          },
+          "branchName": {
+            "type": "string"
+          },
+          "reportType": {
+            "$ref": "#/components/schemas/MedicalReportType"
+          },
+          "reportTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reportNo": {
+            "type": "string"
+          },
+          "reportTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "currentVersionSequence": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "identityDocumentNo": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MedicalReportLifecycleStatus"
+          },
+          "statusText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "MedicalReportType": {
+        "enum": [
+          1,
+          2
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "Laboratory",
+          "Examination"
+        ],
+        "x-enumDescriptions": [
+          "检验报告",
+          "检查报告"
+        ]
+      },
+      "MedicalReportVersionContentReadModel": {
+        "type": "object",
+        "properties": {
+          "common": {
+            "$ref": "#/components/schemas/ReportVersionCommonReadModel"
+          },
+          "laboratoryContent": {
+            "$ref": "#/components/schemas/LaboratoryReportContentViewReadModel"
+          },
+          "examinationContent": {
+            "$ref": "#/components/schemas/ExaminationReportContentViewReadModel"
+          }
+        }
+      },
+      "MedicalReportVersionDetailQueryReadModel": {
+        "type": "object",
+        "properties": {
+          "reportType": {
+            "$ref": "#/components/schemas/MedicalReportType"
+          },
+          "reportTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reportNo": {
+            "type": "string"
+          },
+          "reportVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionSequence": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "sourceModifiedTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "platformReceivedTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reportDoctorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reviewDoctorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inspectorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "detailInspectors": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "examinerName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceReportRemark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "content": {
+            "$ref": "#/components/schemas/MedicalReportVersionContentReadModel"
+          },
+          "file": {
+            "$ref": "#/components/schemas/MedicalReportVersionFileReadModel"
+          }
+        }
+      },
+      "MedicalReportVersionDetailQueryRequest": {
+        "type": "object",
+        "properties": {
+          "reportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reportVersionId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "MedicalReportVersionFileReadModel": {
+        "type": "object",
+        "properties": {
+          "fileName": {
+            "type": "string"
+          }
+        }
+      },
+      "MedicalReportVersionListQueryRequest": {
+        "type": "object",
+        "properties": {
+          "reportId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "MedicalReportVersionListReadModel": {
+        "type": "object",
+        "properties": {
+          "reportVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "versionSequence": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "sourceModifiedTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "platformReceivedTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reportDoctorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reviewDoctorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "inspectorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "detailInspectors": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "examinerName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceReportRemark": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pdfFileName": {
+            "type": "string"
+          },
+          "isCurrentVersion": {
+            "type": "boolean"
+          },
+          "isSuperseded": {
+            "type": "boolean"
+          },
+          "reportStatus": {
+            "$ref": "#/components/schemas/MedicalReportLifecycleStatus"
+          },
+          "reportStatusText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "MedicalReportVersionPdfQueryRequest": {
+        "type": "object",
+        "properties": {
+          "reportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reportVersionId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "MedicalReportVoidRequest": {
+        "required": [
+          "reportNo",
+          "voidReason"
+        ],
+        "type": "object",
+        "properties": {
+          "reportNo": {
+            "type": "string"
+          },
+          "voidedTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "voidReason": {
+            "type": "string"
+          }
+        }
       },
       "MedicalStandardCategoryListQueryRequest": {
         "type": "object",
@@ -2839,6 +4691,59 @@
           "已使用"
         ]
       },
+      "PageInfoDto": {
+        "type": "object",
+        "properties": {
+          "pageIndex": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PageRequestDto": {
+        "type": "object",
+        "properties": {
+          "pageIndex": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "maximum": 200,
+            "minimum": 1,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PageResultDtoOfMedicalReportListReadModel": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MedicalReportListReadModel"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageInfoDto"
+          }
+        }
+      },
       "QueryEnumMetadataRequest": {
         "required": [
           "enumName"
@@ -3007,6 +4912,207 @@
           }
         }
       },
+      "ReportListQueryRequest": {
+        "type": "object",
+        "properties": {
+          "organizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "branchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageRequestDto"
+          },
+          "reportDateFrom": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "reportDateTo": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "reportType": {
+            "$ref": "#/components/schemas/MedicalReportType"
+          },
+          "reportNo": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "identityDocumentNo": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "patientName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ReportPdfDownload": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "$ref": "#/components/schemas/Stream"
+          },
+          "fileName": {
+            "type": "string"
+          }
+        }
+      },
+      "ReportVersionCommonReadModel": {
+        "type": "object",
+        "properties": {
+          "patientName": {
+            "type": "string"
+          },
+          "patientGenderCode": {
+            "type": "string"
+          },
+          "patientBirthDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "patientPhoneNumber": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "ageAtReport": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "identityDocumentTypeCode": {
+            "type": "string"
+          },
+          "identityDocumentNo": {
+            "type": "string"
+          },
+          "visitType": {
+            "$ref": "#/components/schemas/VisitType"
+          },
+          "visitTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "visitSerialNo": {
+            "type": "string"
+          },
+          "sourceReportName": {
+            "type": "string"
+          },
+          "applicationDeptId": {
+            "type": "string"
+          },
+          "applicationDeptName": {
+            "type": "string"
+          },
+          "applicationDoctorId": {
+            "type": "string"
+          },
+          "applicationDoctorName": {
+            "type": "string"
+          },
+          "executionDeptId": {
+            "type": "string"
+          },
+          "executionDeptName": {
+            "type": "string"
+          },
+          "reportDeptId": {
+            "type": "string"
+          },
+          "reportDeptName": {
+            "type": "string"
+          },
+          "reportDoctorId": {
+            "type": "string"
+          },
+          "reportDoctorName": {
+            "type": "string"
+          },
+          "reviewDoctorId": {
+            "type": "string"
+          },
+          "reviewDoctorName": {
+            "type": "string"
+          },
+          "reviewTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "inpatientNo": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "wardName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "roomName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bedNo": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "applicationTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reportTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sourceConfidentialFlag": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "SaveBranchRecognitionAmountRequest": {
         "required": [
           "branchCode",
@@ -3082,6 +5188,28 @@
             }
           }
         }
+      },
+      "SourceImageStatus": {
+        "enum": [
+          1,
+          2,
+          3
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "Available",
+          "None",
+          "Unknown"
+        ],
+        "x-enumDescriptions": [
+          "有影像",
+          "无影像",
+          "未知"
+        ]
+      },
+      "Stream": {
+        "type": "string",
+        "format": "binary"
       },
       "TokenInfo": {
         "type": "object",
@@ -3199,6 +5327,30 @@
             }
           }
         }
+      },
+      "VisitType": {
+        "enum": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "Outpatient",
+          "Emergency",
+          "Inpatient",
+          "PhysicalExam",
+          "Other"
+        ],
+        "x-enumDescriptions": [
+          "门诊",
+          "急诊",
+          "住院",
+          "体检",
+          "其他"
+        ]
       }
     },
     "securitySchemes": {
@@ -3212,6 +5364,9 @@
   "tags": [
     {
       "name": "Authentication"
+    },
+    {
+      "name": "ReportPdfFile"
     },
     {
       "name": "MedicalRecognitionReportQueryAppService"

@@ -2,8 +2,14 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
+using Dy.MedicalRecognition.Application.Contracts.Queries.Pagination;
+using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
+using Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
+using Dy.MedicalRecognition.Application.Contracts.Queries.StandardCatalog;
 using Dy.MedicalRecognition.Application.Queries;
 using Dy.MedicalRecognition.Domain.Queries;
+using Dy.MedicalRecognition.Domain.Queries.Ports;
 using Dy.MedicalRecognition.Tests.Architecture;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -220,23 +226,44 @@ public sealed class Stage1ArchitectureTests
     (nameof(IMedicalRecognitionReportQueryAppService.QueryRecognitionAmountListAsync),
       "Task<IEnumerable<RecognitionAmountReadModel>>", ["RecognitionAmountListQueryRequest request"]),
     (nameof(IMedicalRecognitionReportQueryAppService.QueryBranchRecognitionAmountListAsync),
-      "Task<IEnumerable<RecognitionAmountReadModel>>", ["BranchRecognitionAmountListQueryRequest request"])
+      "Task<IEnumerable<RecognitionAmountReadModel>>", ["BranchRecognitionAmountListQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryMedicalReportListAsync),
+      "Task<PageResultDto<MedicalReportListReadModel>>", ["ReportListQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryBranchMedicalReportListAsync),
+      "Task<PageResultDto<MedicalReportListReadModel>>", ["BranchReportListQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryMedicalReportVersionListAsync),
+      "Task<IReadOnlyList<MedicalReportVersionListReadModel>>", ["MedicalReportVersionListQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryMedicalReportVersionDetailAsync),
+      "Task<MedicalReportVersionDetailQueryReadModel>", ["MedicalReportVersionDetailQueryRequest request"])
   ];
 
   /// <summary>
   /// 查询契约的每个方法都逐项冻结返回类型与参数：只冻结方法名时，参数被删除、换类型、加默认值或加 ref/out
   /// 修饰符，以及同名声明被复制都不会让用例失败。
   /// </summary>
+  /// <remarks>
+  /// 契约方法分散在同一个接口的多个按功能分片的源文件里，因此按接口全部声明文件一起扫描：
+  /// 只读某一个文件时，写在另一个分片里的方法会被判成"未找到声明"，冻结判据对分片位置敏感。
+  /// 扫描面覆盖同一目录下全部声明该接口的文件，新增分片自动纳入；同名声明跨文件出现两次同样判失败。
+  /// </remarks>
   [Fact]
   public void Query_contract_method_signatures_are_frozen()
   {
-    CompilationUnitSyntax root = SourceSyntaxGuard.Read(
-      "server", "Dy.MedicalRecognition.Application.Contracts", "Queries", "IMedicalRecognitionReportQueryAppService.cs");
+    List<MethodDeclarationSyntax> declarations = [];
+    foreach ((string relativePath, CompilationUnitSyntax root) in SourceSyntaxGuard.ReadTypeDeclarations(
+      "server/Dy.MedicalRecognition.Application.Contracts/Queries", nameof(IMedicalRecognitionReportQueryAppService)))
+    {
+      Assert.StartsWith("server/Dy.MedicalRecognition.Application.Contracts/Queries/", relativePath, StringComparison.Ordinal);
+      declarations.AddRange(root.DescendantNodes().OfType<MethodDeclarationSyntax>());
+    }
 
     foreach ((string methodName, string returnType, string[] parameters) in QueryContractSignatures)
     {
-      // 带方法体的同名声明必须恰好一处：0 处（声明被删除）与多处（同名声明被复制）都由该调用直接失败。
-      MethodDeclarationSyntax method = SourceSyntaxGuard.FindSingleMethod(root, methodName);
+      // 带方法体的同名声明必须恰好一处：0 处（声明被删除）与多处（同名声明被复制）都由该判定直接失败。
+      MethodDeclarationSyntax method = declarations.Count(declaration => declaration.Identifier.ValueText == methodName) == 1
+        ? declarations.Single(declaration => declaration.Identifier.ValueText == methodName)
+        : throw new InvalidOperationException(
+          $"方法 {methodName} 的声明应恰好 1 处，实际 {declarations.Count(declaration => declaration.Identifier.ValueText == methodName)} 处。");
 
       // 契约方法只能是接口声明形式：出现方法体或表达式体说明实现被写进了契约。
       Assert.Null(method.Body);
@@ -365,7 +392,7 @@ public sealed class Stage1ArchitectureTests
   /// 排除 <c>bin</c>、<c>obj</c> 与 <c>*.g.cs</c>、<c>*.Designer.cs</c> 生成文件。
   /// <c>Repository/EarthraceConfig.json</c> 不在范围内：该文件的作用正是选择当前 Provider 与连接串，不属于被禁的公共类型与共享语句。
   /// 已登记的覆盖缺口：该文件的 <c>Database.DbProvider.Name</c> 当前为 <c>Oracle</c>，而共享建表脚本 <c>Scripts/mutual_recognition_item.sql</c> 按 PostgreSQL 方言编写，
-  /// 仓储层按 PostgreSQL 的唯一约束 SQLSTATE <c>23505</c> 识别重复配置，宿主配置为 <c>PostgreSql</c>；
+  /// 宿主配置为 <c>PostgreSql</c>；
   /// 该 JSON 属 Provider 选型这一外部关注面，本判据不对其内容断言（断言会随外部选型改动误红），
   /// 因此"Provider 选型与共享 DDL 口径一致"不在本判据的覆盖范围内。
   /// 判据口径：Provider 类型名与 SQL 关键字都按不区分大小写的整词匹配，词边界使 C# 的 <c>DateTimeOffset</c> 不会命中 <c>offset</c>；
@@ -486,9 +513,10 @@ public sealed class Stage1ArchitectureTests
 
     string[] expectedQueryMethods =
     [
-      "QueryBranchRecognitionAmountListAsync", "QueryEffectiveMedicalStandardCatalogAsync", "QueryMedicalStandardCategoryListAsync",
-      "QueryMedicalStandardGroupListAsync", "QueryMedicalStandardItemListAsync", "QueryRecognitionAmountListAsync",
-      "QueryRecognitionProjectConfigurationListAsync"
+      "QueryBranchMedicalReportListAsync", "QueryBranchRecognitionAmountListAsync", "QueryEffectiveMedicalStandardCatalogAsync",
+      "QueryMedicalReportListAsync", "QueryMedicalReportVersionDetailAsync", "QueryMedicalReportVersionListAsync",
+      "QueryMedicalStandardCategoryListAsync", "QueryMedicalStandardGroupListAsync", "QueryMedicalStandardItemListAsync",
+      "QueryRecognitionAmountListAsync", "QueryRecognitionProjectConfigurationListAsync"
     ];
     string[] actualQueryMethods = [.. typeof(IMedicalRecognitionReportQueryAppService).GetMethods().Select(method => method.Name).OrderBy(name => name, StringComparer.Ordinal)];
     Assert.Equal(expectedQueryMethods, actualQueryMethods);

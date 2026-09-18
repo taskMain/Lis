@@ -11,6 +11,18 @@
 - 展示组件通过 props 接收视图模型，不直接理解 Kiota 模型。
 - hooks 只抽取可复用状态流程或副作用；Context 只承载跨层稳定依赖和可信上下文。
 
+### 公共前端模块索引
+
+下表登记 `src/shared/` 下的跨页面共享模块，供新页面直接复用；只服务单个页面的实现不进本表。
+
+| 模块 | 职责与边界 | 设计出处 |
+|---|---|---|
+| `src/shared/tablePagination.ts` | 服务端分页的 Table 受控配置出口：页容量可选值与上限、总数展示、加载中禁用、改变页容量回到第 1 页；页面只传状态与回调，不各自拼装 antd 分页字段 | [Pagination](pagination.md) |
+| `src/shared/medicalItemType.ts` | 项目类型取值域、取值域判定与兜底文案 | 阶段 1 设计 |
+| `src/shared/configurationStatus.ts` | 配置状态取值域、取值域判定与兜底文案 | 阶段 1 设计 |
+
+新增共享模块前先完成复用检索（见 [C# Documentation And Reuse](csharp-documentation-and-reuse.md) 的复用检索闸门），并在本表补一行。
+
 ## 2. 路由、菜单与权限
 
 1. 路由与宿主菜单、页面用途、basename、权限和数据范围一致。

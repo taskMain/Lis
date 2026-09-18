@@ -50,7 +50,7 @@ public sealed class Stage3OrganizationPathTests
       BranchesByHospital = { [HospitalCode] = [BuildBranch(BranchCode, BranchName, HospitalCode, OrganizationCode)] }
     };
 
-    OrganizationPathResolver.OrganizationPath path = Assert.Single(await Resolve(new OrganizationPathResolver(service)));
+    OrganizationPath path = Assert.Single(await Resolve(new OrganizationPathResolver(service)));
 
     Assert.Equal(OrganizationCode, path.OrganizationCode);
     Assert.Equal(OrganizationName, path.OrganizationName);
@@ -219,8 +219,8 @@ public sealed class Stage3OrganizationPathTests
       BranchesByHospital = { [HospitalCode] = [BuildBranch($"  {BranchCode}  ", BranchName, $"  {HospitalCode}  ", $"  {OrganizationCode}  ")] }
     };
 
-    OrganizationPathResolver.OrganizationPath path = Assert.Single(
-      await ResolveTargets(service, [new OrganizationPathResolver.OrganizationPathTarget($" {OrganizationCode} ", $" {HospitalCode} ", $" {BranchCode} ")]));
+    OrganizationPath path = Assert.Single(
+      await ResolveTargets(service, [new OrganizationPathTarget($" {OrganizationCode} ", $" {HospitalCode} ", $" {BranchCode} ")]));
 
     // 三层编码与匹配口径同源：外部主数据带空白时返回值仍必须是去空白值。
     Assert.Equal(OrganizationCode, path.OrganizationCode);
@@ -262,7 +262,7 @@ public sealed class Stage3OrganizationPathTests
     };
 
     InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
-      () => ResolveTargets(service, [new OrganizationPathResolver.OrganizationPathTarget(organizationCode, hospitalCode, branchCode)]));
+      () => ResolveTargets(service, [new OrganizationPathTarget(organizationCode, hospitalCode, branchCode)]));
 
     Assert.Equal(expectedMessage, exception.Message);
   }
@@ -293,9 +293,9 @@ public sealed class Stage3OrganizationPathTests
   /// <summary>把一条目标路径交给解析器校验，供各用例共用同一入参构造。</summary>
   /// <param name="resolver">待验证的组织路径解析器。</param>
   /// <returns>校验通过时的三层业务编码与名称。</returns>
-  private static Task<IReadOnlyList<OrganizationPathResolver.OrganizationPath>> Resolve(OrganizationPathResolver resolver) =>
+  private static Task<IReadOnlyList<OrganizationPath>> Resolve(OrganizationPathResolver resolver) =>
     resolver.ResolveOrThrow(
-      [new OrganizationPathResolver.OrganizationPathTarget(OrganizationCode, HospitalCode, BranchCode)],
+      [new OrganizationPathTarget(OrganizationCode, HospitalCode, BranchCode)],
       MissingOrganizationMessage,
       MissingHospitalMessage,
       MissingBranchMessage);
@@ -318,7 +318,7 @@ public sealed class Stage3OrganizationPathTests
   /// <param name="service">提供组织、医院与院区的替身。</param>
   /// <param name="targets">本批待校验的目标路径。</param>
   /// <returns>与目标路径等长且同序的已校验路径集合。</returns>
-  private static Task<IReadOnlyList<OrganizationPathResolver.OrganizationPath>> ResolveTargets(FakeOrganizationAppService service, IReadOnlyList<OrganizationPathResolver.OrganizationPathTarget> targets) =>
+  private static Task<IReadOnlyList<OrganizationPath>> ResolveTargets(FakeOrganizationAppService service, IReadOnlyList<OrganizationPathTarget> targets) =>
     new OrganizationPathResolver(service).ResolveOrThrow(targets, MissingOrganizationMessage, MissingHospitalMessage, MissingBranchMessage);
 
   /// <summary>在两条固定目标路径之间轮转形成指定行数，模拟同一批请求里包含大量重复路径的目标行。</summary>
@@ -326,12 +326,12 @@ public sealed class Stage3OrganizationPathTests
   /// <param name="rowCount">本次目标行数；只影响返回条数，不改变涉及的组织、医院与院区数量。</param>
   private static async Task ResolveBatch(FakeOrganizationAppService service, int rowCount)
   {
-    OrganizationPathResolver.OrganizationPathTarget[] targets =
+    OrganizationPathTarget[] targets =
       [.. Enumerable.Range(1, rowCount).Select(index => index % 2 == 0
-        ? new OrganizationPathResolver.OrganizationPathTarget(OrganizationCode, HospitalCode, "BRH-1")
-        : new OrganizationPathResolver.OrganizationPathTarget(OrganizationCode, OtherHospitalCode, "BRH-2"))];
+        ? new OrganizationPathTarget(OrganizationCode, HospitalCode, "BRH-1")
+        : new OrganizationPathTarget(OrganizationCode, OtherHospitalCode, "BRH-2"))];
 
-    IReadOnlyList<OrganizationPathResolver.OrganizationPath> paths = await ResolveTargets(service, targets);
+    IReadOnlyList<OrganizationPath> paths = await ResolveTargets(service, targets);
 
     Assert.Equal(targets.Length, paths.Count);
   }

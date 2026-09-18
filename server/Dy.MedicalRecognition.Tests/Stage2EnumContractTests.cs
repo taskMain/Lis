@@ -8,6 +8,7 @@ using Microsoft.OpenApi;
 using System.Text.Json.Nodes;
 using Xunit;
 
+using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
 namespace Dy.MedicalRecognition.Tests;
 
 /// <summary>
@@ -25,7 +26,11 @@ public sealed class Stage2EnumContractTests
 {
   /// <summary>登记在 OpenAPI 注册表里的对外枚举名称，按登记顺序。</summary>
   private static readonly string[] ExpectedEnumNames =
-    [nameof(ConfigurationStatus), nameof(MedicalItemType), nameof(MedicalStandardUsageStatus)];
+  [
+    nameof(ConfigurationStatus), nameof(MedicalItemType), nameof(MedicalStandardUsageStatus),
+    nameof(MedicalReportType), nameof(MedicalReportLifecycleStatus), nameof(VisitType),
+    nameof(LaboratoryResultType), nameof(LaboratoryAbnormalFlag), nameof(SourceImageStatus)
+  ];
 
   /// <summary>
   /// 三个对外枚举都必须在源码声明处启用描述器生成：缺少特性时描述器不会生成，
@@ -97,6 +102,38 @@ public sealed class Stage2EnumContractTests
     Assert.Equal([0, 1], medicalStandardUsageStatus.Select(descriptor => descriptor.Value).ToArray());
     Assert.Equal(["Unused", "InUse"], medicalStandardUsageStatus.Select(descriptor => descriptor.Name).ToArray());
     Assert.Equal(["未使用", "已使用"], medicalStandardUsageStatus.Select(descriptor => descriptor.Description).ToArray());
+
+    // 阶段 4 把报告契约上的六个枚举带入对外契约并登记：取值、成员名与中文说明逐项冻结，
+    // 缺少这些断言时，新登记的枚举取值被改动、说明被改写或成员顺序被调整都不会让任何用例失败。
+    IReadOnlyList<IEnumDescriptor> medicalReportType = MedicalRecognitionEnumDescriptorRegistry.Descriptors[nameof(MedicalReportType)];
+    Assert.Equal([1, 2], medicalReportType.Select(descriptor => descriptor.Value).ToArray());
+    Assert.Equal(["Laboratory", "Examination"], medicalReportType.Select(descriptor => descriptor.Name).ToArray());
+    Assert.Equal(["检验报告", "检查报告"], medicalReportType.Select(descriptor => descriptor.Description).ToArray());
+
+    IReadOnlyList<IEnumDescriptor> reportLifecycleStatus = MedicalRecognitionEnumDescriptorRegistry.Descriptors[nameof(MedicalReportLifecycleStatus)];
+    Assert.Equal([1, 2], reportLifecycleStatus.Select(descriptor => descriptor.Value).ToArray());
+    Assert.Equal(["Effective", "Voided"], reportLifecycleStatus.Select(descriptor => descriptor.Name).ToArray());
+    Assert.Equal(["有效", "已作废"], reportLifecycleStatus.Select(descriptor => descriptor.Description).ToArray());
+
+    IReadOnlyList<IEnumDescriptor> visitType = MedicalRecognitionEnumDescriptorRegistry.Descriptors[nameof(VisitType)];
+    Assert.Equal([1, 2, 3, 4, 5], visitType.Select(descriptor => descriptor.Value).ToArray());
+    Assert.Equal(["Outpatient", "Emergency", "Inpatient", "PhysicalExam", "Other"], visitType.Select(descriptor => descriptor.Name).ToArray());
+    Assert.Equal(["门诊", "急诊", "住院", "体检", "其他"], visitType.Select(descriptor => descriptor.Description).ToArray());
+
+    IReadOnlyList<IEnumDescriptor> laboratoryResultType = MedicalRecognitionEnumDescriptorRegistry.Descriptors[nameof(LaboratoryResultType)];
+    Assert.Equal([1, 2, 3], laboratoryResultType.Select(descriptor => descriptor.Value).ToArray());
+    Assert.Equal(["Numeric", "Qualitative", "Textual"], laboratoryResultType.Select(descriptor => descriptor.Name).ToArray());
+    Assert.Equal(["数值型", "定性型", "文本型"], laboratoryResultType.Select(descriptor => descriptor.Description).ToArray());
+
+    IReadOnlyList<IEnumDescriptor> laboratoryAbnormalFlag = MedicalRecognitionEnumDescriptorRegistry.Descriptors[nameof(LaboratoryAbnormalFlag)];
+    Assert.Equal([1, 2, 3, 4], laboratoryAbnormalFlag.Select(descriptor => descriptor.Value).ToArray());
+    Assert.Equal(["Normal", "High", "Low", "OtherAbnormal"], laboratoryAbnormalFlag.Select(descriptor => descriptor.Name).ToArray());
+    Assert.Equal(["正常", "偏高", "偏低", "其他异常"], laboratoryAbnormalFlag.Select(descriptor => descriptor.Description).ToArray());
+
+    IReadOnlyList<IEnumDescriptor> sourceImageStatus = MedicalRecognitionEnumDescriptorRegistry.Descriptors[nameof(SourceImageStatus)];
+    Assert.Equal([1, 2, 3], sourceImageStatus.Select(descriptor => descriptor.Value).ToArray());
+    Assert.Equal(["Available", "None", "Unknown"], sourceImageStatus.Select(descriptor => descriptor.Name).ToArray());
+    Assert.Equal(["有影像", "无影像", "未知"], sourceImageStatus.Select(descriptor => descriptor.Description).ToArray());
   }
 
   /// <summary>
@@ -323,7 +360,7 @@ public sealed class Stage2EnumContractTests
       {
         public void OnPostConfigureServices(object context)
         {
-          string address = "http://localhost:5014/";
+          string address = "http://localhost:15014/";
           context.Services.ConfigureAll<OpenApiOptions>(options =>
             options.AddDocumentTransformer(new MedicalRecognitionEnumOpenApiDocumentTransformer()));
         }
@@ -467,7 +504,7 @@ public sealed class Stage2EnumContractTests
   /// </summary>
   /// <remarks>
   /// 路径按**完整集合相等**断言（不是计数 + 几个 Contains），失败信息自带差异；
-  /// 下面的清单是**阶段 3 交付后**真实后端输出 + 归一的快照，**新增或删除端点时必须同步本清单与生成入口**。
+  /// 下面的清单是**阶段 4 交付后**真实后端输出 + 归一的快照，**新增或删除端点时必须同步本清单与生成入口**。
   /// </remarks>
   [Fact]
   public void Frozen_openapi_keeps_the_expected_path_set_and_no_unnormalized_shapes()
@@ -493,18 +530,30 @@ public sealed class Stage2EnumContractTests
       "/Api/MedicalRecognitionReport/EnableMedicalStandardGroup",
       "/Api/MedicalRecognitionReport/EnableMedicalStandardItem",
       "/Api/MedicalRecognitionReport/EnableMutualRecognitionItem",
+      "/Api/MedicalRecognitionReport/OpenReportVersionPdf",
       "/Api/MedicalRecognitionReport/SaveBranchRecognitionAmount",
       "/Api/MedicalRecognitionReport/SaveOrganizationHospitalBranchRecognitionAmount",
+      "/Api/MedicalRecognitionReport/SubmitCompleteExaminationReport",
+      "/Api/MedicalRecognitionReport/SubmitCompleteLaboratoryReport",
       "/Api/MedicalRecognitionReport/UpdateMedicalStandardCategory",
       "/Api/MedicalRecognitionReport/UpdateMedicalStandardGroup",
       "/Api/MedicalRecognitionReport/UpdateMutualRecognitionItemConfiguration",
+      "/Api/MedicalRecognitionReport/VoidExaminationReport",
+      "/Api/MedicalRecognitionReport/VoidLaboratoryReport",
+      "/Api/MedicalRecognitionReportQuery/QueryBranchMedicalReportList",
       "/Api/MedicalRecognitionReportQuery/QueryBranchRecognitionAmountList",
       "/Api/MedicalRecognitionReportQuery/QueryEffectiveMedicalStandardCatalog",
+      "/Api/MedicalRecognitionReportQuery/QueryMedicalReportList",
+      "/Api/MedicalRecognitionReportQuery/QueryMedicalReportVersionDetail",
+      "/Api/MedicalRecognitionReportQuery/QueryMedicalReportVersionList",
       "/Api/MedicalRecognitionReportQuery/QueryMedicalStandardCategoryList",
       "/Api/MedicalRecognitionReportQuery/QueryMedicalStandardGroupList",
       "/Api/MedicalRecognitionReportQuery/QueryMedicalStandardItemList",
       "/Api/MedicalRecognitionReportQuery/QueryRecognitionAmountList",
       "/Api/MedicalRecognitionReportQuery/QueryRecognitionProjectConfigurationList",
+      "/api/v1/report-pdf/examination-report",
+      "/api/v1/report-pdf/laboratory-report",
+      "/api/v1/report-pdf/{reportId}/versions/{reportVersionId}/pdf",
       "/auth/login"
     ];
     string[] paths = document["paths"]!.AsObject().Select(property => property.Key).Order(StringComparer.Ordinal).ToArray();

@@ -24,5 +24,7 @@
     <ProjectReference Include="..\Dy.MedicalRecognition.Application.Contracts\Dy.MedicalRecognition.Application.Contracts.csproj" />
     <ProjectReference Include="..\Dy.MedicalRecognition.Domain\Dy.MedicalRecognition.Domain.csproj" />
     <ProjectReference Include="..\Dy.MedicalRecognition.Repository\Dy.MedicalRecognition.Repository.csproj" />
+    <!-- 手写控制器的路由、动作特性与 multipart 绑定形态属于本阶段的静态核对面，需要按类型读取宿主工程。 -->
+    <ProjectReference Include="..\Dy.MedicalRecognition\Dy.MedicalRecognition.csproj" />
   </ItemGroup>
 </Project>

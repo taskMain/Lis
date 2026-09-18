@@ -1,12 +1,164 @@
-<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+<SqlMap Scope="MedicalReportVersion" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义报告版本的通用查询字段清单，供按报告读取版本与按标识读取版本语句复用。
+      结果：输出版本身份、公共信息、组织人员、业务时间、文件信息与操作审计字段；公共信息按来源原值保存。
+    -->
     <Statement Id="MedicalReportVersionColumns">
-      id, report_id, patient_id, version_number, source_report_name, patient_name, patient_gender_code, patient_birth_date, patient_phone_number, age_at_report, identity_document_type_code, identity_document_no, visit_type, visit_serial_no, application_dept_id, application_dept_name, application_doctor_id, application_doctor_name, execution_dept_id, execution_dept_name, report_dept_id, report_dept_name, report_doctor_id, report_doctor_name, review_doctor_id, review_doctor_name, review_time, inpatient_no, ward_name, room_name, bed_no, application_time, report_time, source_modified_time, received_time, pdf_file_id, pdf_file_name, source_confidential_flag, oper_id, oper_time
+      id,                           <!-- 报告版本标识（主键） -->
+      report_id,                    <!-- 报告标识 -->
+      patient_id,                   <!-- 平台患者标识 -->
+      version_number,               <!-- 版本序号，同一报告内按成功追加顺序递增 -->
+      source_report_name,           <!-- 来源报告名称 -->
+      patient_name,                 <!-- 患者姓名，来源原值 -->
+      patient_gender_code,          <!-- 患者性别代码 -->
+      patient_birth_date,           <!-- 患者出生日期 -->
+      patient_phone_number,         <!-- 患者联系电话 -->
+      age_at_report,                <!-- 报告时年龄 -->
+      identity_document_type_code,  <!-- 证件类型代码，来源原值 -->
+      identity_document_no,         <!-- 证件号码，来源原值 -->
+      visit_type,                   <!-- 就诊类型 -->
+      visit_serial_no,              <!-- 就诊流水号 -->
+      application_dept_id,          <!-- 申请科室ID -->
+      application_dept_name,        <!-- 申请科室名称 -->
+      application_doctor_id,        <!-- 申请医生ID -->
+      application_doctor_name,      <!-- 申请医生名称 -->
+      execution_dept_id,            <!-- 执行科室ID -->
+      execution_dept_name,          <!-- 执行科室名称 -->
+      report_dept_id,               <!-- 报告科室ID -->
+      report_dept_name,             <!-- 报告科室名称 -->
+      report_doctor_id,             <!-- 报告医生ID -->
+      report_doctor_name,           <!-- 报告医生名称 -->
+      review_doctor_id,             <!-- 审核医生ID -->
+      review_doctor_name,           <!-- 审核医生名称 -->
+      review_time,                  <!-- 审核时间 -->
+      inpatient_no,                 <!-- 住院号 -->
+      ward_name,                    <!-- 病区名称 -->
+      room_name,                    <!-- 病房名称 -->
+      bed_no,                       <!-- 床位号 -->
+      application_time,             <!-- 申请时间 -->
+      report_time,                  <!-- 报告时间 -->
+      source_modified_time,         <!-- 源端报告修改时间 -->
+      received_time,                <!-- 平台接收时间，由服务端取，不采用请求值 -->
+      pdf_file_id,                  <!-- PDF文件标识，文件键，按日期目录加平台生成文件名 -->
+      pdf_file_name,                <!-- PDF文件名，该版本保存的下载名 -->
+      source_confidential_flag,     <!-- 来源保密标识 -->
+      oper_id,                      <!-- 操作人标识 -->
+      oper_time                     <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllMedicalReportVersion">
+    <!--
+      功能：读取某个报告当前最大的版本序号，供追加版本时按平台成功形成顺序取下一个序号。
+      结果：无版本时返回空结果的聚合值行（count 与 max 都为 0）；存在版本时返回该报告的最大序号。
+    -->
+    <Statement Id="GetMedicalReportMaxVersionNumber">
+      select coalesce(max(version_number), 0) as max_version_number from mrec_medical_report_version where report_id = $ReportId
+    </Statement>
+    <!--
+      功能：按报告版本标识读取单条版本，供下载与版本详情按版本标识定位版本并取得该版本保存的下载名与文件键。
+      结果：命中时返回一行版本字段清单，未命中时返回空结果。
+    -->
+    <Statement Id="GetMedicalReportVersionById">
+      select <Include RefId="MedicalReportVersionColumns" /> from mrec_medical_report_version where id = $Id
+    </Statement>
+    <!--
+      功能：读取某个报告的全部版本，供管理端版本列表与版本详情按版本序号展示历史版本。
+      结果：返回版本字段清单、报告生命周期状态，以及「是否当前有效版本」与「是否已被后续版本替代」两个派生标识；
+      按版本序号升序返回，因此列表顺序即平台成功形成顺序；不筛选报告是否已作废，已作废报告的历史版本仍可查看。
+    -->
+    <Statement Id="QueryMedicalReportVersionList">
       select
-      <Include RefId="MedicalReportVersionColumns" />
-      from medical_report_version
+        v.id,                           <!-- 报告版本标识（主键） -->
+        v.report_id,                    <!-- 报告标识 -->
+        v.patient_id,                   <!-- 平台患者标识 -->
+        v.version_number,               <!-- 版本序号 -->
+        v.source_report_name,           <!-- 来源报告名称 -->
+        v.patient_name,                 <!-- 患者姓名，来源原值 -->
+        v.patient_gender_code,          <!-- 患者性别代码 -->
+        v.patient_birth_date,           <!-- 患者出生日期 -->
+        v.patient_phone_number,         <!-- 患者联系电话 -->
+        v.age_at_report,                <!-- 报告时年龄 -->
+        v.identity_document_type_code,  <!-- 证件类型代码，来源原值 -->
+        v.identity_document_no,         <!-- 证件号码，来源原值 -->
+        v.visit_type,                   <!-- 就诊类型 -->
+        v.visit_serial_no,              <!-- 就诊流水号 -->
+        v.application_dept_id,          <!-- 申请科室ID -->
+        v.application_dept_name,        <!-- 申请科室名称 -->
+        v.application_doctor_id,        <!-- 申请医生ID -->
+        v.application_doctor_name,      <!-- 申请医生名称 -->
+        v.execution_dept_id,            <!-- 执行科室ID -->
+        v.execution_dept_name,          <!-- 执行科室名称 -->
+        v.report_dept_id,               <!-- 报告科室ID -->
+        v.report_dept_name,             <!-- 报告科室名称 -->
+        v.report_doctor_id,             <!-- 报告医生ID -->
+        v.report_doctor_name,           <!-- 报告医生名称，该版本自身提供的人员事实 -->
+        v.review_doctor_id,             <!-- 审核医生ID -->
+        v.review_doctor_name,           <!-- 审核医生名称，该版本自身提供的人员事实 -->
+        v.review_time,                  <!-- 审核时间 -->
+        v.inpatient_no,                 <!-- 住院号 -->
+        v.ward_name,                    <!-- 病区名称 -->
+        v.room_name,                    <!-- 病房名称 -->
+        v.bed_no,                       <!-- 床位号 -->
+        v.application_time,             <!-- 申请时间 -->
+        v.report_time,                  <!-- 报告时间 -->
+        v.source_modified_time,         <!-- 源端报告修改时间 -->
+        v.received_time,                <!-- 平台接收时间 -->
+        v.pdf_file_id,                  <!-- PDF文件标识，不对外返回，仅供下载动作按键读取 -->
+        v.pdf_file_name,                <!-- PDF文件名，该版本的下载名 -->
+        v.source_confidential_flag,     <!-- 来源保密标识 -->
+        v.oper_id,                      <!-- 操作人标识 -->
+        v.oper_time,                    <!-- 操作时间 -->
+        r.status as report_status,      <!-- 报告生命周期状态，供版本列表标识报告已作废 -->
+        <!--
+          处理：当前版本指向等于本版本标识记 1，否则记 0。
+          原因：版本表不保存「是否当前」状态列，历史性由报告主体的当前版本指向推导；
+          在查询里派生可以直接给出列表所需的两个标识，不需要应用层再逐行回读报告。
+          结果：派生列 is_current_version 映射「是否当前有效版本」。
+        -->
+        case when r.current_version_id = v.id then 1 else 0 end as is_current_version,
+        <!--
+          处理：存在同一报告内版本序号更大的版本时记 1，否则记 0。
+          原因：历史性同时可以由版本序号推导，与当前版本指向交叉印证；不存在更大序号即当前版本。
+          结果：派生列 is_superseded 映射「是否已被后续版本替代」。
+        -->
+        case when exists (
+          select 1 from mrec_medical_report_version n
+          where n.report_id = v.report_id and n.version_number > v.version_number
+        ) then 1 else 0 end as is_superseded
+      from mrec_medical_report_version v
+      <!-- 关联原因：报告生命周期状态只保存在报告主体上，版本列表需要标识报告已作废，因此内联报告主体取该列 -->
+      join mrec_medical_recognition_report r on r.id = v.report_id
+      where v.report_id = $ReportId  <!-- 报告范围：只返回该报告的版本 -->
+      order by v.version_number asc, v.id asc  <!-- 排序：按版本序号升序，并以版本标识作为稳定兜底键 -->
+    </Statement>
+    <!--
+      功能：追加一个完整报告版本，把公共信息、组织人员、业务时间与文件信息一次写入。
+      结果：写入版本标识、报告标识、平台患者标识、版本序号、全部公共信息列、四个科室与四个医生、业务时间、
+      平台接收时间、PDF 文件键与下载名、来源保密标识和操作字段；
+      版本序号与文件键都由服务端生成，不采用请求值；平台接收时间取服务端当前时间；
+      并发追加同一序号时由报告标识与版本序号唯一索引拒绝，数据库异常按原样向外传播。
+    -->
+    <Statement Id="CreateMedicalReportVersion">
+      insert into mrec_medical_report_version (
+        id, report_id, patient_id, version_number, source_report_name,
+        patient_name, patient_gender_code, patient_birth_date, patient_phone_number, age_at_report,
+        identity_document_type_code, identity_document_no, visit_type, visit_serial_no,
+        application_dept_id, application_dept_name, application_doctor_id, application_doctor_name,
+        execution_dept_id, execution_dept_name, report_dept_id, report_dept_name,
+        report_doctor_id, report_doctor_name, review_doctor_id, review_doctor_name, review_time,
+        inpatient_no, ward_name, room_name, bed_no,
+        application_time, report_time, source_modified_time, received_time,
+        pdf_file_id, pdf_file_name, source_confidential_flag, oper_id, oper_time
+      ) values (
+        $Id, $ReportId, $PatientId, $VersionNumber, $SourceReportName,
+        $PatientName, $PatientGenderCode, $PatientBirthDate, $PatientPhoneNumber, $AgeAtReport,
+        $IdentityDocumentTypeCode, $IdentityDocumentNo, $VisitType, $VisitSerialNo,
+        $ApplicationDeptId, $ApplicationDeptName, $ApplicationDoctorId, $ApplicationDoctorName,
+        $ExecutionDeptId, $ExecutionDeptName, $ReportDeptId, $ReportDeptName,
+        $ReportDoctorId, $ReportDoctorName, $ReviewDoctorId, $ReviewDoctorName, $ReviewTime,
+        $InpatientNo, $WardName, $RoomName, $BedNo,
+        $ApplicationTime, $ReportTime, $SourceModifiedTime, $ReceivedTime,
+        $PdfFileId, $PdfFileName, $SourceConfidentialFlag, $OperId, $OperTime
+      )
     </Statement>
   </Statements>
 </SqlMap>

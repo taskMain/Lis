@@ -1,4 +1,4 @@
-namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
+namespace Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate;
 
 /// <summary>
 /// 医学报告互认聚合的固定标识常量，供领域事件与订阅方识别事件所属的聚合。

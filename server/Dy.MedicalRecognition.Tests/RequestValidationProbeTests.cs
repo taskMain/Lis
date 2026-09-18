@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
-using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.StandardCatalog;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
 using Dy.MedicalRecognition.Domain.Share.Enums;
 using Xunit;

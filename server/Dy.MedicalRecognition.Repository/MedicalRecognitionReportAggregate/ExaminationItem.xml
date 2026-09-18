@@ -1,12 +1,36 @@
-<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+<SqlMap Scope="ExaminationItem" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义检查项目的通用查询字段清单，供按报告版本读取语句与新增语句复用。
+      结果：输出来源项目名称与编码、互认项目编码与操作审计字段。
+    -->
     <Statement Id="ExaminationItemColumns">
-      id, report_version_id, source_project_name, source_project_code, standard_project_code, oper_id, oper_time
+      id,                       <!-- 检查项目标识（主键） -->
+      report_version_id,        <!-- 报告版本标识 -->
+      source_project_name,      <!-- 来源项目名称 -->
+      source_project_code,      <!-- 来源项目编码 -->
+      standard_project_code,    <!-- 互认项目编码 -->
+      oper_id,                  <!-- 操作人标识 -->
+      oper_time                 <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllExaminationItem">
-      select
-      <Include RefId="ExaminationItemColumns" />
-      from examination_item
+    <!--
+      功能：按报告版本读取检查项目，供管理端版本详情展示该版本的全部检查项目。
+      结果：返回该版本的全部检查项目，按项目标识升序保证顺序稳定；无项目时返回空集合。
+    -->
+    <Statement Id="QueryExaminationItemsByVersion">
+      select <Include RefId="ExaminationItemColumns" /> from mrec_examination_item
+      where report_version_id = $ReportVersionId  <!-- 版本范围：只返回该报告版本的检查项目 -->
+      order by id asc  <!-- 排序：按项目标识升序，保证同一版本内的返回顺序稳定 -->
+    </Statement>
+    <!--
+      功能：新增一条检查项目。
+      结果：写入标识、报告版本标识、来源项目名称与编码、互认项目编码与操作字段；
+      互认项目编码按请求原样保存，缺失不影响接收，只影响互认匹配资格。
+    -->
+    <Statement Id="CreateExaminationItem">
+      insert into mrec_examination_item (
+        id, report_version_id, source_project_name, source_project_code, standard_project_code, oper_id, oper_time
+      ) values ($Id, $ReportVersionId, $SourceProjectName, $SourceProjectCode, $StandardProjectCode, $OperId, $OperTime)
     </Statement>
   </Statements>
 </SqlMap>
