@@ -1,10 +1,14 @@
 using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
+using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
+using Dy.MedicalRecognition.Application.Contracts.Queries.StandardCatalog;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
 using Dy.MedicalRecognition.Application.Validation;
 using Dy.Base.Application.Contracts.OrganizationAggregate;
 using Dy.Base.Application.Contracts.UserAggregate;
 using System.ComponentModel.DataAnnotations;
 using Dy.MedicalRecognition.Domain.Queries;
+using Dy.MedicalRecognition.Domain.Queries.Ports;
 
 namespace Dy.MedicalRecognition.Application.Queries;
 

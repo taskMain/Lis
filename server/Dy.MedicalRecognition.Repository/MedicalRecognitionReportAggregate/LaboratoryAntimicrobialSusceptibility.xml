@@ -39,7 +39,7 @@
       结果：写入标识、细菌鉴定结果归属、来源明细标识、受试药物、结论、量值文本、展示序号、检测人、检测方法、
       试验板序号与操作字段；量值列一律按来源文本整串保存，不解析、不换算。
     -->
-    <Statement Id="InsertLaboratoryAntimicrobialSusceptibility">
+    <Statement Id="CreateLaboratoryAntimicrobialSusceptibility">
       insert into mrec_laboratory_antimicrobial_susceptibility (
         id, bacteria_result_id, source_detail_key, drug_code, drug_name, susceptibility_code,
         source_conclusion_text, resistance_result_code, disk_content, mic_value,

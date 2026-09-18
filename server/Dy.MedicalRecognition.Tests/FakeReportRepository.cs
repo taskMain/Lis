@@ -1,5 +1,6 @@
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
+using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Ports;
 using Dy.MedicalRecognition.Domain.Queries;
 using Dy.MedicalRecognition.Domain.Share.Enums;
 
@@ -9,8 +10,7 @@ namespace Dy.MedicalRecognition.Tests;
 /// 报告提交与作废的内存仓储替身：保存报告、版本、平台患者与七类专项明细，记录调用次数并按用例脚本注入失败。
 /// </summary>
 /// <remarks>
-/// 替身只用于隔离数据库：写入按内存字典进行，读取按业务键或主键定位，影响行数按是否命中计算；
-/// 唯一约束冲突用可开关的标记模拟仓储识别出的内部异常类型，供领域层翻译路径验证。
+/// 替身只用于隔离数据库：写入按内存字典进行，读取按业务键或主键定位，影响行数按是否命中计算。
 /// 未参与本阶段用例的目录与金额成员一律抛出 <see cref="NotSupportedException"/>，避免测试静默走过未覆盖的路径。
 /// </remarks>
 internal sealed class FakeReportRepository : IMedicalRecognitionReportRepository
@@ -48,29 +48,11 @@ internal sealed class FakeReportRepository : IMedicalRecognitionReportRepository
   /// <summary>内存检查部位。</summary>
   public List<ExaminationSite> ExaminationSites { get; } = [];
 
-  /// <summary>为真时新增报告抛出仓储识别出的唯一约束冲突异常。</summary>
-  public bool ThrowDuplicateReportOnCreate { get; set; }
-
-  /// <summary>为真时新增平台患者抛出仓储识别出的唯一约束冲突异常。</summary>
-  public bool ThrowDuplicatePatientOnCreate { get; set; }
-
-  /// <summary>为真时新增报告版本抛出仓储识别出的唯一约束冲突异常。</summary>
-  public bool ThrowDuplicateVersionOnCreate { get; set; }
-
-  /// <summary>并发复读时可见的平台患者；只在第二次及以后的读取中返回，用于模拟并发请求先写入患者的时序。</summary>
-  public PlatformPatient? PatientVisibleAfterDuplicate { get; set; }
-
-  /// <summary>平台患者读取次数；用于区分首次定位与并发复读。</summary>
-  public int PatientReadCalls { get; private set; }
-
   /// <summary>为真时检验专项内容写入按影响行数 0 失败。</summary>
   public bool FailLaboratoryContentWrite { get; set; }
 
   /// <summary>为真时检查专项内容写入按影响行数 0 失败。</summary>
   public bool FailExaminationContentWrite { get; set; }
-
-  /// <summary>是否发生过平台患者新增尝试；用于确认并发路径确实走到了插入。</summary>
-  public bool PatientCreateAttempted { get; private set; }
 
   /// <summary>生成一个新的实体主键。</summary>
   /// <returns>新的主键标识。</returns>
@@ -79,24 +61,14 @@ internal sealed class FakeReportRepository : IMedicalRecognitionReportRepository
   /// <inheritdoc/>
   public Task<PlatformPatient?> GetPlatformPatientByDocumentAsync(string identityDocumentTypeCode, string identityDocumentNo)
   {
-    PatientReadCalls++;
     PlatformPatient? stored = Patients.Values.SingleOrDefault(patient =>
       patient.IdentityDocumentTypeCode == identityDocumentTypeCode && patient.IdentityDocumentNo == identityDocumentNo);
-    if (stored is not null) return Task.FromResult<PlatformPatient?>(stored);
-
-    // 首次定位看不到并发写入的患者，复读时才可见：这正是"先读未命中、插入撞唯一索引、再复读一次"的时序。
-    return Task.FromResult(PatientReadCalls > 1 ? PatientVisibleAfterDuplicate : null);
+    return Task.FromResult(stored);
   }
-
-  /// <inheritdoc/>
-  public async Task<(PlatformPatient? Patient, bool IsReadable)> TryGetPlatformPatientByDocumentAsync(string identityDocumentTypeCode, string identityDocumentNo) =>
-    (await GetPlatformPatientByDocumentAsync(identityDocumentTypeCode, identityDocumentNo), true);
 
   /// <inheritdoc/>
   public Task<int> CreatePlatformPatientAsync(PlatformPatient platformPatient)
   {
-    PatientCreateAttempted = true;
-    if (ThrowDuplicatePatientOnCreate) throw new DuplicatePlatformPatientException("模拟证件键唯一约束冲突。");
     Patients[platformPatient.Id] = platformPatient;
     return Task.FromResult(1);
   }
@@ -115,7 +87,6 @@ internal sealed class FakeReportRepository : IMedicalRecognitionReportRepository
   /// <inheritdoc/>
   public Task<int> CreateMedicalRecognitionReportAsync(MedicalRecognitionReport medicalRecognitionReport)
   {
-    if (ThrowDuplicateReportOnCreate) throw new DuplicateMedicalRecognitionReportException("模拟报告业务键唯一约束冲突。");
     Reports[medicalRecognitionReport.Id] = medicalRecognitionReport;
     return Task.FromResult(1);
   }
@@ -160,7 +131,6 @@ internal sealed class FakeReportRepository : IMedicalRecognitionReportRepository
   /// <inheritdoc/>
   public Task<int> CreateMedicalReportVersionAsync(MedicalReportVersion medicalReportVersion)
   {
-    if (ThrowDuplicateVersionOnCreate) throw new DuplicateMedicalReportVersionException("模拟报告版本序号唯一约束冲突。");
     Versions[medicalReportVersion.Id] = medicalReportVersion;
     return Task.FromResult(1);
   }

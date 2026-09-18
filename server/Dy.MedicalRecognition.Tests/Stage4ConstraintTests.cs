@@ -3,6 +3,9 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
+using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Managers;
+using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Ports;
+using Dy.MedicalRecognition.Domain.Queries.Ports;
 using Dy.MedicalRecognition.Repository.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Tests.Architecture;
 using Microsoft.CodeAnalysis;
@@ -22,16 +25,20 @@ namespace Dy.MedicalRecognition.Tests;
 public sealed class Stage4ConstraintTests
 {
   /// <summary>
-  /// 参与调用点核对的阶段 4 仓储实现文件，路径相对仓库根目录。
+  /// 参与调用点核对的仓储实现文件，路径相对仓库根目录。
   /// </summary>
   private static readonly string[] StageRepositorySources =
   [
+    "server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.StandardCatalog.cs",
+    "server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.MutualRecognition.cs",
+    "server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.RecognitionAmount.cs",
     "server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.Submission.cs",
+    "server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs",
     "server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.Reports.cs"
   ];
 
   /// <summary>
-  /// 数据映射器上必须逐调用显式传作用域与语句标识的读写成员名。
+  /// 数据映射器上必须逐调用显式传作用域的读写成员名；语句标识由调用方法名推导，不再显式传。
   /// </summary>
   private static readonly string[] MapperCallMembers =
   [
@@ -50,31 +57,19 @@ public sealed class Stage4ConstraintTests
   ];
 
   /// <summary>
-  /// 唯一约束冲突翻译只允许出现在这三个内部异常类型与仓储的翻译点上。
-  /// </summary>
-  private static readonly string[] DuplicateExceptionTypeNames =
-  [
-    "DuplicatePlatformPatientException", "DuplicateMedicalRecognitionReportException", "DuplicateMedicalReportVersionException"
-  ];
-
-  /// <summary>
-  /// 报告聚合之外的唯一约束冲突异常类型名；这些是阶段 2 与阶段 3 的既有实体，不属于本阶段的重复实现。
-  /// </summary>
-  private static readonly string[] PreExistingDuplicateExceptionTypeNames =
-  [
-    "DuplicateMutualRecognitionItemException", "DuplicateOrganizationHospitalBranchRecognitionAmountException"
-  ];
-
-  /// <summary>
-  /// V81 的调用点面：仓储的每个数据访问调用都显式传 <c>scope</c> 与 <c>sqlId</c>，不使用共享映射器的上下文设置方法。
+  /// V81 的调用点面：仓储的每个数据访问调用都显式传 <c>scope</c>，且其所在方法名（去掉 <c>Async</c> 后缀）
+  /// 必须是该作用域下真实存在的语句标识；不使用共享映射器的上下文设置方法。
   /// </summary>
   /// <remarks>
-  /// 缺少显式参数时框架会退化到默认推导，调用点与映射文件的对应关系随之隐式化：语句被改名或作用域被改动，
-  /// 只在运行期表现为找不到语句。这里按语法节点逐处核对，并对每个缺失情形给出文件、方法名与行号。
+  /// 调用点不再显式传 <c>sqlId</c>：框架按调用方法名推导语句标识，对应关系由「显式传参」改为「方法名与标识同名」。
+  /// 这条判据把该对应关系重新变成静态可见的：方法名与标识脱节、或作用域指错，都在这里失败，
+  /// 而不是只在运行期表现为找不到语句。作用域无法从方法名推导，因此仍必须显式传，并逐处解析为映射文件里的实际作用域。
   /// </remarks>
   [Fact]
-  public void Repository_call_sites_pass_scope_and_statement_id_explicitly()
+  public void Repository_call_sites_derive_statement_id_from_method_name()
   {
+    IReadOnlyDictionary<string, HashSet<string>> statementsByScope = StatementIdsByScope();
+    Dictionary<string, string> scopeConstants = ScopeConstants();
     List<string> violations = [];
     int checkedCallCount = 0;
 
@@ -87,28 +82,115 @@ public sealed class Stage4ConstraintTests
         if (memberName is null || !MapperCallMembers.Contains(memberName)) continue;
 
         checkedCallCount++;
-        HashSet<string> argumentNames = [.. invocation.ArgumentList.Arguments
-          .Where(argument => argument.NameColon is not null)
-          .Select(argument => argument.NameColon!.Name.Identifier.ValueText)];
 
-        if (!argumentNames.Contains("scope")) violations.Add($"{relativePath}: {memberName} 缺少显式 scope 参数");
-        if (!argumentNames.Contains("sqlId")) violations.Add($"{relativePath}: {memberName} 缺少显式 sqlId 参数");
+        // 语句标识已改为由方法名推导，调用点不应再显式传 sqlId。
+        if (invocation.ArgumentList.Arguments.Any(argument => argument.NameColon?.Name.Identifier.ValueText == "sqlId"))
+          violations.Add($"{relativePath}: {memberName} 不应再显式传 sqlId，语句标识由调用方法名推导");
+
+        // 作用域无法从方法名推导，必须显式传，并且必须能解析为映射文件里真实存在的作用域。
+        ExpressionSyntax? scopeArgument = invocation.ArgumentList.Arguments
+          .FirstOrDefault(argument => argument.NameColon?.Name.Identifier.ValueText == "scope")?.Expression;
+        if (scopeArgument is null)
+        {
+          violations.Add($"{relativePath}: {memberName} 缺少显式 scope 参数");
+          continue;
+        }
+
+        string scopeName = scopeArgument.ToString().Split('.')[^1];
+        if (!scopeConstants.TryGetValue(scopeName, out string? scope))
+        {
+          violations.Add($"{relativePath}: {memberName} 的 scope 实参 {scopeArgument} 未解析到字符串常量");
+          continue;
+        }
+
+        MethodDeclarationSyntax? caller = invocation.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
+        if (caller is null)
+        {
+          violations.Add($"{relativePath}: {memberName} 未位于方法体内");
+          continue;
+        }
+
+        string callerName = caller.Identifier.ValueText;
+        string derivedStatementId = callerName.EndsWith("Async", StringComparison.Ordinal)
+          ? callerName[..^"Async".Length]
+          : callerName;
+
+        if (!statementsByScope.TryGetValue(scope, out HashSet<string>? statementIds))
+          violations.Add($"{relativePath}: {callerName} 引用了映射文件中不存在的作用域 {scope}");
+        else if (!statementIds.Contains(derivedStatementId))
+          violations.Add($"{relativePath}: {callerName} 推导出的语句标识 {scope}.{derivedStatementId} 在映射文件中不存在");
       }
 
-      // 上下文设置方法会把作用域变成运行时可变状态，共享映射器实例之间互相串扰。
-      Assert.DoesNotContain("SetContext", File.ReadAllText(Path.Combine(SourceSyntaxGuard.FindRepositoryRoot(), relativePath)), StringComparison.Ordinal);
+      // 上下文设置方法会把作用域变成运行时可变状态，共享映射器实例之间互相串扰；
+      // 按调用节点判定而不是按原始文本匹配，避免把文档注释里"不使用 SetContext"的说明误判成调用。
+      Assert.DoesNotContain(
+        root.DescendantNodes().OfType<InvocationExpressionSyntax>(),
+        invoked => SourceSyntaxGuard.MemberName(invoked.Expression) == "SetContext");
     }
 
     Assert.Empty(violations);
 
-    // 扫描规模下界与变异证据：路径规则改坏成"扫不到任何调用"时先在这里失败；注入一个缺参调用后判据必须命中。
-    Assert.True(checkedCallCount >= 20, $"受核对的数据访问调用点应不少于 20 处，实际 {checkedCallCount} 处。");
+    // 扫描规模下界：路径规则改坏成"扫不到任何调用"时先在这里失败。
+    Assert.True(checkedCallCount >= 40, $"受核对的数据访问调用点应不少于 40 处，实际 {checkedCallCount} 处。");
+    Assert.True(statementsByScope.Count >= 15, $"映射文件应解析出不少于 15 个作用域，实际 {statementsByScope.Count} 个。");
 
-    CompilationUnitSyntax probe = SourceSyntaxGuard.Parse(
-      "class Probe { void M(object mapper, object value) { mapper.InsertAsync(value); } }");
-    InvocationExpressionSyntax probeCall = probe.DescendantNodes().OfType<InvocationExpressionSyntax>()
-      .Single(invocation => SourceSyntaxGuard.MemberName(invocation.Expression) == "InsertAsync");
-    Assert.DoesNotContain(probeCall.ArgumentList.Arguments, argument => argument.NameColon is not null);
+    // 变异证据：真实语句标识被判为存在，改动一位后同一判据必须判为不存在，
+    // 证明上面的核对不是对任何方法名都成立。
+    Assert.Contains("CreateMedicalStandardCategory", statementsByScope["MedicalStandardCategory"]);
+    Assert.DoesNotContain("CreateMedicalStandardCategoryX", statementsByScope["MedicalStandardCategory"]);
+
+    // 变异证据：注入一个真实的 SetContext 调用后，同一判据必须命中，
+    // 证明"未出现上下文设置方法"不是扫描面恒真的结果。
+    CompilationUnitSyntax setContextProbe = SourceSyntaxGuard.Parse(
+      "class Probe { void M(object mapper) { mapper.SetContext(\"Scope\"); } }");
+    Assert.Contains(
+      setContextProbe.DescendantNodes().OfType<InvocationExpressionSyntax>(),
+      invoked => SourceSyntaxGuard.MemberName(invoked.Expression) == "SetContext");
+  }
+
+  /// <summary>
+  /// 读取仓储工程全部手写映射文件，得到「作用域名 → 语句标识集合」。
+  /// </summary>
+  /// <returns>作用域名到该作用域下语句标识集合的映射；同一作用域在多个文件出现时合并。</returns>
+  private static IReadOnlyDictionary<string, HashSet<string>> StatementIdsByScope()
+  {
+    string repositoryDirectory = Path.Combine(SourceSyntaxGuard.FindRepositoryRoot(), "server", "Dy.MedicalRecognition.Repository");
+    Dictionary<string, HashSet<string>> statementsByScope = new(StringComparer.Ordinal);
+    foreach (string mapFile in Directory.EnumerateFiles(repositoryDirectory, "*.xml", SearchOption.AllDirectories))
+    {
+      if (mapFile.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)) continue;
+      XDocument document = XDocument.Load(mapFile);
+      string? scope = document.Root?.Attribute("Scope")?.Value;
+      if (string.IsNullOrEmpty(scope)) continue;
+      if (!statementsByScope.TryGetValue(scope, out HashSet<string>? statementIds))
+      {
+        statementIds = new HashSet<string>(StringComparer.Ordinal);
+        statementsByScope[scope] = statementIds;
+      }
+
+      foreach (XElement statement in document.Descendants().Where(element => element.Attribute("Id") is not null))
+        statementIds.Add((string)statement.Attribute("Id")!);
+    }
+
+    return statementsByScope;
+  }
+
+  /// <summary>
+  /// 收集仓储工程内全部作用域字符串常量，得到「常量名 → 作用域名」。
+  /// </summary>
+  /// <returns>常量名到作用域名的映射；常量名重复且取值不同时保留首次出现。</returns>
+  private static Dictionary<string, string> ScopeConstants()
+  {
+    string repositoryDirectory = Path.Combine(SourceSyntaxGuard.FindRepositoryRoot(), "server", "Dy.MedicalRecognition.Repository");
+    Dictionary<string, string> constants = new(StringComparer.Ordinal);
+    foreach (string sourceFile in Directory.EnumerateFiles(repositoryDirectory, "*.cs", SearchOption.AllDirectories))
+    {
+      if (sourceFile.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)) continue;
+      foreach (Match match in Regex.Matches(File.ReadAllText(sourceFile), @"const\s+string\s+(\w+Scope)\s*=\s*""([^""]+)"""))
+        constants.TryAdd(match.Groups[1].Value, match.Groups[2].Value);
+    }
+
+    return constants;
   }
 
   /// <summary>
@@ -155,7 +237,9 @@ public sealed class Stage4ConstraintTests
     string root = SourceSyntaxGuard.FindRepositoryRoot();
     string domainAggregate = Path.Combine(root, "server", "Dy.MedicalRecognition.Domain", "MedicalRecognitionReportAggregate");
 
-    string[] managerFiles = [.. Directory.EnumerateFiles(domainAggregate, "MedicalRecognitionReportManager*.cs").Select(Path.GetFileName)!];
+    // 管理器分部收在 Managers 子目录，目录名与子命名空间保持一致。
+    string managerDirectory = Path.Combine(domainAggregate, "Managers");
+    string[] managerFiles = [.. Directory.EnumerateFiles(managerDirectory, "MedicalRecognitionReportManager*.cs").Select(Path.GetFileName)!];
     Assert.Equal(
       ["MedicalRecognitionReportManager.Submission.cs", "MedicalRecognitionReportManager.SubmissionValidation.cs", "MedicalRecognitionReportManager.cs"],
       [.. managerFiles.OrderBy(name => name, StringComparer.Ordinal)]);
@@ -172,18 +256,47 @@ public sealed class Stage4ConstraintTests
       Assert.Contains("MedicalRecognitionReportAggregate", relativePath, StringComparison.Ordinal);
     }
 
-    // 写侧仓储接口按职责分为两个部分文件、实现分为两个部分文件，各自仍只有一个类型。
+    // 写侧仓储接口与实现按业务能力分为五个部分文件，各自仍只有一个类型。
+    // 逐文件冻结清单：新增第二套实现会改变清单，因此不需要人工确认。
+    // 端口接口分部同样收在 Ports 子目录，目录名与子命名空间保持一致。
+    string writePortDirectory = Path.Combine(domainAggregate, "Ports");
+    string[] writePortFiles =
+      [.. Directory.EnumerateFiles(writePortDirectory, "IMedicalRecognitionReportRepository*.cs").Select(Path.GetFileName)!];
+    Assert.Equal(
+      [
+        "IMedicalRecognitionReportRepository.MutualRecognition.cs",
+        "IMedicalRecognitionReportRepository.RecognitionAmount.cs",
+        "IMedicalRecognitionReportRepository.StandardCatalog.cs",
+        "IMedicalRecognitionReportRepository.Submission.cs",
+        "IMedicalRecognitionReportRepository.cs"
+      ],
+      [.. writePortFiles.OrderBy(name => name, StringComparer.Ordinal)]);
+
     IReadOnlyList<(string RelativePath, CompilationUnitSyntax Root)> writePortDeclarations =
       SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Domain", "IMedicalRecognitionReportRepository");
-    Assert.Equal(2, writePortDeclarations.Count);
+    Assert.Equal(5, writePortDeclarations.Count);
     Assert.All(writePortDeclarations, declaration => Assert.Contains(
       declaration.Root.DescendantNodes().OfType<InterfaceDeclarationSyntax>()
         .Single(item => item.Identifier.ValueText == "IMedicalRecognitionReportRepository").Modifiers,
       modifier => modifier.ValueText == "partial"));
 
+    string repositoryAggregate =
+      Path.Combine(root, "server", "Dy.MedicalRecognition.Repository", "MedicalRecognitionReportAggregate");
+    string[] writeImplementationFiles =
+      [.. Directory.EnumerateFiles(repositoryAggregate, "MedicalRecognitionReportRepository*.cs").Select(Path.GetFileName)!];
+    Assert.Equal(
+      [
+        "MedicalRecognitionReportRepository.MutualRecognition.cs",
+        "MedicalRecognitionReportRepository.RecognitionAmount.cs",
+        "MedicalRecognitionReportRepository.StandardCatalog.cs",
+        "MedicalRecognitionReportRepository.Submission.cs",
+        "MedicalRecognitionReportRepository.cs"
+      ],
+      [.. writeImplementationFiles.OrderBy(name => name, StringComparer.Ordinal)]);
+
     IReadOnlyList<(string RelativePath, CompilationUnitSyntax Root)> writeImplementationDeclarations =
       SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Repository", "MedicalRecognitionReportRepository");
-    Assert.Equal(2, writeImplementationDeclarations.Count);
+    Assert.Equal(5, writeImplementationDeclarations.Count);
     Assert.All(writeImplementationDeclarations, declaration => Assert.Contains(
       declaration.Root.DescendantNodes().OfType<ClassDeclarationSyntax>()
         .Single(item => item.Identifier.ValueText == "MedicalRecognitionReportRepository").Modifiers,
@@ -257,63 +370,6 @@ public sealed class Stage4ConstraintTests
   }
 
   /// <summary>
-  /// S4-D24：仓储的唯一约束冲突翻译只出现在仓储到管理器内部，不改变对外响应形态。
-  /// </summary>
-  /// <remarks>
-  /// 三个报告侧的唯一约束冲突异常类型只允许由仓储声明与抛出、由管理器捕获并翻译为业务拒绝；
-  /// 契约与宿主工程不得引用它们，因此对外响应形态不因冲突而改变。
-  /// </remarks>
-  [Fact]
-  public void Duplicate_constraint_translation_stays_inside_repository_and_manager()
-  {
-    string root = SourceSyntaxGuard.FindRepositoryRoot();
-
-    // 异常类型只由领域聚合声明：仓储引用领域类型属于既有分层。
-    foreach (string typeName in DuplicateExceptionTypeNames)
-    {
-      IReadOnlyList<(string RelativePath, CompilationUnitSyntax Root)> declarations =
-        SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Domain", typeName);
-      (string relativePath, _) = Assert.Single(declarations);
-      Assert.Contains("MedicalRecognitionReportAggregate", relativePath, StringComparison.Ordinal);
-    }
-
-    // 阶段 2 与阶段 3 的同类异常同样是单一声明，避免本阶段引入第二套同类实现。
-    foreach (string typeName in PreExistingDuplicateExceptionTypeNames)
-      Assert.Single(SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Domain", typeName));
-
-    // 抛出点只在仓储实现：管理器只捕获并翻译，契约与宿主不感知。
-    string repositorySource = File.ReadAllText(Path.Combine(
-      root, "server", "Dy.MedicalRecognition.Repository", "MedicalRecognitionReportAggregate", "MedicalRecognitionReportRepository.Submission.cs"));
-    foreach (string typeName in DuplicateExceptionTypeNames)
-      Assert.Contains($"new {typeName}(", repositorySource, StringComparison.Ordinal);
-
-    string managerSource = File.ReadAllText(Path.Combine(
-      root, "server", "Dy.MedicalRecognition.Domain", "MedicalRecognitionReportAggregate", "MedicalRecognitionReportManager.Submission.cs"));
-    Assert.Contains("catch (DuplicateMedicalRecognitionReportException", managerSource, StringComparison.Ordinal);
-    Assert.Contains("catch (DuplicateMedicalReportVersionException", managerSource, StringComparison.Ordinal);
-    Assert.Contains("catch (DuplicatePlatformPatientException)", managerSource, StringComparison.Ordinal);
-
-    // 对外契约与宿主工程不得出现这三个异常类型名。
-    foreach (string project in new[] { "Dy.MedicalRecognition.Application.Contracts", "Dy.MedicalRecognition" })
-    {
-      foreach (string file in Directory.EnumerateFiles(Path.Combine(root, "server", project), "*.cs", SearchOption.AllDirectories))
-      {
-        if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
-            file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)) continue;
-
-        string source = File.ReadAllText(file);
-        foreach (string typeName in DuplicateExceptionTypeNames)
-          Assert.DoesNotContain(typeName, source, StringComparison.Ordinal);
-      }
-    }
-
-    // 变异证据：把异常类型名注入契约源码副本后，同一条判据必须命中。
-    const string contractSource = "public sealed class ProbeContract { }";
-    Assert.DoesNotContain(DuplicateExceptionTypeNames[0], contractSource, StringComparison.Ordinal);
-    Assert.Contains(DuplicateExceptionTypeNames[0], contractSource + DuplicateExceptionTypeNames[0], StringComparison.Ordinal);
-  }
-
-  /// <summary>
   /// S4-D1：使用受保护的手工维护推进，再生成保护清单中的配置与启动文件保留人工内容。
   /// </summary>
   /// <remarks>
@@ -378,20 +434,18 @@ public sealed class Stage4ConstraintTests
   }
 
   /// <summary>
-  /// 在仓储工程内按文件名定位 SqlMap 文件。
+  /// 在映射文件的固定目录内定位 SqlMap 文件。
   /// </summary>
   /// <param name="fileName">映射文件名。</param>
   /// <returns>该文件的绝对路径。</returns>
-  /// <exception cref="FileNotFoundException">两个候选目录都不存在该文件时抛出。</exception>
-  private static string FindSqlMap(string fileName)
-  {
-    string root = SourceSyntaxGuard.FindRepositoryRoot();
-    string aggregatePath = Path.Combine(root, "server", "Dy.MedicalRecognition.Repository", "MedicalRecognitionReportAggregate", fileName);
-    if (File.Exists(aggregatePath)) return aggregatePath;
-
-    string queriesPath = Path.Combine(root, "server", "Dy.MedicalRecognition.Repository", "Queries", fileName);
-    if (File.Exists(queriesPath)) return queriesPath;
-
-    throw new FileNotFoundException($"未找到仓储映射文件 '{fileName}'。");
-  }
+  /// <remarks>
+  /// 映射文件的物理位置受宿主默认资源模式约束：程序集根命名空间下一层目录内的直接文件才会被注册，
+  /// 因此报告表映射与查询映射分别固定在 <c>MedicalRecognitionReportAggregate</c> 与 <c>Queries</c>。
+  /// 映射文件必须落在这两个目录里。
+  /// </remarks>
+  /// <exception cref="FileNotFoundException">固定目录内不存在该文件时抛出。</exception>
+  private static string FindSqlMap(string fileName) =>
+    SourceSyntaxGuard.FindRepositoryFile(
+      fileName == "MedicalRecognitionReportQuery.xml" ? "Queries" : "MedicalRecognitionReportAggregate",
+      fileName);
 }

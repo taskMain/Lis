@@ -110,7 +110,7 @@
 
 按业务键读取后：无记录则 `INSERT` 一条新行（`Id` 由 Manager 生成，操作字段取 Command）；有记录则按 `id` 与四个业务键列做条件 `UPDATE`，只更新 `current_amount`、`oper_time`、`oper_id`。`UPDATE` 影响 0 行时按同一业务键复读一次：记录已被删除（正常业务不可达）即拒绝，金额已被并发改为相同值即按成功处理并登记事件，仍无法解释即返回并发冲突并提示刷新后重试，不自动无限重试、不替用户循环重放意图。影响行数大于 1 视为持久化不变量异常，不返回成功、不登记事件。
 
-并发首次保存同一业务键时，两个会话都可能读不到记录并各自 `INSERT`，由唯一索引 `ux_mrec_org_hos_brh_project` 兜底；冲突识别后统一翻译为"该医院院区标准项目金额已被并发保存，请刷新后重试"的业务拒绝，不登记事件、不自动改用更新路径（S3-D12）。不增加版本字段，也不锁定读取。
+并发首次保存同一业务键时，两个会话都可能读不到记录并各自 `INSERT`，由唯一索引 `ux_mrec_org_hos_brh_project` 兜底；冲突时数据库异常按原样向外传播，不做翻译、不登记事件、不自动改用更新路径（S3-D12）。不增加版本字段，也不锁定读取。
 
 ### 无 WorkUnit 事件证据边界
 
@@ -137,7 +137,7 @@
 
 唯一索引固定为 `ux_mrec_org_hos_brh_project`，覆盖 `(organization_code, hospital_code, branch_code, standard_project_code)`，无状态过滤；索引注释为"同一组织医院院区标准项目金额唯一"。脚本包含 `COMMENT ON TABLE`、每列 `COMMENT ON COLUMN` 和 `COMMENT ON INDEX`。不创建跨系统外键，不继承历史三表索引，不迁移或触碰其他系统对象；负责人确认目标数据库与 schema 并执行最终 DDL 后，才继续依赖新表的集成验证。
 
-SqlMap 的 `Scope` 与每个 DataMapper 调用点统一为实体名 `OrganizationHospitalBranchRecognitionAmount`，不调用 `SetContext`，不按实体拆仓储类；语句 Id 保持业务化命名并与调用点显式 `sqlId` 对齐。手写 Statement 为：`OrganizationHospitalBranchRecognitionAmountColumns`、`GetOrganizationHospitalBranchRecognitionAmountByBusinessKey`（按四个业务键列读取单行）、`InsertOrganizationHospitalBranchRecognitionAmount`、`UpdateOrganizationHospitalBranchRecognitionAmount`（按 `id` 与四个业务键列条件更新金额与操作字段）。原有的无 where `QueryAllOrganizationHospitalBranchRecognitionAmount` 不保留：它没有业务调用点，也不满足业务键定位语义。金额列表查询的 Statement 加入既有 `R/Queries/MedicalRecognitionReportQuery.xml`，与阶段 2 的 `QueryRecognitionProjectConfigurationList` 同一 scope 与同一文件。每个手写 Statement 补业务功能 XML 注释；SELECT、INSERT、UPDATE 字段补中文注释；LEFT JOIN、三层状态投影与排序补处理、原因、结果注释。
+SqlMap 的 `Scope` 与每个 DataMapper 调用点统一为实体名 `OrganizationHospitalBranchRecognitionAmount`，不调用 `SetContext`，不按实体拆仓储类；语句 Id 与调用方法名同名（方法名去掉 `Async` 后缀），调用点不显式传 `sqlId`，由框架按方法名推导。手写 Statement 为：`OrganizationHospitalBranchRecognitionAmountColumns`、`GetOrganizationHospitalBranchRecognitionAmountByBusinessKey`（按四个业务键列读取单行）、`CreateOrganizationHospitalBranchRecognitionAmount`、`UpdateOrganizationHospitalBranchRecognitionAmount`（按 `id` 与四个业务键列条件更新金额与操作字段）。原有的无 where `QueryAllOrganizationHospitalBranchRecognitionAmount` 不保留：它没有业务调用点，也不满足业务键定位语义。金额列表查询的 Statement 加入既有 `R/Queries/MedicalRecognitionReportQuery.xml`，与阶段 2 的 `QueryRecognitionProjectConfigurationList` 同一 scope 与同一文件。每个手写 Statement 补业务功能 XML 注释；SELECT、INSERT、UPDATE 字段补中文注释；LEFT JOIN、三层状态投影与排序补处理、原因、结果注释。
 
 金额列表 SQL 以 `mrec_mutual_recognition_item` 为行集，按 `(organization_code, hospital_code, branch_code, standard_project_code)` LEFT JOIN 金额表；标准目录通过既有 `mrec_medical_standard_item`、`mrec_medical_standard_group`、`mrec_medical_standard_category` 关联取得名称、类型、分类、分组与三层启用状态。**行集不会放大**：阶段 2 的唯一索引覆盖 `mrec_mutual_recognition_item(organization_code, standard_project_code)` 且含停用配置，同一组织的同一标准项目至多一行配置——这是 V17「行数等于该组织已配置标准项目数」的依据。SQL 必须保持 Provider 中立：不使用 `ON CONFLICT`、`LIMIT/OFFSET`、`NULLS FIRST/LAST`、`COUNT(DISTINCT (...))`、标识符引号写法、系统表或类型转换等方言特征。
 
@@ -180,7 +180,7 @@ V25 单元验证事件构造与登记规则，不能替代 V27 的真实生产�
 | V13 | 医院管理员入口取值来源与越权院区 | Application/Contract | Request 不含组织与医院；组织与医院取可信上下文；请求院区不属于可信医院时拒绝 | 否 | 否 | 可信组织/医院；本医院院区与它医院院区 |
 | V14 | 医院管理员入口可信组织或医院缺失，以及令牌缺失层由用户档案补齐 | Application | 令牌与用户档案都取不到该层时拒绝，不使用默认值、不降级为空值；令牌该层缺失而用户档案提供该层时按补齐后的范围继续，令牌与用户档案都提供且不一致时拒绝 | 否 | 否 | 缺少 `org` 或 `hos` 的身份上下文；令牌缺少 `hos` 且用户档案提供医院；令牌与用户档案的组织或医院不一致 |
 | V15 | 标准目录或互认配置停用后仍可保存金额 | Domain/Application | 成功，不因停用被阻断 | 是 | 否 | 目录/配置停用但互认配置存在 |
-| V16 | 并发首次保存同一业务键 | Repository/Application | 唯一约束兜底；冲突翻译为业务拒绝；库中恰 1 行、无脏写、无事件 | 是 | 否 | 正常接口建立互认配置后同步屏障并发提交 |
+| V16 | 并发首次保存同一业务键 | Repository/Application | 唯一约束兜底；数据库异常按原样向外传播；库中恰 1 行、无脏写、无事件 | 是 | 否 | 正常接口建立互认配置后同步屏障并发提交 |
 | V17 | 行集由互认配置驱动、金额 LEFT JOIN | Query | 行数等于该组织已配置标准项目数；未配置行 `IsAmountConfigured=false`、`CurrentAmount` 为 `null` | 是 | 否 | 同一组织多个互认配置，其中部分已保存金额 |
 | V18 | 返回字段集合 | Query/Contract | 只返回设计字段；不含组织/医院/院区编码，不含最后修改时间与最后修改人；返回四个名称 | 否 | 否 | 已保存与未保存金额各一行 |
 | V19 | 名称与归属读取次数与行数无关 | Application | 组织服务调用次数不随返回行数增长（计数替身断言） | 否 | 否 | 10 行与 100 行两组数据下的调用计数 |

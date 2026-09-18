@@ -1,4 +1,4 @@
-using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Events;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Events;
 
 namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
 

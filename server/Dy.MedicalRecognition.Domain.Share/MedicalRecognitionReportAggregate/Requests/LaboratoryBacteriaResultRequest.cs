@@ -1,4 +1,4 @@
-namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Requests;
+namespace Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Requests;
 
 /// <summary>
 /// 细菌鉴定结果的提交输入；每条内含药敏结果集合。

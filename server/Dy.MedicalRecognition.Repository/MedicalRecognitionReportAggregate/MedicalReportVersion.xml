@@ -135,9 +135,9 @@
       结果：写入版本标识、报告标识、平台患者标识、版本序号、全部公共信息列、四个科室与四个医生、业务时间、
       平台接收时间、PDF 文件键与下载名、来源保密标识和操作字段；
       版本序号与文件键都由服务端生成，不采用请求值；平台接收时间取服务端当前时间；
-      并发追加同一序号时由报告标识与版本序号唯一索引拒绝，调用方翻译为业务拒绝并提示重试。
+      并发追加同一序号时由报告标识与版本序号唯一索引拒绝，数据库异常按原样向外传播。
     -->
-    <Statement Id="InsertMedicalReportVersion">
+    <Statement Id="CreateMedicalReportVersion">
       insert into mrec_medical_report_version (
         id, report_id, patient_id, version_number, source_report_name,
         patient_name, patient_gender_code, patient_birth_date, patient_phone_number, age_at_report,

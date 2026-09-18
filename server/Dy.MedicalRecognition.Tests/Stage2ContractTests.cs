@@ -1,6 +1,6 @@
 using System.Reflection;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
-using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
 using Dy.MedicalRecognition.Domain.Share.Enums;
 using Xunit;
@@ -49,7 +49,7 @@ public sealed class Stage2ContractTests
   public void Read_model_matches_the_published_field_shape()
   {
     Type type = typeof(RecognitionProjectConfigurationReadModel);
-    Assert.Equal("Dy.MedicalRecognition.Application.Contracts.Queries", type.Namespace);
+    Assert.Equal("Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition", type.Namespace);
 
     string[] expected =
     [

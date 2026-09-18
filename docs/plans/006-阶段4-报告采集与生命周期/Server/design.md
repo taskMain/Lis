@@ -44,7 +44,7 @@
 | `LocalReportPdfFileStore` | 新增实现 | R/Aggregate | 按配置根目录落盘、读取、删除，含路径穿越防护与写失败清理 | 决定业务是否保存成功 |
 | `MedicalRecognitionReportManager` | 修改既有 Manager | D/Aggregate | 命令校验、报告定位与创建、版本追加与当前版本指向、患者解析与核对、专项内容与明细写入、作废、事件登记 | 控制事务、公共 DTO、文件 IO |
 | `IMedicalRecognitionReportRepository` | 扩展既有仓储接口 | D/Aggregate | 报告、版本、患者、专项内容与明细的读写；业务键定位；影响行数 | Provider 类型 |
-| `MedicalRecognitionReportRepository` | 修改既有仓储 | R/Aggregate | 实现上述接口；唯一约束冲突识别并翻译为内部异常类型 | 决定业务是否可保存 |
+| `MedicalRecognitionReportRepository` | 修改既有仓储 | R/Aggregate | 实现上述接口；并发冲突由数据库唯一索引兜底，异常按原样向外传播 | 决定业务是否可保存 |
 | `SubmitCompleteLaboratoryReportCommandFactory`、`SubmitCompleteExaminationReportCommandFactory` | 新增映射声明 | A/Aggregate | 请求到命令的字段映射声明 | 业务规则 |
 | `IMedicalRecognitionReportQueryAppService` | 扩展既有查询契约 | C/Queries | 新增两个报告列表查询、版本列表查询、版本详情查询 | 写入或事件 |
 | `MedicalRecognitionReportQueryAppService` | 扩展既有查询应用服务 | A/Queries | 分页窗口校验、可信范围取值、名称回填、读模型映射、枚举文本派生 | 写入、事件、按行请求外部服务 |
@@ -168,7 +168,7 @@
 |---|---|---|---|---|---|
 | `SubmitCompleteLaboratoryReportCommand` | `CompleteLaboratoryReportSubmittedEvent` | 成功返回 `Boolean=true`；报告、版本、患者与全部检验明细均已保存 | 报告标识、报告版本标识、版本序号、报告单号、报告类型 | 管理器 | 任一校验或写入失败时不保存任何内容、不登记事件 |
 | `SubmitCompleteExaminationReportCommand` | `CompleteExaminationReportSubmittedEvent` | 同上，明细为检查项目与检查部位 | 同上 | 管理器 | 同上 |
-| `AppendMedicalReportVersionCommand`（提交命令的内部命令） | `MedicalRecognitionReportCreatedEvent`（仅新建报告时）、`MedicalReportVersionAppendedAsCurrentEvent` | 报告定位或创建成功、版本追加成功且当前版本指向已更新 | 报告标识、报告单号、报告类型、报告版本标识、版本序号、平台接收时间 | 管理器 | 报告已作废时拒绝；版本序号撞唯一约束时翻译为业务拒绝并提示重试；不比较内容、不判断重传 |
+| `AppendMedicalReportVersionCommand`（提交命令的内部命令） | `MedicalRecognitionReportCreatedEvent`（仅新建报告时）、`MedicalReportVersionAppendedAsCurrentEvent` | 报告定位或创建成功、版本追加成功且当前版本指向已更新 | 报告标识、报告单号、报告类型、报告版本标识、版本序号、平台接收时间 | 管理器 | 报告已作废时拒绝；版本序号撞唯一约束时数据库异常按原样向外传播；不比较内容、不判断重传 |
 | `VoidLaboratoryReportCommand`、`VoidExaminationReportCommand` | `LaboratoryReportVoidedEvent`、`ExaminationReportVoidedEvent` | 报告存在且未作废，作废时间在两端边界内，状态与作废事实写入成功 | 报告标识、报告单号、作废时间、作废原因 | 管理器 | 报告不存在抛业务事实；已作废且时间与原因完全一致时幂等成功且不重复登记事件；任一不同返回作废信息冲突 |
 
 事件继承框架领域事件基类，保留既有聚合标识与事件类型；事件时间与操作人沿用命令事件工厂映射（`EventCreator ← OperId`、`EventCreatedTime ← OperTime`）。事件不携带文件键、物理路径、调用入口或提示文案。
@@ -196,7 +196,7 @@
 | 事件处理顺序与已验证边界 | 事件登记发生在全部写入之后；事件队列的具体冲刷与提交时序属框架生命周期，本阶段不作为设计前提、不手工干预、不新增观察点；无专用观察点时事件可见性记不可取证并说明框架边界 |
 | 可验证的机械检查点 | 事务声明可静态识别：架构断言核对两个提交入口方法带 `[WorkUnit(UseTransaction = true)]`、两个上传动作同样带该特性、下载动作与两个作废入口不带；PDF 文件校验与单文件上限取自配置节并在控制器动作内、读取文件流之前完成，可静态识别；仓储调用点必须显式传作用域与语句标识（沿用既有源码守卫） |
 
-**并发兜底。** 报告业务键唯一索引拦截同一业务标识的并发首插；版本序号唯一索引拦截同一报告的并发追加；患者证件键唯一索引拦截同一证件的并发首插，撞键时复读一次核对核心身份。三处冲突均翻译为业务拒绝，不自动重试。不增加版本字段、悲观锁或并发压测。
+**并发兜底。** 报告业务键唯一索引拦截同一业务标识的并发首插；版本序号唯一索引拦截同一报告的并发追加；患者证件键唯一索引拦截同一证件的并发首插。三处冲突的数据库异常按原样向外传播，不做冲突翻译，不自动重试。不增加版本字段、悲观锁或并发压测。
 
 ## 报告提交与生命周期
 
@@ -379,8 +379,8 @@ V1-V20 覆盖报告与版本基础、患者归属、作废、PDF 文件与文件
 | V82 | PDF 存储实现、配置节与配置项 | Repository/Static | 根目录来自 `ReportPdfFiles:RootDirectory` 的绝对路径；文件键限制在根目录内；写失败清理；删除不存在的键幂等；单文件上限来自 `ReportPdfFiles:MaxFileBytes`；配置缺失、为空、目录不存在或不可写时抛明确业务事实、不隐式兜底 | 否 | 是 | N/A | 开发期配置的存储根目录与临时目录、非法配置 |
 | V83 | 控制器路由与端点形态 | Static/Contract | 两个上传动作只接受 multipart 且仅两个部件；两个下载动作返回二进制；路由不与既有自动端点冲突 | 否 | 否 | N/A | 稳定契约 |
 | V84 | Request、ReadModel 与分页契约 | Contract | 字段、可空性与设计一致；分页请求为业务筛选加 `page: { pageIndex, pageSize }`、响应的 `items` 与 `page: { pageIndex, pageSize, totalCount }`（`totalCount` 为长整型）；响应不含 `HasNext`、`Pagination`、`SkipCount`、`PageCount`；版本列表读模型含是否当前有效版本与是否已被后续版本替代 | 否 | 否 | N/A | 稳定契约 |
-| V85 | 并发首次提交同一报告业务标识 | Repository/Application | 唯一约束兜底；其中一个请求按业务拒绝提示刷新后重试；库中恰一份报告 | 是 | 是 | N/A | 正常接口建立前置后并发提交 |
-| V86 | 并发首次解析同一证件 | Domain/Repository | 撞证件键时复读一次：核心身份一致则继续追加版本；不一致按患者身份信息冲突拒绝；大小写或空白差异不产生第二个患者 | 是 | 是 | N/A | 同一证件（含大小写与空白差异）并发提交 |
+| V85 | 并发首次提交同一报告业务标识 | Repository/Application | 唯一约束兜底；其中一个请求以数据库异常结束（不再翻译为业务拒绝）；库中恰一份报告 | 是 | 是 | N/A | 正常接口建立前置后并发提交 |
+| V86 | 并发首次解析同一证件 | Domain/Repository | 撞证件键时由唯一索引拒绝，数据库异常按原样向外传播，不复读；已存在患者的核心身份不一致按患者身份信息冲突拒绝；大小写或空白差异不产生第二个患者 | 是 | 是 | N/A | 同一证件（含大小写与空白差异）并发提交 |
 | V87 | 就诊类型值域 | Contract/Domain | 仅接受门诊、急诊、住院、体检、其他五值；未知值与其他非法值均拒绝，不保存任何内容 | 否 | 否 | N/A | 非法就诊类型请求 |
 | V88 | 宿主请求体上限与超限失败语义 | Integration | 宿主与部署侧请求体上限已同步到设计取值；超限请求按业务拒绝语义失败、响应可被医院侧识别为不可重试的失败，且不留下文件或业务数据 | 是 | 是 | N/A | 真实入口、超限请求与存储目录 |
 | V89 | 提交请求的文件键指向不存在的文件 | Application | 拒绝且不产生版本与业务数据；已保存的既有报告与文件不受影响 | 是 | 是 | N/A | 可读的既有存储目录与不可读的文件键；前置经既有提交端点构造，不伪造业务数据 |

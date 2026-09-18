@@ -1,7 +1,8 @@
 using System.Reflection;
-using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
 using Dy.MedicalRecognition.Application.Queries;
 using Dy.MedicalRecognition.Domain.Queries;
+using Dy.MedicalRecognition.Domain.Queries.Ports;
 using Dy.MedicalRecognition.Domain.Share.Enums;
 using Dy.MedicalRecognition.Repository.Queries;
 using Xunit;

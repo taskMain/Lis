@@ -4,13 +4,14 @@ using System.Text.Json.Serialization;
 using Dy.Core.Abstractions.Http;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
-using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
 using Dy.MedicalRecognition.Application.Validation;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
-using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Requests;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Requests;
 using Dy.MedicalRecognition.Domain.Queries;
+using Dy.MedicalRecognition.Domain.Queries.Ports;
 
 namespace Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate;
 

@@ -1,6 +1,6 @@
 using Dy.MedicalRecognition.Domain.Share.Enums;
 
-namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Requests;
+namespace Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Requests;
 
 /// <summary>
 /// 完整检验报告的提交输入：承载 multipart 文本部件反序列化后的完整 JSON 文档。

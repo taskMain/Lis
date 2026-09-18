@@ -401,7 +401,7 @@
       功能：读取某个报告版本的检验专项内容行。
       结果：一个报告版本至多一条，未命中时返回空结果。
     -->
-    <Statement Id="GetLaboratoryReportContentByVersion">
+    <Statement Id="GetLaboratoryReportContent">
       select
         id as content_id,                 <!-- 检验专项内容标识 -->
         report_category_code,             <!-- 报告类别编码 -->
@@ -424,7 +424,7 @@
       功能：读取某个报告版本的普通检验结果，供管理端版本详情还原来源报告中的项目排列顺序。
       结果：按展示序号升序返回全部普通结果，并以结果标识作为稳定兜底键；无结果时返回空集合。
     -->
-    <Statement Id="QueryLaboratoryResultItemsByVersion">
+    <Statement Id="QueryLaboratoryResultItems">
       select
         source_detail_key,                <!-- 来源明细标识 -->
         source_project_name,              <!-- 来源项目名称 -->
@@ -453,7 +453,7 @@
       功能：读取某个报告版本的细菌鉴定结果，供管理端版本详情展示细菌鉴定与药敏内容。
       结果：返回该版本的全部细菌鉴定结果，按标识升序保证顺序稳定；无结果时返回空集合。
     -->
-    <Statement Id="QueryLaboratoryBacteriaResultsByVersion">
+    <Statement Id="QueryLaboratoryBacteriaResults">
       select
         id as bacteria_result_id,         <!-- 细菌鉴定结果标识：药敏结果按本标识归属 -->
         source_detail_key,                <!-- 来源明细标识 -->
@@ -482,7 +482,7 @@
       功能：读取某条细菌鉴定结果下的药敏结果。
       结果：按展示序号升序返回全部药敏结果，并以标识作为稳定兜底键；无结果时返回空集合。
     -->
-    <Statement Id="QueryLaboratorySusceptibilitiesByBacteria">
+    <Statement Id="QueryLaboratorySusceptibilities">
       select
         source_detail_key,                <!-- 来源明细标识 -->
         drug_code,                        <!-- 受试药物编码 -->
@@ -507,7 +507,7 @@
       功能：读取某个报告版本的检查专项内容行。
       结果：一个报告版本至多一条，未命中时返回空结果。
     -->
-    <Statement Id="GetExaminationReportContentByVersion">
+    <Statement Id="GetExaminationReportContent">
       select
         id as content_id,                 <!-- 检查专项内容标识 -->
         source_examination_type_code,     <!-- 来源检查类型编码 -->
@@ -534,7 +534,7 @@
       功能：读取某个报告版本的检查项目，供管理端版本详情展示检查项目与其部位。
       结果：返回该版本的全部检查项目，按标识升序保证顺序稳定；无项目时返回空集合。
     -->
-    <Statement Id="QueryExaminationItemsByVersion">
+    <Statement Id="QueryExaminationItems">
       select
         id as item_id,                    <!-- 检查项目标识：检查部位按本标识归属 -->
         source_project_name,              <!-- 来源项目名称 -->
@@ -548,7 +548,7 @@
       功能：读取某条检查项目下的检查部位。
       结果：返回该项目下的全部检查部位，按标识升序保证顺序稳定；项目没有明确部位时返回空集合。
     -->
-    <Statement Id="QueryExaminationSitesByItem">
+    <Statement Id="QueryExaminationSites">
       select
         site_name,                        <!-- 部位名称 -->
         source_site_code                  <!-- 来源部位编码 -->

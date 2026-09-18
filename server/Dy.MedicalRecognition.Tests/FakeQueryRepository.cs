@@ -1,4 +1,5 @@
 using Dy.MedicalRecognition.Domain.Queries;
+using Dy.MedicalRecognition.Domain.Queries.Ports;
 using Dy.MedicalRecognition.Domain.Share.Enums;
 
 namespace Dy.MedicalRecognition.Tests;

@@ -36,7 +36,7 @@
       结果：写入标识、报告版本标识、报告类别、备注、整体异常标识、来源医嘱流水号、标本时间线与信息、
       检测完成时间、检验人与操作字段；应填字段缺省时写空值，不参与接收判断。
     -->
-    <Statement Id="InsertLaboratoryReportContent">
+    <Statement Id="CreateLaboratoryReportContent">
       insert into mrec_laboratory_report_content (
         id, report_version_id, report_category_code, report_category_name, report_remark,
         overall_abnormal_flag, source_order_serial_no,

@@ -2,8 +2,14 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
+using Dy.MedicalRecognition.Application.Contracts.Queries.Pagination;
+using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
+using Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
+using Dy.MedicalRecognition.Application.Contracts.Queries.StandardCatalog;
 using Dy.MedicalRecognition.Application.Queries;
 using Dy.MedicalRecognition.Domain.Queries;
+using Dy.MedicalRecognition.Domain.Queries.Ports;
 using Dy.MedicalRecognition.Tests.Architecture;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -386,7 +392,7 @@ public sealed class Stage1ArchitectureTests
   /// 排除 <c>bin</c>、<c>obj</c> 与 <c>*.g.cs</c>、<c>*.Designer.cs</c> 生成文件。
   /// <c>Repository/EarthraceConfig.json</c> 不在范围内：该文件的作用正是选择当前 Provider 与连接串，不属于被禁的公共类型与共享语句。
   /// 已登记的覆盖缺口：该文件的 <c>Database.DbProvider.Name</c> 当前为 <c>Oracle</c>，而共享建表脚本 <c>Scripts/mutual_recognition_item.sql</c> 按 PostgreSQL 方言编写，
-  /// 仓储层按 PostgreSQL 的唯一约束 SQLSTATE <c>23505</c> 识别重复配置，宿主配置为 <c>PostgreSql</c>；
+  /// 宿主配置为 <c>PostgreSql</c>；
   /// 该 JSON 属 Provider 选型这一外部关注面，本判据不对其内容断言（断言会随外部选型改动误红），
   /// 因此"Provider 选型与共享 DDL 口径一致"不在本判据的覆盖范围内。
   /// 判据口径：Provider 类型名与 SQL 关键字都按不区分大小写的整词匹配，词边界使 C# 的 <c>DateTimeOffset</c> 不会命中 <c>offset</c>；

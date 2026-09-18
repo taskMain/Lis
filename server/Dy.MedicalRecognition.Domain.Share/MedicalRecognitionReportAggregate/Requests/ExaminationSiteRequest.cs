@@ -1,4 +1,4 @@
-namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Requests;
+namespace Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Requests;
 
 /// <summary>
 /// 检查部位的提交输入；随所属检查项目保存，不在报告中重复归属。

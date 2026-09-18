@@ -1,7 +1,7 @@
 using Dy.Core.Abstractions.Domain;
-using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate;
 
-namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Events;
+namespace Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Events;
 
 /// <summary>
 /// 已发生的领域事实：可信组织下已建立一条互认项目配置，配置以启用状态创建。

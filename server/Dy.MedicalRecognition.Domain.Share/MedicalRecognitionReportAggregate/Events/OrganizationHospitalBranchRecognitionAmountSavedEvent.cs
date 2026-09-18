@@ -1,7 +1,7 @@
 using Dy.Core.Abstractions.Domain;
-using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate;
 
-namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Events;
+namespace Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Events;
 
 /// <summary>
 /// 已发生的领域事实：某组织、医院、院区下某标准项目的当前金额已被保存为本次提交值。

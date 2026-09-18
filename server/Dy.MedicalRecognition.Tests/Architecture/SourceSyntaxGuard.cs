@@ -223,6 +223,29 @@ internal static class SourceSyntaxGuard
   }
 
   /// <summary>
+  /// 在仓储工程的指定相对目录内定位唯一文件，不递归、不跨目录回退。
+  /// </summary>
+  /// <remarks>
+  /// 映射文件与建表脚本的目录归属由目录冻结断言保证；定位时再限定目录，可以把"文件被挪走"直接判为失败，
+  /// 而不是让断言在别的目录里悄悄读到同一个文件。
+  /// </remarks>
+  /// <param name="relativeDirectory">相对 <c>server/Dy.MedicalRecognition.Repository</c> 的目录，层级用 <c>/</c> 分隔。</param>
+  /// <param name="fileName">文件名，例如 <c>MutualRecognitionItem.xml</c>。</param>
+  /// <returns>该文件的绝对路径。</returns>
+  /// <exception cref="FileNotFoundException">指定目录内不存在该文件时抛出。</exception>
+  internal static string FindRepositoryFile(string relativeDirectory, string fileName)
+  {
+    string directory = Path.Combine(
+      FindRepositoryRoot(),
+      "server",
+      "Dy.MedicalRecognition.Repository",
+      relativeDirectory.Replace('/', Path.DirectorySeparatorChar));
+    string candidate = Path.Combine(directory, fileName);
+    return File.Exists(candidate)
+      ? candidate
+      : throw new FileNotFoundException($"仓储目录 '{relativeDirectory}' 内未找到文件 '{fileName}'。");
+  }
+  /// <summary>
   /// 取特性名的简单名，容忍限定名与别名限定名写法。
   /// </summary>
   /// <param name="attribute">特性节点。</param>

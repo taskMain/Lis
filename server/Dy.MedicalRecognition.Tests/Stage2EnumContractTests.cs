@@ -8,6 +8,7 @@ using Microsoft.OpenApi;
 using System.Text.Json.Nodes;
 using Xunit;
 
+using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
 namespace Dy.MedicalRecognition.Tests;
 
 /// <summary>

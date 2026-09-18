@@ -2,9 +2,11 @@ using System.Reflection;
 using Dy.Core.Abstractions.EventBus;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
-using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Events;
-using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Requests;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Events;
+using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Managers;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Requests;
 using Dy.MedicalRecognition.Domain.Share.Enums;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate;
 using Xunit;
 
 namespace Dy.MedicalRecognition.Tests;
@@ -1172,135 +1174,6 @@ public sealed class Stage4WritePathTests
     Assert.Equal("业务拒绝：报告不存在。", error.Message);
     Assert.Empty(events.Events);
     Assert.Empty(repository.Reports);
-  }
-
-  /// <summary>
-  /// V85：并发首次提交同一报告业务标识时唯一约束兜底，翻译为业务拒绝，且库中不出现版本。
-  /// </summary>
-  /// <remarks>
-  /// 唯一约束冲突由仓储识别为持久化事实并翻译为内部异常，管理器把它翻译为业务拒绝并提示刷新后重试；
-  /// 报告已创建事件在此路径上不登记，本次提交整体失败。
-  /// </remarks>
-  [Fact]
-  public async Task Concurrent_first_submission_is_translated_to_business_rejection()
-  {
-    FakeReportRepository repository = new() { ThrowDuplicateReportOnCreate = true };
-
-    (RecordingEventQueue events, InvalidOperationException error) = await ExecuteExpectingRejectionAsync(
-      () => CreateManager(repository).SubmitCompleteLaboratoryReportAsync(LaboratoryCommand()));
-
-    Assert.Equal("业务拒绝：该报告已被并发提交，请刷新后重试。", error.Message);
-    Assert.IsType<DuplicateMedicalRecognitionReportException>(error.InnerException);
-    Assert.Empty(events.Events);
-    Assert.Empty(repository.Reports);
-    Assert.Empty(repository.Versions);
-  }
-
-  /// <summary>
-  /// V86：并发首次解析同一证件时复读一次，核心身份一致则继续追加版本。
-  /// </summary>
-  [Fact]
-  public async Task Concurrent_patient_resolution_rereads_once_and_continues_when_identity_matches()
-  {
-    PlatformPatient concurrentPatient = new()
-    {
-      Id = Guid.NewGuid(),
-      IdentityDocumentTypeCode = "01",
-      IdentityDocumentNo = IdentityDocumentNo,
-      PatientName = "张三",
-      PatientGenderCode = ProtocolGenderCode,
-      PatientBirthDate = PatientBirthDate,
-      OperId = TrustedOperId,
-      OperTime = CommandOperTime
-    };
-    FakeReportRepository repository = new()
-    {
-      ThrowDuplicatePatientOnCreate = true,
-      PatientVisibleAfterDuplicate = concurrentPatient
-    };
-
-    (RecordingEventQueue events, bool result) = await ExecuteAsync(
-      () => CreateManager(repository).SubmitCompleteLaboratoryReportAsync(LaboratoryCommand()));
-
-    Assert.True(result);
-    // 复读命中并发写入的患者，因此本次没有插入新的患者行，报告与版本关联该患者。
-    Assert.True(repository.PatientCreateAttempted);
-    Assert.Empty(repository.Patients);
-    MedicalRecognitionReport report = Assert.Single(repository.Reports.Values);
-    Assert.Equal(concurrentPatient.Id, report.PatientId);
-    Assert.Equal(concurrentPatient.Id, Assert.Single(repository.Versions.Values).PatientId);
-    Assert.Single(events.Events.OfType<MedicalRecognitionReportCreatedEvent>());
-  }
-
-  /// <summary>
-  /// V86：并发首次解析同一证件时复读一次，核心身份不一致按患者身份信息冲突拒绝。
-  /// </summary>
-  [Fact]
-  public async Task Concurrent_patient_resolution_rereads_once_and_rejects_identity_conflict()
-  {
-    PlatformPatient concurrentPatient = new()
-    {
-      Id = Guid.NewGuid(),
-      IdentityDocumentTypeCode = "01",
-      IdentityDocumentNo = IdentityDocumentNo,
-      PatientName = "另一名患者",
-      PatientGenderCode = ProtocolGenderCode,
-      PatientBirthDate = PatientBirthDate,
-      OperId = TrustedOperId,
-      OperTime = CommandOperTime
-    };
-    FakeReportRepository repository = new()
-    {
-      ThrowDuplicatePatientOnCreate = true,
-      PatientVisibleAfterDuplicate = concurrentPatient
-    };
-
-    (RecordingEventQueue events, InvalidOperationException error) = await ExecuteExpectingRejectionAsync(
-      () => CreateManager(repository).SubmitCompleteLaboratoryReportAsync(LaboratoryCommand()));
-
-    Assert.Equal("业务拒绝：证件已存在但患者身份信息不一致。", error.Message);
-    // 报告主体与版本已登记，因此这里核对的是本次提交没有新增患者行，也没有登记提交完成事件。
-    Assert.Empty(repository.Patients);
-    Assert.Empty(repository.Versions);
-    Assert.DoesNotContain(events.Events, item => item is CompleteLaboratoryReportSubmittedEvent or CompleteExaminationReportSubmittedEvent);
-  }
-
-  /// <summary>
-  /// V86：并发首次解析同一证件且复读仍读不到患者时按并发冲突拒绝。
-  /// </summary>
-  [Fact]
-  public async Task Concurrent_patient_resolution_rejects_when_reread_finds_nothing()
-  {
-    FakeReportRepository repository = new() { ThrowDuplicatePatientOnCreate = true };
-
-    (_, InvalidOperationException error) = await ExecuteExpectingRejectionAsync(
-      () => CreateManager(repository).SubmitCompleteLaboratoryReportAsync(LaboratoryCommand()));
-
-    Assert.Equal("业务拒绝：患者身份信息并发冲突，未完成提交。", error.Message);
-    // 复读按同一证件键进行，因此既没有新增患者，也没有新增版本。
-    Assert.Empty(repository.Patients);
-    Assert.Empty(repository.Versions);
-  }
-
-  /// <summary>
-  /// V85 的版本序号面：并发追加同一版本序号时唯一约束兜底，翻译为业务拒绝并提示重试。
-  /// </summary>
-  [Fact]
-  public async Task Concurrent_version_append_is_translated_to_business_rejection()
-  {
-    FakeReportRepository repository = new();
-    MedicalRecognitionReportManager manager = CreateManager(repository);
-    await WithCapturedEventsAsync(() => manager.SubmitCompleteLaboratoryReportAsync(LaboratoryCommand()));
-
-    repository.ThrowDuplicateVersionOnCreate = true;
-    (RecordingEventQueue events, InvalidOperationException error) = await ExecuteExpectingRejectionAsync(
-      () => manager.SubmitCompleteLaboratoryReportAsync(LaboratoryCommand()));
-
-    Assert.Equal("业务拒绝：报告版本已被并发提交，请刷新后重试。", error.Message);
-    Assert.IsType<DuplicateMedicalReportVersionException>(error.InnerException);
-    Assert.Empty(events.Events);
-    // 版本没有被追加，当前版本指向仍是首个版本。
-    Assert.Single(repository.Versions);
   }
 
   /// <summary>

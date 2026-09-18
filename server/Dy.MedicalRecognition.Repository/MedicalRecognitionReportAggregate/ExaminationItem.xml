@@ -27,7 +27,7 @@
       结果：写入标识、报告版本标识、来源项目名称与编码、互认项目编码与操作字段；
       互认项目编码按请求原样保存，缺失不影响接收，只影响互认匹配资格。
     -->
-    <Statement Id="InsertExaminationItem">
+    <Statement Id="CreateExaminationItem">
       insert into mrec_examination_item (
         id, report_version_id, source_project_name, source_project_code, standard_project_code, oper_id, oper_time
       ) values ($Id, $ReportVersionId, $SourceProjectName, $SourceProjectCode, $StandardProjectCode, $OperId, $OperTime)

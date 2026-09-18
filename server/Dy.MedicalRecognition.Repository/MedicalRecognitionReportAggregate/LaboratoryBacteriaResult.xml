@@ -42,7 +42,7 @@
       结果：写入标识、报告版本标识、来源明细标识、来源菌种、结果原文与检测结论、培养信息、检测方法、
       详细描述、仪器与试验板、检测人与操作字段；培养未检出时同样写入一条以表达未检出，菌种编码与名称写空值。
     -->
-    <Statement Id="InsertLaboratoryBacteriaResult">
+    <Statement Id="CreateLaboratoryBacteriaResult">
       insert into mrec_laboratory_bacteria_result (
         id, report_version_id, source_detail_key, source_organism_code, source_organism_name,
         source_result_text, detection_conclusion, colony_count, culture_medium, culture_time,

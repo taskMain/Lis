@@ -10,6 +10,109 @@
 - 数据形成口径：验收数据只通过平台接口或页面形成；报告数据由两个提交接口构造；不直接写库、不使用脚本注入数据。本轮对数据库只做只读元数据查询。
 - 不测试范围：框架工作单元的事务与事件行为不设用例；文件补偿类用例只覆盖本项目自己的代码路径。
 
+## 映射目录缺陷与修复复测（2026-09-19）
+
+收口后对 Repository 的映射文件做了一次按业务能力分目录的整理，把 19 个 SqlMap XML 从聚合目录移入 `MedicalRecognitionReportAggregate/SqlMap/<分组>/`，该整理打断了宿主的语句注册，使**所有触库写接口失效**。缺陷已按「移回聚合目录平铺」处置，并在真实宿主链路上重新取证。
+
+### 缺陷十四：映射文件移入子目录后写侧作用域全部未注册
+
+**原状（真实宿主实测）**：
+
+| 请求 | 结果 |
+|---|---|
+| `POST /api/v1/report-pdf/laboratory-report`（完整样例 + 最小 PDF） | `HTTP 500`，`Dy.Earthrace.Exceptions.EarthraceException: Can not find SqlMap.Scope:MedicalRecognitionReport` |
+| `POST /Api/MedicalRecognitionReport/EnableMedicalStandardCategory` | `HTTP 500`，`Can not find SqlMap.Scope:MedicalStandardCategory` |
+| `POST /Api/MedicalRecognitionReport/DisableMedicalStandardGroup` | `HTTP 500`，`Can not find SqlMap.Scope:MedicalStandardGroup` |
+| `POST /Api/MedicalRecognitionReport/ChangeMedicalStandardItemRemark` | `HTTP 500`，`Can not find SqlMap.Scope:MedicalStandardItem` |
+| `POST /Api/MedicalRecognitionReport/EnableMutualRecognitionItem` | `HTTP 500`，`Can not find SqlMap.Scope:MutualRecognitionItem` |
+| `POST /Api/MedicalRecognitionReportQuery/QueryMedicalStandardCategoryList`（读） | `HTTP 200`，返回数据 |
+
+异常抛出自 `Dy.Earthrace.Configuration.SqlMapConfig.GetSqlMap(String scope)`，经 `Dy.Earthrace.Middlewares.InitializerMiddleware.InitRequest` 向外传播。
+
+**根因**：宿主不按目录名注册映射，而是按框架默认资源模式匹配内嵌资源的**逻辑名**（模式片段位于 `Dy.Earthrace.Abstractions.dll`）。可用深度以对照项目 `Dy.LisCenter` 为证：根下一级目录（`MedicalRecognitionReportAggregate/…`、`Queries/…`）与两级目录（LisCenter 的 `Queries/<名称>/<名称>.xml`）的映射都会被注册；更深则需要在该文件的 `EmbeddedResource` 上写 `LogicalName` 把逻辑名压回浅层，LisCenter 对全项目唯一一份三级目录映射（`Queries/ExternalQuery/AvailableResources/ExternalAvailableResourceQuery.xml`）正是这样处理的。本次把 19 个映射移入 `MedicalRecognitionReportAggregate/SqlMap/<分组>/`，逻辑名深到三段目录（`…Repository.MedicalRecognitionReportAggregate.SqlMap.Reports.MedicalRecognitionReport.xml`），既超出默认模式覆盖范围、又未配 `LogicalName`，因此 19 个映射全部不被发现；未移动的 `Queries/MedicalRecognitionReportQuery.xml` 仍是一级目录，因此读接口不受影响。各映射文件的 `Scope` 属性自始至终未改，缺失的是注册而非改名。
+
+**本项目对映射位置的约定**：不使用 `LogicalName`；映射文件与其仓储类同目录，固定放在程序集根下的一级目录内。本阶段交付的聚合仓储与其 19 个映射同处 `MedicalRecognitionReportAggregate/`，与 LisCenter「一个聚合目录内 xml 与仓储类并列」的形态一致。
+
+**为什么既有自动化没有拦住**：`Stage1SqlMapProbeTests` 当时按内嵌资源清单反推命名空间后自行注册，探测的是自建注册表而不是宿主的注册表；资源清单里有文件就注册，因此映射文件被嵌套后该用例仍通过，433 条测试全绿。
+
+**排除陈旧生成物**：删除 `server/` 下全部 14 个 `obj`/`bin` 后重新 restore 与全量构建（0 错误 / 190 警告），用全新产物启动宿主复测，症状与重建前完全一致，确认不是残留产物所致。
+
+**处置**：
+
+1. 19 个映射文件移回 `MedicalRecognitionReportAggregate/` 平铺，删除 `SqlMap/` 目录树。
+2. 重写 `Stage1SqlMapProbeTests.Runtime_registration_reports_full_sql_ids_without_opening_database`：注册范围改为本项目固定的资源命名形态 `Dy.MedicalRecognition.Repository.*.*.xml,Dy.MedicalRecognition.Repository`，不再由资源清单反推；删除原 `SqlMapNamespaces` 推导方法。
+3. 新增 `Stage1SqlMapProbeTests.Sql_map_resources_stay_directly_under_one_folder`：断言每个 `.xml` 内嵌资源名去掉程序集前缀与 `.xml` 后缀后只含一个点，钉住「根 + 一层目录 + 文件名」且与仓储类同目录的约定。
+4. 删除 `Stage4ConstraintTests.Mapping_files_stay_in_their_business_capability_folders` 及其助手（该断言冻结的正是已废弃的分组目录），并把它与 `Stage4SqlMapTests`、`Stage2WritePathTests`、`Stage3WritePathTests` 中写死分组路径的定位助手统一改回聚合目录。
+
+**守卫有效性验证**：把一份映射文件临时放入子目录后，`Runtime_registration_reports_full_sql_ids_without_opening_database` 报 `Assert.Contains() Failure: Item not found in collection`、`Sql_map_resources_stay_directly_under_one_folder` 报 `Assert.Equal() Failure: Values differ`，两条同时失败；还原后两条均通过。
+
+**构建与自动化基线**：`dotnet build` 0 错误 / 190 警告；`dotnet test` 433/433 通过。
+
+### 真实宿主复测（2026-09-19）
+
+进程：后端 `dotnet run --project Dy.MedicalRecognition`（监听 `http://localhost:15014`，OpenAPI 39 条 path）；前端 `pnpm -F dy-medical-recognition dev`（`::1:3008`）。令牌取自宿主登录会话的认证存储，未复制或写入任何位置，未直接写库；两份报告由提交接口本身构造，请求值取自本报告「验收请求样例」节。
+
+| 验证面 | 结果 |
+|---|---|
+| 写端点作用域 | `EnableMedicalStandardCategory`、`DisableMedicalStandardGroup`、`EnableMutualRecognitionItem`、`ChangeMedicalStandardItemRemark` 均不再报缺作用域，改为业务拒绝「分类不存在／分组不存在／互认项目配置不存在／标准项目不存在」 |
+| 检验报告提交 | `POST /api/v1/report-pdf/laboratory-report` 返回 `HTTP 200` 与 `true` |
+| 检查报告提交 | `POST /api/v1/report-pdf/examination-report` 返回 `HTTP 200` 与 `true` |
+| 列表回读 | `QueryBranchMedicalReportList` 返回 `HTTP 200`、`totalCount=25`（提交前为 23）；`MR-ACC-LAB-20260919-001`（检验报告、验收患者甲、有效、当前版本序号 1）与 `MR-ACC-EXAM-20260919-001`（检查报告、验收患者乙、有效、当前版本序号 1）均在列表中 |
+| 检验版本详情 | `QueryMedicalReportVersionDetail` 返回 `HTTP 200`：普通结果 2 条、细菌鉴定结果 2 条、首条细菌的药敏结果 2 条、首条结果危急值标志 `false`、`examinationContent` 为空、联系电话脱敏为 `*******1111` |
+| 检查版本详情 | 报告类型文本「检查报告」、检查所见与结论非空、影像调阅地址与来源值一致、来源影像状态文本「有影像」、检查项目 2 条、首项目检查部位 2 条、`laboratoryContent` 为空、PDF 文件名「验收样例检查报告.pdf」 |
+| PDF 下载 | `GET /api/v1/report-pdf/{reportId}/versions/{reportVersionId}/pdf` 返回 `HTTP 200`、`content-type: application/pdf`、77 字节、首字节序列 `%PDF-1.4` |
+| Console | 无业务脚本错误；出现的 500 记录全部来自本轮刻意构造的探测请求（业务拒绝按既有口径以 `HTTP 500` 加纯文本返回） |
+
+**本轮验收数据**：报告 2 份（检验 1 份、检查 1 份），PDF 落盘 `var/report-pdf/20260919/` 2 个文件；均为新形成的业务数据，按阶段口径保留不清理。
+
+**受影响条目的重新取证口径**：缺陷存在期间（映射目录整理之后至本次修复之前），本报告在 2026-09-18 取得的写入类条目证据（V1、V2、V4-V8、V13-V15、V19、V19b、V20、V45-V51、V53-V55、V57、V59、V85、V86 等）在该代码状态下不成立。其中 V85、V86 另因设计变更作废（见「设计变更登记」），不在本轮重新取证范围内。2026-09-19 修复后已按真实入口重新取证，结果如下。
+
+### 修复后按真实入口重新取证的条目（2026-09-19）
+
+| 编号 | 用例 | 本轮实测 |
+|---|---|---|
+| V1 | 首次提交完整检验报告 | `POST /api/v1/report-pdf/laboratory-report` 返回 `HTTP 200` 与 `true`；列表回读得到报告类型文本「检验报告」、生命周期状态「有效」、当前版本序号 1；版本详情返回普通结果 2 条、细菌鉴定结果 2 条、首条细菌药敏 2 条、首条结果危急值标志 `false`、`examinationContent` 为空、联系电话脱敏 `*******1111` |
+| V2 | 同一报告再次提交追加版本 | 同一报告单号再次提交返回 `HTTP 200` 与 `true`；版本列表为 2 行，版本 2 `isCurrentVersion=true`、版本 1 `isSuperseded=true`；报告主体的当前版本序号为 2；版本 1 的内容未被改写（仍为 2 条普通结果与 2 条细菌鉴定结果，患者姓名不变）；报告行数未增加 |
+| V17、V37、V39、V40 | 提交成功可回读、明细与展示序号 | 见 V1 行的版本详情结果，字段与条数与提交值一致 |
+| V9、V61、V69、V73、V74（部分） | 列表查询、名称回填、枚举文本与脱敏 | 列表按服务端回填来源组织／医院／院区名称（「县医共体」「县人民医院」「总院」）而非编码拼接；报告类型与状态返回中文文本；版本详情的联系电话脱敏为 `*******1111`。本项未复测原用例中的 `totalCount=1` 与跨身份可见性面 |
+| V19 | PDF 文件本身校验失败即拒绝整份报告 | 逐项构造不合规文件部件提交，五类全部按业务拒绝返回：内容类型非 `application/pdf`、扩展名非 `.pdf`、文件头签名无效、零长度、文件部件缺失；五个报告单号在列表中**零残留**（列表总数不变） |
+| V13 | 作废语义：不生成内容版本、不物理删除 | 作废时间取当前时刻时返回 `HTTP 200` 与 `true`；列表回读报告状态为「已作废」；版本行仍为 2 行、当前版本指向未变 |
+| V14 | 作废时间下界分支 | 作废时间取当前版本平台接收时间之前 1 小时与之前 1 秒两次，均返回 `HTTP 500`「业务拒绝：作废时间不得早于当前版本的平台接收时间」 |
+| V15 | 作废幂等与冲突分支 | 同一作废时间与同一原因再次作废返回 `HTTP 200` 与 `true`；同一作废时间与不同原因返回 `HTTP 500`「业务拒绝：报告作废信息与已保存的作废事实不一致」，首次作废事实未被覆盖 |
+| V4 | 作废后再次提交 | 同一报告单号再次提交完整报告返回 `HTTP 500`「业务拒绝：报告已作废，不能再次提交。」；版本行未被新增 |
+| V46-V51、V53-V55、V57、V59 | 完整检查报告提交与回读 | `POST /api/v1/report-pdf/examination-report` 返回 `HTTP 200` 与 `true`；版本详情返回报告类型文本「检查报告」、检查所见与结论非空、影像调阅地址与来源值一致、来源影像状态文本「有影像」、检查项目 2 条且首项目检查部位 2 条、`laboratoryContent` 为空、PDF 文件名「验收样例检查报告.pdf」 |
+| V75 | 下载返回文件流与下载名 | `GET /api/v1/report-pdf/{reportId}/versions/{reportVersionId}/pdf` 返回 `HTTP 200`、`content-type: application/pdf`、77 字节、首字节序列 `%PDF-1.4` |
+| V76 | 下载版本不存在 | 以同一报告标识与不存在的版本标识请求下载返回 `HTTP 500`、`content-type: text/plain`（不是 `application/pdf`）、「业务拒绝：报告版本不存在或不属于该报告。」，不返回文件内容 |
+| V83（鉴权面） | 端点受既有授权策略保护 | 不带令牌请求写端点返回 `HTTP 401`；带宿主令牌的写端点返回 `HTTP 200` 与业务结果 |
+| C28（只读验收面） | 医院管理员页列表、详情与版本区分 | 从宿主页面实测：列表渲染 25 行并显示本轮两份报告，`MR-ACC-LAB-20260919-001` 显示当前版本序号 2 与状态「已作废」，`MR-ACC-EXAM-20260919-001` 显示版本序号 1 与状态「有效」；详情面板渲染「报告详情与历史版本」，两个版本分别标为「历史版本／已被后续版本替代」与「当前有效版本」，版本内容随选择正常渲染 |
+
+**本轮未重新取证的条目**：V5-V8、V27、V28、V42、V87（提交校验拒绝语义）、V18（零写入面的其余分支）、V19b（文件名回退）、V20（单文件上限，需 80 MB 量级载荷，属控制器侧、不经映射）、V45 与 V79（写库失败后的文件补偿；V19 的零残留只间接覆盖其中一部分）、V62、V91 与 V61（跨医院可信范围与取值来源口径）、V88（宿主请求体上限）、V89-V91 的其余面、C29-C31（页面失败态与跨院区归属失败的页面表现）。这些条目在本轮修复后的代码状态下尚未复测，本报告不据此声明任何状态。
+
+**设计变更引起的条目变化**：V85、V86（并发首次提交与并发首次解析患者）对应的实现与用例已按阶段设计变更移除——本项目不再对唯一约束冲突做翻译，并发冲突按数据库原始失败暴露。这两条不再有对应证据，其原 `Passed` 结论随之失效，已改记 `PendingRetest` 并在结果表与「设计变更登记」中写明作废原因。
+
+### 命名空间整理后的宿主验收（2026-09-19 第二轮）
+
+`Domain.Share` 侧聚合事件与请求的命名空间改为带 `.Share` 段之后（见「Domain.Share 侧聚合事件与请求的命名空间改为带 `.Share` 段」节），从宿主登录页重走一遍读写链路，确认该整理不影响运行时行为，并顺带补齐上一节列出的部分未复测条目。
+
+进程与入口：后端 `dotnet run --project Dy.MedicalRecognition`（监听 `http://localhost:15014`，OpenAPI 39 条 path）；前端 `pnpm -F dy-medical-recognition dev`（`::1:3008`）；宿主 `http://183.224.180.166:35000`。令牌取自宿主登录会话的认证存储，未复制或写入任何位置，未直接写库。
+
+| 面 | 本轮实测 |
+|---|---|
+| 开发地址拦截 | 子应用入口来自 `http://localhost:3008/subApps/medical-recognition/branch-report-management`（`304`） |
+| 列表 | `QueryBranchMedicalReportList` 返回 `HTTP 200`，页面渲染 25 行（本轮基线） |
+| 详情与版本切换 | `QueryMedicalReportVersionList` 与连续三次 `QueryMedicalReportVersionDetail` 均 `HTTP 200`；选择历史版本与当前版本分别渲染「版本内容（第 1 版）」与「版本内容（第 2 版）」 |
+| PDF 下载 | `GET /api/v1/report-pdf/{reportId}/versions/{reportVersionId}/pdf` 返回 `HTTP 200` |
+| 检验报告提交与回读 | `POST /api/v1/report-pdf/laboratory-report` 返回 `HTTP 200` 与 `true`；列表由 25 增至 26；行显示报告类型文本「检验报告」、状态「有效」、当前版本序号 1；版本详情返回普通结果 2 条、患者姓名与提交值一致、联系电话脱敏为 `*******3333`、PDF 名按原名保存。本次提交使用新证件号码，同时覆盖平台患者创建路径 |
+| 检查报告提交与回读 | `POST /api/v1/report-pdf/examination-report` 返回 `HTTP 200` 与 `true`；列表由 26 增至 27；版本详情返回报告类型文本「检查报告」、来源影像状态文本「无影像」与影像调阅地址为空（与提交值一致）、检查项目 2 条、首项目检查部位 1 条、`laboratoryContent` 为空 |
+| 提交校验拒绝语义 | 七类非法请求逐条按业务拒绝返回且措辞与矩阵登记一致：来源明细标识重复、展示序号重复、展示序号为零值、检测人单边提供、就诊类型未知值、申请时间晚于报告时间、证件已存在但患者姓名不一致。七个报告单号在列表中**零残留**；其中证件已存在但姓名不一致一次随提交整体回滚，与事务边界修复后的结论一致 |
+| V19b 文件名回退 | 以含路径分隔符与控制字符的文件名提交返回 `HTTP 200` 与 `true`（不拒绝报告），回读 PDF 文件名为「报告单号加扩展名」；对照：安全文件名按原名保存 |
+| 新提交报告的下载 | 三份新报告的 `GET …/pdf` 均返回 `HTTP 200`、`content-type: application/pdf`、77 字节、首字节序列 `%PDF-1.4` |
+| 页面复核 | 列表 28 行；本轮三条新报告在页面上渲染为「有效」、当前版本序号 1 |
+
+本轮验收数据：报告 3 份（检验 `MR-ACC-LAB-20260919-002`、`MR-ACC-LAB-20260919-003`，检查 `MR-ACC-EXAM-20260919-002`），PDF 落盘 `var/report-pdf/20260919/` 共 6 个文件（含第一轮检验报告的两个版本）；被拒请求零残留。
+
+本轮未覆盖面：单文件上限与宿主请求体上限（需 80 MB 量级载荷）、写库失败后的文件补偿面、跨医院可信范围与取值来源口径、页面失败态与跨院区归属失败的页面表现、并发首次提交与并发首次解析患者（后两条已按设计变更记 `PendingRetest`）。
+
 ## 本轮收尾取证与缺陷处置（2026-09-18）
 
 本轮收尾取得新证据，并发现两个使既有结论不成立的缺陷。两个缺陷均已按修改代码处置，并先取得失败用例再修复，随后在真实宿主链路上复测通过；修复内容、失败证据与复测结果见「缺陷十二与缺陷十三的修复与复测」节。
@@ -61,7 +164,7 @@
 | 4 | 宿主失败态四类（C30） | 有证据；本轮已按当前代码复测，见下 |
 | 5 | 下载跨院区归属失败（C31、V91） | 有证据；本轮已按当前代码复测，见下 |
 | 6 | 四个接入接口成功与失败语义（V1、V4、V17、V18、V19、V20、V89） | 有证据 |
-| 7 | 生命周期、患者归属、作废、文件补偿（V2、V10-V16、V45、V60、V79、V85、V86） | 有证据；其中 V79 原为部分，本轮已补齐第三面，见下 |
+| 7 | 生命周期、患者归属、作废、文件补偿（V2、V10-V16、V45、V60、V79、V85、V86） | 有证据；其中 V79 原为部分，本轮已补齐第三面，见下。V85、V86 的证据已因设计变更作废，现记 `PendingRetest`，见「设计变更登记」 |
 | 8 | 列表排序分页与患者筛选边界（V64、V65、V67、V68、V90） | 有证据（V67 为本轮新增用例） |
 | 9 | 目标库十张表结构与索引核对（V80b） | 有证据 |
 | 10 | 矩阵全量检查与未取证条目登记 | 有证据（「矩阵条目状态清单」节） |
@@ -91,12 +194,19 @@ C31 跨院区归属失败：以 `yangkj` 的令牌请求 `lisadmin` 所属医院
 - **Meta 参考草稿图的 F03 部分按确认后的设计与实现校正。** [6-MedicalRecognitionCommandContracts.Meta.puml](../../uml/6-MedicalRecognitionCommandContracts.Meta.puml) 为自述参考草稿，其 F03 部分曾登记已废除的两层内部写入请求与设计明确禁止的 `PdfFileStream` 字段。本轮按实现校正：删去两个内部请求类、两个请求类型改名并补齐字段差集（`DiscoveryMethod`、`Susceptibilities`）、两个完整报告请求去掉文件字节字段并改正为 `Version`/`Content`/`Results`/`Items`、一处字段名改为 `MedicalInsuranceChargeItemCode`、关系声明同步。F04 至 F07 部分保持未改动。
 - **V69「名称回填调用次数不随行数增长」的真实外部服务不可用面取消。** 该面原先作为独立取证项，要求令外部组织服务真实不可达。参照实现对同一失败路径不设特殊处理：查询组织服务失败时异常直接向上抛出，不降级为空名称或编码拼接，并以抛出异常的替身覆盖该路径。本项目采用同一口径，等价用例为 `Stage4QueryTests.Name_backfill_failure_fails_the_whole_query`，因此该面不再作为独立取证项，V69 按自动化证据记 `Passed`。
 - **V88 的部署侧网关请求体上限改为部署前置登记。** 该上限由部署侧网关配置提供，本仓库不承载部署形态，不属本阶段交付物。原作为矩阵取证条目记 `Blocked`，现改为「部署前置」一节的部署说明：部署侧网关的请求体上限须不小于宿主请求体上限（实测约 104857600 字节）。
+- **V85、V86 的并发冲突处理改为按数据库原始失败暴露，两条结果状态改为 `PendingRetest`。** 本项目不再识别与翻译唯一约束冲突：报告业务标识、报告版本序号与平台患者证件键三处唯一约束撞键时，数据库异常按原样向外传播，不自动重试、不再返回「已被并发提交，请刷新后重试」一类业务拒绝；报告提交与患者解析路径上的并发复读逻辑随之移除，只保留「影响 0 行后复读判定目标状态」这一零行分支（阶段 2、3 的既有实现未受影响）。同步位置：[Server/design.md](Server/design.md) 的 V85 行（V86 行此前已按新语义登记）、[票 07](阶段4-Tickets/07-重提交并发与文件补偿.md) 的勾选项与口径段、`Stage4WritePathTests` 中五个并发用例（已删除）。两条条目原 `Passed` 证据取自旧语义，已在本报告结果表中改记 `PendingRetest` 并写明作废原因；新语义目前**没有任何用例或真实入口证据覆盖**，其复测口径与用例设计待补。
 
 ### 生产文件按一个顶级类型一个文件的整理
 
 [csharp-backend-style.md](../../../.agents/instructions/csharp-backend-style.md) 第 16 行要求一个非生成文件最多一个顶级类型且文件名与类型名一致。本阶段新增的代码与两处既有代码按该要求整理：13 个多类型文件拆为 80 个文件（`Application.Contracts/Queries`、`Domain/Queries`、`Domain.Share` 的 Requests 与 Events、`Domain/.../Commands`、`Application/Queries`、宿主 `Controllers`），`Application/Validation` 下的 `OrganizationPathResolver.cs` 与 `TrustedScopeResolver.cs` 另拆出其并列类型（`OrganizationPath`、`OrganizationPathTarget`、`TrustedScope`）。
 
 做法与验证：全部为声明位置移动，命名空间、类型名、可访问性与成员签名均未改变；两处既有文件中的类型原为嵌套类型，调用方按限定名引用，移动后同步更新 56 处引用为顶级类型名。整理前先跑通既有测试建立基线，逐文件验证构建，全部完成后核对 `server/` 下每个生产文件恰好声明一个顶级类型（嵌套类型不计入）、`dotnet build` 0 错误 0 编译警告、`dotnet test` 423 通过 0 失败且计数与整理前一致、`git diff --check` 干净。
+
+### Domain.Share 侧聚合事件与请求的命名空间改为带 `.Share` 段
+
+[backend-architecture.md](../../../.agents/instructions/backend-architecture.md) 第 5 行要求目标项目可以使用不同的程序集和目录名，但必须先映射到概念层；第 47、74 行把领域事件归入 `Domain` 或 `Domain.Shared`。`Domain.Share` 工程承载的报告聚合事件、请求与常量此前声明为 `Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate[.Events|.Requests]`，与 `Domain` 概念层同命名空间。概念层与命名空间因此不再一一对应：只引用 `Domain.Share` 的项目写一条 `using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;` 即可编译通过，读起来像引用了 Domain 实体；`Domain` 的命令文件也必须写同名 using 才能取到事件类型，而该 using 实际解析到 `Domain.Share` 程序集，依赖方向的静态可读性被削弱。
+
+做法与验证：34 个文件的命名空间改为 `Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate[.Events|.Requests]`，与该工程的目录一致；同步更新 50 个文件中的 55 处 `using`（`Domain` 的命令与管理器、`Domain.Share` 内部、`Application`、`Repository` 与测试），逐个按编译错误定位、不做全局字符串替换——`…Domain.MedicalRecognitionReportAggregate` 同时被 `Domain` 工程的实体与命令合法占用，整体替换会误改不属于本次范围的文件。`MedicalRecognitionReportConst.AggregateId` 的字面量按该常量自身的定义保持不动：它取聚合根的完整类型名，而聚合根位于 `Domain` 工程、位置未变，改写会改变事件所属聚合的对外标识。核对结果：命名空间按「程序集名 + 目录」推导为 **0 处不一致**；全仓源码、映射文件与前端源码中无残留的旧命名空间引用；`dotnet build` 0 错误 190 警告（与改前一致）；`dotnet test` 433 通过 0 失败；宿主启动后读端点返回 `HTTP 200`，写端点正常到达业务层并返回业务拒绝（本轮未写业务数据）。
 
 ### 前端共享分页控件与跨阶段分页规范
 
@@ -149,9 +259,9 @@ C31 跨院区归属失败：以 `yangkj` 的令牌请求 `lisadmin` 所属医院
 - `dotnet test server\Dy.MedicalRecognition.slnx`：失败 0、通过 440、跳过 0，总计 440。
 - `git diff --check`：报 1 处行尾空白，位于 `.agents/instructions/agent-conduct.md` 中负责人本人的未提交编辑行（退出码 2）。该文件不属阶段 4 改动范围，本轮未对其执行任何写操作。
 - 测试补齐轮次新增 `Stage4SqlMapTests.cs`（6 项）、`Stage4EndpointTests.cs`（7 项）、`Stage4ConstraintTests.cs`（6 项）、`Stage4ContractTests.cs`（19 项）、`Stage4WritePathTests.cs`（88 项）、`Stage4QueryTests.cs`（28 项）、`Stage4SubmissionPathTests.cs`（9 项）与内存替身 `FakeReportRepository.cs`、`FakeQueryRepository.cs`、`StubReportPorts.cs`；同步修改的既有文件包括 `Stage1SqlMapProbeTests.cs`（票 04 注册键断言）、`Stage1ArchitectureTests.cs`（查询契约方法集合与按接口全部分片冻结签名）、`Stage2EnumContractTests.cs`（注册表清单、六个报告枚举的取值与中文说明、冻结 OpenAPI 路径集合）、`Stage2EnumMetadataQueryTests.cs`（排除清单收敛为两个后续阶段枚举）、`Stage2/Stage3` 的查询与写路径替身、`Stage3SqlMapTests.cs`（金额脚本文件名随 `mrec_` 前缀同步）与 `Architecture/SourceGuardReuseTests.cs`。
-- 上述用例覆盖的矩阵面（补取证后）：V1-V16、V19b、V21-V36、V38、V41-V44、V46-V55、V58、V60-V67、V68-V74、V77、V78、V80、V81、V83 的静态与入口形态面、V85、V86、V87、V89、V90 的契约/领域/应用/查询映射层级。逐条状态见「矩阵条目状态清单」节。
+- 上述用例覆盖的矩阵面（补取证后）：V1-V16、V19b、V21-V36、V38、V41-V44、V46-V55、V58、V60-V67、V68-V74、V77、V78、V80、V81、V83 的静态与入口形态面、V87、V89、V90 的契约/领域/应用/查询映射层级。V85 与 V86 的并发用例已按设计变更删除，不再包含在本声明内。逐条状态见「矩阵条目状态清单」节。
 - **记账更正**：以下五个编号原先被上述区段包含，经逐条复核在测试工程内无对应编号回挂，行为面亦无独立断言，故当时从覆盖声明中移出：V34「药敏归属字段不可为空」、V43「异常标志与危急值标志取值」、V48「检查项目必填字段」、V50「检查部位归属项目」、V67「列表排序稳定」。其中 V48 的编号在 `RequestValidationProbeTests.cs` 中出现，但该文件用例全部针对阶段 1 与 2 的请求类型，属跨阶段编号重号，不构成阶段 4 的覆盖。V84 因缺陷十二从覆盖声明中移出。**上述编号已在本轮收尾补取证中逐条补齐**，见「矩阵条目状态清单」节。
-- 未自动化、留待票 12 的层级面：V17、V18、V37、V39、V40、V45、V57、V59、V60、V79、V85、V86、V88、V89、V91 的集成面，V19、V19b、V20 的控制器动作行为面（PDF 类型、扩展名、签名、空文件、超限与文件名回退），V80b 的库结构面，V82 的真实存储与非法配置面。V69 的真实外部服务不可用面已取消（参照实现对该失败路径不设特殊处理，只以抛出异常的替身覆盖，本项目已有等价用例）。
+- 未自动化、留待票 12 的层级面：V17、V18、V37、V39、V40、V45、V57、V59、V60、V79、V88、V89、V91 的集成面，V19、V19b、V20 的控制器动作行为面（PDF 类型、扩展名、签名、空文件、超限与文件名回退），V80b 的库结构面，V82 的真实存储与非法配置面。V69 的真实外部服务不可用面已取消（参照实现对该失败路径不设特殊处理，只以抛出异常的替身覆盖，本项目已有等价用例）。
 - **记账更正**：以下七个编号既未进入上一条的覆盖声明，也未进入本条的未自动化清单，属两处清单同时遗漏，现补登：V38「检验报告作废后停止追加」、V41「检验明细来源字段原文保存」、V54「检查报告来源检查类型与诊断」、V56「检查项目与部位可选人员成对规则」（已按设计变更记 `N/A`）、V58「检查报告作废后停止追加」、V77「下载文件缺失」、V78「已作废报告的历史版本下载」。其中 V38、V58、V77、V78 已在本轮收尾补取证中补齐，V41 与 V54 的持久化断言亦已补齐，见「矩阵条目状态清单」节。
 
 ## 执行中发现并修复的缺陷
@@ -198,8 +308,8 @@ C31 跨院区归属失败：以 `yangkj` 的令牌请求 `lisadmin` 所属医院
 | V91 | 下载归属不匹配 | Application/Host | `Passed` | 以 `yangkj` 的令牌请求下载 `lisadmin` 所属医院的那份报告版本（报告标识 `3a23c461-1730-55b7-d8b7-ef9ce2159efb`、版本标识 `3a23c461-175d-077a-fa11-2977ac576345`，来源归属 `01/CSYY2/CSYQ2-1`）：返回 `HTTP 500`、`content-type: text/plain`（不是 `application/pdf`），异常为「业务拒绝：报告不在当前可信组织、医院与院区范围内」，**不返回任何文件内容**。同一报告标识与版本标识在其所属医院范围内可正常下载（下载面证据见 V75 行） |
 | V61（平台入口取值口径） | 平台管理员入口按请求使用三级范围 | Application | `Passed` | 以 `yangkj` 的令牌调用平台管理员入口并按请求提交 `01/CSYY2/CSYQ2-1`：返回 `HTTP 200`、`totalCount=1`、当页含 `MR-XSCOPE-20260918-001`。该结果与设计一致——平台管理员入口的组织、医院与院区取自请求，服务端校验三者存在、启用与父子归属，不要求等于可信上下文；医院管理员入口的组织与医院只取可信上下文并覆盖同名请求字段，两个入口的取值口径差异由 V62 行印证 |
 | C28（只读验收面） | 医院管理员页的列表、详情、版本切换与下载 | Host | `Passed` | 从宿主菜单进入页面后实测：① 列表渲染 23 行，逐列有值（报告单号、报告类型文本「检验报告」「检查报告」、报告时间、来源组织「县医共体」、医院「县人民医院」、院区「总院」、患者姓名、证件号码、当前版本序号、报告状态「有效」），表尾显示「共 23 条」并提供分页控件与页容量选择「10 条/页」，与设计的分页呈现口径一致；② 点击「查看报告详情」后右侧渲染「报告详情与历史版本」，表头含版本序号、状态、源端报告修改时间、平台接收时间、报告医生、审核医生、来源报告备注、PDF 文件名与操作列，行内容含「当前有效版本」「报告有效」与下载入口；③ 版本内容随选择渲染，无审核时间的报告返回 `reviewTime: null` 且内容正常（见修复缺陷十一），有审核时间的报告返回原值；④ 版本列表区分当前版本与历史版本（版本 1 `isSuperseded=true`、版本 2 `isCurrentVersion=true`）；⑤ 下载当前版本返回 `HTTP 200`、`application/pdf`、69 字节且首字节为 `%PDF-1.4` |
-| V85 | 并发首次提交同一报告业务标识 | Repository/Application | `Passed` | 同一报告业务标识的两个请求并发提交（`Promise.all`）：一条返回 `HTTP 200` 与 `true`，另一条返回 `HTTP 500`「业务拒绝：该报告已被并发提交，请刷新后重试。」；只读回读该报告单号在库中**恰有 1 行**报告（`MR-CF-20260918-V85`、`MR-V85X-20260918` 两次实验各自恰 1 行），唯一约束兜底成立且冲突翻译为业务拒绝、不自动重试 |
-| V86 | 并发首次解析同一证件 | Domain/Repository | `Passed` | 同一证件号码的四个请求并发首次提交（各自不同报告单号）：三条返回 `HTTP 500`「业务拒绝：患者身份信息并发冲突，请刷新后重试。」，一条成功；只读回读该证件键在 `mrec_platform_patient` 中**恰有 1 行**，未产生第二个患者，且失败请求均未留下报告残留。修复前同一场景向外泄漏数据库驱动异常（见修复缺陷十）；两条不同证件键的并发实验（各两个请求）四者全部成功，说明该拒绝只出现在真正撞证件键时 |
+| V85 | 并发首次提交同一报告业务标识 | Repository/Application | `PendingRetest` | 原证据（2026-09-18）：同报告业务标识的两个请求并发提交，一条 `HTTP 200`、另一条 `HTTP 500`「业务拒绝：该报告已被并发提交，请刷新后重试。」，库中恰 1 行报告。该证据取自「唯一约束冲突翻译为业务拒绝」的旧语义，**已被设计变更作废**（见「设计变更登记」）；新语义下撞键以数据库异常原样向外传播，本条目尚无任何用例或真实入口证据覆盖，待复测 |
+| V86 | 并发首次解析同一证件 | Domain/Repository | `PendingRetest` | 原证据（2026-09-18）：同证件号码的四个请求并发首次提交，三条返回 `HTTP 500`「业务拒绝：患者身份信息并发冲突，请刷新后重试。」、一条成功，该证件键在 `mrec_platform_patient` 中恰 1 行；两条不同证件键的并发实验四者全部成功。该证据取自「并发复读 + 冲突翻译」的旧语义，**已被设计变更作废**；新语义下撞证件键由唯一索引拒绝、数据库异常原样传播且不复读，本条目尚无任何用例或真实入口证据覆盖，待复测 |
 | V45、V79（部分）、V18（文件面） | 写库失败时删除本次新文件 | Integration | `Passed` | 校验与写入失败的那次提交（缺陷五的 `42804` 数据库错误）后，只读核对存储目录 `var/report-pdf/20260918/` 只存在成功提交对应的那个文件键，失败尝试落盘的文件已被控制器补偿删除，库中也没有该次尝试的版本行；成功提交的文件键与库中版本行的 `pdf_file_id` 一致 |
 | V46-V51、V53-V55、V57、V59 | 完整检查报告提交与回读 | Integration | `Passed` | `POST /api/v1/report-pdf/examination-report`（multipart，文本部件为本报告检查样例）返回 `HTTP 200` 与 `true`；只读回读：报告类型 2、生命周期状态 1、版本序号 1、来源归属与样例一致；`mrec_examination_report_content` 1 条（检查所见、检查结论、来源诊断名称、实际检查时间、检查医生、来源影像状态 1、影像调阅地址、设备名称与提交值一致）；`mrec_examination_item` 2 条、`mrec_examination_site` 2 条，且部位随所属项目保存：「胸部CT平扫」挂「右肺上叶」「纵隔」，「胸部CT增强」部位集合为空。`POST /Api/MedicalRecognitionReportQuery/QueryMedicalReportVersionDetail` 返回 `HTTP 200`：`reportTypeText=检查报告`、`examinationContent` 非空、`laboratoryContent` 为空、`sourceImageStatusText=有影像`、影像调阅地址与来源值一致、项目与部位的层级与条数与库中一致、文件名为「胸部CT检查报告.pdf」 |
 | V19、V18（零写入面） | PDF 文件本身校验失败即拒绝整份报告 | Host | `Passed` | 逐项构造不合规文件部件提交检验报告，全部按业务拒绝返回且只描述业务事实：内容类型为 `text/plain` →「PDF 文件的内容类型不是 application/pdf」；扩展名为 `.txt` →「PDF 文件的扩展名不是 .pdf」；文件头非 `%PDF-` →「PDF 文件头签名无效」；零长度 →「PDF 文件不能为空」；文件部件缺失 →「PDF 文件部件不能为空」。五项均返回 `HTTP 500` 业务拒绝，且只读回读确认这些报告单号（`-CT`、`-EXT`、`-SIG`、`-EMPTY`、`-NONAME`）在库中**零行**，即校验失败不进入业务写入、不产生任何业务数据 |
@@ -217,7 +327,7 @@ C31 跨院区归属失败：以 `yangkj` 的令牌请求 `lisadmin` 所属医院
 - **历史版本文件保留**：本阶段不做文件清理或归档，作为 `AcceptedRisk` 登记，重审条件为出现可复现的磁盘压力或部署目录配额问题。
 - **孤儿文件**：写库失败后的文件补偿删除失败只记日志、不改变对外结果，残留面作为 `AcceptedRisk` 登记，重审条件为出现可复现的存储目录膨胀或运维需要人工核对文件与记录一致性。
 - **框架行为**：工作单元事务与事件可见性不设用例；本阶段没有事件消费者与专用观察点，事件可见性与事务回滚观察面按阶段根台账的已接受风险登记，记 `N/A` 并说明框架边界，重审条件为项目获得可控事件消费者、事件持久化记录或专用观察点。
-- **接口直测的认证前置**：本环境取接口直测所需的宿主令牌，需经宿主登录页（`http://183.224.180.166:35000/login`）在浏览器中完成登录并从宿主认证存储取得令牌；同轮尝试直接调用宿主登录端点 `POST http://183.224.180.166:35001/Api/Auth/Login`（请求体只含账号与密码）返回 `HTTP 500`，该端点的 `subApplicationId` 取值在本环境未登记，因此不以该路径作为取证手段，也不写入或复制任何令牌原文。该前置在本轮已可通过宿主登录页满足，依赖真实令牌的条目（V1-V79、V89-V91 的真实入口面与 C28-C31）中，C28、C29 与 C30、C31 均已取得真实宿主证据，其余见上方结果表。宿主时钟比本机慢约十余秒，刚签发的令牌会因 `nbf` 未到被后端拒绝，等待后重试即可，不得据此判定鉴权失败。
+- **接口直测的认证前置**：本环境取接口直测所需的宿主令牌，需经宿主登录页（`http://183.224.180.166:35000/login`）在浏览器中完成登录并从宿主认证存储取得令牌；同轮尝试直接调用宿主登录端点 `POST http://183.224.180.166:35001/Api/Auth/Login`（请求体只含账号与密码）返回 `HTTP 500`，该端点的 `subApplicationId` 取值在本环境未登记，因此不以该路径作为取证手段，也不写入或复制任何令牌原文。该前置在本轮已可通过宿主登录页满足，依赖真实令牌的条目（V1-V79、V89-V91 的真实入口面与 C28-C31）中，C28、C29 与 C30、C31 均已取得真实宿主证据，其余见上方结果表。宿主与本机时钟存在偏差，实测宿主签发的令牌 `nbf` 比本机时钟**晚约 16 秒**（2026-09-19 两轮登录分别实测 16 秒与 16 秒），刚签发的令牌会因 `nbf` 未到被后端拒绝，响应头为 `www-authenticate: Bearer error="invalid_token", error_description="The token is not valid before '…'"`；等待约 20 秒后重试即可，不得据此判定鉴权失败。**该偏差的前端表现需要单独留意**：前端把业务请求的 401 当作会话失效并跳转登录页（Console 记录 `[POST 401] … 未授权，跳转登录页`），因此登录后立即进入业务页会被打回登录页，看起来像登录失败。此时宿主认证存储中的会话仍然有效，等待令牌进入生效窗口后重新导航到宿主根地址即可恢复，不需要重复登录，也不需要重新取得令牌。
 
 ## 本轮验收数据的残留与处置
 
@@ -244,11 +354,11 @@ C31 跨院区归属失败：以 `yangkj` 的令牌请求 `lisadmin` 所属医院
 
 ### 有真实入口证据（结果表逐条列出）
 
-V1、V2、V4、V5、V6、V7、V8、V9、V13、V14、V15、V17、V18、V19、V19b、V20、V27、V28、V37、V39、V40、V42、V45、V46、V47、V48、V49、V50、V51、V52、V53、V54、V55、V57、V59、V60、V61、V62、V63、V69、V70、V71、V72、V73、V74、V75、V76、V79、V80、V80b、V82、V83、V84、V85、V86、V87、V89、V90、V91。其中 V85 与 V86 为并发实测，V63 与 V84 为缺陷修复后复测，V20 与 V88 为超限边界的真实入口探测。
+V1、V2、V4、V5、V6、V7、V8、V9、V13、V14、V15、V17、V18、V19、V19b、V20、V27、V28、V37、V39、V40、V42、V45、V46、V47、V48、V49、V50、V51、V52、V53、V54、V55、V57、V59、V60、V61、V62、V63、V69、V70、V71、V72、V73、V74、V75、V76、V79、V80、V80b、V82、V83、V84、V87、V89、V90、V91。其中 V63 与 V84 为缺陷修复后复测，V20 与 V88 为超限边界的真实入口探测；V85 与 V86 的并发实测证据已因设计变更作废，已移出本类并改记 `PendingRetest`。
 
 ### 有自动化证据覆盖（应用、领域、契约、查询映射与静态层级）
 
-V1、V2、V3、V4、V5、V6、V7、V8、V9、V10、V11、V12、V13、V14、V15、V16、V19b、V21、V22、V23、V24、V25、V26、V27、V28、V29、V30、V31、V32、V33、V34、V35、V36、V38、V41、V42、V43、V44、V46、V47、V48、V49、V50、V51、V52、V53、V54、V55、V58、V60、V61、V62、V63、V64、V65、V66、V67、V68、V69、V70、V71、V72、V73、V74、V77、V78、V80、V81、V83、V84、V85、V86、V87、V89、V90。用例位于 `Stage4SqlMapTests.cs`、`Stage4EndpointTests.cs`、`Stage4ConstraintTests.cs`、`Stage4ContractTests.cs`、`Stage4WritePathTests.cs`、`Stage4QueryTests.cs`、`Stage4SubmissionPathTests.cs`；编号回挂情况可 grep 测试工程核对。
+V1、V2、V3、V4、V5、V6、V7、V8、V9、V10、V11、V12、V13、V14、V15、V16、V19b、V21、V22、V23、V24、V25、V26、V27、V28、V29、V30、V31、V32、V33、V34、V35、V36、V38、V41、V42、V43、V44、V46、V47、V48、V49、V50、V51、V52、V53、V54、V55、V58、V60、V61、V62、V63、V64、V65、V66、V67、V68、V69、V70、V71、V72、V73、V74、V77、V78、V80、V81、V83、V84、V87、V89、V90。V85 与 V86 的并发用例已按设计变更删除，不再属于本类。用例位于 `Stage4SqlMapTests.cs`、`Stage4EndpointTests.cs`、`Stage4ConstraintTests.cs`、`Stage4ContractTests.cs`、`Stage4WritePathTests.cs`、`Stage4QueryTests.cs`、`Stage4SubmissionPathTests.cs`；编号回挂情况可 grep 测试工程核对。
 
 ### 无自动化回挂且无真实入口证据
 
@@ -304,7 +414,7 @@ V56「检查项目与部位可选人员成对规则」：检查项目与检查�
 已完成静态、契约、接口、宿主页面与前端构建层的真实取证：
 
 - 静态与契约：DDL 静态面与目标库结构面（V80、V80b）、配置快速失败面（V82）、端点清单与路由面（V83）、契约与生成面（C1-C3）。
-- 后端行为：`dotnet test` 失败 0、通过 440，覆盖 V1-V16、V19b、V21-V36、V38、V41-V44、V46-V55、V58、V60-V67、V68-V74、V77、V78、V80、V81、V83 的静态与入口形态面、V85-V87、V89、V90 的契约/领域/应用/查询映射层级。逐条状态见「矩阵条目状态清单」节。
+- 后端行为：`dotnet test` 失败 0、通过 440，覆盖 V1-V16、V19b、V21-V36、V38、V41-V44、V46-V55、V58、V60-V67、V68-V74、V77、V78、V80、V81、V83 的静态与入口形态面、V87、V89、V90 的契约/领域/应用/查询映射层级。逐条状态见「矩阵条目状态清单」节。
 - 前端：类型检查、构建、lint 与 270 项测试全部通过；两条路由已接入。前端矩阵 31 条的状态见「矩阵条目状态清单」节的前端矩阵表。
 - 接口与宿主：四个医院接入能力的检验侧与检查侧完整链路、作废语义与时间边界、管理端列表与版本查询、下载与三态拒绝、文件补偿均在真实库、真实文件系统与宿主令牌下取得证据；宿主入口、菜单授权、资源拦截与两个页面（平台管理员页、医院管理员页的可信范围固定面）已从宿主菜单进入并渲染。本轮另取得宿主页面四类失败态（C30）、下载跨院区归属失败的页面表现（C31）与宿主请求体上限的宿主侧证据（V88）。
 

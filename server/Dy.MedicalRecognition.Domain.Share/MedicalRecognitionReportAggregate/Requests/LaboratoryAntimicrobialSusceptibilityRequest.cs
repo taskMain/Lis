@@ -1,4 +1,4 @@
-namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Requests;
+namespace Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Requests;
 
 /// <summary>
 /// 药敏结果的提交输入；挂在所属细菌鉴定结果下，展示序号在同一报告版本、同一细菌鉴定结果下不得重复。

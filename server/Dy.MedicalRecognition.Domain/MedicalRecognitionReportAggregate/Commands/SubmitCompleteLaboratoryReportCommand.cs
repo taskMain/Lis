@@ -1,5 +1,5 @@
 using Dy.Core.Abstractions.Domain;
-using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Requests;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Requests;
 
 namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
 

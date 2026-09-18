@@ -84,12 +84,15 @@ public sealed class Stage1SqlMapProbeTests
     var builder = Activator.CreateInstance(builderType)!;
     RegisterBooleanTypeHandler(earthraceAssembly);
     Invoke(builder, "UseHybridConfig", options!);
+    // 按本项目固定的资源命名形态注册：程序集根命名空间 + 一层目录 + 文件名，即 `{程序集名}.*.*.xml`。
+    // 宿主实际还能再吃一层目录（对照项目 Dy.LisCenter 的两级目录映射即依赖这一点），更深则要靠
+    // EmbeddedResource 的 LogicalName 压平；本项目不使用这些形态，映射文件固定与其仓储类同目录。
+    // 这里不能按内嵌资源清单反推命名空间、也不能用 `**` 这类更宽松的通配：两者都会把"文件在磁盘上存在"
+    // 当成"宿主能注册"，映射文件被挪进子目录后写侧作用域全部漏注册，本用例仍会通过。
     Invoke(builder, "AddSqlMaps", Enum.Parse(resourceType, "Embedded"),
-      "Dy.MedicalRecognition.Repository.MedicalRecognitionReportAggregate.**,Dy.MedicalRecognition.Repository",
+      "Dy.MedicalRecognition.Repository.*.*.xml,Dy.MedicalRecognition.Repository",
       repositoryAssembly);
-    Invoke(builder, "AddSqlMaps", Enum.Parse(resourceType, "Embedded"),
-      "Dy.MedicalRecognition.Repository.Queries.**,Dy.MedicalRecognition.Repository",
-      repositoryAssembly);
+
     Invoke(builder, "Build");
 
     var sqlConfig = builderType.GetProperty("SqlConfig")!.GetValue(builder)!;
@@ -142,7 +145,7 @@ public sealed class Stage1SqlMapProbeTests
     Assert.DoesNotContain("MedicalRecognitionReport.QueryAllOrganizationHospitalBranchRecognitionAmount", registeredKeys);
     Assert.Contains("OrganizationHospitalBranchRecognitionAmount.OrganizationHospitalBranchRecognitionAmountColumns", registeredKeys);
     Assert.Contains("OrganizationHospitalBranchRecognitionAmount.GetOrganizationHospitalBranchRecognitionAmountByBusinessKey", registeredKeys);
-    Assert.Contains("OrganizationHospitalBranchRecognitionAmount.InsertOrganizationHospitalBranchRecognitionAmount", registeredKeys);
+    Assert.Contains("OrganizationHospitalBranchRecognitionAmount.CreateOrganizationHospitalBranchRecognitionAmount", registeredKeys);
     Assert.Contains("OrganizationHospitalBranchRecognitionAmount.UpdateOrganizationHospitalBranchRecognitionAmount", registeredKeys);
 
     // 阶段 3 追加核对：互认项目金额保存的"当前组织是否已建立该标准项目配置"读取语句注册在实体作用域下，
@@ -176,32 +179,69 @@ public sealed class Stage1SqlMapProbeTests
   }
 
   /// <summary>
+  /// 映射文件固定放在宿主默认资源模式覆盖的形态：程序集根命名空间 + 一层目录 + 文件名，且与它的仓储类同目录。
+  /// </summary>
+  /// <remarks>
+  /// 宿主不按目录名注册，而是用默认模式片段（位于 <c>Dy.Earthrace.Abstractions.dll</c>）匹配内嵌资源的逻辑名。
+  /// 实测与对照项目 <c>Dy.LisCenter</c> 一致：根下一级与两级目录的映射文件都会被注册，更深则需要在该文件的
+  /// <c>EmbeddedResource</c> 上写 <c>LogicalName</c> 把逻辑名压回浅层（LisCenter 对唯一一份三级目录的映射就是这么做的）。
+  /// 本项目不使用 <c>LogicalName</c>，映射文件与其仓储类同目录、固定在一级；本断言钉住这一约定，
+  /// 避免再次出现「把映射文件挪进子目录 → 逻辑名变深 → 写侧作用域全部未注册」而编译与静态断言都不失败的情况。
+  /// </remarks>
+  [Fact]
+  public void Sql_map_resources_stay_directly_under_one_folder()
+  {
+    var repositoryAssembly = LoadAssembly(FindHostOutputDirectory(), "Dy.MedicalRecognition.Repository.dll");
+    string assemblyName = repositoryAssembly.GetName().Name!;
+
+    string[] sqlMapResources =
+    [
+      .. repositoryAssembly.GetManifestResourceNames()
+        .Where(name => name.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+        .OrderBy(name => name, StringComparer.Ordinal)
+    ];
+
+    Assert.Equal(20, sqlMapResources.Length);
+    foreach (string resource in sqlMapResources)
+    {
+      Assert.StartsWith($"{assemblyName}.", resource, StringComparison.Ordinal);
+
+      // 去掉程序集前缀与 .xml 后缀后，只允许剩下「一层目录 + 文件名」之间那一个点。
+      string relative = resource[(assemblyName.Length + 1)..^4];
+      Assert.Equal(1, relative.Count(character => character == '.'));
+
+      // 变异证据：多嵌一层目录的资源名必须被判出与本项目约定不符，证明该判据对目录深度敏感。
+      Assert.Equal(2, $"{relative}.Extra".Count(character => character == '.'));
+    }
+  }
+
+  /// <summary>
   /// 阶段 4 十张报告表的实体名作用域与语句标识清单；与各映射文件的 <c>SqlMap Scope</c> 与 <c>Statement Id</c> 逐字一致。
   /// </summary>
   private static readonly (string Scope, string[] StatementIds)[] Stage4SqlMapStatements =
   [
-    ("PlatformPatient", ["PlatformPatientColumns", "GetPlatformPatientByDocument", "InsertPlatformPatient"]),
+    ("PlatformPatient", ["PlatformPatientColumns", "GetPlatformPatientByDocument", "CreatePlatformPatient"]),
     ("MedicalRecognitionReport",
       [
         "MedicalRecognitionReportColumns", "GetMedicalRecognitionReportByBusinessKey", "GetMedicalRecognitionReportById",
-        "InsertMedicalRecognitionReport", "UpdateMedicalRecognitionReportCurrentVersion", "VoidMedicalRecognitionReport"
+        "CreateMedicalRecognitionReport", "UpdateMedicalRecognitionReportCurrentVersion", "VoidMedicalRecognitionReport"
       ]),
     ("MedicalReportVersion",
       [
         "MedicalReportVersionColumns", "GetMedicalReportMaxVersionNumber", "GetMedicalReportVersionById",
-        "QueryMedicalReportVersionList", "InsertMedicalReportVersion"
+        "QueryMedicalReportVersionList", "CreateMedicalReportVersion"
       ]),
-    ("LaboratoryReportContent", ["LaboratoryReportContentColumns", "GetLaboratoryReportContentByVersion", "InsertLaboratoryReportContent"]),
-    ("LaboratoryResultItem", ["LaboratoryResultItemColumns", "QueryLaboratoryResultItemsByVersion", "InsertLaboratoryResultItem"]),
-    ("LaboratoryBacteriaResult", ["LaboratoryBacteriaResultColumns", "QueryLaboratoryBacteriaResultsByVersion", "InsertLaboratoryBacteriaResult"]),
+    ("LaboratoryReportContent", ["LaboratoryReportContentColumns", "GetLaboratoryReportContentByVersion", "CreateLaboratoryReportContent"]),
+    ("LaboratoryResultItem", ["LaboratoryResultItemColumns", "QueryLaboratoryResultItemsByVersion", "CreateLaboratoryResultItem"]),
+    ("LaboratoryBacteriaResult", ["LaboratoryBacteriaResultColumns", "QueryLaboratoryBacteriaResultsByVersion", "CreateLaboratoryBacteriaResult"]),
     ("LaboratoryAntimicrobialSusceptibility",
       [
         "LaboratoryAntimicrobialSusceptibilityColumns", "QueryLaboratoryAntimicrobialSusceptibilitiesByBacteria",
-        "InsertLaboratoryAntimicrobialSusceptibility"
+        "CreateLaboratoryAntimicrobialSusceptibility"
       ]),
-    ("ExaminationReportContent", ["ExaminationReportContentColumns", "GetExaminationReportContentByVersion", "InsertExaminationReportContent"]),
-    ("ExaminationItem", ["ExaminationItemColumns", "QueryExaminationItemsByVersion", "InsertExaminationItem"]),
-    ("ExaminationSite", ["ExaminationSiteColumns", "QueryExaminationSitesByItem", "InsertExaminationSite"])
+    ("ExaminationReportContent", ["ExaminationReportContentColumns", "GetExaminationReportContentByVersion", "CreateExaminationReportContent"]),
+    ("ExaminationItem", ["ExaminationItemColumns", "QueryExaminationItemsByVersion", "CreateExaminationItem"]),
+    ("ExaminationSite", ["ExaminationSiteColumns", "QueryExaminationSitesByItem", "CreateExaminationSite"])
   ];
 
   /// <summary>
@@ -530,8 +570,13 @@ public sealed class Stage1SqlMapProbeTests
     var directory = new DirectoryInfo(AppContext.BaseDirectory);
     while (directory is not null)
     {
-      var candidate = Path.Combine(directory.FullName, "Dy.MedicalRecognition.Repository", "MedicalRecognitionReportAggregate", fileName);
-      if (File.Exists(candidate)) return candidate;
+      var repositoryDirectory = Path.Combine(directory.FullName, "Dy.MedicalRecognition.Repository");
+      if (Directory.Exists(repositoryDirectory))
+      {
+        var matches = Directory.GetFiles(repositoryDirectory, fileName, SearchOption.AllDirectories);
+        if (matches.Length == 1) return matches[0];
+      }
+
       directory = directory.Parent;
     }
 

@@ -1,6 +1,6 @@
 using Dy.MedicalRecognition.Domain.Share.Enums;
 
-namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Requests;
+namespace Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Requests;
 
 /// <summary>
 /// 检查报告专项内容的提交输入。

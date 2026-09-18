@@ -18,68 +18,68 @@ public sealed partial class MedicalRecognitionReportQueryRepository
 {
   /// <inheritdoc/>
   public async Task<long> CountMedicalReportListAsync(MedicalReportListFilter filter) =>
-    await dataMapper.QuerySingleAsync<long>(filter, scope: SqlScope, sqlId: "CountMedicalReportList");
+    await dataMapper.QuerySingleAsync<long>(filter, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<IEnumerable<MedicalReportListItem>> QueryMedicalReportListAsync(MedicalReportListFilter filter, int skipCount, int pageSize) =>
     await dataMapper.QueryAsync<MedicalReportListItem>(
-      filter, scope: SqlScope, sqlId: "QueryMedicalReportList", pagination: new Pagination(skipCount, pageSize));
+      filter, scope: SqlScope, pagination: new Pagination(skipCount, pageSize));
 
   /// <inheritdoc/>
   public async Task<IEnumerable<MedicalReportVersionItem>> QueryMedicalReportVersionListAsync(Guid reportId) =>
-    await dataMapper.QueryAsync<MedicalReportVersionItem>(new { ReportId = reportId }, scope: SqlScope, sqlId: "QueryMedicalReportVersionList");
+    await dataMapper.QueryAsync<MedicalReportVersionItem>(new { ReportId = reportId }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<MedicalReportVersionDetailItem?> GetMedicalReportVersionDetailAsync(Guid reportId, Guid reportVersionId) =>
     await dataMapper.QuerySingleAsync<MedicalReportVersionDetailItem>(
-      new { ReportId = reportId, ReportVersionId = reportVersionId }, scope: SqlScope, sqlId: "GetMedicalReportVersionDetail");
+      new { ReportId = reportId, ReportVersionId = reportVersionId }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<LaboratoryReportContentItem?> GetLaboratoryReportContentAsync(Guid reportVersionId) =>
     await dataMapper.QuerySingleAsync<LaboratoryReportContentItem>(
-      new { ReportVersionId = reportVersionId }, scope: SqlScope, sqlId: "GetLaboratoryReportContentByVersion");
+      new { ReportVersionId = reportVersionId }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsAsync(Guid reportVersionId) =>
     await dataMapper.QueryAsync<LaboratoryResultItemView>(
-      new { ReportVersionId = reportVersionId }, scope: SqlScope, sqlId: "QueryLaboratoryResultItemsByVersion");
+      new { ReportVersionId = reportVersionId }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<IEnumerable<LaboratoryBacteriaResultItem>> QueryLaboratoryBacteriaResultsAsync(Guid reportVersionId) =>
     await dataMapper.QueryAsync<LaboratoryBacteriaResultItem>(
-      new { ReportVersionId = reportVersionId }, scope: SqlScope, sqlId: "QueryLaboratoryBacteriaResultsByVersion");
+      new { ReportVersionId = reportVersionId }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<IEnumerable<LaboratorySusceptibilityItem>> QueryLaboratorySusceptibilitiesAsync(Guid bacteriaResultId) =>
     await dataMapper.QueryAsync<LaboratorySusceptibilityItem>(
-      new { BacteriaResultId = bacteriaResultId }, scope: SqlScope, sqlId: "QueryLaboratorySusceptibilitiesByBacteria");
+      new { BacteriaResultId = bacteriaResultId }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<ExaminationReportContentItem?> GetExaminationReportContentAsync(Guid reportVersionId) =>
     await dataMapper.QuerySingleAsync<ExaminationReportContentItem>(
-      new { ReportVersionId = reportVersionId }, scope: SqlScope, sqlId: "GetExaminationReportContentByVersion");
+      new { ReportVersionId = reportVersionId }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsAsync(Guid reportVersionId) =>
     await dataMapper.QueryAsync<ExaminationItemView>(
-      new { ReportVersionId = reportVersionId }, scope: SqlScope, sqlId: "QueryExaminationItemsByVersion");
+      new { ReportVersionId = reportVersionId }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesAsync(Guid examinationItemId) =>
     await dataMapper.QueryAsync<ExaminationSiteView>(
-      new { ExaminationItemId = examinationItemId }, scope: SqlScope, sqlId: "QueryExaminationSitesByItem");
+      new { ExaminationItemId = examinationItemId }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<MedicalReportScopeItem?> GetMedicalReportScopeAsync(Guid reportId) =>
-    await dataMapper.QuerySingleAsync<MedicalReportScopeItem>(new { ReportId = reportId }, scope: SqlScope, sqlId: "GetMedicalReportScope");
+    await dataMapper.QuerySingleAsync<MedicalReportScopeItem>(new { ReportId = reportId }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<MedicalRecognitionReportDetailCommon?> GetMedicalReportVersionCommonAsync(Guid reportVersionId) =>
     await dataMapper.QuerySingleAsync<MedicalRecognitionReportDetailCommon>(
-      new { ReportVersionId = reportVersionId }, scope: SqlScope, sqlId: "GetMedicalReportVersionCommon");
+      new { ReportVersionId = reportVersionId }, scope: SqlScope);
 
   /// <inheritdoc/>
   public async Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) =>
     await dataMapper.QuerySingleAsync<MedicalReportVersionFileItem>(
-      new { ReportId = reportId, ReportVersionId = reportVersionId }, scope: SqlScope, sqlId: "GetMedicalReportVersionFile");
+      new { ReportId = reportId, ReportVersionId = reportVersionId }, scope: SqlScope);
 }

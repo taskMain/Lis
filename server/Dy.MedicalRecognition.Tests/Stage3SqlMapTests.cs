@@ -46,14 +46,14 @@ public sealed class Stage3SqlMapTests
   ];
 
   /// <summary>
-  /// 金额 SqlMap 的语句标识清单，顺序与设计清单一致；这些标识被票 02、03 的调用点显式引用，
-  /// 因此拼写与集合都必须逐字冻结。
+  /// 金额 SqlMap 的语句标识清单，顺序与设计清单一致；写入语句标识由仓储方法名推导
+  /// （方法名去掉 <c>Async</c> 后缀），因此拼写与集合都必须逐字冻结。
   /// </summary>
   private static readonly string[] ExpectedStatementIds =
   [
     "OrganizationHospitalBranchRecognitionAmountColumns",
     "GetOrganizationHospitalBranchRecognitionAmountByBusinessKey",
-    "InsertOrganizationHospitalBranchRecognitionAmount",
+    "CreateOrganizationHospitalBranchRecognitionAmount",
     "UpdateOrganizationHospitalBranchRecognitionAmount"
   ];
 
@@ -269,12 +269,12 @@ public sealed class Stage3SqlMapTests
     Dictionary<string, string> statements = document.Descendants()
       .Where(element => element.Attribute("Id") is not null)
       .ToDictionary(element => (string)element.Attribute("Id")!, element => element.Value);
-    Assert.Equal(TableName, StatementTargetTable(statements["InsertOrganizationHospitalBranchRecognitionAmount"], "insert into"));
+    Assert.Equal(TableName, StatementTargetTable(statements["CreateOrganizationHospitalBranchRecognitionAmount"], "insert into"));
     Assert.Equal(TableName, StatementTargetTable(statements["UpdateOrganizationHospitalBranchRecognitionAmount"], "update"));
     Assert.Equal(TableName, StatementTargetTable(statements["GetOrganizationHospitalBranchRecognitionAmountByBusinessKey"], "select", "from"));
 
     // 操作时间显式绑定命令时间，不使用数据库当前时间替代。
-    Assert.Contains("$OperTime", statements["InsertOrganizationHospitalBranchRecognitionAmount"], StringComparison.Ordinal);
+    Assert.Contains("$OperTime", statements["CreateOrganizationHospitalBranchRecognitionAmount"], StringComparison.Ordinal);
     Assert.Contains("oper_time = $OperTime", statements["UpdateOrganizationHospitalBranchRecognitionAmount"], StringComparison.Ordinal);
 
     // 方言特征扫描：把命中的标记打进输出，失败时可直接看到违规词。

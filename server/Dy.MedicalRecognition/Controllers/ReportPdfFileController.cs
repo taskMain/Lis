@@ -2,7 +2,7 @@ using System.Text.Json;
 using Dy.Core.Abstractions.Http;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
-using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Dy.MedicalRecognition.Controllers;

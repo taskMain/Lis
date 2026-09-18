@@ -1,4 +1,4 @@
-namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Requests;
+namespace Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Requests;
 
 /// <summary>
 /// 检查项目的提交输入；每条内含检查部位集合，项目没有明确部位时部位集合允许为空。

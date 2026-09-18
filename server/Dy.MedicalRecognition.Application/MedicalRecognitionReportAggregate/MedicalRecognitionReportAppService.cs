@@ -9,6 +9,9 @@ using Dy.MedicalRecognition.Application.Contracts.Validation;
 using Dy.MedicalRecognition.Application.Validation;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
+using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Managers;
+using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Ports;
+using Dy.MedicalRecognition.Domain.Queries.Ports;
 
 namespace Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate;
 
@@ -48,7 +51,7 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   /// <summary>
   /// 报告与报告版本的只读查询端口：下载入口按报告标识与版本标识读取报告身份与文件信息。
   /// </summary>
-  private readonly Domain.Queries.IMedicalRecognitionReportQueryRepository queryReportRepository;
+  private readonly IMedicalRecognitionReportQueryRepository queryReportRepository;
 
   /// <summary>
   /// 初始化写入口。
@@ -69,7 +72,7 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
     IOrganizationAppService organizationAppService,
     IUserAppService userAppService,
     IReportPdfFileStore reportPdfFileStore,
-    Domain.Queries.IMedicalRecognitionReportQueryRepository queryReportRepository)
+    IMedicalRecognitionReportQueryRepository queryReportRepository)
   {
     this.manager = manager;
     this.repository = repository;
@@ -305,6 +308,7 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   /// <exception cref="InvalidOperationException">
   /// 登录令牌的组织声明取不到组织编码、用户标识不能解析为非空 Guid，或按请求提交的编码读不到标准项目时抛出；
   /// 标准项目、所属分类或所属分组不存在或已停用时，该组织已配置此标准项目时，以及新增配置影响的行数不为 1（含 0 行）时同样抛出。
+  /// 并发下两个请求可能同时通过查重，此时由唯一索引拒绝，数据库异常不翻译为业务拒绝。
   /// 以上情况都没有写入配置，也没有登记创建事件。
   /// </exception>
   public async Task<bool> CreateMutualRecognitionItemAsync(CreateMutualRecognitionItemRequest request)

@@ -1,6 +1,6 @@
 using Dy.Core.Extensions.Models;
 using Dy.MedicalRecognition.Application;
-using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
 using Dy.MedicalRecognition.Application.Contracts.Queries.EnumMetadata;
 using Dy.MedicalRecognition.Application.Queries.EnumMetadata;
 using Dy.MedicalRecognition.Domain.Share.Enums;

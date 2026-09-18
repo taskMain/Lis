@@ -1,7 +1,7 @@
 using Dy.Core.Abstractions.Domain;
-using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate;
 
-namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Events;
+namespace Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Events;
 
 /// <summary>
 /// 已发生的领域事实：可信组织内一条互认项目配置的可互认时间已被修改，其余归属与状态未变。

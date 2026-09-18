@@ -12,7 +12,10 @@ using Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.Share.Enums;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
-using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Events;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Events;
+using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Managers;
+using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Ports;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Repository.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Tests.Architecture;
 using Xunit;
@@ -538,17 +541,19 @@ public sealed class Stage2WritePathTests
     Assert.Equal(CommandOperTime, disabledEvent.EventCreatedTime);
   }
 
-  /// <summary>V16：唯一约束冲突由仓储识别后，领域层统一翻译为重复配置业务错误，且不登记事件。</summary>
+  /// <summary>V2：同一组织与同一标准项目已存在配置时，新增入口在写入前按重复配置拒绝，不触发写语句、不登记事件。</summary>
   [Fact]
-  public async Task Duplicate_configuration_is_translated_to_business_rejection_without_event()
+  public async Task Duplicate_configuration_is_rejected_before_write_without_event()
   {
     (FakeReportRepository repository, MedicalStandardItem item) = CreateEnabledCatalog();
-    repository.ThrowDuplicateOnCreate = true;
+    // 停用配置同样占用"组织编码 + 标准项目编码"唯一键，因此查重不因配置已停用而放行。
+    AddConfiguration(repository, item, TrustedOrganization, isValid: false);
 
     (RecordingEventQueue events, InvalidOperationException error) = await ExecuteExpectingRejectionAsync(
       () => CreateManager(repository).CreateMutualRecognitionItemAsync(CreateCommand(item)));
 
-    Assert.Contains("业务拒绝：该组织已配置此标准项目。", error.Message);
+    Assert.Equal("业务拒绝：该组织已配置此标准项目。", error.Message);
+    Assert.Equal(0, repository.CreateCalls);
     Assert.Empty(events.Events);
   }
 
@@ -803,7 +808,8 @@ public sealed class Stage2WritePathTests
   {
     TrustedRequestContext.Use(TrustedOrganization, TrustedOperId.ToString());
     (FakeReportRepository repository, MedicalStandardItem item) = CreateEnabledCatalog();
-    MutualRecognitionItem configuration = AddConfiguration(repository, item, TrustedOrganization, isValid: false);
+    // 前置配置挂在第二个标准项目上：新增入口按组织与标准项目查重，与新增目标同项目会让新增命中重复拒绝。
+    MutualRecognitionItem configuration = AddConfiguration(repository, AddEnabledCatalog(repository, "P2"), TrustedOrganization, isValid: false);
     MedicalRecognitionReportAppService appService = CreateAppService(repository);
 
     Assert.Null(typeof(CreateMutualRecognitionItemRequest).GetProperty("OrganizationCode"));
@@ -1208,60 +1214,25 @@ public sealed class Stage2WritePathTests
   }
 
   /// <summary>
-  /// 仓储层唯一约束冲突识别：异常链上带 SQLSTATE 23505 时翻译为重复配置异常，其它数据库错误必须继续向外传播。
+  /// 本用例读取的映射文件及其固定分组目录，相对 <c>server/Dy.MedicalRecognition.Repository</c>。
   /// </summary>
-  /// <remarks>
-  /// 用可控的数据映射器替身抛框架中立的数据库异常，覆盖异常链深度、非 23505 与没有 SQLSTATE 三种情况，
-  /// 使"唯一冲突被识别成重复配置"与"其它数据库错误不被误判"都有行为证据；
-  /// 真实数据库上的约束冲突结果属于需要真实库的运行面，不在本用例内验证。
-  /// </remarks>
-  [Fact]
-  public async Task Repository_translates_unique_violation_and_propagates_other_database_errors()
+  private static readonly Dictionary<string, string> SqlMapDirectories = new(StringComparer.Ordinal)
   {
-    MutualRecognitionItem configuration = new()
-    {
-      Id = Guid.NewGuid(),
-      OrganizationCode = TrustedOrganization,
-      StandardItemId = Guid.NewGuid(),
-      StandardProjectCode = "P1",
-      RecognitionDurationDays = ValidDurationDays,
-      IsValid = true,
-      OperId = TrustedOperId,
-      OperTime = CommandOperTime
-    };
+    ["MutualRecognitionItem.xml"] = "MedicalRecognitionReportAggregate",
+    ["MedicalStandardItem.xml"] = "MedicalRecognitionReportAggregate"
+  };
 
-    // 数据库异常包在与数据库无关的包装异常里，识别必须沿内部异常链找到它。
-    MedicalRecognitionReportRepository duplicateRepository = new()
-    {
-      DataMapper = new ScriptedExceptionDataMapper(new InvalidOperationException("框架包装异常", new ProbeDbException("23505")))
-    };
-    DuplicateMutualRecognitionItemException duplicate = await Assert.ThrowsAsync<DuplicateMutualRecognitionItemException>(
-      () => duplicateRepository.CreateMutualRecognitionItemAsync(configuration));
-    Assert.IsType<InvalidOperationException>(duplicate.InnerException);
-
-    // 其他 SQLSTATE 与没有 SQLSTATE 的数据库错误都按普通失败继续传播，不能被当成重复配置。
-    foreach (string? sqlState in new string?[] { "40001", null })
-    {
-      ScriptedExceptionDataMapper mapper = new(new ProbeDbException(sqlState));
-      MedicalRecognitionReportRepository repository = new() { DataMapper = mapper };
-
-      ProbeDbException error = await Assert.ThrowsAsync<ProbeDbException>(
-        () => repository.CreateMutualRecognitionItemAsync(configuration));
-
-      Assert.Equal(sqlState, error.SqlState);
-      Assert.Equal(1, mapper.InsertCalls);
-    }
-  }
-
-  /// <summary>定位仓储工程中的互认配置与标准目录 SqlMap 文件。</summary>
+  /// <summary>在映射文件的固定分组目录内定位 SqlMap 文件。</summary>
   /// <param name="fileName">SqlMap 文件名，例如 <c>MutualRecognitionItem.xml</c>。</param>
   /// <returns>该 SqlMap 文件的绝对路径。</returns>
-  /// <exception cref="FileNotFoundException">仓储工程中未找到该 SqlMap 文件时抛出。</exception>
-  private static string FindRepositorySqlMap(string fileName)
-  {
-    string candidate = Path.Combine(SourceSyntaxGuard.FindRepositoryRoot(), "server", "Dy.MedicalRecognition.Repository", "MedicalRecognitionReportAggregate", fileName);
-    return File.Exists(candidate) ? candidate : throw new FileNotFoundException($"未找到仓储 SqlMap '{fileName}'。");
-  }
+  /// <exception cref="InvalidOperationException">未冻结该文件的分组目录时抛出。</exception>
+  /// <exception cref="FileNotFoundException">冻结的分组目录内不存在该文件时抛出。</exception>
+  private static string FindRepositorySqlMap(string fileName) =>
+    SourceSyntaxGuard.FindRepositoryFile(
+      SqlMapDirectories.TryGetValue(fileName, out string? directory)
+        ? directory
+        : throw new InvalidOperationException($"未冻结映射文件 '{fileName}' 的分组目录。"),
+      fileName);
 
   /// <summary>
   /// 记录领域层登记事件的测试替身，用于断言哪些成功路径登记了事件、哪些幂等或失败路径没有登记。
@@ -1345,9 +1316,6 @@ public sealed class Stage2WritePathTests
     /// <summary>最后一次停用命令。</summary>
     public DisableMutualRecognitionItemCommand? LastDisableCommand { get; private set; }
 
-    /// <summary>为真时新增语句抛出仓储识别出的重复配置异常，用于校验领域层翻译。</summary>
-    public bool ThrowDuplicateOnCreate { get; set; }
-
     /// <summary>生成一个新的配置主键。</summary>
     /// <returns>新的主键标识。</returns>
     public Guid CreateGuid() => Guid.NewGuid();
@@ -1389,15 +1357,13 @@ public sealed class Stage2WritePathTests
           : null);
     }
 
-    /// <summary>插入一条互认配置，模拟影响行数与唯一冲突。</summary>
+    /// <summary>插入一条互认配置，模拟影响行数。</summary>
     /// <param name="mutualRecognitionItem">待插入配置。</param>
     /// <returns>受影响行数。</returns>
-    /// <exception cref="DuplicateMutualRecognitionItemException">用例要求模拟唯一约束冲突时抛出。</exception>
     public Task<int> CreateMutualRecognitionItemAsync(MutualRecognitionItem mutualRecognitionItem)
     {
       CreateCalls++;
       LastCreated = mutualRecognitionItem;
-      if (ThrowDuplicateOnCreate) throw new DuplicateMutualRecognitionItemException("互认项目配置与已有配置重复。", new InvalidOperationException("模拟数据库唯一约束冲突。"));
       if (ScriptedConfigurationWriteRows.Count > 0)
       {
         int rows = ScriptedConfigurationWriteRows.Dequeue();
@@ -1545,11 +1511,13 @@ public sealed class Stage2WritePathTests
     /// <returns>不返回结果。</returns>
     public Task<int> DisableMedicalStandardItemAsync(DisableMedicalStandardItemCommand disableMedicalStandardItemCommand) => throw new NotSupportedException(UnusedMember);
 
-    /// <summary>本测试未使用：按组织与标准项目编码读取互认配置（阶段 3 金额保存前提校验）。</summary>
+    /// <summary>按组织与标准项目编码读取互认配置，模拟新增配置的重复查重。</summary>
     /// <param name="organizationCode">组织编码。</param>
     /// <param name="standardProjectCode">标准项目编码。</param>
-    /// <returns>不返回结果。</returns>
-    public Task<MutualRecognitionItem?> GetMutualRecognitionItemByOrganizationAndProjectAsync(string organizationCode, string standardProjectCode) => throw new NotSupportedException(UnusedMember);
+    /// <returns>已存在的配置；不存在时返回 <see langword="null"/>。</returns>
+    public Task<MutualRecognitionItem?> GetMutualRecognitionItemByOrganizationAndProjectAsync(string organizationCode, string standardProjectCode) =>
+      Task.FromResult(Configurations.Values.SingleOrDefault(configuration =>
+        configuration.OrganizationCode == organizationCode && configuration.StandardProjectCode == standardProjectCode));
 
     /// <summary>本测试未使用：按四个业务键读取金额记录。</summary>
     /// <param name="organizationCode">组织编码。</param>
@@ -1575,12 +1543,6 @@ public sealed class Stage2WritePathTests
     /// <param name="identityDocumentNo">证件号码。</param>
     /// <returns>不返回结果。</returns>
     public Task<PlatformPatient?> GetPlatformPatientByDocumentAsync(string identityDocumentTypeCode, string identityDocumentNo) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>本测试未使用：并发撞键后复读平台患者。</summary>
-    /// <param name="identityDocumentTypeCode">证件类型代码。</param>
-    /// <param name="identityDocumentNo">证件号码。</param>
-    /// <returns>不返回结果。</returns>
-    public Task<(PlatformPatient? Patient, bool IsReadable)> TryGetPlatformPatientByDocumentAsync(string identityDocumentTypeCode, string identityDocumentNo) => throw new NotSupportedException(UnusedMember);
 
     /// <summary>本测试未使用：新增平台患者。</summary>
     /// <param name="platformPatient">平台患者实体。</param>
@@ -1671,308 +1633,4 @@ public sealed class Stage2WritePathTests
     private const string UnusedMember = "本测试未使用该仓储成员。";
   }
 
-  /// <summary>
-  /// 只驱动新增语句、并按用例脚本抛出指定异常的数据映射器替身，用于验证仓储对数据库异常的分类与传播。
-  /// </summary>
-  /// <remarks>未参与本用例的框架成员一律抛出 <see cref="NotSupportedException"/>，避免测试静默走过未被覆盖的读写路径。</remarks>
-  private sealed class ScriptedExceptionDataMapper : IDataMapper
-  {
-    /// <summary>新增语句要抛出的异常；为空时按新增成功返回 1 行。</summary>
-    private readonly Exception? insertFailure;
-
-    /// <summary>
-    /// 用新增语句要抛出的异常构造替身。
-    /// </summary>
-    /// <param name="insertFailure">新增语句要抛出的异常；为空表示新增成功。</param>
-    public ScriptedExceptionDataMapper(Exception? insertFailure = null) => this.insertFailure = insertFailure;
-
-    /// <summary>新增语句调用次数。</summary>
-    public int InsertCalls { get; private set; }
-
-    /// <summary>数据库类型标识；本用例只用新增语句。</summary>
-    /// <exception cref="NotSupportedException">本用例不读取数据库类型时抛出。</exception>
-    public DataBaseType DataBaseType => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>生成主键；本用例只用新增语句。</summary>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例不生成主键时抛出。</exception>
-    public Guid CreateGuid() => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>执行新增语句：记录调用次数后抛出脚本配置的异常，未配置异常时按写入 1 行成功返回。</summary>
-    /// <param name="entity">待新增实体。</param>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <param name="realSql">实际执行语句文本。</param>
-    /// <param name="triggerEntityEvent">是否触发实体事件。</param>
-    /// <typeparam name="TEntity">实体类型。</typeparam>
-    /// <returns>受影响行数。</returns>
-    public Task<int> InsertAsync<TEntity>(TEntity? entity, string? scope, string sqlId, string? realSql, bool? triggerEntityEvent)
-    {
-      InsertCalls++;
-      return insertFailure is null ? Task.FromResult(1) : Task.FromException<int>(insertFailure);
-    }
-
-    /// <summary>批量新增；本用例只用单条新增语句。</summary>
-    /// <param name="entities">待新增实体集合。</param>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <param name="realSql">实际执行语句文本。</param>
-    /// <param name="tableName">目标表名。</param>
-    /// <typeparam name="TEntity">实体类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<int> BulkInsertAsync<TEntity>(IEnumerable<TEntity> entities, string? scope, string sqlId, string? realSql, string? tableName) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>批量更新；本用例不用。</summary>
-    /// <param name="entities">待更新实体集合。</param>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <param name="realSql">实际执行语句文本。</param>
-    /// <typeparam name="TEntity">实体类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<int> BulkUpdateAsync<TEntity>(IEnumerable<TEntity> entities, string? scope, string sqlId, string? realSql) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>执行更新语句；本用例只用新增语句。</summary>
-    /// <param name="entity">待更新实体。</param>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <param name="realSql">实际执行语句文本。</param>
-    /// <param name="triggerEntityEvent">是否触发实体事件。</param>
-    /// <typeparam name="TEntity">实体类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<int> UpdateAsync<TEntity>(TEntity? entity, string? scope, string sqlId, string? realSql, bool? triggerEntityEvent) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>执行删除语句；本用例只用新增语句。</summary>
-    /// <param name="entity">待删除实体。</param>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <param name="realSql">实际执行语句文本。</param>
-    /// <param name="triggerEntityEvent">是否触发实体事件。</param>
-    /// <typeparam name="TEntity">实体类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<int> DeleteAsync<TEntity>(TEntity? entity, string? scope, string sqlId, string? realSql, bool? triggerEntityEvent) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按语句上下文执行；本用例只用新增语句。</summary>
-    /// <param name="requestContext">语句上下文。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public int Execute(NeatRequestContext requestContext) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按请求对象执行语句；本用例只用新增语句。</summary>
-    /// <param name="request">请求对象。</param>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <param name="realSql">实际执行语句文本。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<int> ExecuteAsync(object request, string? scope, string sqlId, string? realSql) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按语句上下文执行；本用例只用新增语句。</summary>
-    /// <param name="requestContext">语句上下文。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<int> ExecuteAsync(NeatRequestContext requestContext) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>取标量值；本用例不用。</summary>
-    /// <param name="requestContext">语句上下文。</param>
-    /// <typeparam name="T">标量类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public T ExecuteScalar<T>(NeatRequestContext requestContext) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按请求对象取标量值；本用例不用。</summary>
-    /// <param name="request">请求对象。</param>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <param name="realSql">实际执行语句文本。</param>
-    /// <typeparam name="TResult">标量类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<TResult> ExecuteScalarAsync<TResult>(object request, string? scope, string sqlId, string? realSql) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按语句上下文取标量值；本用例不用。</summary>
-    /// <param name="requestContext">语句上下文。</param>
-    /// <typeparam name="TResult">标量类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<TResult> ExecuteScalarAsync<TResult>(NeatRequestContext requestContext) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>查询结果集；本用例不用。</summary>
-    /// <param name="requestContext">语句上下文。</param>
-    /// <typeparam name="T">结果类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public IList<T> Query<T>(NeatRequestContext requestContext) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>查询结果集；本用例不用。</summary>
-    /// <param name="requestContext">语句上下文。</param>
-    /// <typeparam name="TResult">结果类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<IList<TResult>> QueryAsync<TResult>(NeatRequestContext requestContext) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按请求对象查询结果集；本用例不用。</summary>
-    /// <param name="request">请求对象。</param>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <param name="realSql">实际执行语句文本。</param>
-    /// <param name="pagination">分页条件。</param>
-    /// <typeparam name="TResult">结果类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<IList<TResult>> QueryAsync<TResult>(object? request, string? scope, string? sqlId, string? realSql, Pagination? pagination) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>查询单条结果；本用例不用。</summary>
-    /// <param name="requestContext">语句上下文。</param>
-    /// <typeparam name="T">结果类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public T QuerySingle<T>(NeatRequestContext requestContext) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按请求对象查询单条结果；本用例不用。</summary>
-    /// <param name="request">请求对象。</param>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <param name="realSql">实际执行语句文本。</param>
-    /// <typeparam name="TResult">结果类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<TResult> QuerySingleAsync<TResult>(object request, string? scope, string sqlId, string? realSql) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按语句上下文查询单条结果；本用例不用。</summary>
-    /// <param name="requestContext">语句上下文。</param>
-    /// <typeparam name="TResult">结果类型。</typeparam>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<TResult> QuerySingleAsync<TResult>(NeatRequestContext requestContext) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>取数据集；本用例不用。</summary>
-    /// <param name="requestContext">语句上下文。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public DataSet GetDataSet(NeatRequestContext requestContext) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按请求对象取数据集；本用例不用。</summary>
-    /// <param name="request">请求对象。</param>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <param name="realSql">实际执行语句文本。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<DataSet> GetDataSetAsync(object request, string? scope, string sqlId, string? realSql) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按语句上下文取数据集；本用例不用。</summary>
-    /// <param name="requestContext">语句上下文。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<DataSet> GetDataSetAsync(NeatRequestContext requestContext) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>取数据表；本用例不用。</summary>
-    /// <param name="requestContext">语句上下文。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public DataTable GetDataTable(NeatRequestContext requestContext) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按请求对象取数据表；本用例不用。</summary>
-    /// <param name="request">请求对象。</param>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <param name="realSql">实际执行语句文本。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<DataTable> GetDataTableAsync(object request, string? scope, string sqlId, string? realSql) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按语句上下文取数据表；本用例不用。</summary>
-    /// <param name="requestContext">语句上下文。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例只用单条新增语句时抛出。</exception>
-    public Task<DataTable> GetDataTableAsync(NeatRequestContext requestContext) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>登记语句；本用例只验证新增语句的执行结果。</summary>
-    /// <param name="content">语句内容。</param>
-    /// <param name="label">语句标签。</param>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <exception cref="NotSupportedException">本用例不登记语句时抛出。</exception>
-    public void AddStatement(string content, string? label, string? scope, string? sqlId) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>删除已登记语句；本用例不登记语句。</summary>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <exception cref="NotSupportedException">本用例不登记语句时抛出。</exception>
-    public void DeleteStatement(string? scope, string? sqlId) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>判断语句是否已登记；本用例只验证仓储对异常的翻译。</summary>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例不查询语句登记状态时抛出。</exception>
-    public bool IsStatementExist(string? scope, string sqlId) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>取语句内容；本用例不用。</summary>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例不读取语句内容时抛出。</exception>
-    public string GetStatementContent(string? scope, string? sqlId) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>取已登记语句清单；本用例不用。</summary>
-    /// <param name="scope">语句作用域。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例不读取语句清单时抛出。</exception>
-    public IEnumerable<CodeNameDto> GetLabeledStatements(string? scope) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>取语句带标签参数；本用例不用。</summary>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="sqlId">语句标识。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例不读取语句参数时抛出。</exception>
-    public IEnumerable<CodeNameDto> GetTagedParameters(string? scope, string sqlId) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>切换语句上下文；本用例按显式作用域调用，不使用共享上下文。</summary>
-    /// <param name="scope">语句作用域。</param>
-    /// <param name="triggerEntityEvent">是否触发实体事件。</param>
-    /// <exception cref="NotSupportedException">本用例不切换语句上下文时抛出。</exception>
-    public void SetContext(string? scope, bool? triggerEntityEvent) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>开启事务；本用例只用单条新增语句，由仓储自身负责调用。</summary>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例不开启事务时抛出。</exception>
-    public System.Data.Common.DbTransaction BeginTransaction() => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>按隔离级别开启事务；本用例只用单条新增语句。</summary>
-    /// <param name="isolationLevel">事务隔离级别。</param>
-    /// <returns>不返回结果。</returns>
-    /// <exception cref="NotSupportedException">本用例不开启事务时抛出。</exception>
-    public System.Data.Common.DbTransaction BeginTransaction(IsolationLevel isolationLevel) => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>提交事务；本用例只用单条新增语句。</summary>
-    /// <exception cref="NotSupportedException">本用例不提交事务时抛出。</exception>
-    public void CommitTransaction() => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>回滚事务；本用例只用单条新增语句。</summary>
-    /// <exception cref="NotSupportedException">本用例不回滚事务时抛出。</exception>
-    public void RollbackTransaction() => throw new NotSupportedException(UnusedMember);
-
-    /// <summary>未使用的数据映射器成员统一提示，避免测试静默走过未被覆盖的写入路径。</summary>
-    private const string UnusedMember = "本测试未使用该数据映射器成员。";
-  }
-
-  /// <summary>
-  /// 测试用的数据库异常替身：SQLSTATE 可配置，用于驱动仓储的唯一约束冲突识别。
-  /// </summary>
-  private sealed class ProbeDbException : System.Data.Common.DbException
-  {
-    /// <summary>
-    /// 用指定 SQLSTATE 构造替身。
-    /// </summary>
-    /// <param name="sqlState">数据库错误状态码；传 <see langword="null"/> 表示异常没有状态码。</param>
-    public ProbeDbException(string? sqlState) => SqlState = sqlState;
-
-    /// <summary>数据库错误状态码；未提供时为 <see langword="null"/>。</summary>
-    public override string? SqlState { get; }
-  }
 }

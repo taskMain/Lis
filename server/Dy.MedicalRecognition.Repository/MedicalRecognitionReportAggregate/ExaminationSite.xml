@@ -25,7 +25,7 @@
       功能：新增一条检查部位。
       结果：写入标识、检查项目归属、来源部位编码、部位名称与操作字段；部位随所属项目保存，不在报告中重复归属。
     -->
-    <Statement Id="InsertExaminationSite">
+    <Statement Id="CreateExaminationSite">
       insert into mrec_examination_site (
         id, examination_item_id, source_site_code, site_name, oper_id, oper_time
       ) values ($Id, $ExaminationItemId, $SourceSiteCode, $SiteName, $OperId, $OperTime)

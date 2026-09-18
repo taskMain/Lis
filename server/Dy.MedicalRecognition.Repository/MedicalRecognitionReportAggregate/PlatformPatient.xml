@@ -29,7 +29,7 @@
       结果：写入患者标识、证件键、姓名、性别代码、出生日期与操作字段；核心身份列都写规范形式后保存；
       并发首次解析同一证件时由两列唯一索引拒绝，调用方复读一次后判定继续追加还是按身份冲突拒绝。
     -->
-    <Statement Id="InsertPlatformPatient">
+    <Statement Id="CreatePlatformPatient">
       insert into mrec_platform_patient (
         id,                          <!-- 平台患者标识（主键），由仓储在插入前生成 -->
         identity_document_type_code, <!-- 证件类型代码，规范形式 -->

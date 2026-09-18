@@ -1,6 +1,7 @@
 using System.Reflection;
 using Dy.Base.Application.Contracts.OrganizationAggregate;
-using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.Pagination;
+using Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
 using Dy.MedicalRecognition.Application.Queries;
 using Dy.MedicalRecognition.Domain.Queries;
 using Dy.MedicalRecognition.Domain.Share.Enums;

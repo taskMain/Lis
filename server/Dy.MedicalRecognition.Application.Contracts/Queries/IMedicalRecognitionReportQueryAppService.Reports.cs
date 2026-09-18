@@ -1,4 +1,6 @@
 using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.Pagination;
+using Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
 
 namespace Dy.MedicalRecognition.Application.Contracts.Queries;
 

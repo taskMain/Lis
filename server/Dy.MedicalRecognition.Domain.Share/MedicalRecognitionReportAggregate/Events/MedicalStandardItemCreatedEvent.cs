@@ -1,7 +1,7 @@
 using Dy.Core.Abstractions.Domain;
-using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate;
 
-namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Events;
+namespace Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Events;
 
 /// <summary>
 /// 标准项目已创建。

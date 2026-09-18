@@ -87,7 +87,7 @@
       select <Include RefId="MutualRecognitionItemColumns" /> from mrec_mutual_recognition_item where id = $Id and organization_code = $OrganizationCode
     </Statement>
     <!--
-      功能：按组织编码与标准项目编码读取单条互认项目配置，供互认项目金额保存前判断"当前组织已建立该标准项目的配置"这一保存前提。
+      功能：按组织编码与标准项目编码读取单条互认项目配置，供新增配置写入前查重（该组织是否已配置该标准项目），以及互认项目金额保存前判断"当前组织已建立该标准项目的配置"这一保存前提。
       结果：命中时返回一行配置字段清单，未命中时返回空结果；不筛选启用状态，因此已停用配置同样命中，
       标准目录或配置停用都不阻断金额维护；组织与标准项目编码上的唯一索引保证至多命中一行。
     -->

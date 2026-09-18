@@ -1,10 +1,12 @@
 using Dy.Base.Application.Contracts.OrganizationAggregate;
 using Dy.Base.Application.Contracts.UserAggregate;
 using Dy.Core.Abstractions.Http;
-using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
+using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
 using Dy.MedicalRecognition.Application.Queries;
 using Dy.MedicalRecognition.Application.Validation;
 using Dy.MedicalRecognition.Domain.Queries;
+using Dy.MedicalRecognition.Domain.Queries.Ports;
 using Dy.MedicalRecognition.Domain.Share.Enums;
 using Xunit;
 

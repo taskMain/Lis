@@ -57,7 +57,7 @@
       LOINC 编码、单位、参考范围、检测方法与仪器、展示序号、异常与危急值标志、收费编码、检测人与操作字段；
       互认项目编码按请求原样保存，缺失或不可用都不影响接收。
     -->
-    <Statement Id="InsertLaboratoryResultItem" ParameterMap="LaboratoryResultItemInsertParameters">
+    <Statement Id="CreateLaboratoryResultItem" ParameterMap="LaboratoryResultItemInsertParameters">
       insert into mrec_laboratory_result_item (
         id, report_version_id, source_detail_key, source_project_name, source_project_code, standard_project_code,
         source_result_text, result_type, loinc_code, unit, reference_range, testing_method,

@@ -132,8 +132,8 @@ public partial interface IMedicalRecognitionReportAppService : IApplicationServi
   /// <exception cref="ValidationException">标准项目编码缺失、空串或纯空白，或可互认时间天数不是正整数。</exception>
   /// <exception cref="InvalidOperationException">
   /// 登录令牌的组织声明取不到组织编码、用户标识不能解析为非空 Guid，或按请求提交的编码读不到标准项目时抛出；
-  /// 标准项目、所属分类或所属分组不存在或已停用，该组织已配置此标准项目（含已停用配置占用的配置），
-  /// 以及新增配置影响的行数不为 1（含 0 行）时同样抛出。
+  /// 标准项目、所属分类或所属分组不存在或已停用，或该组织已配置此标准项目（含已停用配置占用的配置）时同样抛出。
+  /// 并发下两个请求可能同时通过查重，此时由唯一索引拒绝，数据库异常不翻译为业务拒绝。
   /// </exception>
   Task<bool> CreateMutualRecognitionItemAsync(CreateMutualRecognitionItemRequest request);
 

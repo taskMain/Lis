@@ -281,53 +281,58 @@ public sealed class Stage4SqlMapTests
 
   /// <summary>
   /// 每个映射文件的作用域名与语句标识清单，顺序与文件内声明顺序一致；
-  /// 这些标识被仓储调用点逐条显式引用，拼写与集合都必须逐字冻结。
+  /// 写入语句标识由仓储方法名推导（方法名去掉 <c>Async</c> 后缀），因此必须与对应方法名逐字相同；
+  /// 读语句标识只在本作用域内被查询语句使用，保留其检索键语义后缀。拼写与集合都必须逐字冻结。
   /// </summary>
   private static readonly (string MapFile, string Scope, string[] StatementIds)[] ExpectedMaps =
   [
     ("PlatformPatient.xml", "PlatformPatient",
-      ["PlatformPatientColumns", "GetPlatformPatientByDocument", "InsertPlatformPatient"]),
+      ["PlatformPatientColumns", "GetPlatformPatientByDocument", "CreatePlatformPatient"]),
     ("MedicalRecognitionReport.xml", "MedicalRecognitionReport",
       [
         "MedicalRecognitionReportColumns", "GetMedicalRecognitionReportByBusinessKey", "GetMedicalRecognitionReportById",
-        "InsertMedicalRecognitionReport", "UpdateMedicalRecognitionReportCurrentVersion", "VoidMedicalRecognitionReport"
+        "CreateMedicalRecognitionReport", "UpdateMedicalRecognitionReportCurrentVersion", "VoidMedicalRecognitionReport"
       ]),
     ("MedicalReportVersion.xml", "MedicalReportVersion",
       [
         "MedicalReportVersionColumns", "GetMedicalReportMaxVersionNumber", "GetMedicalReportVersionById",
-        "QueryMedicalReportVersionList", "InsertMedicalReportVersion"
+        "QueryMedicalReportVersionList", "CreateMedicalReportVersion"
       ]),
     ("LaboratoryReportContent.xml", "LaboratoryReportContent",
-      ["LaboratoryReportContentColumns", "GetLaboratoryReportContentByVersion", "InsertLaboratoryReportContent"]),
+      ["LaboratoryReportContentColumns", "GetLaboratoryReportContentByVersion", "CreateLaboratoryReportContent"]),
     ("LaboratoryResultItem.xml", "LaboratoryResultItem",
-      ["LaboratoryResultItemColumns", "QueryLaboratoryResultItemsByVersion", "InsertLaboratoryResultItem"]),
+      ["LaboratoryResultItemColumns", "QueryLaboratoryResultItemsByVersion", "CreateLaboratoryResultItem"]),
     ("LaboratoryBacteriaResult.xml", "LaboratoryBacteriaResult",
-      ["LaboratoryBacteriaResultColumns", "QueryLaboratoryBacteriaResultsByVersion", "InsertLaboratoryBacteriaResult"]),
+      ["LaboratoryBacteriaResultColumns", "QueryLaboratoryBacteriaResultsByVersion", "CreateLaboratoryBacteriaResult"]),
     ("LaboratoryAntimicrobialSusceptibility.xml", "LaboratoryAntimicrobialSusceptibility",
       [
         "LaboratoryAntimicrobialSusceptibilityColumns", "QueryLaboratoryAntimicrobialSusceptibilitiesByBacteria",
-        "InsertLaboratoryAntimicrobialSusceptibility"
+        "CreateLaboratoryAntimicrobialSusceptibility"
       ]),
     ("ExaminationReportContent.xml", "ExaminationReportContent",
-      ["ExaminationReportContentColumns", "GetExaminationReportContentByVersion", "InsertExaminationReportContent"]),
+      ["ExaminationReportContentColumns", "GetExaminationReportContentByVersion", "CreateExaminationReportContent"]),
     ("ExaminationItem.xml", "ExaminationItem",
-      ["ExaminationItemColumns", "QueryExaminationItemsByVersion", "InsertExaminationItem"]),
+      ["ExaminationItemColumns", "QueryExaminationItemsByVersion", "CreateExaminationItem"]),
     ("ExaminationSite.xml", "ExaminationSite",
-      ["ExaminationSiteColumns", "QueryExaminationSitesByItem", "InsertExaminationSite"])
+      ["ExaminationSiteColumns", "QueryExaminationSitesByItem", "CreateExaminationSite"])
   ];
 
   /// <summary>
   /// 查询侧映射文件的完整语句标识清单，按文件内声明顺序：阶段 1 至阶段 3 已交付的六条在前，阶段 4 新增的十四条在后。
   /// </summary>
+  /// <remarks>
+  /// 阶段 4 新增的七条读语句标识由方法名推导：调用方不再显式传 <c>sqlId</c>，框架按调用方法名去掉
+  /// <c>Async</c> 后缀定位语句，因此标识必须与仓储方法名逐字相同，不能保留 <c>ByVersion</c> 一类后缀。
+  /// </remarks>
   private static readonly string[] ExpectedQueryStatementIds =
   [
     "QueryMedicalStandardCategoryList", "QueryMedicalStandardGroupList", "QueryMedicalStandardItemList",
     "QueryEffectiveMedicalStandardCatalog", "QueryRecognitionProjectConfigurationList", "QueryRecognitionAmountList",
     "CountMedicalReportList", "QueryMedicalReportList", "QueryMedicalReportVersionList", "GetMedicalReportVersionDetail",
     "GetMedicalReportScope", "GetMedicalReportVersionCommon", "GetMedicalReportVersionFile",
-    "GetLaboratoryReportContentByVersion", "QueryLaboratoryResultItemsByVersion", "QueryLaboratoryBacteriaResultsByVersion",
-    "QueryLaboratorySusceptibilitiesByBacteria", "GetExaminationReportContentByVersion", "QueryExaminationItemsByVersion",
-    "QueryExaminationSitesByItem"
+    "GetLaboratoryReportContent", "QueryLaboratoryResultItems", "QueryLaboratoryBacteriaResults",
+    "QueryLaboratorySusceptibilities", "GetExaminationReportContent", "QueryExaminationItems",
+    "QueryExaminationSites"
   ];
   /// <summary>
   /// 共享 SQL 的方言特征：出现即视为违反数据库 Provider 中立约定。
@@ -629,18 +634,18 @@ public sealed class Stage4SqlMapTests
     string reportMap = File.ReadAllText(FindRepositorySqlMap("MedicalRecognitionReport.xml"));
     Dictionary<string, string> reportStatements = LoadStatements(reportMap);
 
-    Assert.Contains("$OperTime", reportStatements["InsertMedicalRecognitionReport"], StringComparison.Ordinal);
+    Assert.Contains("$OperTime", reportStatements["CreateMedicalRecognitionReport"], StringComparison.Ordinal);
     Assert.Contains("$OperTime", reportStatements["UpdateMedicalRecognitionReportCurrentVersion"], StringComparison.Ordinal);
     Assert.Contains("$OperTime", reportStatements["VoidMedicalRecognitionReport"], StringComparison.Ordinal);
     Assert.DoesNotContain("current_timestamp", reportMap, StringComparison.OrdinalIgnoreCase);
 
     // 新增报告的状态由常量决定，作废语句按原有效状态条件更新，使影响行数表达并发结果。
-    Assert.Contains("$Status", reportStatements["InsertMedicalRecognitionReport"], StringComparison.Ordinal);
+    Assert.Contains("$Status", reportStatements["CreateMedicalRecognitionReport"], StringComparison.Ordinal);
     Assert.Contains("where id = $Id and status = 1", reportStatements["VoidMedicalRecognitionReport"], StringComparison.Ordinal);
 
     string versionMap = File.ReadAllText(FindRepositorySqlMap("MedicalReportVersion.xml"));
     Dictionary<string, string> versionStatements = LoadStatements(versionMap);
-    Assert.Contains("$OperTime", versionStatements["InsertMedicalReportVersion"], StringComparison.Ordinal);
+    Assert.Contains("$OperTime", versionStatements["CreateMedicalReportVersion"], StringComparison.Ordinal);
     Assert.DoesNotContain("current_timestamp", versionMap, StringComparison.OrdinalIgnoreCase);
 
     // 变异证据：把作废语句的原状态条件去掉后，同一条判据必须判为不成立。
@@ -722,31 +727,26 @@ public sealed class Stage4SqlMapTests
     [.. StatementElements(document).Select(element => (string)element.Attribute("Id")!)];
 
   /// <summary>
-  /// 在仓储工程内按文件名定位 SqlMap 或建表脚本。
+  /// 在 <c>Scripts</c> 目录内定位建表脚本。
   /// </summary>
-  /// <param name="fileName">文件名。</param>
-  /// <returns>该文件的绝对路径。</returns>
-  /// <exception cref="FileNotFoundException">文件不存在时抛出。</exception>
-  private static string FindRepositoryFile(string fileName)
-  {
-    string root = SourceSyntaxGuard.FindRepositoryRoot();
-    string scriptsPath = Path.Combine(root, "server", "Dy.MedicalRecognition.Repository", "Scripts", fileName);
-    if (File.Exists(scriptsPath)) return scriptsPath;
-
-    string aggregatePath = Path.Combine(root, "server", "Dy.MedicalRecognition.Repository", "MedicalRecognitionReportAggregate", fileName);
-    if (File.Exists(aggregatePath)) return aggregatePath;
-
-    string queriesPath = Path.Combine(root, "server", "Dy.MedicalRecognition.Repository", "Queries", fileName);
-    if (File.Exists(queriesPath)) return queriesPath;
-
-    throw new FileNotFoundException($"未找到仓储文件 '{fileName}'。");
-  }
+  /// <param name="fileName">建表脚本文件名，例如 <c>mrec_platform_patient.sql</c>。</param>
+  /// <returns>该脚本的绝对路径。</returns>
+  /// <exception cref="FileNotFoundException">Scripts 目录内不存在该脚本时抛出。</exception>
+  private static string FindRepositoryFile(string fileName) =>
+    SourceSyntaxGuard.FindRepositoryFile("Scripts", fileName);
 
   /// <summary>
-  /// 定位阶段 4 的映射文件；十个表文件位于聚合目录，查询文件位于查询目录。
+  /// 在映射文件的固定目录内定位阶段 4 的映射文件。
   /// </summary>
   /// <param name="fileName">映射文件名。</param>
   /// <returns>该映射文件的绝对路径。</returns>
-  /// <exception cref="FileNotFoundException">两个候选目录都不存在该文件时抛出。</exception>
-  private static string FindRepositorySqlMap(string fileName) => FindRepositoryFile(fileName);
+  /// <remarks>
+  /// 映射文件的物理位置受宿主默认资源模式约束：程序集根命名空间下一层目录内的直接文件才会被注册，
+  /// 因此报告表映射与查询映射分别固定在 <c>MedicalRecognitionReportAggregate</c> 与 <c>Queries</c>。
+  /// </remarks>
+  /// <exception cref="FileNotFoundException">固定目录内不存在该文件时抛出。</exception>
+  private static string FindRepositorySqlMap(string fileName) =>
+    SourceSyntaxGuard.FindRepositoryFile(
+      fileName == "MedicalRecognitionReportQuery.xml" ? "Queries" : "MedicalRecognitionReportAggregate",
+      fileName);
 }

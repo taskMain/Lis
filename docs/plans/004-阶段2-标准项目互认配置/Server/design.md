@@ -62,8 +62,7 @@
 | `MutualRecognitionItem` | 核对 Entity | D/Aggregate | Manager 保存配置和操作字段 | 复制目录展示资料 |
 | `MedicalRecognitionReportManager` | 修改既有 Manager | D/Aggregate | 目录有效性、归属、状态、影响行数、事件登记 | 控制事务、公共 DTO |
 | `IMedicalRecognitionReportRepository` | 扩展既有仓储接口 | D/Aggregate | AppService 必要目录读取、Manager 配置读取和写入 | Provider 类型 |
-| `MedicalRecognitionReportRepository` | 修改既有仓储 | R/Aggregate | 实现上述接口、条件更新返回行数、唯一冲突识别 | 决定是否允许启用 |
-| `DuplicateMutualRecognitionItemException` | 新增异常类型 | D/Aggregate | 仓储识别到"组织编码 + 标准项目编码"唯一约束冲突时抛出，Manager 捕获并翻译为重复配置业务拒绝 | 承载面向用户的提示文案、充当公共契约返回值、引入继承体系或工厂 |
+| `MedicalRecognitionReportRepository` | 修改既有仓储 | R/Aggregate | 实现上述接口、条件更新返回行数、并发冲突由唯一索引兜底 | 决定是否允许启用 |
 | `IMedicalRecognitionReportQueryRepository` | 扩展既有查询仓储接口 | D/Queries | QueryAppService 获取组织过滤后的投影 | 公共 ReadModel、授权判断 |
 | `MedicalRecognitionReportQueryRepository` | 扩展既有查询仓储 | R/Queries | SQL 关联、过滤、排序、返回内部投影 | 领域写入 |
 | `RecognitionProjectConfigurationListItem` | 新增内部投影 | D/Queries/RecognitionProjectConfigurationListItem.cs | 仓储返回配置字段及目录三层状态，供 Application 映射 | 充当公共契约 |

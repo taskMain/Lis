@@ -41,7 +41,7 @@
       来源诊断、实际检查时间、检查医生、影像状态与调阅地址、检查方法、设备与操作字段；
       影像状态未提供时按未知写入，调阅地址按条件写入空值或来源值。
     -->
-    <Statement Id="InsertExaminationReportContent">
+    <Statement Id="CreateExaminationReportContent">
       insert into mrec_examination_report_content (
         id, report_version_id, source_examination_type_code, source_examination_type_name, report_remark,
         overall_abnormal_flag, findings, conclusion, condition_description, examination_purpose,

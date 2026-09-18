@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
-using Dy.MedicalRecognition.Application.Contracts.Queries;
+using Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
 
 namespace Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate;
 
