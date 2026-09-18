@@ -9,10 +9,10 @@ using Dy.MedicalRecognition.Domain.Queries;
 namespace Dy.MedicalRecognition.Application.Queries;
 
 /// <summary>
-/// 标准项目目录、互认项目配置与互认项目金额只读查询的应用服务实现。
+/// 标准项目目录、互认项目配置、互认项目金额与报告管理端只读查询的应用服务实现。
 /// </summary>
 /// <remarks>全部查询都只筛选与投影，不修改数据，也不判断业务状态；查询不产生写入、审计事件或消息。</remarks>
-public sealed class MedicalRecognitionReportQueryAppService : ApplicationService, IMedicalRecognitionReportQueryAppService
+public sealed partial class MedicalRecognitionReportQueryAppService : ApplicationService, IMedicalRecognitionReportQueryAppService
 {
   /// <summary>
   /// 标准项目目录的只读查询端口。
@@ -161,8 +161,8 @@ public sealed class MedicalRecognitionReportQueryAppService : ApplicationService
   {
     MedicalRecognitionRequestValidator.Validate(request);
 
-    OrganizationPathResolver.OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
-      [new OrganizationPathResolver.OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode)],
+    OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
+      [new OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode)],
       "业务拒绝：组织不存在或已停用。",
       "业务拒绝：医院不存在、已停用或不属于所选组织。",
       "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
@@ -193,12 +193,12 @@ public sealed class MedicalRecognitionReportQueryAppService : ApplicationService
   public async Task<IEnumerable<RecognitionAmountReadModel>> QueryBranchRecognitionAmountListAsync(BranchRecognitionAmountListQueryRequest request)
   {
     // 可信组织与医院的解析先于公共请求校验：可信范围不成立时不需要、也不得读取任何业务数据。
-    TrustedScopeResolver.TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
+    TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
       HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
     MedicalRecognitionRequestValidator.Validate(request);
 
-    OrganizationPathResolver.OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
-      [new OrganizationPathResolver.OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, request.BranchCode)],
+    OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
+      [new OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, request.BranchCode)],
       "业务拒绝：组织不存在或已停用。",
       "业务拒绝：医院不存在、已停用或不属于所选组织。",
       "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
@@ -320,7 +320,7 @@ public sealed class MedicalRecognitionReportQueryAppService : ApplicationService
   /// <param name="item">查询端口返回的金额行投影，含当前金额与标准目录三层状态。</param>
   /// <param name="path">已校验通过的组织路径，提供组织、医院与院区名称。</param>
   /// <returns>金额列表只读模型。</returns>
-  private static RecognitionAmountReadModel Map(RecognitionAmountListItem item, OrganizationPathResolver.OrganizationPath path) => new()
+  private static RecognitionAmountReadModel Map(RecognitionAmountListItem item, OrganizationPath path) => new()
   {
     StandardProjectCode = item.StandardProjectCode,
     StandardProjectName = item.StandardItemName,

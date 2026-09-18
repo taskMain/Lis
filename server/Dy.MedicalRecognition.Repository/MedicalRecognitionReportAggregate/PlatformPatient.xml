@@ -1,12 +1,45 @@
-<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+<SqlMap Scope="PlatformPatient" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义平台患者的通用查询字段清单，供按证件键读取语句复用。
+      结果：输出患者身份五列与操作审计字段；证件类型代码与证件号码存规范形式，报告版本表另按来源原值保存。
+    -->
     <Statement Id="PlatformPatientColumns">
-      id, identity_document_type_code, identity_document_no, patient_name, patient_gender_code, patient_birth_date, oper_id, oper_time
+      id,                          <!-- 平台患者标识（主键） -->
+      identity_document_type_code, <!-- 证件类型代码，规范形式 -->
+      identity_document_no,        <!-- 证件号码，规范形式（去首尾空白并统一大写） -->
+      patient_name,                <!-- 患者姓名，规范形式 -->
+      patient_gender_code,         <!-- 患者性别代码 -->
+      patient_birth_date,          <!-- 患者出生日期 -->
+      oper_id,                     <!-- 操作人标识 -->
+      oper_time                    <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllPlatformPatient">
-      select
-      <Include RefId="PlatformPatientColumns" />
-      from platform_patient
+    <!--
+      功能：按证件类型代码与证件号码读取平台患者，供完整报告提交时判定新建患者还是命中既有患者。
+      结果：命中时返回一行患者字段清单，未命中时返回空结果；两列上的唯一索引保证至多命中一行。
+      调用方传入的两个值都已按规范形式处理，因此大小写或首尾空白差异不会产生第二个患者。
+    -->
+    <Statement Id="GetPlatformPatientByDocument">
+      select <Include RefId="PlatformPatientColumns" /> from mrec_platform_patient
+      <!-- 证件键定位：证件类型代码与证件号码同时相等即命中 -->
+      where identity_document_type_code = $IdentityDocumentTypeCode and identity_document_no = $IdentityDocumentNo
+    </Statement>
+    <!--
+      功能：新增一个平台患者，把证件键与核心身份字段一次写入。
+      结果：写入患者标识、证件键、姓名、性别代码、出生日期与操作字段；核心身份列都写规范形式后保存；
+      并发首次解析同一证件时由两列唯一索引拒绝，调用方复读一次后判定继续追加还是按身份冲突拒绝。
+    -->
+    <Statement Id="InsertPlatformPatient">
+      insert into mrec_platform_patient (
+        id,                          <!-- 平台患者标识（主键），由仓储在插入前生成 -->
+        identity_document_type_code, <!-- 证件类型代码，规范形式 -->
+        identity_document_no,        <!-- 证件号码，规范形式（去首尾空白并统一大写） -->
+        patient_name,                <!-- 患者姓名，规范形式 -->
+        patient_gender_code,         <!-- 患者性别代码 -->
+        patient_birth_date,          <!-- 患者出生日期 -->
+        oper_id,                     <!-- 操作人标识 -->
+        oper_time                    <!-- 操作时间，取命令携带的服务端当前时间 -->
+      ) values ($Id, $IdentityDocumentTypeCode, $IdentityDocumentNo, $PatientName, $PatientGenderCode, $PatientBirthDate, $OperId, $OperTime)
     </Statement>
   </Statements>
 </SqlMap>

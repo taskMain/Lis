@@ -28,7 +28,13 @@ public sealed class SourceGuardReuseTests
     // 阶段 3 的金额写入用例按语法节点判定写入路径不含累加运算，因此登记为共享语法工具的消费方。
     "Stage3WritePathTests.cs",
     // 阶段 3 的金额查询用例按语法节点判定两个入口先校验公共请求，因此同样登记为共享语法工具的消费方。
-    "Stage3QueryTests.cs"
+    "Stage3QueryTests.cs",
+    // 阶段 4 的映射守卫按语法节点核对建表脚本与映射文件，登记为共享语法工具的消费方。
+    "Stage4SqlMapTests.cs",
+    // 阶段 4 的端点清单守卫按语法节点核对控制器路由与动作特性，登记为共享语法工具的消费方。
+    "Stage4EndpointTests.cs",
+    // 阶段 4 的实现约束守卫按语法节点核对数据访问调用点与禁止类型，登记为共享语法工具的消费方。
+    "Stage4ConstraintTests.cs"
   ];
 
   /// <summary>测试工程内不得重复声明的方法名：这两份私有实现历史上各复制过一次。</summary>

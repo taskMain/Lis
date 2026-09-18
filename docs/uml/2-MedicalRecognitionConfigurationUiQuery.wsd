@@ -202,9 +202,15 @@ ReadModel('MedicalReportListReadModel')[
     组织编码(OrganizationCode String)
     医院编码(HospitalCode String)
     院区编码(BranchCode String)
+    组织名称(OrganizationName String)
+    医院名称(HospitalName String)
+    院区名称(BranchName String)
     报告类型(ReportType MedicalReportType)
     报告单号(ReportNo String)
     报告时间(ReportTime DateTime)
+    当前版本序号(CurrentVersionSequence Integer)
+    患者姓名(PatientName String)
+    证件号码(IdentityDocumentNo String)
     生命周期状态(Status MedicalReportLifecycleStatus)
 ]
 Query('QueryMedicalReportList')[
@@ -227,7 +233,11 @@ ReadModel('MedicalReportVersionListReadModel')[
     平台内部版本序号(VersionSequence Integer)
     源端报告修改时间(SourceModifiedTime DateTime)
     平台接收时间(PlatformReceivedTime DateTime)
-    报告责任人员(ResponsibleStaff Text)
+    报告医生名称(ReportDoctorName String)
+    审核医生名称(ReviewDoctorName String)
+    检验人名称(InspectorName String?)
+    明细检测人(DetailInspectors String?)
+    检查医生名称(ExaminerName String?)
     来源报告备注(SourceReportRemark Text)
     PDF文件名(PdfFileName String)
     是否当前有效版本(IsCurrentVersion Boolean)
@@ -248,7 +258,11 @@ ReadModel('MedicalReportVersionDetailQueryReadModel')[
     平台内部版本序号(VersionSequence Integer)
     源端报告修改时间(SourceModifiedTime DateTime)
     平台接收时间(PlatformReceivedTime DateTime)
-    报告责任人员(ResponsibleStaff Text)
+    报告医生名称(ReportDoctorName String)
+    审核医生名称(ReviewDoctorName String)
+    检验人名称(InspectorName String?)
+    明细检测人(DetailInspectors String?)
+    检查医生名称(ExaminerName String?)
     来源报告备注(SourceReportRemark Text)
     报告内容(Content MedicalReportVersionContentReadModel)
     PDF文件(File MedicalReportVersionPdfQueryReadModel)
@@ -425,9 +439,7 @@ Query('GetMedicalReportVersionDetail')[
 ReadModel('MedicalReportVersionPdfQueryReadModel')[
     报告版本PDF
     --属性--
-    文件标识(FileId String)
     文件名(FileName String)
-    PDF下载入口(PdfDownloadUrl String)
 ]
 Query('GetMedicalReportVersionPdf')[
     获取报告版本PDF
@@ -437,6 +449,16 @@ Query('GetMedicalReportVersionPdf')[
 ]
 note right of EffectiveMedicalStandardCatalogReadModel
   ItemTypes、Categories、Groups、Items 均表示层级集合。
+end note
+note right of MedicalReportVersionListReadModel
+  报告医生名称与审核医生名称在来源提供时返回。
+  检验版本返回检验人名称与明细检测人，检查版本返回检查医生名称，另一类的字段无业务值。
+  人员信息不做字符串拼接、不做优先级取值，各版本只返回自身提供的人员事实。
+end note
+note right of MedicalReportVersionDetailQueryReadModel
+  报告医生名称与审核医生名称在来源提供时返回。
+  检验版本返回检验人名称与明细检测人，检查版本返回检查医生名称，另一类的字段无业务值。
+  人员信息不做字符串拼接、不做优先级取值，各版本只返回自身提供的人员事实。
 end note
 note right of MedicalReportVersionContentReadModel
   LaboratoryContent 与 ExaminationContent 按报告类型二选一。
@@ -457,7 +479,7 @@ note right of RecognitionAmountManagementModule
   列表不返回组织编码、医院编码、院区编码，也不返回最后修改时间和最后修改人。
 end note
 note right of MedicalReportManagementModule
-  源端报告修改时间、报告责任人员和来源报告备注在来源未提供时无业务值。
+  源端报告修改时间、报告医生名称、审核医生名称、检验人名称、明细检测人、检查医生名称和来源报告备注在来源未提供时无业务值。
 end note
 
 PlatformAdministrator --> MedicalRecognitionConfigurationModule

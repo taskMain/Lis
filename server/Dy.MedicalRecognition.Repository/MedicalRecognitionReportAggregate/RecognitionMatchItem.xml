@@ -1,4 +1,4 @@
-<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+<SqlMap Scope="RecognitionMatchItem" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
     <Statement Id="RecognitionMatchItemColumns">
       id, recognition_match_record_id, item_type, standard_project_code, report_id, report_version_id, oper_id, oper_time

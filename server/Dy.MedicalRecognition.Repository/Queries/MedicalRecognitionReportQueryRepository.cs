@@ -6,13 +6,13 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Dy.MedicalRecognition.Repository.Queries;
 
 /// <summary>
-/// 标准项目目录与互认项目配置的只读查询映射实现。
+/// 标准项目目录、互认项目配置、互认项目金额与报告管理端的只读查询映射实现。
 /// </summary>
 /// <remarks>
 /// 全部查询都只筛选与投影，不修改数据，也不判断业务状态。
 /// 返回的记录范围、排序和派生列含义由查询映射文件中同名的语句决定；空值语义统一为不传即不过滤。
 /// </remarks>
-public sealed class MedicalRecognitionReportQueryRepository : IMedicalRecognitionReportQueryRepository, ITransientDependency<IMedicalRecognitionReportQueryRepository>
+public sealed partial class MedicalRecognitionReportQueryRepository : IMedicalRecognitionReportQueryRepository, ITransientDependency<IMedicalRecognitionReportQueryRepository>
 {
   /// <summary>
   /// 本仓储所用语句集的作用域名。

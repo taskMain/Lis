@@ -111,8 +111,8 @@ public sealed class Stage1SqlMapProbeTests
     Assert.Contains("MedicalStandardItem.CreateMedicalStandardItem", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryMedicalStandardCategoryList", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryEffectiveMedicalStandardCatalog", registeredKeys);
-    Assert.Contains("MedicalRecognitionReport.QueryAllRecognitionReference", registeredKeys);
-    Assert.Contains("MedicalRecognitionReport.RecognitionReferenceColumns", registeredKeys);
+    Assert.Contains("RecognitionReference.QueryAllRecognitionReference", registeredKeys);
+    Assert.Contains("RecognitionReference.RecognitionReferenceColumns", registeredKeys);
 
     // 阶段 2 追加核对：互认项目配置的写入、启停与按组织读取语句必须注册在实体作用域下，
     // 查询语句注册在独立查询作用域，且五个旧聚合作用域键（新增、修改、启用、停用、按标识读取）必须全部消失；
@@ -150,7 +150,59 @@ public sealed class Stage1SqlMapProbeTests
     // 缺少这两条断言时，语句标识或作用域被改名只在运行时表现为"找不到语句"，静态检查不会失败。
     Assert.Contains("MutualRecognitionItem.GetMutualRecognitionItemByOrganizationAndProject", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionAmountList", registeredKeys);
+
+    // 阶段 4 追加核对：报告采集与生命周期十张表的映射语句必须注册在各自的实体名作用域下，
+    // 报告实体的实体名与聚合名恰好相同，因此这里逐键断言而不只看作用域名称；缺少这些断言时，
+    // 作用域被改回聚合级或语句标识被改名只在运行时表现为"找不到语句"，静态检查不会失败。
+    foreach ((string scope, string[] statementIds) in Stage4SqlMapStatements)
+    {
+      foreach (string statementId in statementIds) Assert.Contains($"{scope}.{statementId}", registeredKeys);
+    }
+
+    // 每个实体必须使用自己的作用域名：框架按作用域名注册语句集合，同一作用域被多个映射文件使用时，
+    // 后注册的文件会整体替换先前注册的语句集合，先注册实体的语句键随之消失并只在运行期表现为找不到语句。
+    // 因此匹配与引用四个实体也各自使用实体名作用域，且旧的聚合名作用域键必须全部消失。
+    foreach ((string scope, string[] statementIds) in new (string, string[])[]
+    {
+      ("RecognitionMatchRecord", ["RecognitionMatchRecordColumns", "QueryAllRecognitionMatchRecord"]),
+      ("RecognitionMatchItem", ["RecognitionMatchItemColumns", "QueryAllRecognitionMatchItem"]),
+      ("RecognitionProcessingResult", ["RecognitionProcessingResultColumns", "QueryAllRecognitionProcessingResult"]),
+      ("RecognitionReference", ["RecognitionReferenceColumns", "QueryAllRecognitionReference"])
+    })
+    {
+      foreach (string statementId in statementIds) Assert.Contains($"{scope}.{statementId}", registeredKeys);
+      Assert.DoesNotContain($"MedicalRecognitionReport.{statementIds[0]}", registeredKeys);
+    }
   }
+
+  /// <summary>
+  /// 阶段 4 十张报告表的实体名作用域与语句标识清单；与各映射文件的 <c>SqlMap Scope</c> 与 <c>Statement Id</c> 逐字一致。
+  /// </summary>
+  private static readonly (string Scope, string[] StatementIds)[] Stage4SqlMapStatements =
+  [
+    ("PlatformPatient", ["PlatformPatientColumns", "GetPlatformPatientByDocument", "InsertPlatformPatient"]),
+    ("MedicalRecognitionReport",
+      [
+        "MedicalRecognitionReportColumns", "GetMedicalRecognitionReportByBusinessKey", "GetMedicalRecognitionReportById",
+        "InsertMedicalRecognitionReport", "UpdateMedicalRecognitionReportCurrentVersion", "VoidMedicalRecognitionReport"
+      ]),
+    ("MedicalReportVersion",
+      [
+        "MedicalReportVersionColumns", "GetMedicalReportMaxVersionNumber", "GetMedicalReportVersionById",
+        "QueryMedicalReportVersionList", "InsertMedicalReportVersion"
+      ]),
+    ("LaboratoryReportContent", ["LaboratoryReportContentColumns", "GetLaboratoryReportContentByVersion", "InsertLaboratoryReportContent"]),
+    ("LaboratoryResultItem", ["LaboratoryResultItemColumns", "QueryLaboratoryResultItemsByVersion", "InsertLaboratoryResultItem"]),
+    ("LaboratoryBacteriaResult", ["LaboratoryBacteriaResultColumns", "QueryLaboratoryBacteriaResultsByVersion", "InsertLaboratoryBacteriaResult"]),
+    ("LaboratoryAntimicrobialSusceptibility",
+      [
+        "LaboratoryAntimicrobialSusceptibilityColumns", "QueryLaboratoryAntimicrobialSusceptibilitiesByBacteria",
+        "InsertLaboratoryAntimicrobialSusceptibility"
+      ]),
+    ("ExaminationReportContent", ["ExaminationReportContentColumns", "GetExaminationReportContentByVersion", "InsertExaminationReportContent"]),
+    ("ExaminationItem", ["ExaminationItemColumns", "QueryExaminationItemsByVersion", "InsertExaminationItem"]),
+    ("ExaminationSite", ["ExaminationSiteColumns", "QueryExaminationSitesByItem", "InsertExaminationSite"])
+  ];
 
   /// <summary>
   /// 校验绑定布尔参数的查询语句声明了布尔参数映射与类型处理器，并被该语句引用。

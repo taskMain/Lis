@@ -82,7 +82,7 @@ public sealed class Stage3SqlMapTests
   [Fact]
   public void Amount_ddl_freezes_physical_table_columns_types_and_negatives()
   {
-    string script = File.ReadAllText(FindRepositoryFile("organization_hospital_branch_recognition_amount.sql"));
+    string script = File.ReadAllText(FindRepositoryFile("mrec_organization_hospital_branch_recognition_amount.sql"));
 
     Assert.Contains($"create table {TableName} (", script, StringComparison.Ordinal);
 
@@ -137,7 +137,7 @@ public sealed class Stage3SqlMapTests
   [Fact]
   public void Amount_ddl_freezes_table_column_and_index_comments()
   {
-    string script = File.ReadAllText(FindRepositoryFile("organization_hospital_branch_recognition_amount.sql"));
+    string script = File.ReadAllText(FindRepositoryFile("mrec_organization_hospital_branch_recognition_amount.sql"));
     string[] commentLines = [.. script.Split('\n')
       .Select(line => line.Trim())
       .Where(line => line.StartsWith("comment on ", StringComparison.Ordinal))];

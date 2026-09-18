@@ -41,7 +41,7 @@
 
 - **轮次与时间**：2026-09-14 09:41–09:44（Asia/Shanghai）；控制工具为 Luna 暴露的 Chrome DevTools MCP，页面 `pageId=1`，Chrome User-Agent 为 `Chrome/152.0.0.0`。未读取或固化浏览器 Profile 标识。本轮沿用负责人提供的后端已重新 build、0 警告 0 错误启动前提，未重复 build。
 - **宿主链路**：从 `http://183.224.180.166:35000/login` 登录，账号标识 `yangkj`，选择「检验检查结果互认平台」；宿主首页进入「检验检查互认」→「标准项目目录维护」。未直达本地路由，未改认证存储。
-- **进程与地址**：前端 PID `29856`，`node ... vite.js --host localhost`，监听 `localhost:3008`；后端 PID `43628`，`Dy.MedicalRecognition.exe`，监听 `localhost:5014`。两进程均为本轮前已运行服务，未重启或关闭。
+- **进程与地址**：前端 PID `29856`，`node ... vite.js --host localhost`，监听 `localhost:3008`；后端 PID `43628`，`Dy.MedicalRecognition.exe`，监听 `localhost:15014`。两进程均为本轮前已运行服务，未重启或关闭。
 - **资源来源**：宿主菜单打开后请求 `GET http://localhost:3008/subApps/medical-recognition/standard-catalog` 返回 `200`；`@vite/client`、`src/main.tsx`、页面源码均来自 `localhost:3008`，Console 出现 `[vite] connected.`，确认开发拦截生效。
 - **宿主认证证据**：宿主 `POST /Api/Auth/Login`（Network `reqid=39`）返回 `200` 和有效登录响应；本地 API 请求携带宿主签发的 Bearer token，未复制或注入 token。
 
@@ -51,9 +51,9 @@
 
 | Network | 请求 | 实际响应 | 原始关键证据 |
 |---|---|---:|---|
-| `reqid=102` | `http://localhost:5014/Api/MedicalRecognitionReportQuery/QueryMedicalStandardCategoryList` | `401` | `www-authenticate: Bearer error="invalid_token", error_description="The token is not valid before '09/14/2026 11:41:12'"` |
-| `reqid=103` | `http://localhost:5014/Api/MedicalRecognitionReportQuery/QueryMedicalStandardGroupList` | `401` | 同上 |
-| `reqid=104` | `http://localhost:5014/Api/MedicalRecognitionReportQuery/QueryMedicalStandardItemList` | `401` | 同上 |
+| `reqid=102` | `http://localhost:15014/Api/MedicalRecognitionReportQuery/QueryMedicalStandardCategoryList` | `401` | `www-authenticate: Bearer error="invalid_token", error_description="The token is not valid before '09/14/2026 11:41:12'"` |
+| `reqid=103` | `http://localhost:15014/Api/MedicalRecognitionReportQuery/QueryMedicalStandardGroupList` | `401` | 同上 |
+| `reqid=104` | `http://localhost:15014/Api/MedicalRecognitionReportQuery/QueryMedicalStandardItemList` | `401` | 同上 |
 
 API 响应 `Date` 为 `Mon, 14 Sep 2026 01:41:12 GMT`，即东八区 `2026-09-14 09:41:12`；响应中的认证错误明确认为 token 尚未生效至 `2026-09-14 11:41:12`，两者相差约 2 小时。前端随后按统一认证错误边界回到宿主 `/login`，页面未进入可操作目录态。
 
@@ -64,9 +64,9 @@ API 响应 `Date` 为 `Mon, 14 Sep 2026 01:41:12 GMT`，即东八区 `2026-09-14
 ### 2026-09-14 轮次（历史）：S1-D29 真实宿主前置复测
 
 - **时间**：2026-09-14 14:38（Asia/Shanghai）；控制工具为受管 Chrome CDP CLI，Chrome `152.0.7977.83`，目标页 `61DDE51EDE638F901694289B3BF31A79`。本轮未使用或读取其他浏览器会话。
-- **前置**：前端 PID `29856` 监听 `localhost:3008`，后端 PID `43628` 监听 `localhost:5014`；两者均为本轮前已运行进程，未重启、未关闭。
+- **前置**：前端 PID `29856` 监听 `localhost:3008`，后端 PID `43628` 监听 `localhost:15014`；两者均为本轮前已运行进程，未重启、未关闭。
 - **宿主链路**：从 `http://183.224.180.166:35000/login` 登录 `yangkj`，账号返回的唯一入口为「信息科」，登录后宿主标题为「检验协同-信息科」。本轮未直达 localhost 路由。
-- **Network**：宿主 `POST /Api/Auth/Login`、`QueryAllMenu`、`QueryUserRoleMenu` 正常页面请求均为 `200`；宿主菜单展开后未发现「检验检查互认」或「标准项目目录维护」。本轮没有请求 `localhost:3008` 或 `localhost:5014`，也没有业务写入请求。为核对菜单数据而执行的页面读取探针再次请求上述两个菜单 API 得到 `401`，该探针不是业务验收链路，未据此判定登录失败。
+- **Network**：宿主 `POST /Api/Auth/Login`、`QueryAllMenu`、`QueryUserRoleMenu` 正常页面请求均为 `200`；宿主菜单展开后未发现「检验检查互认」或「标准项目目录维护」。本轮没有请求 `localhost:3008` 或 `localhost:15014`，也没有业务写入请求。为核对菜单数据而执行的页面读取探针再次请求上述两个菜单 API 得到 `401`，该探针不是业务验收链路，未据此判定登录失败。
 - **DOM**：宿主菜单实际仅显示「检验协同」下的「标准项目管理」「院区项目目录管理」等项；目标菜单不存在，因此没有目录树、项目表、名称搜索、显示停用或右侧筛选 DOM。
 - **Console**：读取探针产生两条宿主菜单 API `401` 网络错误；目标子应用未加载，未产生本地前端 Console 证据。
 - **截图**：`C:\Users\test\.codex\visualizations\2026\09\14\01a099e7-59e0-78d2-918b-df4ee8e43dc9-host-login.png`、`host-home.png`、`host-menu.png`。
@@ -80,7 +80,7 @@ Console 同时记录 3 次本地 API `401`、统一错误边界 `[POST 401] ... 
 
 - 阶段、矩阵版本与范围：阶段 1 标准项目目录维护（F01）；后端矩阵见 [Server/design.md](Server/design.md) 的验证矩阵，前端矩阵见 [Client/testPlan.md](Client/testPlan.md)。2026-09-14 第 21/22 轮已在真实宿主完成阶段业务矩阵写入与读回；2026-09-15 第 24 轮完成 S1-D29 五项验收并修复停用过滤缺陷。
 - 起始提交及已有修改：本轮未创建提交；工作区既有未提交改动见 [阶段 0 实施记录](../002-阶段0-现状对齐/impl.md) 的工作区状态章节；第 24 轮修改范围仅本报告、`Client/impl.md`、阶段根 `impl.md` 与前端过滤函数及其单测。
-- 执行环境与非敏感身份：宿主 `183.224.180.166:35000`，账号标识 `yangkj`，入口「检验检查结果互认平台」，菜单「检验检查结果互认」→「标准项目目录维护」；前端资源 `localhost:3008`，API `localhost:5014`。浏览器与控制工具见第二十四轮。
+- 执行环境与非敏感身份：宿主 `183.224.180.166:35000`，账号标识 `yangkj`，入口「检验检查结果互认平台」，菜单「检验检查结果互认」→「标准项目目录维护」；前端资源 `localhost:3008`，API `localhost:15014`。浏览器与控制工具见第二十四轮。
 - 进程、日志及收尾：前端 PID `29856`、后端 PID `43628` 均保持运行；未重启或关闭服务。第 24 轮另起的独立 Chrome 实例（端口 `9333`、独立 profile）属本轮自行启动，仅登记归属，未关闭负责人或其他任务的浏览器。
 
 ## 结果
@@ -342,14 +342,14 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 
 ## 第十四轮宿主验收（2026-09-13）
 
-本轮仅执行真实宿主页面验收，不修改生产代码，不创建分支/worktree/commit，不写数据库，不伪造目录数据。起始工作区保留本轮前已有修改；后端 `5014` 由 `Dy.MedicalRecognition` PID `45556` 监听，前端 `3008` 由现有 `node` PID `56892` 监听，均未关闭。
+本轮仅执行真实宿主页面验收，不修改生产代码，不创建分支/worktree/commit，不写数据库，不伪造目录数据。起始工作区保留本轮前已有修改；后端 `15014` 由 `Dy.MedicalRecognition` PID `45556` 监听，前端 `3008` 由现有 `node` PID `56892` 监听，均未关闭。
 
 | 项目 | 本轮证据 |
 |---|---|
 | 宿主与身份 | `http://183.224.180.166:35000/login`；账号显示 `杨康健`；登录入口选择「检验检查结果互认平台」；凭据未写入文件或报告 |
 | 开发拦截 | `/dev-settings` 页面显示全局启用、`medical-recognition` 映射到 `http://localhost:3008` 且行启用；未改动 localStorage |
 | 菜单与路由 | 宿主菜单「检验检查结果互认」→「标准项目目录维护」可达；iframe 最终路由 `http://183.224.180.166:35000/subApps/medical-recognition/standard-catalog`；子应用 URL 为 `http://localhost:3008/subApps/medical-recognition/standard-catalog` |
-| Network | 资源包含 `http://localhost:3008/subApps/medical-recognition/@vite/client`、`src/main.tsx`、`src/pages/standardCatalog/StandardCatalog.tsx`、HMR 时间戳资源；页面发起三个 `http://localhost:5014/Api/MedicalRecognitionReportQuery/QueryMedicalStandard*List` 查询 |
+| Network | 资源包含 `http://localhost:3008/subApps/medical-recognition/@vite/client`、`src/main.tsx`、`src/pages/standardCatalog/StandardCatalog.tsx`、HMR 时间戳资源；页面发起三个 `http://localhost:15014/Api/MedicalRecognitionReportQuery/QueryMedicalStandard*List` 查询 |
 | Console | 看到 `[vite] connected.`；宿主另有菜单查询 CORS 错误（`QueryAllMenu` 使用 credentials 时服务端返回 wildcard origin），但宿主已从现有菜单状态完成目标菜单进入 |
 | DOM | 正式页面包含标题、目录树类型切换、显示停用、树搜索、重新读取、新增项目、项目列表、编码/名称/状态筛选、重置和空态；不是占位页 |
 | 数据前提 | 页面实际显示无分类/分组和 0 项；未执行新增、编辑、启停或其他写操作。匿名直读三个本地查询返回 `401`，不作为宿主认证链路替代 |
@@ -372,13 +372,13 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 
 | 项目 | 结果 | 实际证据 |
 |---|---|---|
-| 端口 `5014` | `Passed` | `::1/127.0.0.1:5014` 由 `Dy.MedicalRecognition` PID `45556` 监听 |
+| 端口 `15014` | `Passed` | `::1/127.0.0.1:15014` 由 `Dy.MedicalRecognition` PID `45556` 监听 |
 | 端口 `3008` | `Passed` | `::1:3008` 由现有 `node` PID `56892` 监听 |
 | 宿主登录 | `Passed` | `http://183.224.180.166:35000/login`；账号 `yangkj`；页面显示“杨康健”；`/Api/Auth/Login` 返回 `200` |
 | 入口选择 | `Passed` | 选择「检验检查结果互认平台」后进入宿主首页 |
 | 开发拦截配置 | `Passed` | `/dev-settings` 显示全局启用，`medical-recognition -> http://localhost:3008` 且行启用；localStorage 读回一致，未修改 |
 | 目标菜单 | `Failed` | 登录后菜单没有「标准项目目录维护」，只有「标准项目管理」；`QueryAllMenu`、`QueryUserRoleMenu` 均返回 `200` |
-| 目标资源来源 | `Failed` | 实际点击「标准项目管理」挂载 `lis-center`：`/subApps/lis-center/infrastructure/standard-items/admin`；资源来自宿主 `35000/35001`，未出现 `http://localhost:3008` 或 `http://localhost:5014` |
+| 目标资源来源 | `Failed` | 实际点击「标准项目管理」挂载 `lis-center`：`/subApps/lis-center/infrastructure/standard-items/admin`；资源来自宿主 `35000/35001`，未出现 `http://localhost:3008` 或 `http://localhost:15014` |
 | 目标路由诊断 | `Failed` | 直接访问 `/subApps/medical-recognition/standard-catalog` 返回宿主 `404 - 找不到文件或目录`；该诊断不替代菜单验收 |
 
 ### 用例状态
@@ -395,14 +395,14 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 
 - 浏览器：Chrome `152.0.7977.83`；控制工具：browser-debugging-and-control CLI/CDP；会话：`Luna`；目标页 ID `18A1C97E450E28EADE665D81C23BAEF9`。
 - Console：登录和宿主菜单路径未发现本轮新增页面异常；目标页未加载，因此没有正式页面 Console 证据可供业务用例使用。
-- DOM/Network：宿主菜单 DOM 明确包含「标准项目管理」而非「标准项目目录维护」；`micro-app` 为 `lis-center_tab_1_v1`，资源仅来自 `183.224.180.166:35000/35001`。登录与菜单响应均记录为 `204` 预检加 `200` 实际响应；未观察到 `localhost:3008/5014` 请求。
+- DOM/Network：宿主菜单 DOM 明确包含「标准项目管理」而非「标准项目目录维护」；`micro-app` 为 `lis-center_tab_1_v1`，资源仅来自 `183.224.180.166:35000/35001`。登录与菜单响应均记录为 `204` 预检加 `200` 实际响应；未观察到 `localhost:3008/15014` 请求。
 - 持久化读回：`/dev-settings` 读回 `dy-web-micro:dev-url-intercepts=[{"matchKey":"medical-recognition","origin":"http://localhost:3008","enabled":true}]`；未改写。
 - 截图：`C:\Users\test\.codex\visualizations\2026\09\13\01a099e7-59e0-78d2-918b-df4ee8e43dc9\luna-after-login.png`、`luna-dev-settings.png`、`luna-standard-project-management.png`、`luna-direct-standard-catalog-diagnostic.png`。
 - 未执行数据持久化读回、业务写请求、错误恢复、重复启停、唯一性失败、备注限制、状态联动或刷新验证；不以 `lis-center` 现有未知数据替代本阶段数据。
 
 ### 阻塞责任与复测条件
 
-当前阻塞点是宿主菜单/路由未部署或未授权到本阶段 `medical-recognition` 页面，且正式页未从 `localhost:3008` 加载。复测前需由负责人确认宿主菜单「标准项目目录维护」指向 `standard-catalog`，并在同一 Luna 链路的 Network 中看到 `localhost:3008` 子应用资源及 `localhost:5014` 查询请求；随后再按正常页面路径创建唯一分类、分组和标准项目，继续执行上述 Blocked/NotRun 用例。
+当前阻塞点是宿主菜单/路由未部署或未授权到本阶段 `medical-recognition` 页面，且正式页未从 `localhost:3008` 加载。复测前需由负责人确认宿主菜单「标准项目目录维护」指向 `standard-catalog`，并在同一 Luna 链路的 Network 中看到 `localhost:3008` 子应用资源及 `localhost:15014` 查询请求；随后再按正常页面路径创建唯一分类、分组和标准项目，继续执行上述 Blocked/NotRun 用例。
 
 ## 第十六轮宿主验收：纠正登录入口（2026-09-13）
 
@@ -413,12 +413,12 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 | 验证面 | 状态 | 本轮证据 |
 |---|---|---|
 | 前端端口 `3008` | `Passed` | PowerShell `Get-NetTCPConnection`：`node` PID `56892` 监听 `3008` |
-| 后端端口 `5014` | `Passed` | PowerShell `Get-NetTCPConnection`：`Dy.MedicalRecognition` PID `45556` 监听 `5014` |
+| 后端端口 `15014` | `Passed` | PowerShell `Get-NetTCPConnection`：`Dy.MedicalRecognition` PID `45556` 监听 `15014` |
 | 宿主登录 | `Passed` | `http://183.224.180.166:35000/login`；账号 `yangkj`；页面显示「杨康健」；选择登录下拉框「检验检查结果互认平台」后进入平台首页 |
 | 正确宿主菜单 | `Passed` | 宿主菜单实际为「检验检查结果互认」→「标准项目目录维护」；未使用其他同类文字入口 |
 | 开发 URL 劫持 | `Passed` | `micro-app` 的 `url` 为 `http://localhost:3008/subApps/medical-recognition/standard-catalog`；DOM 注入样式含 Vite 开发源路径，Console 出现 `[vite] connected.` |
 | 目标路由 | `Passed` | 子应用目标路径为 `/subApps/medical-recognition/standard-catalog`；宿主顶层 URL 保持 `http://183.224.180.166:35000/`，由 micro-app 挂载目标路由 |
-| API 来源 | `Passed` | 三个查询请求均发往 `http://localhost:5014/Api/MedicalRecognitionReportQuery/QueryMedicalStandard{Category,Group,Item}List`，最终响应 HTTP `200` |
+| API 来源 | `Passed` | 三个查询请求均发往 `http://localhost:15014/Api/MedicalRecognitionReportQuery/QueryMedicalStandard{Category,Group,Item}List`，最终响应 HTTP `200` |
 | Console | `Passed` | 本轮捕获 `[vite] connecting...`、`[vite] connected.`；未捕获 error、warn 或 `Log.entryAdded` 错误 |
 | 页面形态 | `Passed` | 真实页面显示「标准项目目录维护」、目录树、显示停用、类型切换、搜索、重置、重新读取、标准项目列表及空态；不是占位页 |
 
@@ -444,7 +444,7 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 
 ## 第十七轮 Luna 真实宿主业务矩阵执行（2026-09-13）
 
-本轮按用户授权使用 Luna 执行真实宿主链路。未修改生产代码，未创建分支/worktree/commit，未直接写数据库，未执行物理删除；密码和 token 未写入报告。前端 `3008` 与后端 `5014` 均已监听。
+本轮按用户授权使用 Luna 执行真实宿主链路。未修改生产代码，未创建分支/worktree/commit，未直接写数据库，未执行物理删除；密码和 token 未写入报告。前端 `3008` 与后端 `15014` 均已监听。
 
 ### 实际写入结果
 
@@ -470,7 +470,7 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 
 - 详细非敏感证据：[luna-real-host-write-failure.md](../../../.codex/evidence/stage1-20260913/luna-real-host-write-failure.md)
 - 截图：`C:\Users\test\.codex\visualizations\2026\09\13\01a099e7-59e0-78d2-918b-df4ee8e43dc9\luna-stage1-create-category-failed.png`、`luna-stage1-reload-empty.png`
-- 目标链路：宿主登录入口正确，`micro-app` URL 为 `http://localhost:3008/subApps/medical-recognition/standard-catalog`，查询 API 为 `http://localhost:5014`
+- 目标链路：宿主登录入口正确，`micro-app` URL 为 `http://localhost:3008/subApps/medical-recognition/standard-catalog`，查询 API 为 `http://localhost:15014`
 
 ### 残余风险
 
@@ -489,7 +489,7 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 | 开发拦截配置 | `Passed` | `/dev-settings` 显示全局启用；`medical-recognition -> http://localhost:3008` 且行启用；localStorage 读回一致 |
 | 目标菜单 | `Failed` | 当前宿主菜单 DOM 仅有「检验检查结果互认」，展开后没有「标准项目目录维护」 |
 | 目标路由诊断 | `Failed` | 直接访问 `http://183.224.180.166:35000/subApps/medical-recognition/standard-catalog` 返回宿主 `404 - File or directory not found`；该诊断不替代菜单验收 |
-| 目标资源/API | `Blocked` | 未挂载目标 micro-app，未产生 `localhost:3008` 页面资源或 `localhost:5014` 业务查询/写请求 |
+| 目标资源/API | `Blocked` | 未挂载目标 micro-app，未产生 `localhost:3008` 页面资源或 `localhost:15014` 业务查询/写请求 |
 
 宿主 Network 资源包含 `35001/Api/Menu/QueryAllMenu` 与 `35001/Api/UserQuery/QueryUserRoleMenu`，但页面最终只渲染顶层菜单。Console 本轮未捕获新增错误；目标页面未加载，故没有正式业务页面 Console 证据。证据截图：
 
@@ -509,7 +509,7 @@ V55 的旧表迁移异常防御退役且不复用编号；V30 保留新建结构
 
 ### 阻塞结论
 
-本轮未能复测 `is_valid` 修复，不是后端结果失败，而是宿主没有提供本阶段菜单与目标路由：页面没有进入 `standard-catalog`，且宿主目标路径返回 404。复测前需要负责人在宿主权限/菜单系统确认「检验检查结果互认」→「标准项目目录维护」已部署并指向 `standard-catalog`；随后在同一 Luna 链路确认 `localhost:3008` 资源与 `localhost:5014` 查询请求，再从 C1 重新执行下游业务矩阵。
+本轮未能复测 `is_valid` 修复，不是后端结果失败，而是宿主没有提供本阶段菜单与目标路由：页面没有进入 `standard-catalog`，且宿主目标路径返回 404。复测前需要负责人在宿主权限/菜单系统确认「检验检查结果互认」→「标准项目目录维护」已部署并指向 `standard-catalog`；随后在同一 Luna 链路确认 `localhost:3008` 资源与 `localhost:15014` 查询请求，再从 C1 重新执行下游业务矩阵。
 
 ## 第十九轮真实宿主业务矩阵：C1 修复后复测（2026-09-13）
 
@@ -547,7 +547,7 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 
 | 验证面 | 状态 | 实际证据 |
 |---|---|---|
-| 后端 `localhost:5014` | `Passed` | `Dy.MedicalRecognition.exe` 监听 5014；页面查询和写请求均到达该地址 |
+| 后端 `localhost:15014` | `Passed` | `Dy.MedicalRecognition.exe` 监听 15014；页面查询和写请求均到达该地址 |
 | 前端 `localhost:3008` | `Passed` | `node` 监听 3008；宿主 `micro-app[url]` 为 `http://localhost:3008/subApps/medical-recognition/standard-catalog` |
 | 宿主登录与入口 | `Passed` | 从 `http://183.224.180.166:35000/login` 登录 `yangkj`，入口选择「检验检查结果互认平台」，首页显示「杨康健」 |
 | 宿主菜单进入 | `Passed` | 通过「检验检查结果互认」→「标准项目目录维护」进入，未直达 localhost 路由 |
@@ -589,14 +589,14 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 | 验证面 | 状态 | 本轮证据 |
 |---|---|---|
 | 起始提交与工作区 | `SourceConfirmed` | 起始 `HEAD=5521cb6b5eb0ba0382eab0efc4c6fdcacfefa1c6`；工作区已有其他修改，本轮不回退、不清理，仅修改本报告 |
-| 后端 | `Passed` | `Dy.MedicalRecognition.exe` PID `43628`，监听 `localhost:5014` |
+| 后端 | `Passed` | `Dy.MedicalRecognition.exe` PID `43628`，监听 `localhost:15014` |
 | 前端 | `Passed` | `node` PID `29856`，监听 `localhost:3008` |
 | 浏览器会话 | `Passed` | Chrome `152.0.7977.83`；Chrome DevTools MCP；隔离会话 `medical-recognition-stage1-retry-20260914-01`；目标页 ID `2` |
 | 宿主登录与入口 | `Passed` | 从指定登录页登录 `yangkj`，入口选择「检验检查结果互认平台」，首页显示「杨康健」 |
 | 宿主菜单 | `Passed` | 实际点击「检验检查结果互认」→「标准项目目录维护」，未用本地路由直达验收 |
 | 开发地址拦截 | `Passed` | 本隔离会话在宿主 `/dev-settings` 配置并启用 `medical-recognition -> http://localhost:3008`；配置写入当前浏览器本地存储 |
 | 子应用资源 | `Passed` | Network 看到 `http://localhost:3008/.../@vite/client`、`src/main.tsx`、`StandardCatalog.tsx` 等 `200`；Console 看到 `[vite] connected.` |
-| API 来源 | `Passed` | 查询与写入均来自 `http://localhost:5014`；请求 `origin` 为宿主 `http://183.224.180.166:35000` |
+| API 来源 | `Passed` | 查询与写入均来自 `http://localhost:15014`；请求 `origin` 为宿主 `http://183.224.180.166:35000` |
 | Console | `Passed` | 未捕获新增页面 `error/warn`；存在浏览器 `issue` 级提示及 Vite `debug`，不影响本轮链路 |
 
 ### Token 时间与认证结果
@@ -641,7 +641,7 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 
 | 项目 | 状态 | 证据 |
 |---|---|---|
-| 后端 | `Passed` | PID `43628`，`localhost:5014` |
+| 后端 | `Passed` | PID `43628`，`localhost:15014` |
 | 前端 | `Passed` | PID `29856`，`localhost:3008` |
 | 宿主登录/入口/菜单 | `Passed` | 指定登录页、入口和菜单链路完成 |
 | 开发拦截和资源来源 | `Passed` | `localhost:3008` 资源 `200`，Console `[vite] connected.` |
@@ -688,7 +688,7 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 
 | 验证项 | 状态 | 实际证据 |
 |---|---|---|
-| 后端 `5014` | `Passed` | `Dy.MedicalRecognition.exe` PID `43628` 监听 `localhost:5014`；本轮未启动或关闭进程 |
+| 后端 `15014` | `Passed` | `Dy.MedicalRecognition.exe` PID `43628` 监听 `localhost:15014`；本轮未启动或关闭进程 |
 | 前端 `3008` | `Passed` | `node` PID `29856` 监听 `localhost:3008`；本轮未启动或关闭进程 |
 | 宿主登录 | `Passed` | 指定登录页可达；账号填写后入口列表出现「检验检查结果互认平台」；提交后宿主 URL 为 `http://183.224.180.166:35000/`，DOM 显示「杨康健」 |
 | 入口选择 | `Passed` | 通过登录页实际选择「检验检查结果互认平台」 |
@@ -699,7 +699,7 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 ### DOM / Network / Console 证据
 
 - **DOM**：宿主首页菜单 `[role=menuitem]` 实际文本包含「检验协同」「标准项目管理」「院区项目目录管理」，不包含要求的「检验检查互认」或「标准项目目录维护」；当前页面仍为宿主首页。
-- **Network**：页面资源记录包含宿主静态资源及宿主 API：`/Api/User/GetUserByUserName`、`/Api/UserQuery/QueryUserLoginEntry`、`/Api/SubApplication/GetSubApplicationById`、`/Api/Auth/Login`、`/Api/Menu/QueryAllMenu`、`/Api/UserQuery/QueryUserRoleMenu`；未发现本地 `localhost:3008` 子应用资源加载，也未进入 `localhost:5014` 业务查询。
+- **Network**：页面资源记录包含宿主静态资源及宿主 API：`/Api/User/GetUserByUserName`、`/Api/UserQuery/QueryUserLoginEntry`、`/Api/SubApplication/GetSubApplicationById`、`/Api/Auth/Login`、`/Api/Menu/QueryAllMenu`、`/Api/UserQuery/QueryUserRoleMenu`；未发现本地 `localhost:3008` 子应用资源加载，也未进入 `localhost:15014` 业务查询。
 - **Console**：菜单核对期间 CLI `console --live-only --raw` 未捕获新增事件；未发现本轮新增页面 `error/warn`。
 - **截图**：[s1d29-menu-blocked-20260914.png](C:/Users/test/.codex/visualizations/2026/09/14/s1d29-menu-blocked-20260914.png)。
 
@@ -726,7 +726,7 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 | 验证面 | 状态 | 本轮证据 |
 |---|---|---|
 | 起始提交与工作区 | `SourceConfirmed` | 起始 `HEAD=5521cb6b5eb0ba0382eab0efc4c6fdcacfefa1c6`；工作区已有其他修改，本轮不回退、不清理 |
-| 后端 `5014` | `Passed` | `Dy.MedicalRecognition.exe` PID `43628` 监听 `localhost:5014`；本轮未启动或关闭该进程 |
+| 后端 `15014` | `Passed` | `Dy.MedicalRecognition.exe` PID `43628` 监听 `localhost:15014`；本轮未启动或关闭该进程 |
 | 前端 `3008` | `Passed` | `node` PID `29856` 监听 `localhost:3008`（`vite --host localhost`）；本轮未启动或关闭该进程 |
 | 浏览器与控制工具 | `Passed` | Chrome `152.0.7977.83`；`browser-debugging-and-control` CLI/CDP，独立实例端口 `9333`、独立 `--home`/profile（不复用任何既有 Profile） |
 | 宿主登录与入口 | `Passed` | 从 `http://183.224.180.166:35000/login` 登录 `yangkj`；账号填写后入口列表出现「信息科」「检验协同测试科室2-1-1」「检验检查结果互认平台」「开发中心」；实际选择「检验检查结果互认平台」后，登录前入口控件显示值读回为「检验检查结果互认平台」，并留存登录前截图 |
@@ -734,7 +734,7 @@ C1 未产生业务 ID，未产生可清理数据；按用户指定停止条件�
 | 宿主菜单 | `Passed` | 实际点击父项「检验检查结果互认」展开，再点击子项「标准项目目录维护」进入；未直达 localhost 或宿主 `/subApps/...` 路由 |
 | 开发地址拦截 | `Passed` | 本隔离会话在宿主 origin 写入并启用 `medical-recognition -> http://localhost:3008`（同时置全局开关 `true`） |
 | 子应用资源来源 | `Passed` | 宿主 `micro-app[name=medical-recognition_tab_1_v1]` 的 `url` 为 `http://localhost:3008/subApps/medical-recognition/standard-catalog`；Console 出现 `[vite] connected.`，其调用栈指向 `http://localhost:3008/subApps/medical-recognition/@vite/client` |
-| 业务数据来源 | `Passed` | 页面读回第 21/22 轮既有真实数据（两套分类/分组与四条项目），并显示「范围：检验 · 5 项」，证明查询来自 `localhost:5014` 真实后端 |
+| 业务数据来源 | `Passed` | 页面读回第 21/22 轮既有真实数据（两套分类/分组与四条项目），并显示「范围：检验 · 5 项」，证明查询来自 `localhost:15014` 真实后端 |
 | Console | `Passed` | 目标子应用路径上未捕获新增 `error/warn` |
 
 ### 交互控制方式与边界（重要限制）
@@ -1936,7 +1936,7 @@ value=[probe-nocat]  Required=True ; RegularExpression("\\S")=False ; StringLeng
 
 ### 42.4 真实宿主验收（只读，2026-09-17）
 
-- **宿主链路**：`http://183.224.180.166:35000` 登录 `yangkj`（左上标题「检验检查结果互认平台」）→ 菜单「检验检查结果互认」→「标准项目目录维护」；子应用来自 `http://localhost:3008/subApps/medical-recognition/standard-catalog`，后端 `localhost:5014`。
+- **宿主链路**：`http://183.224.180.166:35000` 登录 `yangkj`（左上标题「检验检查结果互认平台」）→ 菜单「检验检查结果互认」→「标准项目目录维护」；子应用来自 `http://localhost:3008/subApps/medical-recognition/standard-catalog`，后端 `localhost:15014`。
 - **枚举元数据接口**：`reqid=760` `POST /Api/EnumMetadata/GetEnumMetadata` 请求体 `{"enumName":"MedicalItemType"}`，响应 `200`，正文 `[{"value":0,"name":"Laboratory","description":"检验"},{"value":1,"name":"Examination","description":"检查"}]`；页面树节点、范围文案、类型筛选分段器与表单项目类型下拉均显示该文案。
 - **分类列表随行文案**：`reqid=761` `POST /Api/MedicalRecognitionReportQuery/QueryMedicalStandardCategoryList` 响应 `200`，正文逐行含 `itemTypeText`（`检验`/`检查`）与 `usageStatusText`（`未使用`/`已使用`）。
 - **项目列表随行文案**：`reqid=763` `POST /Api/MedicalRecognitionReportQuery/QueryMedicalStandardItemList` 响应 `200`，6 行均含 `itemTypeText":"检验"`；页面「类型」列显示「检验」。

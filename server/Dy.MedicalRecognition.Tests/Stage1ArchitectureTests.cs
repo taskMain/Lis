@@ -220,23 +220,44 @@ public sealed class Stage1ArchitectureTests
     (nameof(IMedicalRecognitionReportQueryAppService.QueryRecognitionAmountListAsync),
       "Task<IEnumerable<RecognitionAmountReadModel>>", ["RecognitionAmountListQueryRequest request"]),
     (nameof(IMedicalRecognitionReportQueryAppService.QueryBranchRecognitionAmountListAsync),
-      "Task<IEnumerable<RecognitionAmountReadModel>>", ["BranchRecognitionAmountListQueryRequest request"])
+      "Task<IEnumerable<RecognitionAmountReadModel>>", ["BranchRecognitionAmountListQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryMedicalReportListAsync),
+      "Task<PageResultDto<MedicalReportListReadModel>>", ["ReportListQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryBranchMedicalReportListAsync),
+      "Task<PageResultDto<MedicalReportListReadModel>>", ["BranchReportListQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryMedicalReportVersionListAsync),
+      "Task<IReadOnlyList<MedicalReportVersionListReadModel>>", ["MedicalReportVersionListQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryMedicalReportVersionDetailAsync),
+      "Task<MedicalReportVersionDetailQueryReadModel>", ["MedicalReportVersionDetailQueryRequest request"])
   ];
 
   /// <summary>
   /// 查询契约的每个方法都逐项冻结返回类型与参数：只冻结方法名时，参数被删除、换类型、加默认值或加 ref/out
   /// 修饰符，以及同名声明被复制都不会让用例失败。
   /// </summary>
+  /// <remarks>
+  /// 契约方法分散在同一个接口的多个按功能分片的源文件里，因此按接口全部声明文件一起扫描：
+  /// 只读某一个文件时，写在另一个分片里的方法会被判成"未找到声明"，冻结判据对分片位置敏感。
+  /// 扫描面覆盖同一目录下全部声明该接口的文件，新增分片自动纳入；同名声明跨文件出现两次同样判失败。
+  /// </remarks>
   [Fact]
   public void Query_contract_method_signatures_are_frozen()
   {
-    CompilationUnitSyntax root = SourceSyntaxGuard.Read(
-      "server", "Dy.MedicalRecognition.Application.Contracts", "Queries", "IMedicalRecognitionReportQueryAppService.cs");
+    List<MethodDeclarationSyntax> declarations = [];
+    foreach ((string relativePath, CompilationUnitSyntax root) in SourceSyntaxGuard.ReadTypeDeclarations(
+      "server/Dy.MedicalRecognition.Application.Contracts/Queries", nameof(IMedicalRecognitionReportQueryAppService)))
+    {
+      Assert.StartsWith("server/Dy.MedicalRecognition.Application.Contracts/Queries/", relativePath, StringComparison.Ordinal);
+      declarations.AddRange(root.DescendantNodes().OfType<MethodDeclarationSyntax>());
+    }
 
     foreach ((string methodName, string returnType, string[] parameters) in QueryContractSignatures)
     {
-      // 带方法体的同名声明必须恰好一处：0 处（声明被删除）与多处（同名声明被复制）都由该调用直接失败。
-      MethodDeclarationSyntax method = SourceSyntaxGuard.FindSingleMethod(root, methodName);
+      // 带方法体的同名声明必须恰好一处：0 处（声明被删除）与多处（同名声明被复制）都由该判定直接失败。
+      MethodDeclarationSyntax method = declarations.Count(declaration => declaration.Identifier.ValueText == methodName) == 1
+        ? declarations.Single(declaration => declaration.Identifier.ValueText == methodName)
+        : throw new InvalidOperationException(
+          $"方法 {methodName} 的声明应恰好 1 处，实际 {declarations.Count(declaration => declaration.Identifier.ValueText == methodName)} 处。");
 
       // 契约方法只能是接口声明形式：出现方法体或表达式体说明实现被写进了契约。
       Assert.Null(method.Body);
@@ -486,9 +507,10 @@ public sealed class Stage1ArchitectureTests
 
     string[] expectedQueryMethods =
     [
-      "QueryBranchRecognitionAmountListAsync", "QueryEffectiveMedicalStandardCatalogAsync", "QueryMedicalStandardCategoryListAsync",
-      "QueryMedicalStandardGroupListAsync", "QueryMedicalStandardItemListAsync", "QueryRecognitionAmountListAsync",
-      "QueryRecognitionProjectConfigurationListAsync"
+      "QueryBranchMedicalReportListAsync", "QueryBranchRecognitionAmountListAsync", "QueryEffectiveMedicalStandardCatalogAsync",
+      "QueryMedicalReportListAsync", "QueryMedicalReportVersionDetailAsync", "QueryMedicalReportVersionListAsync",
+      "QueryMedicalStandardCategoryListAsync", "QueryMedicalStandardGroupListAsync", "QueryMedicalStandardItemListAsync",
+      "QueryRecognitionAmountListAsync", "QueryRecognitionProjectConfigurationListAsync"
     ];
     string[] actualQueryMethods = [.. typeof(IMedicalRecognitionReportQueryAppService).GetMethods().Select(method => method.Name).OrderBy(name => name, StringComparer.Ordinal)];
     Assert.Equal(expectedQueryMethods, actualQueryMethods);

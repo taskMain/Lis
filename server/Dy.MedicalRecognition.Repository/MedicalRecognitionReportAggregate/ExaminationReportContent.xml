@@ -1,12 +1,58 @@
-<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+<SqlMap Scope="ExaminationReportContent" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义检查报告专项内容的通用查询字段清单，供按报告版本读取语句与新增语句复用。
+      结果：输出检查所见与结论、诊断、病情描述、检查目的、检查信息、影像状态与地址、设备与操作审计字段。
+    -->
     <Statement Id="ExaminationReportContentColumns">
-      id, report_version_id, source_examination_type_code, source_examination_type_name, report_remark, overall_abnormal_flag, findings, conclusion, condition_description, examination_purpose, source_diagnosis_code, source_diagnosis_name, examination_time, examiner_id, examiner_name, source_image_status, image_access_url, examination_method, device_code, device_name, oper_id, oper_time
+      id,                             <!-- 检查专项内容标识（主键） -->
+      report_version_id,              <!-- 报告版本标识 -->
+      source_examination_type_code,   <!-- 来源检查类型编码 -->
+      source_examination_type_name,   <!-- 来源检查类型名称 -->
+      report_remark,                  <!-- 报告备注 -->
+      overall_abnormal_flag,          <!-- 整体异常标识 -->
+      findings,                       <!-- 检查所见 -->
+      conclusion,                     <!-- 检查结论 -->
+      condition_description,          <!-- 病情描述 -->
+      examination_purpose,            <!-- 检查目的 -->
+      source_diagnosis_code,          <!-- 来源诊断编码 -->
+      source_diagnosis_name,          <!-- 来源诊断名称 -->
+      examination_time,               <!-- 实际检查时间 -->
+      examiner_id,                    <!-- 检查医生ID -->
+      examiner_name,                  <!-- 检查医生名称 -->
+      source_image_status,            <!-- 来源影像状态 -->
+      image_access_url,               <!-- 影像调阅地址 -->
+      examination_method,             <!-- 检查方法 -->
+      device_code,                    <!-- 设备编码 -->
+      device_name,                    <!-- 设备名称 -->
+      oper_id,                        <!-- 操作人标识 -->
+      oper_time                       <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllExaminationReportContent">
-      select
-      <Include RefId="ExaminationReportContentColumns" />
-      from examination_report_content
+    <!--
+      功能：按报告版本读取检查专项内容，供管理端版本详情返回该版本的检查内容。
+      结果：一个报告版本至多一条，命中时返回一行字段清单，未命中时返回空结果；报告级内容按来源原文整体保存。
+    -->
+    <Statement Id="GetExaminationReportContentByVersion">
+      select <Include RefId="ExaminationReportContentColumns" /> from mrec_examination_report_content where report_version_id = $ReportVersionId
+    </Statement>
+    <!--
+      功能：新增一条检查报告专项内容。
+      结果：写入标识、报告版本标识、来源检查类型、备注、整体异常标识、检查所见与结论、病情描述、检查目的、
+      来源诊断、实际检查时间、检查医生、影像状态与调阅地址、检查方法、设备与操作字段；
+      影像状态未提供时按未知写入，调阅地址按条件写入空值或来源值。
+    -->
+    <Statement Id="InsertExaminationReportContent">
+      insert into mrec_examination_report_content (
+        id, report_version_id, source_examination_type_code, source_examination_type_name, report_remark,
+        overall_abnormal_flag, findings, conclusion, condition_description, examination_purpose,
+        source_diagnosis_code, source_diagnosis_name, examination_time, examiner_id, examiner_name,
+        source_image_status, image_access_url, examination_method, device_code, device_name, oper_id, oper_time
+      ) values (
+        $Id, $ReportVersionId, $SourceExaminationTypeCode, $SourceExaminationTypeName, $ReportRemark,
+        $OverallAbnormalFlag, $Findings, $Conclusion, $ConditionDescription, $ExaminationPurpose,
+        $SourceDiagnosisCode, $SourceDiagnosisName, $ExaminationTime, $ExaminerId, $ExaminerName,
+        $SourceImageStatus, $ImageAccessUrl, $ExaminationMethod, $DeviceCode, $DeviceName, $OperId, $OperTime
+      )
     </Statement>
   </Statements>
 </SqlMap>

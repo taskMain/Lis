@@ -405,3 +405,6 @@ FodyWeavers.xsd
 
 # 内网穿透相关
 test_server\run_natapp.bat
+
+# 本机运行期数据目录（报告 PDF 等本地文件存储，不入版本控制）
+var/

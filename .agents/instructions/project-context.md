@@ -59,7 +59,7 @@
 | `dotnet restore server/Dy.MedicalRecognition.slnx` | 可用（7 个项目全部还原成功）；私有源不可达时输出 `NU1900` 漏洞数据警告，不影响还原 |
 | `dotnet build server/Dy.MedicalRecognition.slnx` | 可用：0 错误；351 条 `CS8618` 警告全部来自生成的 ReadModel `record` 非空属性，属生成器特性 |
 | `dotnet test server/Dy.MedicalRecognition.slnx` | 可用：1 个 xUnit smoke test 通过（`Generated_contract_is_available`） |
-| 后端启动命令与监听地址 | 已实际验证：监听 `http://localhost:5014`，OpenAPI `/openapi/v1.json` 与 Scalar `/scalar` 均可访问。启动配置三处一致（`appsettings.json`、`appsettings.Development.json`、`Properties/launchSettings.json`）。业务接口当前不可用，原因见 §3.4 |
+| 后端启动命令与监听地址 | 已实际验证：监听 `http://localhost:15014`，OpenAPI `/openapi/v1.json` 与 Scalar `/scalar` 均可访问。启动配置三处一致（`appsettings.json`、`appsettings.Development.json`、`Properties/launchSettings.json`）。业务接口当前不可用，原因见 §3.4 |
 
 验证以上命令时必须在 `server/` 目录内执行，或显式带上解决方案路径，使 `server/global.json` 生效。包与 SDK 的版本结论见 [Test Environment](test-environment.md)。
 
@@ -79,7 +79,7 @@
 
 | 步骤 | 命令或事实 |
 |---|---|
-| 取原始文档 | `GET http://localhost:5014/openapi/v1.json`（需后端已启动） |
+| 取原始文档 | `GET http://localhost:15014/openapi/v1.json`（需后端已启动） |
 | 兼容修正 + 固化输入 | `pnpm -F @dy/api-client-medical-recognition prepare-openapi`，产出 `openapi/medical-recognition.openapi.json`，修正 ASP.NET 的 `["integer","string"]` 联合类型 |
 | 生成源码 | `pnpm -F @dy/api-client-medical-recognition generate`，固定带 `--exclude-path /auth/login` |
 | 构建与检查 | `pnpm -F @dy/api-client-medical-recognition build` / `typecheck` |

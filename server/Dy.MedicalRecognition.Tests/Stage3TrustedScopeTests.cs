@@ -66,7 +66,7 @@ public sealed class Stage3TrustedScopeTests
     StubUserAppService userService = BuildUserService(Profile(ProfileOrganization, ProfileHospital));
     TrustedRequestContext.Use(TokenOrganization, TokenHospital, TokenBranch, TrustedUserId);
 
-    TrustedScopeResolver.TrustedScope scope = await Resolve(userService);
+    TrustedScope scope = await Resolve(userService);
 
     Assert.Equal(TokenOrganization, scope.OrganizationCode);
     Assert.Equal(TokenHospital, scope.HospitalCode);
@@ -83,7 +83,7 @@ public sealed class Stage3TrustedScopeTests
     StubUserAppService userService = BuildUserService(Profile(TokenOrganization, TokenHospital));
     TrustedRequestContext.Use(TokenOrganization, null, TokenBranch, TrustedUserId);
 
-    TrustedScopeResolver.TrustedScope scope = await Resolve(userService);
+    TrustedScope scope = await Resolve(userService);
 
     Assert.Equal(TokenOrganization, scope.OrganizationCode);
     Assert.Equal(TokenHospital, scope.HospitalCode);
@@ -97,7 +97,7 @@ public sealed class Stage3TrustedScopeTests
     StubUserAppService userService = BuildUserService(Profile(TokenOrganization, $"  {TokenHospital}  "));
     TrustedRequestContext.Use(TokenOrganization, "   ", TokenBranch, TrustedUserId);
 
-    TrustedScopeResolver.TrustedScope scope = await Resolve(userService);
+    TrustedScope scope = await Resolve(userService);
 
     Assert.Equal(TokenOrganization, scope.OrganizationCode);
     Assert.Equal(TokenHospital, scope.HospitalCode);
@@ -110,7 +110,7 @@ public sealed class Stage3TrustedScopeTests
     StubUserAppService userService = BuildUserService(Profile(ProfileOrganization, ProfileHospital));
     TrustedRequestContext.Use(null, null, TokenBranch, TrustedUserId);
 
-    TrustedScopeResolver.TrustedScope scope = await Resolve(userService);
+    TrustedScope scope = await Resolve(userService);
 
     Assert.Equal(ProfileOrganization, scope.OrganizationCode);
     Assert.Equal(ProfileHospital, scope.HospitalCode);
@@ -193,7 +193,7 @@ public sealed class Stage3TrustedScopeTests
     Assert.Equal(0, userService.GetUserByIdCallCount);
 
     TrustedRequestContext.Use(TokenOrganization, TokenHospital, TokenBranch, "not-a-guid");
-    TrustedScopeResolver.TrustedScope scope = await Resolve(userService);
+    TrustedScope scope = await Resolve(userService);
 
     Assert.Equal(TokenOrganization, scope.OrganizationCode);
     Assert.Equal(TokenHospital, scope.HospitalCode);
@@ -288,7 +288,7 @@ public sealed class Stage3TrustedScopeTests
   /// <summary>把当前请求上下文交给可信范围解析点，供各用例共用同一入参构造。</summary>
   /// <param name="userService">提供当前登录用户档案的替身。</param>
   /// <returns>补齐后的可信组织与可信医院编码对。</returns>
-  private static Task<TrustedScopeResolver.TrustedScope> Resolve(StubUserAppService userService) =>
+  private static Task<TrustedScope> Resolve(StubUserAppService userService) =>
     new TrustedScopeResolver(userService).ResolveOrThrowAsync(
       TrustedRequestContext.Current(),
       MissingOrganizationMessage,
@@ -374,6 +374,62 @@ public sealed class Stage3TrustedScopeTests
 
     /// <inheritdoc/>
     public Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? standardProjectCode, ConfigurationStatus? configurationStatus) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<long> CountMedicalReportListAsync(MedicalReportListFilter filter) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<MedicalReportListItem>> QueryMedicalReportListAsync(MedicalReportListFilter filter, int skipCount, int pageSize) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<MedicalReportVersionItem>> QueryMedicalReportVersionListAsync(Guid reportId) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<MedicalReportVersionDetailItem?> GetMedicalReportVersionDetailAsync(Guid reportId, Guid reportVersionId) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<MedicalReportScopeItem?> GetMedicalReportScopeAsync(Guid reportId) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<MedicalRecognitionReportDetailCommon?> GetMedicalReportVersionCommonAsync(Guid reportVersionId) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<LaboratoryReportContentItem?> GetLaboratoryReportContentAsync(Guid reportVersionId) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsAsync(Guid reportVersionId) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<LaboratoryBacteriaResultItem>> QueryLaboratoryBacteriaResultsAsync(Guid reportVersionId) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<LaboratorySusceptibilityItem>> QueryLaboratorySusceptibilitiesAsync(Guid bacteriaResultId) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<ExaminationReportContentItem?> GetExaminationReportContentAsync(Guid reportVersionId) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsAsync(Guid reportVersionId) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesAsync(Guid examinationItemId) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) =>
       throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
   }
 }

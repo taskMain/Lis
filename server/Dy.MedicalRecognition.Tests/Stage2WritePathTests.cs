@@ -10,6 +10,7 @@ using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggreg
 using Dy.MedicalRecognition.Application.Contracts.Validation;
 using Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
+using Dy.MedicalRecognition.Domain.Share.Enums;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Events;
 using Dy.MedicalRecognition.Repository.MedicalRecognitionReportAggregate;
@@ -51,7 +52,8 @@ public sealed class Stage2WritePathTests
   /// <param name="repository">承载目录与配置数据的最小仓储替身。</param>
   /// <returns>可直接调用的写入口。</returns>
   private static MedicalRecognitionReportAppService CreateAppService(FakeReportRepository repository)
-    => new(new MedicalRecognitionReportManager(repository), repository, new StubOrganizationAppService(), new StubUserAppService());
+    => new(new MedicalRecognitionReportManager(repository), repository, new StubOrganizationAppService(), new StubUserAppService(),
+      new StubReportPdfFileStore(), new StubReportQueryRepository());
 
   /// <summary>构建领域管理器，用于绕过应用层直接校验领域规则。</summary>
   /// <param name="repository">承载目录与配置数据的最小仓储替身。</param>
@@ -1567,6 +1569,103 @@ public sealed class Stage2WritePathTests
     /// <param name="organizationHospitalBranchRecognitionAmount">金额记录实体。</param>
     /// <returns>不返回结果。</returns>
     public Task<int> UpdateOrganizationHospitalBranchRecognitionAmountAsync(OrganizationHospitalBranchRecognitionAmount organizationHospitalBranchRecognitionAmount) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按证件键读取平台患者。</summary>
+    /// <param name="identityDocumentTypeCode">证件类型代码。</param>
+    /// <param name="identityDocumentNo">证件号码。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<PlatformPatient?> GetPlatformPatientByDocumentAsync(string identityDocumentTypeCode, string identityDocumentNo) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：并发撞键后复读平台患者。</summary>
+    /// <param name="identityDocumentTypeCode">证件类型代码。</param>
+    /// <param name="identityDocumentNo">证件号码。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<(PlatformPatient? Patient, bool IsReadable)> TryGetPlatformPatientByDocumentAsync(string identityDocumentTypeCode, string identityDocumentNo) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增平台患者。</summary>
+    /// <param name="platformPatient">平台患者实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreatePlatformPatientAsync(PlatformPatient platformPatient) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按报告标识读取报告。</summary>
+    /// <param name="id">报告标识。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<MedicalRecognitionReport?> GetMedicalRecognitionReportByIdAsync(Guid id) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按五个业务键定位报告。</summary>
+    /// <param name="organizationCode">组织编码。</param>
+    /// <param name="hospitalCode">医院编码。</param>
+    /// <param name="branchCode">院区编码。</param>
+    /// <param name="reportType">报告类型。</param>
+    /// <param name="reportNo">来源报告单号。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<MedicalRecognitionReport?> GetMedicalRecognitionReportByBusinessKeyAsync(
+      string organizationCode, string hospitalCode, string branchCode, MedicalReportType reportType, string reportNo) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增报告。</summary>
+    /// <param name="medicalRecognitionReport">报告实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateMedicalRecognitionReportAsync(MedicalRecognitionReport medicalRecognitionReport) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：更新报告的当前版本指向与检索列。</summary>
+    /// <param name="medicalRecognitionReport">报告实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> UpdateMedicalRecognitionReportCurrentVersionAsync(MedicalRecognitionReport medicalRecognitionReport) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：把报告作废。</summary>
+    /// <param name="medicalRecognitionReport">报告实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> VoidMedicalRecognitionReportAsync(MedicalRecognitionReport medicalRecognitionReport) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：读取报告当前最大版本序号。</summary>
+    /// <param name="reportId">报告标识。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> GetMedicalReportMaxVersionNumberAsync(Guid reportId) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按版本标识读取版本。</summary>
+    /// <param name="id">报告版本标识。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<MedicalReportVersion?> GetMedicalReportVersionByIdAsync(Guid id) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增报告版本。</summary>
+    /// <param name="medicalReportVersion">报告版本实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateMedicalReportVersionAsync(MedicalReportVersion medicalReportVersion) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增检验专项内容。</summary>
+    /// <param name="laboratoryReportContent">检验专项内容实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateLaboratoryReportContentAsync(LaboratoryReportContent laboratoryReportContent) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增普通检验结果。</summary>
+    /// <param name="laboratoryResultItem">普通检验结果实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateLaboratoryResultItemAsync(LaboratoryResultItem laboratoryResultItem) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增细菌鉴定结果。</summary>
+    /// <param name="laboratoryBacteriaResult">细菌鉴定结果实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateLaboratoryBacteriaResultAsync(LaboratoryBacteriaResult laboratoryBacteriaResult) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增药敏结果。</summary>
+    /// <param name="laboratoryAntimicrobialSusceptibility">药敏结果实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateLaboratoryAntimicrobialSusceptibilityAsync(LaboratoryAntimicrobialSusceptibility laboratoryAntimicrobialSusceptibility) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增检查专项内容。</summary>
+    /// <param name="examinationReportContent">检查专项内容实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateExaminationReportContentAsync(ExaminationReportContent examinationReportContent) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增检查项目。</summary>
+    /// <param name="examinationItem">检查项目实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateExaminationItemAsync(ExaminationItem examinationItem) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增检查部位。</summary>
+    /// <param name="examinationSite">检查部位实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateExaminationSiteAsync(ExaminationSite examinationSite) => throw new NotSupportedException(UnusedMember);
 
     /// <summary>未使用的仓储成员统一提示，避免测试静默走过未被覆盖的写入路径。</summary>
     private const string UnusedMember = "本测试未使用该仓储成员。";

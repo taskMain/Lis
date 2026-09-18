@@ -1,12 +1,74 @@
-<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+<SqlMap Scope="LaboratoryResultItem" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <ParameterMaps>
+    <!--
+      功能：为普通检验结果写入侧的布尔列提供框架公共参数绑定。
+      结果：危急值标志按 CLR 可空 bool 交由当前数据库 Provider 适配，使布尔列与参数的比较或写入可用。
+      原因：框架默认把布尔参数按整数绑定，布尔列与整数在 PostgreSQL 上不存在对应操作符或赋值转换，
+      写入时报 42804；查询侧的布尔筛选已用同一类型处理器解决，写入侧按同一口径补齐。
+    -->
+    <ParameterMap Id="LaboratoryResultItemInsertParameters">
+      <!-- 字段：危急值标志；未提供时写入空值，表示来源未判定。 -->
+      <Parameter Property="CriticalValueFlag" TypeHandler="MedicalRecognitionBoolean" />
+    </ParameterMap>
+  </ParameterMaps>
   <Statements>
+    <!--
+      功能：定义普通检验结果的通用查询字段清单，供按报告版本读取语句与新增语句复用。
+      结果：输出来源明细标识、来源项目、互认项目编码、结果与类型、单位与参考范围、检测方法与仪器、展示序号、
+      标志、收费编码、检测人与操作审计字段。
+    -->
     <Statement Id="LaboratoryResultItemColumns">
-      id, report_version_id, source_detail_key, source_project_name, source_project_code, standard_project_code, source_result_text, result_type, loinc_code, unit, reference_range, testing_method, instrument_code, instrument_name, display_order, abnormal_flag, critical_value_flag, laboratory_charge_item_code, insurance_charge_item_code, inspector_id, inspector_name, oper_id, oper_time
+      id,                             <!-- 普通检验结果标识（主键） -->
+      report_version_id,              <!-- 报告版本标识 -->
+      source_detail_key,              <!-- 来源明细标识 -->
+      source_project_name,            <!-- 来源项目名称 -->
+      source_project_code,            <!-- 来源项目编码 -->
+      standard_project_code,          <!-- 互认项目编码 -->
+      source_result_text,             <!-- 来源结果原文 -->
+      result_type,                    <!-- 结果类型 -->
+      loinc_code,                     <!-- LOINC 编码 -->
+      unit,                           <!-- 单位 -->
+      reference_range,                <!-- 参考范围 -->
+      testing_method,                 <!-- 检测方法 -->
+      instrument_code,                <!-- 检测仪器编码 -->
+      instrument_name,                <!-- 检测仪器名称 -->
+      display_order,                  <!-- 展示序号 -->
+      abnormal_flag,                  <!-- 异常标志 -->
+      critical_value_flag,            <!-- 危急值标志 -->
+      laboratory_charge_item_code,    <!-- 检验收费项目编码 -->
+      insurance_charge_item_code,     <!-- 医保收费项目编码 -->
+      inspector_id,                   <!-- 检测人ID -->
+      inspector_name,                 <!-- 检测人名称 -->
+      oper_id,                        <!-- 操作人标识 -->
+      oper_time                       <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllLaboratoryResultItem">
-      select
-      <Include RefId="LaboratoryResultItemColumns" />
-      from laboratory_result_item
+    <!--
+      功能：按报告版本读取普通检验结果，供管理端版本详情还原来源报告中的项目排列顺序。
+      结果：按展示序号升序返回该版本的全部普通结果，并以结果标识作为稳定兜底键；无结果时返回空集合。
+    -->
+    <Statement Id="QueryLaboratoryResultItemsByVersion">
+      select <Include RefId="LaboratoryResultItemColumns" /> from mrec_laboratory_result_item
+      where report_version_id = $ReportVersionId  <!-- 版本范围：只返回该报告版本的普通结果 -->
+      order by display_order asc, id asc  <!-- 排序：按展示序号升序，并以结果标识作为稳定兜底键 -->
+    </Statement>
+    <!--
+      功能：新增一条普通检验结果。
+      结果：写入标识、报告版本标识、来源明细标识、来源项目与编码、互认项目编码、结果原文与类型、
+      LOINC 编码、单位、参考范围、检测方法与仪器、展示序号、异常与危急值标志、收费编码、检测人与操作字段；
+      互认项目编码按请求原样保存，缺失或不可用都不影响接收。
+    -->
+    <Statement Id="InsertLaboratoryResultItem" ParameterMap="LaboratoryResultItemInsertParameters">
+      insert into mrec_laboratory_result_item (
+        id, report_version_id, source_detail_key, source_project_name, source_project_code, standard_project_code,
+        source_result_text, result_type, loinc_code, unit, reference_range, testing_method,
+        instrument_code, instrument_name, display_order, abnormal_flag, critical_value_flag,
+        laboratory_charge_item_code, insurance_charge_item_code, inspector_id, inspector_name, oper_id, oper_time
+      ) values (
+        $Id, $ReportVersionId, $SourceDetailKey, $SourceProjectName, $SourceProjectCode, $StandardProjectCode,
+        $SourceResultText, $ResultType, $LoincCode, $Unit, $ReferenceRange, $TestingMethod,
+        $InstrumentCode, $InstrumentName, $DisplayOrder, $AbnormalFlag, $CriticalValueFlag,
+        $LaboratoryChargeItemCode, $InsuranceChargeItemCode, $InspectorId, $InspectorName, $OperId, $OperTime
+      )
     </Statement>
   </Statements>
 </SqlMap>

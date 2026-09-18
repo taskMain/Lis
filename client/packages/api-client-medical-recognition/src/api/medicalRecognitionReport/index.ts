@@ -28,15 +28,25 @@ import { EnableMedicalStandardItemRequestBuilderRequestsMetadata, type EnableMed
 // @ts-ignore
 import { EnableMutualRecognitionItemRequestBuilderRequestsMetadata, type EnableMutualRecognitionItemRequestBuilder } from './enableMutualRecognitionItem/index.js';
 // @ts-ignore
+import { OpenReportVersionPdfRequestBuilderRequestsMetadata, type OpenReportVersionPdfRequestBuilder } from './openReportVersionPdf/index.js';
+// @ts-ignore
 import { SaveBranchRecognitionAmountRequestBuilderRequestsMetadata, type SaveBranchRecognitionAmountRequestBuilder } from './saveBranchRecognitionAmount/index.js';
 // @ts-ignore
 import { SaveOrganizationHospitalBranchRecognitionAmountRequestBuilderRequestsMetadata, type SaveOrganizationHospitalBranchRecognitionAmountRequestBuilder } from './saveOrganizationHospitalBranchRecognitionAmount/index.js';
+// @ts-ignore
+import { SubmitCompleteExaminationReportRequestBuilderRequestsMetadata, type SubmitCompleteExaminationReportRequestBuilder } from './submitCompleteExaminationReport/index.js';
+// @ts-ignore
+import { SubmitCompleteLaboratoryReportRequestBuilderRequestsMetadata, type SubmitCompleteLaboratoryReportRequestBuilder } from './submitCompleteLaboratoryReport/index.js';
 // @ts-ignore
 import { type UpdateMedicalStandardCategoryRequestBuilder, UpdateMedicalStandardCategoryRequestBuilderRequestsMetadata } from './updateMedicalStandardCategory/index.js';
 // @ts-ignore
 import { type UpdateMedicalStandardGroupRequestBuilder, UpdateMedicalStandardGroupRequestBuilderRequestsMetadata } from './updateMedicalStandardGroup/index.js';
 // @ts-ignore
 import { type UpdateMutualRecognitionItemConfigurationRequestBuilder, UpdateMutualRecognitionItemConfigurationRequestBuilderRequestsMetadata } from './updateMutualRecognitionItemConfiguration/index.js';
+// @ts-ignore
+import { type VoidExaminationReportRequestBuilder, VoidExaminationReportRequestBuilderRequestsMetadata } from './voidExaminationReport/index.js';
+// @ts-ignore
+import { type VoidLaboratoryReportRequestBuilder, VoidLaboratoryReportRequestBuilderRequestsMetadata } from './voidLaboratoryReport/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
@@ -97,6 +107,10 @@ export interface MedicalRecognitionReportRequestBuilder extends BaseRequestBuild
      */
     get enableMutualRecognitionItem(): EnableMutualRecognitionItemRequestBuilder;
     /**
+     * The OpenReportVersionPdf property
+     */
+    get openReportVersionPdf(): OpenReportVersionPdfRequestBuilder;
+    /**
      * The SaveBranchRecognitionAmount property
      */
     get saveBranchRecognitionAmount(): SaveBranchRecognitionAmountRequestBuilder;
@@ -104,6 +118,14 @@ export interface MedicalRecognitionReportRequestBuilder extends BaseRequestBuild
      * The SaveOrganizationHospitalBranchRecognitionAmount property
      */
     get saveOrganizationHospitalBranchRecognitionAmount(): SaveOrganizationHospitalBranchRecognitionAmountRequestBuilder;
+    /**
+     * The SubmitCompleteExaminationReport property
+     */
+    get submitCompleteExaminationReport(): SubmitCompleteExaminationReportRequestBuilder;
+    /**
+     * The SubmitCompleteLaboratoryReport property
+     */
+    get submitCompleteLaboratoryReport(): SubmitCompleteLaboratoryReportRequestBuilder;
     /**
      * The UpdateMedicalStandardCategory property
      */
@@ -116,6 +138,14 @@ export interface MedicalRecognitionReportRequestBuilder extends BaseRequestBuild
      * The UpdateMutualRecognitionItemConfiguration property
      */
     get updateMutualRecognitionItemConfiguration(): UpdateMutualRecognitionItemConfigurationRequestBuilder;
+    /**
+     * The VoidExaminationReport property
+     */
+    get voidExaminationReport(): VoidExaminationReportRequestBuilder;
+    /**
+     * The VoidLaboratoryReport property
+     */
+    get voidLaboratoryReport(): VoidLaboratoryReportRequestBuilder;
 }
 /**
  * Uri template for the request builder.
@@ -164,11 +194,20 @@ export const MedicalRecognitionReportRequestBuilderNavigationMetadata: Record<Ex
     enableMutualRecognitionItem: {
         requestsMetadata: EnableMutualRecognitionItemRequestBuilderRequestsMetadata,
     },
+    openReportVersionPdf: {
+        requestsMetadata: OpenReportVersionPdfRequestBuilderRequestsMetadata,
+    },
     saveBranchRecognitionAmount: {
         requestsMetadata: SaveBranchRecognitionAmountRequestBuilderRequestsMetadata,
     },
     saveOrganizationHospitalBranchRecognitionAmount: {
         requestsMetadata: SaveOrganizationHospitalBranchRecognitionAmountRequestBuilderRequestsMetadata,
+    },
+    submitCompleteExaminationReport: {
+        requestsMetadata: SubmitCompleteExaminationReportRequestBuilderRequestsMetadata,
+    },
+    submitCompleteLaboratoryReport: {
+        requestsMetadata: SubmitCompleteLaboratoryReportRequestBuilderRequestsMetadata,
     },
     updateMedicalStandardCategory: {
         requestsMetadata: UpdateMedicalStandardCategoryRequestBuilderRequestsMetadata,
@@ -178,6 +217,12 @@ export const MedicalRecognitionReportRequestBuilderNavigationMetadata: Record<Ex
     },
     updateMutualRecognitionItemConfiguration: {
         requestsMetadata: UpdateMutualRecognitionItemConfigurationRequestBuilderRequestsMetadata,
+    },
+    voidExaminationReport: {
+        requestsMetadata: VoidExaminationReportRequestBuilderRequestsMetadata,
+    },
+    voidLaboratoryReport: {
+        requestsMetadata: VoidLaboratoryReportRequestBuilderRequestsMetadata,
     },
 };
 /* tslint:enable */

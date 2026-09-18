@@ -41,7 +41,7 @@
 
 - **宿主菜单**：父项「检验检查结果互认」→ 子项「互认项目」（2026-09-15 已在宿主维护）。
 - **子应用路由**：`recognition-projects`，宿主完整路径 `/subApps/medical-recognition/recognition-projects`；该路由已随 Ticket 07 注册（`client/apps/dy-medical-recognition/src/router/routes.tsx`），并有 `routes.test.ts` 覆盖。
-- **验收路径**：宿主入口（宿主地址、登录页与登录入口）是**跨阶段统一的项目级配置**，见 [Test Environment](../../../../.agents/instructions/test-environment.md) 第 1、2 节，本阶段不重新定义；链路为：从该宿主入口登录 → 在宿主 `/dev-settings` 确认符合 [Test Environment](../../../../.agents/instructions/test-environment.md) 第 4 节的劫持映射已生效（Network 确认子应用资源来自 `localhost:3008`、Console 出现 `[vite] connected.`）→ 以 debug 启动前后端（`localhost:3008` / `localhost:5014`）→ 从宿主菜单进入本页面 → 按 [Testing](../../../../.agents/instructions/testing.md) 第 1、2 节在同一链路核对页面、DOM、Console、Network、响应与最终业务状态。**本地直达子应用、Scalar、直接 HTTP 均不能替代宿主验收。**
+- **验收路径**：宿主入口（宿主地址、登录页与登录入口）是**跨阶段统一的项目级配置**，见 [Test Environment](../../../../.agents/instructions/test-environment.md) 第 1、2 节，本阶段不重新定义；链路为：从该宿主入口登录 → 在宿主 `/dev-settings` 确认符合 [Test Environment](../../../../.agents/instructions/test-environment.md) 第 4 节的劫持映射已生效（Network 确认子应用资源来自 `localhost:3008`、Console 出现 `[vite] connected.`）→ 以 debug 启动前后端（`localhost:3008` / `localhost:15014`）→ 从宿主菜单进入本页面 → 按 [Testing](../../../../.agents/instructions/testing.md) 第 1、2 节在同一链路核对页面、DOM、Console、Network、响应与最终业务状态。**本地直达子应用、Scalar、直接 HTTP 均不能替代宿主验收。**
 - 账号与凭据位置见整体测试规范；本阶段不复制凭据。
 
 ## 执行记录

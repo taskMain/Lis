@@ -6,6 +6,8 @@ import { StandardCatalog } from '../pages/standardCatalog/StandardCatalog'
 import { RecognitionProjects } from '../pages/recognitionProjects/RecognitionProjects'
 import { RecognitionAmounts } from '../pages/recognitionAmounts/RecognitionAmounts'
 import { BranchRecognitionAmounts } from '../pages/recognitionAmounts/BranchRecognitionAmounts'
+import { ReportManagement } from '../pages/reportManagement/ReportManagement'
+import { BranchReportManagement } from '../pages/reportManagement/BranchReportManagement'
 
 const Prototype = import.meta.env.DEV
   ? lazy(() => import('../pages/prototype/StandardCatalogPrototype').then((module) => ({ default: module.StandardCatalogPrototype })))
@@ -40,6 +42,13 @@ export const routes: RouteObject[] = [
       // 「本院区互认项目金额」医院管理员页：组织与医院取可信上下文并以只读方式固定展示，只有院区可选；
       // 请求只提交院区与标准项目编码，组织与医院由服务端从可信上下文注入，前端不回填。
       { path: 'branch-recognition-amounts', element: <BranchRecognitionAmounts /> },
+      // 「报告管理与历史版本」平台管理员页：组织、医院、院区三级由页面选择并随列表查询请求提交，
+      // 数据范围就是所选组织、医院与院区（服务端校验其存在、启用与父子归属）；页面为只读页，
+      // 只提供列表、历史版本查看与 PDF 下载，不实现角色判断，菜单名称与授权由权限系统配置。
+      { path: 'report-management', element: <ReportManagement /> },
+      // 「本院报告管理与历史版本」医院管理员页：组织与医院取可信上下文并以只读方式固定展示，
+      // 只有院区可选且必须属于可信医院；请求不提交组织与医院两项，由服务端从可信上下文注入。
+      { path: 'branch-report-management', element: <BranchReportManagement /> },
       ...(prototypeRoute ? [prototypeRoute] : []),
     ],
   },

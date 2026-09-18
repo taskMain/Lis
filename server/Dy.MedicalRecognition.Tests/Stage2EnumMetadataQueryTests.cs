@@ -521,14 +521,15 @@ public sealed class Stage2EnumMetadataQueryTests
   }
 
   /// <summary>
-  /// 契约程序集公开类型上的枚举必须已登记，或属于下方显式列出的阶段1 枚举：
-  /// 新增契约枚举却漏登记、或把阶段2 之外的枚举混进白名单，都会让用例失败。
+  /// 契约程序集公开类型上的枚举必须已登记，或属于下方显式列出的后续阶段枚举：
+  /// 新增契约枚举却漏登记、或把已登记枚举混进排除清单，都会让用例失败。
   /// </summary>
   /// <remarks>
   /// 扫描整个契约程序集（而不是手工列具体类型），新增请求或只读模型会自动纳入；
   /// 属性类型解包可空、数组与泛型集合元素；继承来的公开属性一并计入（契约字段当前均为自有属性）。
-  /// 下方排除清单承载的是**后续阶段读模型上的枚举**（报告生命周期、匹配、统计等，其展示口径随各自阶段设计确定），
-  /// 阶段 1 与阶段 2 只读模型上的枚举（<c>MedicalItemType</c>、<c>MedicalStandardUsageStatus</c>、<c>ConfigurationStatus</c>）
+  /// 下方排除清单承载的是**后续阶段读模型上的枚举**（匹配、统计等，其展示口径随各自阶段设计确定）：
+  /// 阶段 1 至阶段 3 读模型上的枚举（<c>MedicalItemType</c>、<c>MedicalStandardUsageStatus</c>、<c>ConfigurationStatus</c>）
+  /// 与阶段 4 报告契约上的枚举（报告类型、报告生命周期状态、就诊类型、检验结果类型、检验异常标志、来源影像状态）
   /// 均已登记，不再属于排除范围；
   /// 排除项自身也必须确实出现在契约上且不得与白名单重叠，否则清单过期或侵占已登记枚举都会让用例失败。
   /// 已知边界：只扫属性，不扫方法签名（返回类型与参数）上的枚举；扫描范围含嵌套公开类型，
@@ -539,14 +540,8 @@ public sealed class Stage2EnumMetadataQueryTests
   {
     string[] laterStageContractEnums =
     [
-      "LaboratoryAbnormalFlag",
-      "LaboratoryResultType",
-      "MedicalReportLifecycleStatus",
-      "MedicalReportType",
       "RecognitionNonAdoptionReason",
-      "RecognitionResult",
-      "SourceImageStatus",
-      "VisitType"
+      "RecognitionResult"
     ];
 
     string[] contractEnums = typeof(RecognitionProjectConfigurationReadModel).Assembly

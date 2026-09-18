@@ -2,7 +2,7 @@
 export const subAppBase = '/subApps/medical-recognition'
 
 // 配置文件读取失败时使用本地开发后端地址
-const fallbackApiBaseUrl = 'http://localhost:5014'
+const fallbackApiBaseUrl = 'http://localhost:15014'
 
 export interface RuntimeConfig {
   apiBaseUrl: string

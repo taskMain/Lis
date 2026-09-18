@@ -41,26 +41,42 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   private readonly TrustedScopeResolver trustedScopeResolver;
 
   /// <summary>
+  /// 报告 PDF 的本地文件存储端口：提交入口确认文件键可读，下载入口按键读取文件。
+  /// </summary>
+  private readonly IReportPdfFileStore reportPdfFileStore;
+
+  /// <summary>
+  /// 报告与报告版本的只读查询端口：下载入口按报告标识与版本标识读取报告身份与文件信息。
+  /// </summary>
+  private readonly Domain.Queries.IMedicalRecognitionReportQueryRepository queryReportRepository;
+
+  /// <summary>
   /// 初始化写入口。
   /// </summary>
   /// <remarks>
   /// 保留执行目录业务规则校验、数据读写与事件登记的领域管理器，按编码读取标准目录的仓储端口，以及组织路径解析所用的外部组织服务；
   /// 可信范围解析所用的外部用户服务在构造函数内转交内部解析点。
   /// </remarks>
-  /// <param name="manager">目录、互认配置与金额领域管理器。</param>
+  /// <param name="manager">目录、互认配置、金额与报告采集领域管理器。</param>
   /// <param name="repository">标准目录读取、互认配置归属校验与保存前提校验使用的仓储端口。</param>
   /// <param name="organizationAppService">提供组织、医院与院区主数据的外部组织服务。</param>
   /// <param name="userAppService">提供当前登录用户组织与医院归属的外部用户服务，用于补齐令牌缺失的可信层。</param>
+  /// <param name="reportPdfFileStore">报告 PDF 的本地文件存储端口。</param>
+  /// <param name="queryReportRepository">报告与报告版本的只读查询端口。</param>
   public MedicalRecognitionReportAppService(
     MedicalRecognitionReportManager manager,
     IMedicalRecognitionReportRepository repository,
     IOrganizationAppService organizationAppService,
-    IUserAppService userAppService)
+    IUserAppService userAppService,
+    IReportPdfFileStore reportPdfFileStore,
+    Domain.Queries.IMedicalRecognitionReportQueryRepository queryReportRepository)
   {
     this.manager = manager;
     this.repository = repository;
     organizationPathResolver = new OrganizationPathResolver(organizationAppService);
     trustedScopeResolver = new TrustedScopeResolver(userAppService);
+    this.reportPdfFileStore = reportPdfFileStore;
+    this.queryReportRepository = queryReportRepository;
   }
 
   /// <summary>
@@ -401,8 +417,8 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
     // 自动映射对可空金额的缺省值静默写入 0，会把"未提交金额"变成一次真实的零元写入。
     command.CurrentAmount = request.CurrentAmount!.Value;
     // 平台管理员入口按请求的组织、医院、院区执行，跨组织同样放行：权限由权限系统负责，不在服务端做组织相等校验。
-    OrganizationPathResolver.OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
-      [new OrganizationPathResolver.OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode)],
+    OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
+      [new OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode)],
       "业务拒绝：组织不存在或已停用。",
       "业务拒绝：医院不存在、已停用或不属于所选组织。",
       "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
@@ -432,7 +448,7 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   public async Task<bool> SaveBranchRecognitionAmountAsync(SaveBranchRecognitionAmountRequest request)
   {
     // 可信组织与医院的解析先于公共请求校验：可信范围不成立时不需要、也不得读取任何业务数据。
-    TrustedScopeResolver.TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
+    TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
       HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
     MedicalRecognitionRequestValidator.Validate(request);
     SaveOrganizationHospitalBranchRecognitionAmountCommand command = request.MapToSaveOrganizationHospitalBranchRecognitionAmountCommand();
@@ -440,8 +456,8 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
     command.CurrentAmount = request.CurrentAmount!.Value;
     command.OrganizationCode = trustedScope.OrganizationCode;
     command.HospitalCode = trustedScope.HospitalCode;
-    OrganizationPathResolver.OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
-      [new OrganizationPathResolver.OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, request.BranchCode)],
+    OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
+      [new OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, request.BranchCode)],
       "业务拒绝：组织不存在或已停用。",
       "业务拒绝：医院不存在、已停用或不属于所选组织。",
       "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
@@ -456,7 +472,7 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   /// <param name="path">解析校验通过的组织路径，携带去空白后的三层业务编码。</param>
   /// <returns>是否保存成功。</returns>
   /// <exception cref="InvalidOperationException">用户标识不能解析为非空 Guid 时抛出；其余业务拒绝由领域管理器抛出。</exception>
-  private async Task<bool> SaveAmountAsync(SaveOrganizationHospitalBranchRecognitionAmountCommand command, OrganizationPathResolver.OrganizationPath path)
+  private async Task<bool> SaveAmountAsync(SaveOrganizationHospitalBranchRecognitionAmountCommand command, OrganizationPath path)
   {
     if (!Guid.TryParse(HttpRequestInfo?.UserId, out var userId) || userId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
     command.OrganizationCode = path.OrganizationCode;
@@ -465,5 +481,29 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
     command.OperId = userId;
     command.OperTime = DateTimeOffset.UtcNow;
     return await manager.SaveOrganizationHospitalBranchRecognitionAmountAsync(command);
+  }
+
+  /// <summary>
+  /// 解析报告采集链路的三层可信归属与本次请求的接收时间。
+  /// </summary>
+  /// <remarks>
+  /// 组织、医院与院区三层都来自可信上下文：登录令牌该层非空白即取令牌值，令牌缺失该层时用当前登录用户档案的归属补齐，
+  /// 令牌与档案冲突或补齐后仍为空即拒绝。院区不从请求取值，因此调用方不能扩大可信范围；
+  /// 三层都必须存在、启用且父子归属正确。本次请求的接收时间由服务端取，用于校验业务时间与作废时间不晚于平台接收时点。
+  /// </remarks>
+  /// <returns>三层可信归属与本次请求的接收时间。</returns>
+  /// <exception cref="InvalidOperationException">可信组织、医院或院区不可解析，或组织、医院、院区不存在、已停用、父子归属不匹配时抛出。</exception>
+  private async Task<(OrganizationPath Path, DateTime ReceivedTime)> ResolveReportScopeAsync()
+  {
+    TrustedScope trustedScope = await trustedScopeResolver.ResolveWithBranchOrThrowAsync(
+      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。", "无法确定当前可信院区。");
+
+    OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
+      [new OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, trustedScope.BranchCode)],
+      "业务拒绝：组织不存在或已停用。",
+      "业务拒绝：医院不存在、已停用或不属于所选组织。",
+      "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
+
+    return (path, DateTime.Now);
   }
 }

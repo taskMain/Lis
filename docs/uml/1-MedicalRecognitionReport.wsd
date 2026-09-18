@@ -6,7 +6,8 @@
 ' 写命令请求值对象的正式业务字段以 SRS 对应功能章节为准；Meta 图仅为参考草稿。HIS 查询响应由 3-HospitalIntegrationApiQuery.wsd 正式建模。
 ' 菜单、接口和操作授权由权限系统负责；本模型不重复判断操作权限。
 ' 本文件是全局枚举的唯一正式定义来源；其他 WSD 仅引用 MedicalReportType、VisitType、MedicalItemType、MedicalReportLifecycleStatus 和 SourceImageStatus，不重复定义。
-' 写请求 DTO 名称登记：F03 使用 LaboratoryReportVersionRequest、MedicalRecognitionReportWriteRequest、MedicalReportVersionWriteRequest、LaboratoryReportContentRequest、LaboratoryResultItemRequest、BacterialIdentificationResultRequest、DrugSusceptibilityResultRequest、MedicalReportVoidRequest、ExaminationReportVersionRequest、ExaminationReportContentRequest、ExaminationItemRequest、ExaminationSiteRequest；F04 使用 RecognitionMatchProposedItemRequest、RecognitionMatchRecordCreateRequest、RecognitionMatchItemCreateRequest；F05 使用 RecognitionProcessingResultItemRequest；F07 使用 RecognitionReferenceItemRequest。
+' 写请求 DTO 名称登记：F03 使用 LaboratoryReportVersionRequest、MedicalReportVersionRequest、LaboratoryReportContentRequest、LaboratoryResultItemRequest、LaboratoryBacteriaResultRequest、LaboratoryAntimicrobialSusceptibilityRequest、MedicalReportVoidRequest、ExaminationReportVersionRequest、ExaminationReportContentRequest、ExaminationItemRequest、ExaminationSiteRequest；F04 使用 RecognitionMatchProposedItemRequest、RecognitionMatchRecordCreateRequest、RecognitionMatchItemCreateRequest；F05 使用 RecognitionProcessingResultItemRequest；F07 使用 RecognitionReferenceItemRequest。
+' 报告提交的写请求层次：报告业务标识（组织、医院、院区、报告类型、报告单号）与 PDF 文件键、下载名由提交命令的直接属性承载，不单独定义请求类型；MedicalReportVersionRequest 承载公共版本信息，专项内容请求与明细集合由其相邻的专项内容请求类型承载；报告与版本的写入由同一命令在同一步内完成。
 Person('PlatformAdministrator','平台管理员')
 Person('HospitalAdministrator','医院管理员')
 Person('HospitalCollectionService','医院侧采集服务')
@@ -355,67 +356,48 @@ Command('SaveOrganizationHospitalBranchRecognitionAmountCommand')[
     4. 平台管理员可以维护所有组织、医院和院区的金额；医院管理员只能维护可信上下文所属医院及其院区的金额，提交其他医院或不属于该医院的院区时拒绝保存。
 ]
 DomainEvent('OrganizationHospitalBranchRecognitionAmountSavedEvent','组织医院院区互认项目金额已保存')
-FacadeCommand('SubmitCompleteLaboratoryReportCommand')[
+Command('SubmitCompleteLaboratoryReportCommand')[
     提交完整检验报告
     --入参--
     完整报告(Report LaboratoryReportVersionRequest)
     --出参--
     成功(Success Boolean)
     --规则--
-    1. Facade 是本次完整报告提交的唯一提交单元，结构化内容与 PDF 必须共同成功或共同失败。
-    2. 任一子命令失败时整次提交不保存任何报告内容、不发布任何子命令事件。
+    1. 本命令是本次完整报告提交的唯一提交单元；由应用服务在单一工作单元内编排，结构化内容与 PDF 必须共同成功或共同失败。
+    2. 管理器内部步骤串行执行：取得或创建报告、追加版本并设为当前版本、创建检验专项内容、创建普通结果明细、创建细菌鉴定结果及其药敏明细。
+    3. 任一步骤失败时整次提交不保存任何报告内容，也不登记后续步骤的领域事件。
 ]
 DomainEvent('CompleteLaboratoryReportSubmittedEvent','完整检验报告已提交')
-Command('CreateOrGetMedicalRecognitionReportCommand')[
-    创建或取得互认报告
-    --入参--
-    报告主体(Report MedicalRecognitionReportWriteRequest)
-    --规则--
-    1. 按组织、医院、院区、报告类型和报告单号定位报告；不存在时创建生命周期状态为当前有效的报告，作废时间和作废原因为空，并发布报告已创建事件；存在时仅取得且不发布创建事件。
-    2. 当前已作废的报告不得取得用于追加版本，完整报告提交失败。
-]
 DomainEvent('MedicalRecognitionReportCreatedEvent','互认报告已创建')
+note right of MedicalRecognitionReportCreatedEvent
+  本事件在报告不存在并由报告版本追加步骤创建该报告时登记；
+  报告已存在时仅取得报告，不重复登记。
+end note
 Command('AppendMedicalReportVersionCommand')[
     追加报告版本并设为当前版本
     --入参--
-    报告版本(Version MedicalReportVersionWriteRequest)
+    报告主体(Report MedicalRecognitionReportEntity)
+    报告版本(Version MedicalReportVersionRequest)
     --规则--
     1. 每次完整报告成功上传均追加一个完整版本；不比较内容、不判断重试，也不依据源端报告修改时间判断顺序。
-    2. 新版本原子保存后立即成为当前版本；报告当前版本指向更新为新版本，旧版本不保存“历史”状态字段，并停止参与新的匹配、引用详情和新的引用；本命令不改变报告生命周期状态、作废时间或作废原因。
+    2. 新版本原子保存后立即成为当前版本；报告当前版本指向更新为新版本，报告主体上的报告时间、患者姓名与证件号码三个冗余列随当前版本指向在同一事务内更新为本次版本的对应取值，旧版本不保存“历史”状态字段，并停止参与新的匹配、引用详情和新的引用；本命令不改变报告生命周期状态、作废时间或作废原因。
     3. 源端报告修改时间仅随版本保存用于来源追溯；版本序号按平台成功追加顺序递增。
     4. 申请科室 ID、申请科室名称、申请医生 ID 和申请医生名称均为必填，任一缺失时不得追加报告版本。
     5. 平台按证件类型和证件号码解析平台患者，并核对姓名、性别代码和出生日期；首次版本将报告及版本关联该患者，后续版本必须解析到报告既有关联患者，任一身份冲突或解析到其他患者时拒绝追加，不允许报告跨患者迁移。
     6. 互认项目编码缺失，或明确提供但不存在、超出组织范围、停用或标准目录不可用时，不拒绝完整报告；编码随版本保存，但只有当前组织内当前启用且标准目录层级有效的编码形成新的匹配资格。
+    7. 按组织、医院、院区、报告类型和报告单号定位报告；不存在时创建生命周期状态为当前有效、作废时间与作废原因为空的报告并登记报告已创建事件；存在时仅取得且不重复登记该事件；报告已作废时不得追加版本，完整报告提交失败。
 ]
 DomainEvent('MedicalReportVersionAppendedAsCurrentEvent','报告版本已追加并成为当前版本')
-Command('CreateLaboratoryReportContentCommand')[
-    创建检验报告专项内容
-    --入参--
-    报告版本ID(ReportVersionId Guid)
-    专项内容(Content LaboratoryReportContentRequest)
-]
-DomainEvent('LaboratoryReportContentCreatedEvent','检验报告专项内容已创建')
-Command('CreateLaboratoryResultItemsCommand')[
-    创建普通检验结果明细
-    --入参--
-    报告版本ID(ReportVersionId Guid)
-    结果明细(Items LaboratoryResultItemRequest[])
-]
-DomainEvent('LaboratoryResultItemsCreatedEvent','普通检验结果明细已创建')
-Command('CreateLaboratoryBacteriaResultsCommand')[
-    创建细菌鉴定结果
-    --入参--
-    报告版本ID(ReportVersionId Guid)
-    细菌结果(Items BacterialIdentificationResultRequest[])
-]
-DomainEvent('LaboratoryBacteriaResultsCreatedEvent','细菌鉴定结果已创建')
-Command('CreateLaboratoryAntimicrobialSusceptibilityResultsCommand')[
-    创建药敏结果
-    --入参--
-    细菌鉴定结果ID(BacteriaResultId Guid)
-    药敏结果(Items DrugSusceptibilityResultRequest[])
-]
-DomainEvent('LaboratoryAntimicrobialSusceptibilityResultsCreatedEvent','药敏结果已创建')
+note right of AppendMedicalReportVersionCommand
+  本命令是报告提交的唯一内部命令：定位报告、按需创建报告
+  （创建时登记报告已创建事件）、追加版本并更新当前版本指向、
+  解析平台患者、写入该版本的专项内容与全部明细，
+  均由管理器在同一步内完成；这些内部步骤不构成独立命令，
+  也不单独登记事件。
+end note
+' 检验与检查报告提交的聚合内部步骤不作为独立命令建模，
+' 其输入与规则见 SubmitCompleteLaboratoryReportCommand 与
+' SubmitCompleteExaminationReportCommand 的说明注释。
 Command('VoidLaboratoryReportCommand')[
     作废检验报告
     --入参--
@@ -430,38 +412,19 @@ Command('VoidLaboratoryReportCommand')[
     5. 作废时间不得早于当前版本平台接收时间，也不得晚于本次请求接收时间，边界包含；不与源端报告修改时间比较。
 ]
 DomainEvent('LaboratoryReportVoidedEvent','检验报告已作废')
-FacadeCommand('SubmitCompleteExaminationReportCommand')[
+Command('SubmitCompleteExaminationReportCommand')[
     提交完整检查报告
     --入参--
     完整报告(Report ExaminationReportVersionRequest)
     --出参--
     成功(Success Boolean)
     --规则--
-    1. Facade 是本次完整报告提交的唯一提交单元，结构化内容与 PDF 必须共同成功或共同失败。
-    2. 任一子命令失败时整次提交不保存任何报告内容、不发布任何子命令事件。
+    1. 本命令是本次完整报告提交的唯一提交单元；由应用服务在单一工作单元内编排，结构化内容与 PDF 必须共同成功或共同失败。
+    2. 管理器内部步骤串行执行：取得或创建报告、追加版本并设为当前版本、创建检查专项内容、创建检查项目明细及其检查部位。
+    3. 任一步骤失败时整次提交不保存任何报告内容，也不登记后续步骤的领域事件。
 ]
 DomainEvent('CompleteExaminationReportSubmittedEvent','完整检查报告已提交')
-Command('CreateExaminationReportContentCommand')[
-    创建检查报告专项内容
-    --入参--
-    报告版本ID(ReportVersionId Guid)
-    专项内容(Content ExaminationReportContentRequest)
-]
-DomainEvent('ExaminationReportContentCreatedEvent','检查报告专项内容已创建')
-Command('CreateExaminationItemsCommand')[
-    创建检查项目明细
-    --入参--
-    报告版本ID(ReportVersionId Guid)
-    检查项目(Items ExaminationItemRequest[])
-]
-DomainEvent('ExaminationItemsCreatedEvent','检查项目明细已创建')
-Command('CreateExaminationSitesCommand')[
-    创建检查部位明细
-    --入参--
-    检查项目ID(ExaminationItemId Guid)
-    检查部位(Items ExaminationSiteRequest[])
-]
-DomainEvent('ExaminationSitesCreatedEvent','检查部位明细已创建')
+' 检查报告提交的聚合内部步骤同上，不作为独立命令建模。
 Command('VoidExaminationReportCommand')[
     作废检查报告
     --入参--
@@ -476,6 +439,20 @@ Command('VoidExaminationReportCommand')[
     5. 作废时间不得早于当前版本平台接收时间，也不得晚于本次请求接收时间，边界包含；不与源端报告修改时间比较。
 ]
 DomainEvent('ExaminationReportVoidedEvent','检查报告已作废')
+note bottom of SubmitCompleteLaboratoryReportCommand
+  管理器内部步骤（不构成独立命令，同一次提交内串行执行）：
+  · 取得或创建互认报告：按组织、医院、院区、报告类型与报告单号定位；不存在时创建当前有效报告并发布报告已创建事件，存在时仅取得且不发布事件；已作废报告不得取得用于追加版本。
+  · 追加报告版本并设为当前版本：每次成功完整上传追加一个完整版本，不比较内容、不判断重试、不依据源端报告修改时间判断顺序；新版本立即成为当前版本，旧版本不保存历史状态字段；版本序号按成功追加顺序递增；证件类型与证件号码解析平台患者并核对姓名、性别代码与出生日期，首次版本关联报告该患者，后续版本必须解析到同一患者。
+  · 创建检验专项内容：报告类别、备注、整体异常标识、来源医嘱流水号、标本信息、检验时间线与检验人。
+  · 创建普通检验结果明细：来源明细标识、来源项目、互认项目编码、结果原文与类型、单位、参考范围、检测方法、仪器、展示序号、收费编码、异常与危急值标志、检测人。
+  · 创建细菌鉴定结果及其药敏明细：鉴定结论与来源信息按来源原文保存，药敏归属到具体细菌鉴定结果。
+end note
+note bottom of SubmitCompleteExaminationReportCommand
+  管理器内部步骤（不构成独立命令，同一次提交内串行执行）：
+  · 取得或创建互认报告与追加报告版本：规则同检验报告提交。
+  · 创建检查专项内容：检查所见与结论、来源诊断、病情描述、检查目的、实际检查时间、检查医生、来源影像状态与调阅地址、检查方法、设备信息。
+  · 创建检查项目明细及其检查部位：项目保留来源项目名称与可选来源项目编码、互认项目编码；部位归属具体检查项目。
+end note
 FacadeCommand('RequestRecognitionMatchesCommand')[
     请求互认匹配
     --入参--
@@ -619,6 +596,9 @@ Entity('MedicalRecognitionReportEntity')[
     报告单号(ReportNo String)
     平台患者ID(PatientId Guid)
     当前版本ID(CurrentVersionId Guid)
+    报告时间(ReportTime DateTime)
+    患者姓名(PatientName String)
+    证件号码(IdentityDocumentNo String)
     生命周期状态(Status MedicalReportLifecycleStatus)
     作废时间(VoidedTime DateTime?)
     作废原因(VoidReason Text?)
@@ -867,17 +847,8 @@ HospitalCollectionService --> VoidExaminationReportCommand
 HospitalHisSystem --> RequestRecognitionMatchesCommand
 HospitalHisSystem --> SubmitRecognitionProcessingResultsCommand
 HospitalHisSystem --> SubmitRecognitionReferencesCommand
-SubmitCompleteLaboratoryReportCommand --> CreateOrGetMedicalRecognitionReportCommand
 SubmitCompleteLaboratoryReportCommand --> AppendMedicalReportVersionCommand
-SubmitCompleteLaboratoryReportCommand --> CreateLaboratoryReportContentCommand
-SubmitCompleteLaboratoryReportCommand --> CreateLaboratoryResultItemsCommand
-SubmitCompleteLaboratoryReportCommand --> CreateLaboratoryBacteriaResultsCommand
-SubmitCompleteLaboratoryReportCommand --> CreateLaboratoryAntimicrobialSusceptibilityResultsCommand
-SubmitCompleteExaminationReportCommand --> CreateOrGetMedicalRecognitionReportCommand
 SubmitCompleteExaminationReportCommand --> AppendMedicalReportVersionCommand
-SubmitCompleteExaminationReportCommand --> CreateExaminationReportContentCommand
-SubmitCompleteExaminationReportCommand --> CreateExaminationItemsCommand
-SubmitCompleteExaminationReportCommand --> CreateExaminationSitesCommand
 RequestRecognitionMatchesCommand --> CreateRecognitionMatchRecordCommand
 RequestRecognitionMatchesCommand --> CreateRecognitionMatchItemsCommand
 CreateMutualRecognitionItemCommand ..> MutualRecognitionItemCreatedEvent : send
@@ -892,15 +863,8 @@ VoidExaminationReportCommand ..> ExaminationReportVoidedEvent : send
 RequestRecognitionMatchesCommand ..> RecognitionMatchesReturnedEvent : send
 SubmitRecognitionProcessingResultsCommand ..> RecognitionProcessingResultsSavedEvent : send
 SubmitRecognitionReferencesCommand ..> RecognitionReferencesRecordedEvent : send
-CreateOrGetMedicalRecognitionReportCommand ..> MedicalRecognitionReportCreatedEvent : send
+AppendMedicalReportVersionCommand ..> MedicalRecognitionReportCreatedEvent : send
 AppendMedicalReportVersionCommand ..> MedicalReportVersionAppendedAsCurrentEvent : send
-CreateLaboratoryReportContentCommand ..> LaboratoryReportContentCreatedEvent : send
-CreateLaboratoryResultItemsCommand ..> LaboratoryResultItemsCreatedEvent : send
-CreateLaboratoryBacteriaResultsCommand ..> LaboratoryBacteriaResultsCreatedEvent : send
-CreateLaboratoryAntimicrobialSusceptibilityResultsCommand ..> LaboratoryAntimicrobialSusceptibilityResultsCreatedEvent : send
-CreateExaminationReportContentCommand ..> ExaminationReportContentCreatedEvent : send
-CreateExaminationItemsCommand ..> ExaminationItemsCreatedEvent : send
-CreateExaminationSitesCommand ..> ExaminationSitesCreatedEvent : send
 CreateRecognitionMatchRecordCommand ..> RecognitionMatchRecordCreatedEvent : send
 CreateRecognitionMatchItemsCommand ..> RecognitionMatchItemsCreatedEvent : send
 CreateMutualRecognitionItemCommand .. MutualRecognitionItemEntity
@@ -928,16 +892,16 @@ VoidExaminationReportCommand .. MedicalRecognitionReportEntity
 SubmitRecognitionProcessingResultsCommand .. RecognitionProcessingResultEntity
 SubmitRecognitionProcessingResultsCommand .. RecognitionMatchRecordEntity
 SubmitRecognitionReferencesCommand .. RecognitionReferenceEntity
-CreateOrGetMedicalRecognitionReportCommand .. MedicalRecognitionReportEntity
+AppendMedicalReportVersionCommand .. MedicalRecognitionReportEntity
 AppendMedicalReportVersionCommand .. MedicalReportVersionEntity
 AppendMedicalReportVersionCommand .. PlatformPatientEntity
-CreateLaboratoryReportContentCommand .. LaboratoryReportContentEntity
-CreateLaboratoryResultItemsCommand .. LaboratoryResultItemEntity
-CreateLaboratoryBacteriaResultsCommand .. LaboratoryBacteriaResultEntity
-CreateLaboratoryAntimicrobialSusceptibilityResultsCommand .. LaboratoryAntimicrobialSusceptibilityEntity
-CreateExaminationReportContentCommand .. ExaminationReportContentEntity
-CreateExaminationItemsCommand .. ExaminationItemEntity
-CreateExaminationSitesCommand .. ExaminationSiteEntity
+AppendMedicalReportVersionCommand .. LaboratoryReportContentEntity
+AppendMedicalReportVersionCommand .. LaboratoryResultItemEntity
+AppendMedicalReportVersionCommand .. LaboratoryBacteriaResultEntity
+AppendMedicalReportVersionCommand .. LaboratoryAntimicrobialSusceptibilityEntity
+AppendMedicalReportVersionCommand .. ExaminationReportContentEntity
+AppendMedicalReportVersionCommand .. ExaminationItemEntity
+AppendMedicalReportVersionCommand .. ExaminationSiteEntity
 CreateRecognitionMatchRecordCommand .. RecognitionMatchRecordEntity
 CreateRecognitionMatchItemsCommand .. RecognitionMatchItemEntity
 MedicalRecognitionReportEntity .. MedicalReportVersionEntity

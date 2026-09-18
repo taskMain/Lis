@@ -1,12 +1,56 @@
-<SqlMap Scope="MedicalRecognitionReport" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+<SqlMap Scope="LaboratoryAntimicrobialSusceptibility" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义药敏结果的通用查询字段清单，供按细菌鉴定结果读取语句与新增语句复用。
+      结果：输出细菌鉴定结果归属、来源明细标识、受试药物、结论、量值文本、展示序号、检测人与操作审计字段。
+    -->
     <Statement Id="LaboratoryAntimicrobialSusceptibilityColumns">
-      id, bacteria_result_id, source_detail_key, drug_code, drug_name, susceptibility_code, source_conclusion_text, resistance_result_code, disk_content, mic_value, inhibition_zone_diameter, reference_value, display_order, inspector_id, inspector_name, testing_method, test_panel_order, oper_id, oper_time
+      id,                         <!-- 药敏结果标识（主键） -->
+      bacteria_result_id,         <!-- 细菌鉴定结果标识，药敏结果的固定归属 -->
+      source_detail_key,          <!-- 来源明细标识 -->
+      drug_code,                  <!-- 受试药物编码 -->
+      drug_name,                  <!-- 受试药物名称 -->
+      susceptibility_code,        <!-- 药敏结论编码 -->
+      source_conclusion_text,     <!-- 来源结论 -->
+      resistance_result_code,     <!-- 抗药结果编码 -->
+      disk_content,               <!-- 纸片含药量，按来源文本保存 -->
+      mic_value,                  <!-- 最低抑菌浓度，按来源文本保存 -->
+      inhibition_zone_diameter,   <!-- 抑菌环直径，按来源文本保存 -->
+      reference_value,            <!-- 参考值 -->
+      display_order,              <!-- 展示序号 -->
+      inspector_id,               <!-- 检测人ID -->
+      inspector_name,             <!-- 检测人名称 -->
+      testing_method,             <!-- 检测方法 -->
+      test_panel_order,           <!-- 试验板序号 -->
+      oper_id,                    <!-- 操作人标识 -->
+      oper_time                   <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllLaboratoryAntimicrobialSusceptibility">
-      select
-      <Include RefId="LaboratoryAntimicrobialSusceptibilityColumns" />
-      from laboratory_antimicrobial_susceptibility
+    <!--
+      功能：按细菌鉴定结果读取药敏结果，供管理端版本详情在该细菌下展示药敏明细。
+      结果：按展示序号升序返回该细菌鉴定结果下的全部药敏结果，并以药敏结果标识作为稳定兜底键；无结果时返回空集合。
+    -->
+    <Statement Id="QueryLaboratoryAntimicrobialSusceptibilitiesByBacteria">
+      select <Include RefId="LaboratoryAntimicrobialSusceptibilityColumns" /> from mrec_laboratory_antimicrobial_susceptibility
+      where bacteria_result_id = $BacteriaResultId  <!-- 归属范围：只返回该细菌鉴定结果下的药敏结果 -->
+      order by display_order asc, id asc  <!-- 排序：按展示序号升序，并以药敏结果标识作为稳定兜底键 -->
+    </Statement>
+    <!--
+      功能：新增一条药敏结果。
+      结果：写入标识、细菌鉴定结果归属、来源明细标识、受试药物、结论、量值文本、展示序号、检测人、检测方法、
+      试验板序号与操作字段；量值列一律按来源文本整串保存，不解析、不换算。
+    -->
+    <Statement Id="InsertLaboratoryAntimicrobialSusceptibility">
+      insert into mrec_laboratory_antimicrobial_susceptibility (
+        id, bacteria_result_id, source_detail_key, drug_code, drug_name, susceptibility_code,
+        source_conclusion_text, resistance_result_code, disk_content, mic_value,
+        inhibition_zone_diameter, reference_value, display_order,
+        inspector_id, inspector_name, testing_method, test_panel_order, oper_id, oper_time
+      ) values (
+        $Id, $BacteriaResultId, $SourceDetailKey, $DrugCode, $DrugName, $SusceptibilityCode,
+        $SourceConclusionText, $ResistanceResultCode, $DiskContent, $MicValue,
+        $InhibitionZoneDiameter, $ReferenceValue, $DisplayOrder,
+        $InspectorId, $InspectorName, $TestingMethod, $TestPanelOrder, $OperId, $OperTime
+      )
     </Statement>
   </Statements>
 </SqlMap>

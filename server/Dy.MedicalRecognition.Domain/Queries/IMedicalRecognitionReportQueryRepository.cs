@@ -4,7 +4,7 @@ namespace Dy.MedicalRecognition.Domain.Queries;
 /// 标准项目目录的只读查询端口。
 /// </summary>
 /// <remarks>读取分类、分组、标准项目列表与当前有效目录；返回的内部投影不作为对外契约。</remarks>
-public interface IMedicalRecognitionReportQueryRepository
+public partial interface IMedicalRecognitionReportQueryRepository
 {
   /// <summary>
   /// 查询标准项目分类列表。

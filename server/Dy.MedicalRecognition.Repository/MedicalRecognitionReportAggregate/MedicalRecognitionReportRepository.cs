@@ -196,4 +196,29 @@ public partial class MedicalRecognitionReportRepository : IMedicalRecognitionRep
 
     return false;
   }
+
+  /// <summary>
+  /// 当前数据库 Provider 表示「当前事务已被终止」的 SQLSTATE 值。
+  /// </summary>
+  /// <remarks>事务内出现未处理的语句错误后，该事务内的后续语句都会被拒绝，直到事务结束。</remarks>
+  private const string AbortedTransactionSqlState = "25P02";
+
+  /// <summary>
+  /// 判断异常是否为「事务已被终止」。
+  /// </summary>
+  /// <remarks>
+  /// 并发首插同一证件键时，唯一约束冲突会把所在事务标记为终止，此时领域层设计的「复读一次」无法在同一事务内执行；
+  /// 本方法让调用方把这个持久化事实翻译为业务拒绝，而不是把驱动异常向外泄漏。
+  /// </remarks>
+  /// <param name="exception">数据映射器抛出的异常。</param>
+  /// <returns>内部异常链上存在事务终止错误时返回 <see langword="true"/>。</returns>
+  private static bool IsAbortedTransaction(Exception exception)
+  {
+    for (Exception? current = exception; current is not null; current = current.InnerException)
+    {
+      if (current is DbException databaseException && databaseException.SqlState == AbortedTransactionSqlState) return true;
+    }
+
+    return false;
+  }
 }
