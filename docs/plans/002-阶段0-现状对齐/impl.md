@@ -22,7 +22,7 @@
 8. 工作区存在大量既有未提交改动，**不属于本阶段新增**，后续阶段必须避免覆盖。
 9. 外部依赖与领域事件目前**只有配置与声明，没有调用实现和发布点**。
 10. 宿主没有 `Program.cs`，启动入口由框架包注入，本项目对启动流程的可控点只有配置文件。
-11. **UML 与代码的覆盖对照**：命令 16/33、查询 0/20、实体类 19/19 但仅 4 个有仓储写方法；原数据库表 3/19 是名称命中而非平台建设覆盖，已被用户澄清覆盖。代码侧没有 UML 之外的多余内容。详见 3.3 节。
+11. **UML 与代码的覆盖对照**：命令 16/33、查询 0/20、实体类 19/19 但仅 4 个有仓储写方法；原数据库表 3/19 是名称命中而非平台建设覆盖，已被用户澄清覆盖。代码侧没有 UML 之外的多余内容。详见 3.3 节（阶段 0 基线计数）。
 
 ## 2. 工具链与构建基线
 
@@ -112,6 +112,8 @@ pnpm -F dy-medical-recognition lint
 
 本节把 `docs/uml/` 定义的内容与 `server/` 实际生成的代码逐项对照，用于判断"设计意图"与"已实现程度"之间的差距。UML 侧与代码侧均为**实测计数**。
 
+**测量时点：阶段 0 基线。** 本节是阶段 0 的实测记录，不随后续阶段的 UML 变更重算：后续阶段对 UML 的增删不回改本节计数。需要当前 UML 口径时以 `docs/uml/` 现文为准，不要以本节数字推断现文规模。
+
 #### 3.3.1 总量对照
 
 | 维度 | UML 定义 | 代码实际 | 覆盖率 |
@@ -128,20 +130,22 @@ pnpm -F dy-medical-recognition lint
 
 代码侧**没有 UML 之外的冗余命令或实体**，对照差集只出现在"UML 有、代码无"这一侧。
 
-#### 3.3.2 缺失的 17 个命令
+#### 3.3.2 缺失的 17 个命令（阶段 0 实测数；本表因后续阶段的合并说明现为 18 行，差额见下）
 
 成因单一：生成器只覆盖标准 CRUD，这些命令全部被局部阻断。阻断码分布为 `WSD_COMMAND_PARAMETER_UNSUPPORTED` 13 个、`WSD_FACADE_UNSUPPORTED` 3 个、`WSD_COMMAND_KIND_UNSUPPORTED` 1 个。
 
 | 类别 | 命令 | 归属阶段 |
 |---|---|---|
-| 报告主体与版本 | `CreateOrGetMedicalRecognitionReportCommand` | 阶段 4 |
+| 报告主体与版本 | `CreateOrGetMedicalRecognitionReportCommand`（该名已并入 `AppendMedicalReportVersionCommand`，后者为报告提交的唯一内部命令） | 阶段 4 |
 | 检验报告内容（4 个） | `CreateLaboratoryReportContentCommand`、`CreateLaboratoryResultItemsCommand`、`CreateLaboratoryBacteriaResultsCommand`、`CreateLaboratoryAntimicrobialSusceptibilityResultsCommand` | 阶段 4 |
 | 检查报告内容（3 个） | `CreateExaminationReportContentCommand`、`CreateExaminationItemsCommand`、`CreateExaminationSitesCommand` | 阶段 4 |
 | 完整报告提交（2 个 Facade） | `SubmitCompleteLaboratoryReportCommand`、`SubmitCompleteExaminationReportCommand` | 阶段 4 |
 | 报告作废（2 个） | `VoidLaboratoryReportCommand`、`VoidExaminationReportCommand` | 阶段 4 |
-| 匹配（3 个） | `RequestRecognitionMatchesCommand`、`CreateRecognitionMatchRecordCommand`、`CreateRecognitionMatchItemsCommand` | 阶段 5 |
+| 匹配（阶段 0 实测 3 个） | `RequestRecognitionMatchesCommand`、`CreateRecognitionMatchRecordCommand`、`CreateRecognitionMatchItemsCommand`（后两者已在阶段 5 设计期并入 `RequestRecognitionMatchesCommand` 的内部步骤，不再作为独立命令建模） | 阶段 5 |
 | 处理结果与引用（2 个） | `SubmitRecognitionProcessingResultsCommand`、`SubmitRecognitionReferencesCommand` | 阶段 5 |
 | 金额 | `SaveOrganizationHospitalBranchRecognitionAmountCommand` | 阶段 3 |
+
+标题与阻断码分布的合计为阶段 0 实测的 17 条；本表在阶段 0 清单之上带两条后续阶段的设计期说明（报告主体与版本行的改名并入、匹配行的内部步骤合并），因此现为 18 行。三处数值与表行均按记录保留，本节不重算差额。
 
 #### 3.3.3 缺失的 20 个查询
 
@@ -337,7 +341,7 @@ DDL 脚本历史特征：19 个脚本全部为 PostgreSQL `create table if not e
 |---|---|
 | 路径 | `client/packages/api-client-medical-recognition/openapi/medical-recognition.openapi.json` |
 | OpenAPI 版本 | `3.1.1` |
-| Title | `Dy.MedicalRecognition | v1` |
+| Title | `Dy.MedicalRecognition \| v1` |
 | Version | `1.0.0` |
 | Paths | 17 |
 | Schemas | 19 |

@@ -2,6 +2,7 @@
 ' 命令入参 DTO 与领域事件事实契约；这些结构不是聚合 Entity。
 ' 本图为参考草稿，不是当前正式业务契约，不参与 Dy.DevToolkit 代码生成。
 ' 正式业务语义以 CONTEXT.md、docs/需求规约SRS.md 和 docs/uml/1-5 为准；实现前需重新核对本图。
+' 已知滞后项：RecognitionMatchRecordCreateRequest 与 RecognitionMatchItemCreateRequest 两个内部创建请求已并入 RequestRecognitionMatchesCommand 的内部步骤，不作为独立请求 DTO；本图保留其类用于对照。
 hide methods
 skinparam classAttributeIconSize 0
 class "报告版本公共信息请求" as MedicalReportVersionRequest <<Request>> {
@@ -228,6 +229,11 @@ class "匹配项创建请求" as RecognitionMatchItemCreateRequest <<InternalCom
     ReportId : Guid
     ReportVersionId : Guid
 }
+note right of RecognitionMatchItemCreateRequest
+    这两个内部创建请求已并入 RequestRecognitionMatchesCommand 的内部步骤，不作为独立请求 DTO；
+    正式建模见 docs/uml/1-MedicalRecognitionReport.wsd 的匹配查询命令说明注释。
+    本图保留其类与属性，仅用于与合并前形态对照。
+end note
 class "互认处理结果项目请求" as RecognitionProcessingResultItemRequest <<Request>> {
     RecognitionMatchItemId : Guid
     RecognitionResult : RecognitionResult
@@ -266,7 +272,6 @@ note right of RecognitionReferenceSubmitRequest
 end note
 class "互认处理结果事实" as RecognitionProcessingResultFact <<EventContract>> {
     RecognitionMatchItemId : Guid
-    StandardProjectCode : String
     RecognitionResult : RecognitionResult
     EstimatedSavingAmount : Decimal(18,2)?
 }
@@ -276,7 +281,6 @@ note right of RecognitionProcessingResultFact
 end note
 class "互认引用事实" as RecognitionReferenceFact <<EventContract>> {
     RecognitionMatchItemId : Guid
-    StandardProjectCode : String
     ReferencedTime : DateTime
 }
 LaboratoryReportVersionRequest --> MedicalReportVersionRequest : 包含

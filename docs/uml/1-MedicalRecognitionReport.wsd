@@ -6,7 +6,7 @@
 ' 写命令请求值对象的正式业务字段以 SRS 对应功能章节为准；Meta 图仅为参考草稿。HIS 查询响应由 3-HospitalIntegrationApiQuery.wsd 正式建模。
 ' 菜单、接口和操作授权由权限系统负责；本模型不重复判断操作权限。
 ' 本文件是全局枚举的唯一正式定义来源；其他 WSD 仅引用 MedicalReportType、VisitType、MedicalItemType、MedicalReportLifecycleStatus 和 SourceImageStatus，不重复定义。
-' 写请求 DTO 名称登记：F03 使用 LaboratoryReportVersionRequest、MedicalReportVersionRequest、LaboratoryReportContentRequest、LaboratoryResultItemRequest、LaboratoryBacteriaResultRequest、LaboratoryAntimicrobialSusceptibilityRequest、MedicalReportVoidRequest、ExaminationReportVersionRequest、ExaminationReportContentRequest、ExaminationItemRequest、ExaminationSiteRequest；F04 使用 RecognitionMatchProposedItemRequest、RecognitionMatchRecordCreateRequest、RecognitionMatchItemCreateRequest；F05 使用 RecognitionProcessingResultItemRequest；F07 使用 RecognitionReferenceItemRequest。
+' 写请求 DTO 名称登记：F03 使用 LaboratoryReportVersionRequest、MedicalReportVersionRequest、LaboratoryReportContentRequest、LaboratoryResultItemRequest、LaboratoryBacteriaResultRequest、LaboratoryAntimicrobialSusceptibilityRequest、MedicalReportVoidRequest、ExaminationReportVersionRequest、ExaminationReportContentRequest、ExaminationItemRequest、ExaminationSiteRequest；F04 使用 RecognitionMatchProposedItemRequest（匹配记录与匹配项的内部创建请求并入匹配查询命令的内部步骤，不单独登记请求 DTO）；F05 使用 RecognitionProcessingResultItemRequest；F07 使用 RecognitionReferenceItemRequest。
 ' 报告提交的写请求层次：报告业务标识（组织、医院、院区、报告类型、报告单号）与 PDF 文件键、下载名由提交命令的直接属性承载，不单独定义请求类型；MedicalReportVersionRequest 承载公共版本信息，专项内容请求与明细集合由其相邻的专项内容请求类型承载；报告与版本的写入由同一命令在同一步内完成。
 Person('PlatformAdministrator','平台管理员')
 Person('HospitalAdministrator','医院管理员')
@@ -473,20 +473,14 @@ FacadeCommand('RequestRecognitionMatchesCommand')[
     7. 无报告命中时返回成功空集合，不创建匹配记录和匹配项，不形成提醒，不发布匹配返回事件。
     8. 仅非空匹配成功时创建匹配记录和匹配项、形成提醒并发布匹配返回事件。
 ]
+note bottom of RequestRecognitionMatchesCommand
+  管理器内部步骤（不构成独立命令，同一次查询内串行执行）：
+  · 创建互认匹配记录：写入接收组织、医院、院区、患者证件、就诊与匹配生成时间，处理结果保存时间为空。
+  · 创建互认匹配项：按命中项目为新建记录逐项写入项目类型、标准项目编码、报告 ID 与报告版本 ID。
+  两步均由管理器在单个方法内完成，不各自发布命令，也不各自登记事件；
+  整批写入成功后只登记互认匹配已返回事件。
+end note
 DomainEvent('RecognitionMatchesReturnedEvent','互认匹配已返回')
-Command('CreateRecognitionMatchRecordCommand')[
-    创建互认匹配记录
-    --入参--
-    互认匹配记录(Record RecognitionMatchRecordCreateRequest)
-]
-DomainEvent('RecognitionMatchRecordCreatedEvent','互认匹配记录已创建')
-Command('CreateRecognitionMatchItemsCommand')[
-    创建互认匹配项
-    --入参--
-    互认匹配记录ID(RecognitionMatchRecordId Guid)
-    互认匹配项(Items RecognitionMatchItemCreateRequest[])
-]
-DomainEvent('RecognitionMatchItemsCreatedEvent','互认匹配项已创建')
 Command('SubmitRecognitionProcessingResultsCommand')[
     提交互认处理结果
     --入参--
@@ -806,7 +800,6 @@ Entity('RecognitionProcessingResultEntity')[
     ID(Id Guid)
     互认匹配记录ID(RecognitionMatchRecordId Guid)
     互认匹配项ID(RecognitionMatchItemId Guid)
-    标准项目编码(StandardProjectCode String)
     互认时间(RecognitionTime DateTime)
     互认结果(RecognitionResult RecognitionResult)
     互认科室ID(RecognitionDeptId String)
@@ -822,7 +815,6 @@ Entity('RecognitionReferenceEntity')[
     --属性--
     ID(Id Guid)
     互认匹配项ID(RecognitionMatchItemId Guid)
-    标准项目编码(StandardProjectCode String)
     实际引用时间(ReferencedTime DateTime)
     引用科室ID(ReferenceDeptId String)
     引用科室名称(ReferenceDeptName String)
@@ -849,8 +841,6 @@ HospitalHisSystem --> SubmitRecognitionProcessingResultsCommand
 HospitalHisSystem --> SubmitRecognitionReferencesCommand
 SubmitCompleteLaboratoryReportCommand --> AppendMedicalReportVersionCommand
 SubmitCompleteExaminationReportCommand --> AppendMedicalReportVersionCommand
-RequestRecognitionMatchesCommand --> CreateRecognitionMatchRecordCommand
-RequestRecognitionMatchesCommand --> CreateRecognitionMatchItemsCommand
 CreateMutualRecognitionItemCommand ..> MutualRecognitionItemCreatedEvent : send
 UpdateMutualRecognitionItemConfigurationCommand ..> MutualRecognitionItemConfigurationUpdatedEvent : send
 EnableMutualRecognitionItemCommand ..> MutualRecognitionItemEnabledEvent : send
@@ -865,8 +855,6 @@ SubmitRecognitionProcessingResultsCommand ..> RecognitionProcessingResultsSavedE
 SubmitRecognitionReferencesCommand ..> RecognitionReferencesRecordedEvent : send
 AppendMedicalReportVersionCommand ..> MedicalRecognitionReportCreatedEvent : send
 AppendMedicalReportVersionCommand ..> MedicalReportVersionAppendedAsCurrentEvent : send
-CreateRecognitionMatchRecordCommand ..> RecognitionMatchRecordCreatedEvent : send
-CreateRecognitionMatchItemsCommand ..> RecognitionMatchItemsCreatedEvent : send
 CreateMutualRecognitionItemCommand .. MutualRecognitionItemEntity
 UpdateMutualRecognitionItemConfigurationCommand .. MutualRecognitionItemEntity
 EnableMutualRecognitionItemCommand .. MutualRecognitionItemEntity
@@ -902,8 +890,7 @@ AppendMedicalReportVersionCommand .. LaboratoryAntimicrobialSusceptibilityEntity
 AppendMedicalReportVersionCommand .. ExaminationReportContentEntity
 AppendMedicalReportVersionCommand .. ExaminationItemEntity
 AppendMedicalReportVersionCommand .. ExaminationSiteEntity
-CreateRecognitionMatchRecordCommand .. RecognitionMatchRecordEntity
-CreateRecognitionMatchItemsCommand .. RecognitionMatchItemEntity
+RequestRecognitionMatchesCommand .. RecognitionMatchItemEntity
 MedicalRecognitionReportEntity .. MedicalReportVersionEntity
 MedicalRecognitionReportEntity .. PlatformPatientEntity
 MedicalReportVersionEntity .. PlatformPatientEntity
