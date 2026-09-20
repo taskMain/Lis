@@ -22,6 +22,17 @@
       order by id asc  <!-- 排序：按部位标识升序，保证同一项目内的返回顺序稳定 -->
     </Statement>
     <!--
+      功能：按检查项目标识集合读取检查部位，供互认匹配查询按本次命中的检查项目一次取回项目级内容。
+      结果：返回集合内命中的全部检查部位，每个部位都带其检查项目归属，调用方据此把部位归到对应的命中项目下；
+      集合内不存在的项目不产生行；排序按检查项目标识升序、部位标识升序，使同一批的返回顺序稳定。
+    -->
+    <Statement Id="QueryExaminationSitesByItems">
+      select <Include RefId="ExaminationSiteColumns" /> from mrec_examination_site
+      <!-- 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表；空集合展开为空列表，不返回任何行 -->
+      where examination_item_id in $ExaminationItemIds
+      order by examination_item_id asc, id asc  <!-- 排序：按检查项目标识升序、部位标识升序，保证同一批内的返回顺序稳定 -->
+    </Statement>
+    <!--
       功能：新增一条检查部位。
       结果：写入标识、检查项目归属、来源部位编码、部位名称与操作字段；部位随所属项目保存，不在报告中重复归属。
     -->

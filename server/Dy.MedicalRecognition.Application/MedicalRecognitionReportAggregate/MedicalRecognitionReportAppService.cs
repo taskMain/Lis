@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Dy.Base.Application.Contracts.OrganizationAggregate;
+using Dy.Base.Application.Contracts.SystemParameterAggregate;
 using Dy.Base.Application.Contracts.UserAggregate;
 using Dy.Core.Abstractions.Http;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate;
@@ -21,6 +22,16 @@ namespace Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate;
 /// <remarks>仅新建标准分组和新建标准项目声明显式事务；其余标准目录用例、四个互认项目配置用例与两个金额保存用例各只有一条写语句，不声明显式事务。</remarks>
 public partial class MedicalRecognitionReportAppService : ApplicationService, IMedicalRecognitionReportAppService
 {
+  /// <summary>
+  /// 本院报告匹配开关的平台系统参数编码；作为布尔语义的字符串，在互认匹配查询入口按平台级读取。
+  /// </summary>
+  private const string OwnHospitalMatchSwitch = "own_hospital_match_switch";
+
+  /// <summary>
+  /// 本院报告排除时长的平台系统参数编码；取值为非负整数小时、允许零，在互认匹配查询入口按平台级读取。
+  /// </summary>
+  private const string OwnHospitalExcludeHours = "own_hospital_exclude_hours";
+
   /// <summary>
   /// 标准目录、互认项目配置与金额的领域管理器。
   /// </summary>
@@ -49,9 +60,15 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   private readonly IReportPdfFileStore reportPdfFileStore;
 
   /// <summary>
-  /// 报告与报告版本的只读查询端口：下载入口按报告标识与版本标识读取报告身份与文件信息。
+  /// 报告与报告版本的只读查询端口：下载入口与互认匹配查询按报告标识与版本标识读取报告身份、文件信息与匹配响应内容。
   /// </summary>
   private readonly IMedicalRecognitionReportQueryRepository queryReportRepository;
+
+  /// <summary>
+  /// 按平台级参数编码读取系统参数的外部系统参数服务：互认匹配查询入口读取本院报告匹配开关与排除时长。
+  /// </summary>
+  /// <remarks>读取不传组织、医院与院区维度；参数不存在、取值非法或服务失败都由入口就地判定为整次失败。</remarks>
+  private readonly ISystemParameterAppService systemParameterAppService;
 
   /// <summary>
   /// 初始化写入口。
@@ -66,13 +83,15 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   /// <param name="userAppService">提供当前登录用户组织与医院归属的外部用户服务，用于补齐令牌缺失的可信层。</param>
   /// <param name="reportPdfFileStore">报告 PDF 的本地文件存储端口。</param>
   /// <param name="queryReportRepository">报告与报告版本的只读查询端口。</param>
+  /// <param name="systemParameterAppService">按平台级参数编码读取系统参数的外部系统参数服务。</param>
   public MedicalRecognitionReportAppService(
     MedicalRecognitionReportManager manager,
     IMedicalRecognitionReportRepository repository,
     IOrganizationAppService organizationAppService,
     IUserAppService userAppService,
     IReportPdfFileStore reportPdfFileStore,
-    IMedicalRecognitionReportQueryRepository queryReportRepository)
+    IMedicalRecognitionReportQueryRepository queryReportRepository,
+    ISystemParameterAppService systemParameterAppService)
   {
     this.manager = manager;
     this.repository = repository;
@@ -80,6 +99,7 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
     trustedScopeResolver = new TrustedScopeResolver(userAppService);
     this.reportPdfFileStore = reportPdfFileStore;
     this.queryReportRepository = queryReportRepository;
+    this.systemParameterAppService = systemParameterAppService;
   }
 
   /// <summary>

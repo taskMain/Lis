@@ -5,6 +5,7 @@ using Dy.MedicalRecognition.Application.Contracts.Queries.StandardCatalog;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
 using Dy.MedicalRecognition.Application.Validation;
 using Dy.Base.Application.Contracts.OrganizationAggregate;
+using Dy.Base.Application.Contracts.SystemParameterAggregate;
 using Dy.Base.Application.Contracts.UserAggregate;
 using System.ComponentModel.DataAnnotations;
 using Dy.MedicalRecognition.Domain.Queries;
@@ -18,6 +19,11 @@ namespace Dy.MedicalRecognition.Application.Queries;
 /// <remarks>全部查询都只筛选与投影，不修改数据，也不判断业务状态；查询不产生写入、审计事件或消息。</remarks>
 public sealed partial class MedicalRecognitionReportQueryAppService : ApplicationService, IMedicalRecognitionReportQueryAppService
 {
+  /// <summary>
+  /// 引用详情有效时长的平台系统参数编码；取值为正整数小时，在引用详情查询入口按平台级读取。
+  /// </summary>
+  private const string CitationDetailValidHours = "citation_detail_valid_hours";
+
   /// <summary>
   /// 标准项目目录的只读查询端口。
   /// </summary>
@@ -39,6 +45,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
   private readonly TrustedScopeResolver trustedScopeResolver;
 
   /// <summary>
+  /// 按平台级参数编码读取系统参数的外部系统参数服务：引用详情查询入口读取引用详情有效时长。
+  /// </summary>
+  /// <remarks>读取不传组织、医院与院区维度；参数不存在、取值非法或服务失败都由入口就地判定为整次失败。</remarks>
+  private readonly ISystemParameterAppService systemParameterAppService;
+
+  /// <summary>
   /// 接收标准项目目录的只读查询端口与外部服务作为数据来源。
   /// </summary>
   /// <remarks>
@@ -48,14 +60,17 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
   /// <param name="repository">目录只读查询端口。</param>
   /// <param name="organizationAppService">提供组织、医院与院区主数据的外部组织服务。</param>
   /// <param name="userAppService">提供当前登录用户组织与医院归属的外部用户服务，用于补齐令牌缺失的可信层。</param>
+  /// <param name="systemParameterAppService">按平台级参数编码读取系统参数的外部系统参数服务。</param>
   public MedicalRecognitionReportQueryAppService(
     IMedicalRecognitionReportQueryRepository repository,
     IOrganizationAppService organizationAppService,
-    IUserAppService userAppService)
+    IUserAppService userAppService,
+    ISystemParameterAppService systemParameterAppService)
   {
     this.repository = repository;
     organizationPathResolver = new OrganizationPathResolver(organizationAppService);
     trustedScopeResolver = new TrustedScopeResolver(userAppService);
+    this.systemParameterAppService = systemParameterAppService;
   }
 
   /// <summary>

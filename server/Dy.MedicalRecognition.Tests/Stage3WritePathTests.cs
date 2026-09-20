@@ -91,8 +91,8 @@ public sealed class Stage3WritePathTests
   /// <param name="organizationService">提供组织、医院与院区路径的外部组织服务替身。</param>
   /// <returns>可直接调用的写入口。</returns>
   private static MedicalRecognitionReportAppService CreateAppService(FakeReportRepository repository, FakeOrganizationAppService organizationService)
-    => new(new MedicalRecognitionReportManager(repository), repository, organizationService, new StubUserAppService(),
-      new StubReportPdfFileStore(), new StubReportQueryRepository());
+    => new(new MedicalRecognitionReportManager(repository, new FakeMatchQueryRepository()), repository, organizationService, new StubUserAppService(),
+      new StubReportPdfFileStore(), new StubReportQueryRepository(), new StubSystemParameterAppService());
 
   /// <summary>构建写入口，并指定补齐令牌缺失层所用的外部用户服务替身。</summary>
   /// <param name="repository">承载金额与互认配置数据的最小仓储替身。</param>
@@ -101,13 +101,13 @@ public sealed class Stage3WritePathTests
   /// <returns>可直接调用的写入口。</returns>
   private static MedicalRecognitionReportAppService CreateAppService(
     FakeReportRepository repository, FakeOrganizationAppService organizationService, StubUserAppService userService)
-    => new(new MedicalRecognitionReportManager(repository), repository, organizationService, userService,
-      new StubReportPdfFileStore(), new StubReportQueryRepository());
+    => new(new MedicalRecognitionReportManager(repository, new FakeMatchQueryRepository()), repository, organizationService, userService,
+      new StubReportPdfFileStore(), new StubReportQueryRepository(), new StubSystemParameterAppService());
 
   /// <summary>构建领域管理器，用于绕过应用层直接校验领域规则。</summary>
   /// <param name="repository">承载金额与互认配置数据的最小仓储替身。</param>
   /// <returns>可直接调用的领域管理器。</returns>
-  private static MedicalRecognitionReportManager CreateManager(FakeReportRepository repository) => new(repository);
+  private static MedicalRecognitionReportManager CreateManager(FakeReportRepository repository) => new(repository, new FakeMatchQueryRepository());
 
   /// <summary>
   /// 构造合法前置数据：启用的组织、医院、院区，以及该组织下已建立的互认项目配置。
@@ -1462,6 +1462,66 @@ public sealed class Stage3WritePathTests
     /// <param name="examinationSite">检查部位实体。</param>
     /// <returns>不返回结果。</returns>
     public Task<int> CreateExaminationSiteAsync(ExaminationSite examinationSite) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增互认匹配记录。</summary>
+    /// <param name="recognitionMatchRecord">互认匹配记录实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateRecognitionMatchRecordAsync(RecognitionMatchRecord recognitionMatchRecord) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增互认匹配项。</summary>
+    /// <param name="recognitionMatchItem">互认匹配项实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateRecognitionMatchItemAsync(RecognitionMatchItem recognitionMatchItem) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按标识集合读取互认匹配项。</summary>
+    /// <param name="recognitionMatchItemIds">互认匹配项标识集合。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<IReadOnlyList<RecognitionMatchItem>> QueryRecognitionMatchItemsByIdsAsync(IReadOnlyList<Guid> recognitionMatchItemIds) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按标识集合读取互认匹配记录。</summary>
+    /// <param name="recognitionMatchRecordIds">互认匹配记录标识集合。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<IReadOnlyList<RecognitionMatchRecord>> QueryRecognitionMatchRecordsByIdsAsync(IReadOnlyList<Guid> recognitionMatchRecordIds) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按匹配项标识集合读取互认处理结果。</summary>
+    /// <param name="recognitionMatchItemIds">互认匹配项标识集合。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<IReadOnlyList<RecognitionProcessingResult>> QueryRecognitionProcessingResultsByMatchItemIdsAsync(IReadOnlyList<Guid> recognitionMatchItemIds) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按匹配项标识集合读取互认引用事实。</summary>
+    /// <param name="recognitionMatchItemIds">互认匹配项标识集合。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<IReadOnlyList<RecognitionReference>> QueryRecognitionReferencesByMatchItemIdsAsync(IReadOnlyList<Guid> recognitionMatchItemIds) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增互认引用事实。</summary>
+    /// <param name="recognitionReference">互认引用事实实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateRecognitionReferenceAsync(RecognitionReference recognitionReference) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按所属记录读取处理结果。</summary>
+    /// <param name="recognitionMatchRecordId">所属互认匹配记录标识。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<IReadOnlyList<RecognitionProcessingResult>> QueryRecognitionProcessingResultsByRecordAsync(Guid recognitionMatchRecordId) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按主键读取互认匹配记录。</summary>
+    /// <param name="id">互认匹配记录标识。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<RecognitionMatchRecord?> GetRecognitionMatchRecordByIdAsync(Guid id) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按所属记录读取互认匹配项。</summary>
+    /// <param name="recognitionMatchRecordId">所属互认匹配记录标识。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<IReadOnlyList<RecognitionMatchItem>> QueryRecognitionMatchItemsByRecordAsync(Guid recognitionMatchRecordId) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：新增互认处理结果。</summary>
+    /// <param name="recognitionProcessingResult">互认处理结果实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> CreateRecognitionProcessingResultAsync(RecognitionProcessingResult recognitionProcessingResult) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：写入匹配记录的处理结果保存时间。</summary>
+    /// <param name="recognitionMatchRecord">互认匹配记录实体。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<int> UpdateRecognitionMatchRecordDecisionSavedTimeAsync(RecognitionMatchRecord recognitionMatchRecord) => throw new NotSupportedException(UnusedMember);
 
     /// <summary>未使用的仓储成员统一提示，避免测试静默走过未被覆盖的写入路径。</summary>
     private const string UnusedMember = "本测试未使用该仓储成员。";

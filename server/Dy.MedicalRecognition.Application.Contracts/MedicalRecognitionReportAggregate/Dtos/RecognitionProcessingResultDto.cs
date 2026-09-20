@@ -22,10 +22,6 @@ public partial record RecognitionProcessingResultDto : Dto
   /// </summary>
   public partial Guid RecognitionMatchItemId { get; set; }
   /// <summary>
-  /// 该决定对应的互认项目编码；采纳时据此读取当前金额。
-  /// </summary>
-  public partial string StandardProjectCode { get; set; }
-  /// <summary>
   /// 医生作出互认决定的时间；采纳统计的业务时间。
   /// </summary>
   public partial DateTime RecognitionTime { get; set; }

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
 using Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
+using Dy.MedicalRecognition.Application.Contracts.ReadModels;
 
 namespace Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate;
 
@@ -14,6 +15,28 @@ namespace Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAg
 /// </remarks>
 public partial interface IMedicalRecognitionReportAppService
 {
+  /// <summary>
+  /// 按患者身份与本次来源就诊请求可用的互认匹配，非空匹配时形成匹配记录与匹配项。
+  /// </summary>
+  /// <remarks>
+  /// 接收组织、医院与院区取自可信上下文，操作人取自登录上下文；本院报告匹配开关与排除时长按平台级编码读取，
+  /// 任一参数不存在、取值非法或参数服务读取失败都整次失败；查询截止点取平台收到本次查询的时间。
+  /// 本入口是事务边界：匹配记录与匹配项共同成功或共同失败；没有任何报告命中时返回成功的空结果，不创建记录。
+  /// </remarks>
+  /// <param name="request">匹配查询请求，携带患者证件、本次来源就诊与拟开标准项目集合。</param>
+  /// <returns>
+  /// 匹配响应；没有任何报告命中时返回成功空结果，记录标识与生成时间为空、报告集合为空。
+  /// 本方法不返回 <see langword="null"/>，入参不合法、可信身份不可解析、参数异常与业务拒绝都以异常结束。
+  /// </returns>
+  /// <exception cref="ArgumentNullException">请求为 null 时抛出（请求校验先于一切判定，此时不进入领域调用、不写入任何数据）。</exception>
+  /// <exception cref="ValidationException">患者证件、就诊信息或拟开项目缺失、空串或纯空白，或就诊类型、项目类型不是已登记取值时抛出。</exception>
+  /// <exception cref="InvalidOperationException">
+  /// 可信组织、医院或院区不可解析，操作人不可解析，本院报告匹配开关或排除时长取值缺失、非法或参数服务读取失败，
+  /// 任一拟开项目编码不存在、未纳入当前组织互认范围、配置已停用、标准目录层级不可用或与提交的项目类型不一致，
+  /// 已解析到的平台患者与本次提交的证件不一致，或匹配记录与匹配项写入影响的行数不为 1 时抛出；
+  /// 以上情况都不创建匹配记录、不登记事件。
+  /// </exception>
+  Task<RecognitionMatchesResponseReadModel> RequestRecognitionMatchesAsync(RecognitionMatchQueryRequest request);
   /// <summary>
   /// 提交一份完整检验报告。
   /// </summary>

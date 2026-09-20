@@ -69,12 +69,13 @@
         $ReportTime, $PatientName, $IdentityDocumentNo, $Status, null, null, $OperId, $OperTime)
     </Statement>
     <!--
-      功能：追加版本后把当前版本指向与报告主体上的报告时间、患者姓名、证件号码一次更新，并刷新操作字段。
-      结果：只影响主键命中的一行；三个检索列与当前版本指向在同一语句内更新，因此报告主体上的三列恒等于当前版本的对应取值；
+      功能：追加版本后把当前版本指向与报告主体上的平台患者、报告时间、患者姓名、证件号码一次更新，并刷新操作字段。
+      结果：只影响主键命中的一行；平台患者与三个检索列、当前版本指向在同一语句内更新，因此报告主体上的患者关联与检索列恒等于当前版本的对应取值；
       生命周期状态、作废事实与报告身份列都不在本语句的变更范围内。
     -->
     <Statement Id="UpdateMedicalRecognitionReportCurrentVersion">
       update mrec_medical_recognition_report set
+        patient_id = $PatientId,                   <!-- 平台患者标识，改为本次解析到的患者 -->
         current_version_id = $CurrentVersionId,    <!-- 当前版本指向，改为本次追加的版本 -->
         report_time = $ReportTime,                 <!-- 报告时间，改为本次版本的报告时间 -->
         patient_name = $PatientName,               <!-- 患者姓名，改为本次版本的规范形式取值 -->

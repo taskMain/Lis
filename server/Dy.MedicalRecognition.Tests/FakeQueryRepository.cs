@@ -113,6 +113,12 @@ internal sealed class FakeQueryRepository : IMedicalRecognitionReportQueryReposi
     Task.FromResult<IEnumerable<LaboratoryResultItemView>>(
       [.. LaboratoryResultItems.TryGetValue(reportVersionId, out List<LaboratoryResultItemView>? items) ? items : []]);
 
+  /// <summary>本替身不覆盖：按报告版本集合读取普通检验结果。</summary>
+  /// <param name="reportVersionIds">报告版本标识集合。</param>
+  /// <returns>不返回结果。</returns>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
   /// <inheritdoc/>
   public Task<IEnumerable<LaboratoryBacteriaResultItem>> QueryLaboratoryBacteriaResultsAsync(Guid reportVersionId) =>
     Task.FromResult<IEnumerable<LaboratoryBacteriaResultItem>>(
@@ -132,10 +138,57 @@ internal sealed class FakeQueryRepository : IMedicalRecognitionReportQueryReposi
     Task.FromResult<IEnumerable<ExaminationItemView>>(
       [.. ExaminationItemViews.TryGetValue(reportVersionId, out List<ExaminationItemView>? items) ? items : []]);
 
+  /// <summary>本替身不覆盖：按报告版本集合读取检查项目。</summary>
+  /// <param name="reportVersionIds">报告版本标识集合。</param>
+  /// <returns>不返回结果。</returns>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
   /// <inheritdoc/>
   public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesAsync(Guid examinationItemId) =>
     Task.FromResult<IEnumerable<ExaminationSiteView>>(
       [.. ExaminationSiteViews.TryGetValue(examinationItemId, out List<ExaminationSiteView>? items) ? items : []]);
+
+  /// <summary>本替身不覆盖：按检查项目集合读取检查部位。</summary>
+  /// <param name="examinationItemIds">检查项目标识集合。</param>
+  /// <returns>不返回结果。</returns>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesByItemsAsync(IReadOnlyList<Guid> examinationItemIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <summary>本替身不覆盖：候选报告查询。</summary>
+  /// <param name="organizationCode">可信接收组织编码。</param>
+  /// <param name="hospitalCode">可信接收医院编码。</param>
+  /// <param name="branchCode">可信接收院区编码。</param>
+  /// <param name="patientId">已解析到的平台患者标识。</param>
+  /// <param name="identityDocumentTypeCode">证件类型代码。</param>
+  /// <param name="identityDocumentNo">证件号码。</param>
+  /// <param name="visitType">就诊类型。</param>
+  /// <param name="visitSerialNo">就诊流水号。</param>
+  /// <param name="standardProjectCodes">标准项目编码集合。</param>
+  /// <returns>不返回结果。</returns>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IEnumerable<RecognitionMatchCandidateReportItem>> QueryRecognitionMatchCandidateReportsAsync(
+    string organizationCode,
+    string hospitalCode,
+    string branchCode,
+    Guid patientId,
+    string identityDocumentTypeCode,
+    string identityDocumentNo,
+    VisitType visitType,
+    string visitSerialNo,
+    IReadOnlyList<string> standardProjectCodes) => throw new NotSupportedException(UnusedMember);
+
+  /// <summary>本替身不覆盖：匹配响应的报告事实查询。</summary>
+  /// <param name="reportVersionIds">报告版本标识集合。</param>
+  /// <returns>不返回结果。</returns>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IEnumerable<RecognitionMatchReportFactsItem>> QueryRecognitionMatchReportFactsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <summary>本替身不覆盖：报告版本有效性读取。</summary>
+  /// <param name="reportVersionIds">报告版本标识集合。</param>
+  /// <returns>不返回结果。</returns>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IEnumerable<RecognitionValidReportVersionItem>> QueryValidRecognitionReportVersionIdsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
   public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId)
@@ -201,4 +254,35 @@ internal sealed class FakeQueryRepository : IMedicalRecognitionReportQueryReposi
   /// <returns>不返回结果。</returns>
   /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
   public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode) => throw new NotSupportedException(UnusedMember);
+
+  /// <summary>本替身不覆盖：引用详情候选采纳记录查询。</summary>
+  /// <param name="organizationCode">可信接收组织编码。</param>
+  /// <param name="hospitalCode">可信接收医院编码。</param>
+  /// <param name="branchCode">可信接收院区编码。</param>
+  /// <param name="identityDocumentTypeCode">患者证件类型代码。</param>
+  /// <param name="identityDocumentNo">患者证件号码。</param>
+  /// <param name="visitType">本次来源就诊类型。</param>
+  /// <param name="visitSerialNo">本次来源就诊流水号。</param>
+  /// <returns>不返回结果。</returns>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IEnumerable<RecognitionCitationCandidateItem>> QueryRecognitionCitationCandidatesAsync(
+    string organizationCode,
+    string hospitalCode,
+    string branchCode,
+    string identityDocumentTypeCode,
+    string identityDocumentNo,
+    VisitType visitType,
+    string visitSerialNo) => throw new NotSupportedException(UnusedMember);
+
+  /// <summary>本替身不覆盖：引用详情报告公共上下文查询。</summary>
+  /// <param name="reportVersionIds">本次要返回的报告版本标识集合。</param>
+  /// <returns>不返回结果。</returns>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IEnumerable<RecognitionCitationReportContextItem>> QueryRecognitionCitationReportContextsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <summary>本替身不覆盖：引用详情的标准项目名称查询。</summary>
+  /// <param name="standardProjectCodes">本次要取名称的标准项目编码集合。</param>
+  /// <returns>不返回结果。</returns>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IEnumerable<CitationStandardProjectNameItem>> QueryRecognitionCitationStandardProjectNamesAsync(IReadOnlyList<string> standardProjectCodes) => throw new NotSupportedException(UnusedMember);
 }

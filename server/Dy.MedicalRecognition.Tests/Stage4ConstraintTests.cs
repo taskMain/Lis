@@ -33,8 +33,18 @@ public sealed class Stage4ConstraintTests
     "server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.MutualRecognition.cs",
     "server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.RecognitionAmount.cs",
     "server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.Submission.cs",
+    // 阶段 5 的互认匹配读写调用点同样逐处显式传作用域，因此一并纳入本用例的扫描面。
+    "server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.Matching.cs",
+    // 阶段 5 的处理结果写入与匹配记录处理结果保存时间写入同样逐处显式传作用域，一并纳入扫描面。
+    "server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.ProcessingResult.cs",
+    // 阶段 5 的引用事实读写调用点同样逐处显式传作用域，一并纳入扫描面。
+    "server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.Reference.cs",
     "server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs",
-    "server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.Reports.cs"
+    "server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.Reports.cs",
+    // 阶段 5 的互认匹配只读查询调用点与写侧同一口径，一并纳入扫描面。
+    "server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.Matching.cs",
+    // 阶段 5 的引用详情只读查询调用点同样逐处显式传作用域，一并纳入扫描面。
+    "server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.Citation.cs"
   ];
 
   /// <summary>
@@ -128,7 +138,7 @@ public sealed class Stage4ConstraintTests
         invoked => SourceSyntaxGuard.MemberName(invoked.Expression) == "SetContext");
     }
 
-    Assert.Empty(violations);
+    Assert.True(violations.Count == 0, string.Join(" | ", violations));
 
     // 扫描规模下界：路径规则改坏成"扫不到任何调用"时先在这里失败。
     Assert.True(checkedCallCount >= 40, $"受核对的数据访问调用点应不少于 40 处，实际 {checkedCallCount} 处。");
@@ -241,13 +251,17 @@ public sealed class Stage4ConstraintTests
     string managerDirectory = Path.Combine(domainAggregate, "Managers");
     string[] managerFiles = [.. Directory.EnumerateFiles(managerDirectory, "MedicalRecognitionReportManager*.cs").Select(Path.GetFileName)!];
     Assert.Equal(
-      ["MedicalRecognitionReportManager.Submission.cs", "MedicalRecognitionReportManager.SubmissionValidation.cs", "MedicalRecognitionReportManager.cs"],
+      [
+        "MedicalRecognitionReportManager.Matching.cs", "MedicalRecognitionReportManager.ProcessingResult.cs",
+        "MedicalRecognitionReportManager.Reference.cs", "MedicalRecognitionReportManager.Submission.cs",
+        "MedicalRecognitionReportManager.SubmissionValidation.cs", "MedicalRecognitionReportManager.cs"
+      ],
       [.. managerFiles.OrderBy(name => name, StringComparer.Ordinal)]);
 
-    // 领域管理器只有一个类型：三个文件必须都声明同一个部分类型，按职责分文件不构成第二套实现。
+    // 领域管理器只有一个类型：六个文件必须都声明同一个部分类型，按职责分文件不构成第二套实现。
     IReadOnlyList<(string RelativePath, CompilationUnitSyntax Root)> managerDeclarations =
       SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Domain", "MedicalRecognitionReportManager");
-    Assert.Equal(3, managerDeclarations.Count);
+    Assert.Equal(6, managerDeclarations.Count);
     foreach ((string relativePath, CompilationUnitSyntax managerRoot) in managerDeclarations)
     {
       ClassDeclarationSyntax declaration = managerRoot.DescendantNodes().OfType<ClassDeclarationSyntax>()
@@ -256,7 +270,7 @@ public sealed class Stage4ConstraintTests
       Assert.Contains("MedicalRecognitionReportAggregate", relativePath, StringComparison.Ordinal);
     }
 
-    // 写侧仓储接口与实现按业务能力分为五个部分文件，各自仍只有一个类型。
+    // 写侧仓储接口与实现按业务能力分为八个部分文件，各自仍只有一个类型。
     // 逐文件冻结清单：新增第二套实现会改变清单，因此不需要人工确认。
     // 端口接口分部同样收在 Ports 子目录，目录名与子命名空间保持一致。
     string writePortDirectory = Path.Combine(domainAggregate, "Ports");
@@ -264,8 +278,11 @@ public sealed class Stage4ConstraintTests
       [.. Directory.EnumerateFiles(writePortDirectory, "IMedicalRecognitionReportRepository*.cs").Select(Path.GetFileName)!];
     Assert.Equal(
       [
+        "IMedicalRecognitionReportRepository.Matching.cs",
         "IMedicalRecognitionReportRepository.MutualRecognition.cs",
+        "IMedicalRecognitionReportRepository.ProcessingResult.cs",
         "IMedicalRecognitionReportRepository.RecognitionAmount.cs",
+        "IMedicalRecognitionReportRepository.Reference.cs",
         "IMedicalRecognitionReportRepository.StandardCatalog.cs",
         "IMedicalRecognitionReportRepository.Submission.cs",
         "IMedicalRecognitionReportRepository.cs"
@@ -274,7 +291,7 @@ public sealed class Stage4ConstraintTests
 
     IReadOnlyList<(string RelativePath, CompilationUnitSyntax Root)> writePortDeclarations =
       SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Domain", "IMedicalRecognitionReportRepository");
-    Assert.Equal(5, writePortDeclarations.Count);
+    Assert.Equal(8, writePortDeclarations.Count);
     Assert.All(writePortDeclarations, declaration => Assert.Contains(
       declaration.Root.DescendantNodes().OfType<InterfaceDeclarationSyntax>()
         .Single(item => item.Identifier.ValueText == "IMedicalRecognitionReportRepository").Modifiers,
@@ -286,8 +303,11 @@ public sealed class Stage4ConstraintTests
       [.. Directory.EnumerateFiles(repositoryAggregate, "MedicalRecognitionReportRepository*.cs").Select(Path.GetFileName)!];
     Assert.Equal(
       [
+        "MedicalRecognitionReportRepository.Matching.cs",
         "MedicalRecognitionReportRepository.MutualRecognition.cs",
+        "MedicalRecognitionReportRepository.ProcessingResult.cs",
         "MedicalRecognitionReportRepository.RecognitionAmount.cs",
+        "MedicalRecognitionReportRepository.Reference.cs",
         "MedicalRecognitionReportRepository.StandardCatalog.cs",
         "MedicalRecognitionReportRepository.Submission.cs",
         "MedicalRecognitionReportRepository.cs"
@@ -296,18 +316,19 @@ public sealed class Stage4ConstraintTests
 
     IReadOnlyList<(string RelativePath, CompilationUnitSyntax Root)> writeImplementationDeclarations =
       SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Repository", "MedicalRecognitionReportRepository");
-    Assert.Equal(5, writeImplementationDeclarations.Count);
+    Assert.Equal(8, writeImplementationDeclarations.Count);
     Assert.All(writeImplementationDeclarations, declaration => Assert.Contains(
       declaration.Root.DescendantNodes().OfType<ClassDeclarationSyntax>()
         .Single(item => item.Identifier.ValueText == "MedicalRecognitionReportRepository").Modifiers,
       modifier => modifier.ValueText == "partial"));
 
-    // 查询侧端口按职责分为两个部分文件，报告查询与既有目录查询共用一个实现类型。
+    // 查询侧端口按职责分为四个部分文件，报告查询、引用详情与其余查询与既有目录查询共用一个实现类型；
+    // 阶段 5 的互认匹配与引用详情只读投影各新增一个分片，数量随之增加。
     Assert.Equal(
-      2,
+      4,
       SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Domain", "IMedicalRecognitionReportQueryRepository").Count);
     Assert.Equal(
-      2,
+      4,
       SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Repository", "MedicalRecognitionReportQueryRepository").Count);
 
     // 聚合根只有一个：领域工程内声明 MedicalRecognitionReport 的文件数量为一。

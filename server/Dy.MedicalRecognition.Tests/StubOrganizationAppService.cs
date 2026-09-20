@@ -24,6 +24,12 @@ internal sealed class StubOrganizationAppService : IOrganizationAppService
   /// <summary>组织全量读取的调用次数。</summary>
   public int OrganizationReadCount { get; private set; }
 
+  /// <summary>医院读取的调用次数；按组织路径解析口径，每个不同组织一次。</summary>
+  public int HospitalReadCount { get; private set; }
+
+  /// <summary>院区读取的调用次数；按组织路径解析口径，每家不同医院一次。</summary>
+  public int BranchReadCount { get; private set; }
+
   /// <inheritdoc/>
   public Task<IEnumerable<OrganizationDto>> QueryAllOrganizationAsync()
   {
@@ -32,12 +38,18 @@ internal sealed class StubOrganizationAppService : IOrganizationAppService
   }
 
   /// <inheritdoc/>
-  public Task<IEnumerable<HospitalDto>> QueryAllValidHospitalByOrgIdAsync(QueryAllValidHospitalByOrgIdRequest queryAllValidHospitalByOrgIdRequest) =>
-    Task.FromResult<IEnumerable<HospitalDto>>(HospitalsByOrganization.TryGetValue(queryAllValidHospitalByOrgIdRequest.OrgId, out List<HospitalDto>? hospitals) ? hospitals : []);
+  public Task<IEnumerable<HospitalDto>> QueryAllValidHospitalByOrgIdAsync(QueryAllValidHospitalByOrgIdRequest queryAllValidHospitalByOrgIdRequest)
+  {
+    HospitalReadCount++;
+    return Task.FromResult<IEnumerable<HospitalDto>>(HospitalsByOrganization.TryGetValue(queryAllValidHospitalByOrgIdRequest.OrgId, out List<HospitalDto>? hospitals) ? hospitals : []);
+  }
 
   /// <inheritdoc/>
-  public Task<IEnumerable<BranchDto>> QueryAllValidBranchByHosIdAsync(QueryAllValidBranchByHosIdRequest queryAllValidBranchByHosIdRequest) =>
-    Task.FromResult<IEnumerable<BranchDto>>(BranchesByHospital.TryGetValue(queryAllValidBranchByHosIdRequest.HosId, out List<BranchDto>? branches) ? branches : []);
+  public Task<IEnumerable<BranchDto>> QueryAllValidBranchByHosIdAsync(QueryAllValidBranchByHosIdRequest queryAllValidBranchByHosIdRequest)
+  {
+    BranchReadCount++;
+    return Task.FromResult<IEnumerable<BranchDto>>(BranchesByHospital.TryGetValue(queryAllValidBranchByHosIdRequest.HosId, out List<BranchDto>? branches) ? branches : []);
+  }
 
   /// <inheritdoc/>
   public Task<IEnumerable<BranchDto>> QueryAllValidBranchByOrgIdAsync(QueryAllValidBranchByOrgIdRequest queryAllValidBranchByOrgIdRequest) => Unsupported<IEnumerable<BranchDto>>();

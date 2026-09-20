@@ -32,7 +32,7 @@ public sealed class Stage2QueryTests
   public async Task Configuration_list_has_no_unavailable_reason_when_catalog_layers_are_enabled()
   {
     TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
-    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([BuildItem(configurationIsValid: false)]), new StubOrganizationAppService(), new StubUserAppService());
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([BuildItem(configurationIsValid: false)]), new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
 
     RecognitionProjectConfigurationReadModel item = Assert.Single(await service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode)));
 
@@ -52,7 +52,7 @@ public sealed class Stage2QueryTests
   public async Task Unavailable_reason_reports_the_single_disabled_catalog_layer(bool categoryIsValid, bool groupIsValid, bool itemIsValid, string expectedReason)
   {
     TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
-    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([BuildItem(categoryIsValid, groupIsValid, itemIsValid)]), new StubOrganizationAppService(), new StubUserAppService());
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([BuildItem(categoryIsValid, groupIsValid, itemIsValid)]), new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
 
     RecognitionProjectConfigurationReadModel item = Assert.Single(await service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode)));
 
@@ -74,7 +74,7 @@ public sealed class Stage2QueryTests
   public async Task Unavailable_reason_follows_category_group_item_priority(bool categoryIsValid, bool groupIsValid, bool itemIsValid, string expectedReason)
   {
     TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
-    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([BuildItem(categoryIsValid, groupIsValid, itemIsValid)]), new StubOrganizationAppService(), new StubUserAppService());
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([BuildItem(categoryIsValid, groupIsValid, itemIsValid)]), new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
 
     RecognitionProjectConfigurationReadModel item = Assert.Single(await service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode)));
 
@@ -87,7 +87,7 @@ public sealed class Stage2QueryTests
   {
     TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
     FakeQueryRepository repository = new([BuildItem(false, false, false)]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
 
     Assert.Equal("所属分类已停用", await QueryOnlyReasonAsync(service));
 
@@ -107,7 +107,7 @@ public sealed class Stage2QueryTests
   {
     TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
     FakeQueryRepository repository = new([BuildItem()]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
 
     await Assert.ThrowsAsync<InvalidOperationException>(
       () => service.QueryRecognitionProjectConfigurationListAsync(Query(OtherOrganizationCode)));
@@ -121,7 +121,7 @@ public sealed class Stage2QueryTests
   {
     TrustedRequestContext.Use(string.Empty, TrustedOperId);
     FakeQueryRepository repository = new([BuildItem()]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
 
     await Assert.ThrowsAsync<InvalidOperationException>(
       () => service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode)));
@@ -138,7 +138,7 @@ public sealed class Stage2QueryTests
   {
     TrustedRequestContext.Use($"  {TrustedOrganizationCode}  ", TrustedOperId);
     FakeQueryRepository repository = new([BuildItem()]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
 
     RecognitionProjectConfigurationReadModel item = Assert.Single(
       await service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode)));
@@ -157,7 +157,7 @@ public sealed class Stage2QueryTests
   {
     TrustedRequestContext.Use($"  {TrustedOrganizationCode}  ", TrustedOperId);
     FakeQueryRepository repository = new([BuildItem()]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
 
     RecognitionProjectConfigurationReadModel item = Assert.Single(
       await service.QueryRecognitionProjectConfigurationListAsync(Query($"  {TrustedOrganizationCode}  ")));
@@ -177,7 +177,7 @@ public sealed class Stage2QueryTests
       BuildItem(configurationId: Guid.Parse("11111111-1111-1111-1111-111111111111"), standardProjectCode: "PROBE-001", standardItemName: "血常规", categoryName: "临床检验", groupName: "血液学", recognitionDurationDays: 30, itemType: MedicalItemType.Laboratory),
       BuildItem(configurationId: Guid.Parse("22222222-2222-2222-2222-222222222222"), standardProjectCode: "PROBE-002", standardItemName: "胸部CT", categoryName: "医学影像", groupName: "CT", recognitionDurationDays: 90, itemType: MedicalItemType.Examination, configurationIsValid: false)
     ]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
 
     IEnumerable<RecognitionProjectConfigurationReadModel> result = await service.QueryRecognitionProjectConfigurationListAsync(
       new RecognitionProjectConfigurationListQueryRequest
@@ -229,7 +229,7 @@ public sealed class Stage2QueryTests
       BuildItem(configurationId: Guid.Parse("11111111-1111-1111-1111-111111111111"), standardProjectCode: "PROBE-001", standardItemName: "第一项"),
       BuildItem(configurationId: Guid.Parse("22222222-2222-2222-2222-222222222222"), standardProjectCode: "PROBE-002", standardItemName: "第二项")
     ]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
 
     RecognitionProjectConfigurationReadModel[] items =
       [.. await service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode))];
@@ -244,7 +244,7 @@ public sealed class Stage2QueryTests
   {
     TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
     FakeQueryRepository repository = new([]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
 
     IEnumerable<RecognitionProjectConfigurationReadModel> items =
       await service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode));
@@ -410,6 +410,10 @@ public sealed class Stage2QueryTests
       throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
 
     /// <inheritdoc/>
+    public Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
     public Task<IEnumerable<LaboratoryBacteriaResultItem>> QueryLaboratoryBacteriaResultsAsync(Guid reportVersionId) =>
       throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
 
@@ -426,11 +430,59 @@ public sealed class Stage2QueryTests
       throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
 
     /// <inheritdoc/>
+    public Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
     public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesAsync(Guid examinationItemId) =>
       throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
 
     /// <inheritdoc/>
+    public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesByItemsAsync(IReadOnlyList<Guid> examinationItemIds) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionMatchCandidateReportItem>> QueryRecognitionMatchCandidateReportsAsync(
+      string organizationCode,
+      string hospitalCode,
+      string branchCode,
+      Guid patientId,
+      string identityDocumentTypeCode,
+      string identityDocumentNo,
+      VisitType visitType,
+      string visitSerialNo,
+      IReadOnlyList<string> standardProjectCodes) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionMatchReportFactsItem>> QueryRecognitionMatchReportFactsAsync(IReadOnlyList<Guid> reportVersionIds) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionValidReportVersionItem>> QueryValidRecognitionReportVersionIdsAsync(IReadOnlyList<Guid> reportVersionIds) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
     public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionCitationCandidateItem>> QueryRecognitionCitationCandidatesAsync(
+      string organizationCode,
+      string hospitalCode,
+      string branchCode,
+      string identityDocumentTypeCode,
+      string identityDocumentNo,
+      VisitType visitType,
+      string visitSerialNo) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionCitationReportContextItem>> QueryRecognitionCitationReportContextsAsync(IReadOnlyList<Guid> reportVersionIds) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<CitationStandardProjectNameItem>> QueryRecognitionCitationStandardProjectNamesAsync(IReadOnlyList<string> standardProjectCodes) =>
       throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
   }
 }

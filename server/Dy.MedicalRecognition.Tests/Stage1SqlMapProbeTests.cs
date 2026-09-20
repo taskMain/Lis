@@ -114,7 +114,9 @@ public sealed class Stage1SqlMapProbeTests
     Assert.Contains("MedicalStandardItem.CreateMedicalStandardItem", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryMedicalStandardCategoryList", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryEffectiveMedicalStandardCatalog", registeredKeys);
-    Assert.Contains("RecognitionReference.QueryAllRecognitionReference", registeredKeys);
+    // 阶段 5 同步：四个互认实体映射补齐语句后，占位的无条件全量查询已删除，这里改为断言它不再注册；
+    // 保留原来的"必须存在"断言会让删掉占位语句的补齐工作必然失败，删除该断言而不补负向断言又会让它重新出现时无人发现。
+    Assert.DoesNotContain("RecognitionReference.QueryAllRecognitionReference", registeredKeys);
     Assert.Contains("RecognitionReference.RecognitionReferenceColumns", registeredKeys);
 
     // 阶段 2 追加核对：互认项目配置的写入、启停与按组织读取语句必须注册在实体作用域下，
@@ -154,6 +156,12 @@ public sealed class Stage1SqlMapProbeTests
     Assert.Contains("MutualRecognitionItem.GetMutualRecognitionItemByOrganizationAndProject", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionAmountList", registeredKeys);
 
+    // 阶段 5 追加核对：获取引用详情的候选采纳记录、报告公共上下文与标准项目名称三条查询语句注册在同一查询作用域下；
+    // 缺少这些断言时，语句标识被改名或作用域被改动只在运行时表现为"找不到语句"，静态检查不会失败。
+    Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionCitationCandidates", registeredKeys);
+    Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionCitationReportContexts", registeredKeys);
+    Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionCitationStandardProjectNames", registeredKeys);
+
     // 阶段 4 追加核对：报告采集与生命周期十张表的映射语句必须注册在各自的实体名作用域下，
     // 报告实体的实体名与聚合名恰好相同，因此这里逐键断言而不只看作用域名称；缺少这些断言时，
     // 作用域被改回聚合级或语句标识被改名只在运行时表现为"找不到语句"，静态检查不会失败。
@@ -165,15 +173,33 @@ public sealed class Stage1SqlMapProbeTests
     // 每个实体必须使用自己的作用域名：框架按作用域名注册语句集合，同一作用域被多个映射文件使用时，
     // 后注册的文件会整体替换先前注册的语句集合，先注册实体的语句键随之消失并只在运行期表现为找不到语句。
     // 因此匹配与引用四个实体也各自使用实体名作用域，且旧的聚合名作用域键必须全部消失。
+    // 阶段 5 补齐语句后，四个作用域的语句清单按补齐结果逐条等值冻结；不放宽为只断言作用域名或只断言其中一条语句：
+    // 语句标识被改名、被删减或作用域被改回聚合名，只有这些逐条键断言才会失败。
     foreach ((string scope, string[] statementIds) in new (string, string[])[]
     {
-      ("RecognitionMatchRecord", ["RecognitionMatchRecordColumns", "QueryAllRecognitionMatchRecord"]),
-      ("RecognitionMatchItem", ["RecognitionMatchItemColumns", "QueryAllRecognitionMatchItem"]),
-      ("RecognitionProcessingResult", ["RecognitionProcessingResultColumns", "QueryAllRecognitionProcessingResult"]),
-      ("RecognitionReference", ["RecognitionReferenceColumns", "QueryAllRecognitionReference"])
+      ("RecognitionMatchRecord",
+        [
+          "RecognitionMatchRecordColumns", "GetRecognitionMatchRecordByBusinessKey", "GetRecognitionMatchRecordById",
+          "QueryRecognitionMatchRecordsByIds", "CreateRecognitionMatchRecord", "UpdateRecognitionMatchRecordDecisionSavedTime"
+        ]),
+      ("RecognitionMatchItem",
+        [
+          "RecognitionMatchItemColumns", "QueryRecognitionMatchItemsByRecord",
+          "QueryRecognitionMatchItemsByIds", "CreateRecognitionMatchItem"
+        ]),
+      ("RecognitionProcessingResult",
+        [
+          "RecognitionProcessingResultColumns", "QueryRecognitionProcessingResultsByRecord",
+          "QueryRecognitionProcessingResultsByMatchItemIds", "CreateRecognitionProcessingResult"
+        ]),
+      ("RecognitionReference",
+        [
+          "RecognitionReferenceColumns", "QueryRecognitionReferencesByMatchItemIds", "CreateRecognitionReference"
+        ])
     })
     {
       foreach (string statementId in statementIds) Assert.Contains($"{scope}.{statementId}", registeredKeys);
+      // 旧聚合作用域键必须消失：语句标识本身仍存在，只有前缀为聚合名时才能判出作用域未改正。
       Assert.DoesNotContain($"MedicalRecognitionReport.{statementIds[0]}", registeredKeys);
     }
   }
@@ -241,7 +267,7 @@ public sealed class Stage1SqlMapProbeTests
       ]),
     ("ExaminationReportContent", ["ExaminationReportContentColumns", "GetExaminationReportContentByVersion", "CreateExaminationReportContent"]),
     ("ExaminationItem", ["ExaminationItemColumns", "QueryExaminationItemsByVersion", "CreateExaminationItem"]),
-    ("ExaminationSite", ["ExaminationSiteColumns", "QueryExaminationSitesByItem", "CreateExaminationSite"])
+    ("ExaminationSite", ["ExaminationSiteColumns", "QueryExaminationSitesByItem", "QueryExaminationSitesByItems", "CreateExaminationSite"])
   ];
 
   /// <summary>

@@ -329,7 +329,7 @@ public sealed class Stage4SubmissionPathTests
   {
     TrustedRequestContext.Use(TrustedOrganization, TrustedHospital, TrustedBranch, TrustedOperId.ToString());
     return new MedicalRecognitionReportAppService(
-      new MedicalRecognitionReportManager(repository),
+      new MedicalRecognitionReportManager(repository, new FakeMatchQueryRepository()),
       repository,
       new StubOrganizationAppService
       {
@@ -342,7 +342,8 @@ public sealed class Stage4SubmissionPathTests
       },
       new StubUserAppService(),
       fileStore,
-      ports);
+      ports,
+      new StubSystemParameterAppService());
   }
 
   /// <summary>

@@ -27,7 +27,7 @@ ReadModel('BranchHierarchyReadModel')[
 ReadModel('CitationDetailValidityParameterReadModel')[
     引用详情有效时长
     --属性--
-    有效时长分钟(ValidityDurationMinutes Integer)
+    有效时长小时(ValidityDurationHours Integer)
 ]
 ReadModel('OwnHospitalMatchParameterReadModel')[
     本院报告匹配参数
@@ -52,6 +52,6 @@ note right of OrganizationService
 end note
 note right of PlatformSystemParameterSystem
   互认平台通过两个参数查询读取系统参数；外部系统不调用互认平台查询。
-  本院报告匹配参数不设默认值；参数缺失、非法或无法取得时，匹配查询失败。
+  本院报告匹配开关取值为字符串 1 或 0，1 表示开启、0 表示关闭；本院报告匹配参数不设默认值，参数缺失、非法或无法取得时匹配查询失败。
 end note
 @enduml

@@ -1,12 +1,59 @@
 <SqlMap Scope="RecognitionMatchItem" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义互认匹配项的通用查询字段清单，供按所属记录读取、按标识集合读取与新增语句复用。
+      结果：输出所属匹配记录、项目类型、标准项目编码、报告与报告版本标识、操作审计字段，各字段业务含义见行内注释；
+      列顺序与实体属性声明顺序一致，操作人标识在操作时间之前，不随建表脚本的列序调整。
+    -->
     <Statement Id="RecognitionMatchItemColumns">
-      id, recognition_match_record_id, item_type, standard_project_code, report_id, report_version_id, oper_id, oper_time
+      id,                           <!-- 匹配项标识（主键） -->
+      recognition_match_record_id,  <!-- 所属互认匹配记录标识 -->
+      item_type,                    <!-- 项目类型：0=检验、1=检查 -->
+      standard_project_code,        <!-- 标准项目编码 -->
+      report_id,                    <!-- 报告标识 -->
+      report_version_id,            <!-- 报告版本标识，一经写入不再更换 -->
+      oper_id,                      <!-- 操作人标识 -->
+      oper_time                     <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllRecognitionMatchItem">
-      select
-      <Include RefId="RecognitionMatchItemColumns" />
-      from recognition_match_item
+    <!--
+      功能：按所属互认匹配记录读取该组的全部互认匹配项，供处理结果提交校验整组完整性与读取既有决定。
+      结果：返回该记录下的全部匹配项字段清单；该记录没有匹配项时返回空集合；
+      排序按匹配项标识升序，使同一组的返回顺序稳定，调用方不依赖数据库执行计划。
+    -->
+    <Statement Id="QueryRecognitionMatchItemsByRecord">
+      select <Include RefId="RecognitionMatchItemColumns" /> from mrec_recognition_match_item
+      where recognition_match_record_id = $RecognitionMatchRecordId  <!-- 归属范围：只返回该匹配记录下的匹配项 -->
+      order by id asc  <!-- 排序：按匹配项标识升序，保证同一组内的返回顺序稳定 -->
+    </Statement>
+    <!--
+      功能：按互认匹配项标识集合读取匹配项，供提交引用结果时逐项反查所属匹配记录与绑定报告版本。
+      结果：返回集合内命中的全部匹配项字段清单；集合内不存在的标识不产生行，由领域层判定缺失项；
+      排序按匹配项标识升序，使同一批的返回顺序稳定。
+    -->
+    <Statement Id="QueryRecognitionMatchItemsByIds">
+      select <Include RefId="RecognitionMatchItemColumns" /> from mrec_recognition_match_item
+      <!-- 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表；空集合展开为空列表，不返回任何行 -->
+      where id in $RecognitionMatchItemIds
+      order by id asc  <!-- 排序：按匹配项标识升序，保证同一批内的返回顺序稳定 -->
+    </Statement>
+    <!--
+      功能：新增一条互认匹配项，把本次查询命中项目所选的报告与其版本固定下来。
+      结果：写入匹配项标识、所属匹配记录、项目类型、标准项目编码、报告标识、报告版本标识与操作字段；
+      报告标识与报告版本标识按本次选优结果原样保存，一经写入不再更换；
+      操作时间显式取命令携带的服务端时间而不是数据库当前时间，使写入时间与领域事件时间一致。
+    -->
+    <Statement Id="CreateRecognitionMatchItem">
+      insert into mrec_recognition_match_item (
+        <!-- 参数顺序与下面的值列表逐位对应，全部来自命令与可信上下文，不含数据库默认值 -->
+        id,                           <!-- 匹配项标识（主键），由仓储在插入前生成 -->
+        recognition_match_record_id,  <!-- 所属互认匹配记录标识，取本次写入的匹配记录标识 -->
+        item_type,                    <!-- 项目类型：0=检验、1=检查，取自标准项目所属分类 -->
+        standard_project_code,        <!-- 标准项目编码，取本次查询提交的拟开项目编码 -->
+        report_id,                    <!-- 报告标识，取逐项目选优命中的报告 -->
+        report_version_id,            <!-- 报告版本标识，取该报告当前有效版本 -->
+        oper_id,                      <!-- 操作人标识，取自可信身份上下文 -->
+        oper_time                     <!-- 操作时间，取命令携带的服务端当前时间 -->
+      ) values ($Id, $RecognitionMatchRecordId, $ItemType, $StandardProjectCode, $ReportId, $ReportVersionId, $OperId, $OperTime)
     </Statement>
   </Statements>
 </SqlMap>

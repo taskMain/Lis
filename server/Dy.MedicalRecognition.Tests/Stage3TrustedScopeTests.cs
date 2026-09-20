@@ -214,7 +214,7 @@ public sealed class Stage3TrustedScopeTests
     TrustedRequestContext.Use(TokenOrganization, null, OtherHospitalBranch, TrustedUserId);
     StubOrganizationAppService organizationService = BuildTwoHospitalService();
     AmountQueryRepository repository = new();
-    MedicalRecognitionReportQueryAppService appService = new(repository, organizationService, userService);
+    MedicalRecognitionReportQueryAppService appService = new(repository, organizationService, userService, new StubSystemParameterAppService());
 
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
       () => appService.QueryBranchRecognitionAmountListAsync(new BranchRecognitionAmountListQueryRequest { BranchCode = OtherHospitalBranch }));
@@ -231,7 +231,7 @@ public sealed class Stage3TrustedScopeTests
     StubUserAppService userService = BuildUserService(Profile(TokenOrganization, TokenHospital));
     TrustedRequestContext.Use(TokenOrganization, null, TokenBranch, TrustedUserId);
     AmountQueryRepository repository = new();
-    MedicalRecognitionReportQueryAppService appService = new(repository, BuildTwoHospitalService(), userService);
+    MedicalRecognitionReportQueryAppService appService = new(repository, BuildTwoHospitalService(), userService, new StubSystemParameterAppService());
 
     await appService.QueryBranchRecognitionAmountListAsync(new BranchRecognitionAmountListQueryRequest { BranchCode = TokenBranch });
 
@@ -247,7 +247,7 @@ public sealed class Stage3TrustedScopeTests
     StubUserAppService userService = BuildUserService(Profile(TokenOrganization, TokenHospital));
     TrustedRequestContext.Use(TokenOrganization, null, TokenBranch, TrustedUserId);
     AmountQueryRepository repository = new();
-    MedicalRecognitionReportQueryAppService appService = new(repository, BuildTwoHospitalService(), userService);
+    MedicalRecognitionReportQueryAppService appService = new(repository, BuildTwoHospitalService(), userService, new StubSystemParameterAppService());
 
     await appService.QueryBranchRecognitionAmountListAsync(new BranchRecognitionAmountListQueryRequest { BranchCode = TokenBranch });
 
@@ -262,7 +262,7 @@ public sealed class Stage3TrustedScopeTests
     StubUserAppService userService = new();
     TrustedRequestContext.Use(TokenOrganization, null, TokenBranch, TrustedUserId);
     StubOrganizationAppService organizationService = BuildTwoHospitalService();
-    MedicalRecognitionReportQueryAppService appService = new(new AmountQueryRepository(), organizationService, userService);
+    MedicalRecognitionReportQueryAppService appService = new(new AmountQueryRepository(), organizationService, userService, new StubSystemParameterAppService());
 
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
       () => appService.QueryBranchRecognitionAmountListAsync(new BranchRecognitionAmountListQueryRequest { BranchCode = TokenBranch }));
@@ -277,7 +277,7 @@ public sealed class Stage3TrustedScopeTests
   {
     StubUserAppService userService = BuildUserService(Profile(ProfileOrganization, ProfileHospital));
     TrustedRequestContext.Use(null, null, TokenBranch, TrustedUserId);
-    MedicalRecognitionReportQueryAppService appService = new(new AmountQueryRepository(), new StubOrganizationAppService(), userService);
+    MedicalRecognitionReportQueryAppService appService = new(new AmountQueryRepository(), new StubOrganizationAppService(), userService, new StubSystemParameterAppService());
 
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
       () => appService.QueryRecognitionProjectConfigurationListAsync(
@@ -411,6 +411,10 @@ public sealed class Stage3TrustedScopeTests
       throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
 
     /// <inheritdoc/>
+    public Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
     public Task<IEnumerable<LaboratoryBacteriaResultItem>> QueryLaboratoryBacteriaResultsAsync(Guid reportVersionId) =>
       throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
 
@@ -427,11 +431,59 @@ public sealed class Stage3TrustedScopeTests
       throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
 
     /// <inheritdoc/>
+    public Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
     public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesAsync(Guid examinationItemId) =>
       throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
 
     /// <inheritdoc/>
+    public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesByItemsAsync(IReadOnlyList<Guid> examinationItemIds) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionMatchCandidateReportItem>> QueryRecognitionMatchCandidateReportsAsync(
+      string organizationCode,
+      string hospitalCode,
+      string branchCode,
+      Guid patientId,
+      string identityDocumentTypeCode,
+      string identityDocumentNo,
+      VisitType visitType,
+      string visitSerialNo,
+      IReadOnlyList<string> standardProjectCodes) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionMatchReportFactsItem>> QueryRecognitionMatchReportFactsAsync(IReadOnlyList<Guid> reportVersionIds) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionValidReportVersionItem>> QueryValidRecognitionReportVersionIdsAsync(IReadOnlyList<Guid> reportVersionIds) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
     public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionCitationCandidateItem>> QueryRecognitionCitationCandidatesAsync(
+      string organizationCode,
+      string hospitalCode,
+      string branchCode,
+      string identityDocumentTypeCode,
+      string identityDocumentNo,
+      VisitType visitType,
+      string visitSerialNo) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionCitationReportContextItem>> QueryRecognitionCitationReportContextsAsync(IReadOnlyList<Guid> reportVersionIds) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<CitationStandardProjectNameItem>> QueryRecognitionCitationStandardProjectNamesAsync(IReadOnlyList<string> standardProjectCodes) =>
       throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
   }
 }

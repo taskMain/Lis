@@ -314,15 +314,22 @@ public sealed class Stage4SqlMapTests
     ("ExaminationItem.xml", "ExaminationItem",
       ["ExaminationItemColumns", "QueryExaminationItemsByVersion", "CreateExaminationItem"]),
     ("ExaminationSite.xml", "ExaminationSite",
-      ["ExaminationSiteColumns", "QueryExaminationSitesByItem", "CreateExaminationSite"])
+      ["ExaminationSiteColumns", "QueryExaminationSitesByItem", "QueryExaminationSitesByItems", "CreateExaminationSite"])
   ];
 
   /// <summary>
-  /// 查询侧映射文件的完整语句标识清单，按文件内声明顺序：阶段 1 至阶段 3 已交付的六条在前，阶段 4 新增的十四条在后。
+  /// 查询侧映射文件的完整语句标识清单，按文件内声明顺序：阶段 1 至阶段 3 已交付的六条在前，阶段 4 新增的十四条居中，
+  /// 阶段 5 新增的九条在后——按报告版本集合一次读回普通检验结果与检查项目、候选报告查询、匹配响应报告事实查询，
+  /// 处理结果提交在未命中幂等时校验绑定报告版本有效性所读的有效版本标识查询，
+  /// 以及获取引用详情的候选采纳记录、报告公共上下文与标准项目名称三条。
   /// </summary>
   /// <remarks>
   /// 阶段 4 新增的七条读语句标识由方法名推导：调用方不再显式传 <c>sqlId</c>，框架按调用方法名去掉
   /// <c>Async</c> 后缀定位语句，因此标识必须与仓储方法名逐字相同，不能保留 <c>ByVersion</c> 一类后缀。
+  /// 阶段 5 新增的九条同样由方法名推导，由查询仓储调用；两条按报告版本集合读取的语句使互认匹配查询的内容读取次数不随返回的报告数增长；
+  /// 有效版本标识查询只返回仍为当前版本且所属报告有效的版本，调用方按"未出现在返回集合中"判定绑定版本已失效；
+  /// 引用详情三条分别承载本次就诊的候选采纳记录、报告公共上下文与标准项目名称，各按集合一次读回。
+  /// 检查部位的按检查项目集合读取注册在检查部位实体作用域下，不由本清单覆盖。
   /// </remarks>
   private static readonly string[] ExpectedQueryStatementIds =
   [
@@ -332,7 +339,9 @@ public sealed class Stage4SqlMapTests
     "GetMedicalReportScope", "GetMedicalReportVersionCommon", "GetMedicalReportVersionFile",
     "GetLaboratoryReportContent", "QueryLaboratoryResultItems", "QueryLaboratoryBacteriaResults",
     "QueryLaboratorySusceptibilities", "GetExaminationReportContent", "QueryExaminationItems",
-    "QueryExaminationSites"
+    "QueryExaminationSites", "QueryLaboratoryResultItemsByVersions", "QueryExaminationItemsByVersions",
+    "QueryRecognitionMatchCandidateReports", "QueryRecognitionMatchReportFacts", "QueryValidRecognitionReportVersionIds",
+    "QueryRecognitionCitationCandidates", "QueryRecognitionCitationReportContexts", "QueryRecognitionCitationStandardProjectNames"
   ];
   /// <summary>
   /// 共享 SQL 的方言特征：出现即视为违反数据库 Provider 中立约定。
@@ -473,8 +482,8 @@ public sealed class Stage4SqlMapTests
 
       Assert.Equal(scope, (string?)document.Root!.Attribute("Scope"));
 
-      // 作用域必须是实体名，与聚合名同名的报告实体除外：报告实体的实体名与聚合名恰好相同，
-      // 因此这里按"作用域等于声明的实体名"判定，其余实体（含阶段 5 的匹配与引用实体）仍使用聚合名。
+      // 作用域必须是实体名：报告实体的实体名与聚合名恰好相同，因此这里按"作用域等于声明的实体名"判定，
+      // 阶段 5 的四个互认实体同样各自使用自己的实体名作为作用域。
       Assert.NotEqual("MedicalRecognitionReportAggregate", scope);
       Assert.Contains(scope, mapFile, StringComparison.Ordinal);
 
@@ -622,7 +631,7 @@ public sealed class Stage4SqlMapTests
   }
 
   /// <summary>
-  /// V80/V81：写入语句显式绑定命令时间与实体取值，不使用数据库当前时间，也不把新增语句的启用状态交给参数。
+  /// 写入语句显式绑定命令时间与实体取值，不使用数据库当前时间，也不把新增语句的启用状态交给参数。
   /// </summary>
   /// <remarks>
   /// 新增与更新的操作时间必须取命令携带的服务端当前时间，使写入时间与领域事件时间一致；
@@ -652,6 +661,36 @@ public sealed class Stage4SqlMapTests
     string withoutOriginalStatus = reportStatements["VoidMedicalRecognitionReport"].Replace("and status = 1", string.Empty, StringComparison.Ordinal);
     Assert.NotEqual(reportStatements["VoidMedicalRecognitionReport"], withoutOriginalStatus);
     Assert.DoesNotContain("and status = 1", withoutOriginalStatus, StringComparison.Ordinal);
+  }
+
+  /// <summary>
+  /// 追加版本后同步报告主体检索列的更新语句必须把报告与本次解析到的平台患者关联起来。
+  /// </summary>
+  /// <remarks>
+  /// 报告主体的平台患者标识在新建时为空值，只在追加版本时由患者解析结果写入；
+  /// 用内存替身执行提交路径不会经过映射语句，漏写该列时提交仍返回成功，只有真实 Provider 上的读取才会暴露断链，
+  /// 因此这一列必须在映射语句层面冻结。派生列集合与领域更新实体的组装口径一致：当前版本指向、报告时间、患者姓名与证件号码同批写入。
+  /// </remarks>
+  [Fact]
+  public void Report_update_statement_links_report_to_resolved_platform_patient()
+  {
+    Dictionary<string, string> reportStatements = LoadStatements(File.ReadAllText(FindRepositorySqlMap("MedicalRecognitionReport.xml")));
+    string updateStatement = reportStatements["UpdateMedicalRecognitionReportCurrentVersion"];
+
+    string setClause = updateStatement[..updateStatement.IndexOf("where", StringComparison.Ordinal)];
+    Assert.Contains("patient_id = $PatientId", setClause, StringComparison.Ordinal);
+    Assert.Contains("current_version_id = $CurrentVersionId", setClause, StringComparison.Ordinal);
+    Assert.Contains("report_time = $ReportTime", setClause, StringComparison.Ordinal);
+    Assert.Contains("patient_name = $PatientName", setClause, StringComparison.Ordinal);
+    Assert.Contains("identity_document_no = $IdentityDocumentNo", setClause, StringComparison.Ordinal);
+
+    // 变异证据：去掉平台患者关联列后同一判据必须判为不成立。
+    string withoutPatient = updateStatement.Replace("patient_id = $PatientId,", string.Empty, StringComparison.Ordinal);
+    Assert.NotEqual(updateStatement, withoutPatient);
+    Assert.DoesNotContain(
+      "patient_id = $PatientId",
+      withoutPatient[..withoutPatient.IndexOf("where", StringComparison.Ordinal)],
+      StringComparison.Ordinal);
   }
 
   /// <summary>

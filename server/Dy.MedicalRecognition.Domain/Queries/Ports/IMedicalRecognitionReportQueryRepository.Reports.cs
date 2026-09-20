@@ -59,6 +59,16 @@ public partial interface IMedicalRecognitionReportQueryRepository
   /// <returns>普通检验结果行集合。</returns>
   Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsAsync(Guid reportVersionId);
   /// <summary>
+  /// 按一组报告版本读取普通检验结果，供互认匹配查询按本次绑定的版本集合一次取回检验项目级内容。
+  /// </summary>
+  /// <remarks>
+  /// 行集由本次绑定的版本集合决定，每行都带其报告版本归属，调用方据此把结果归到对应的报告下；
+  /// 集合内不存在的版本不产生行；按报告版本标识升序、展示序号升序、结果标识升序返回，使同一批内的返回顺序稳定。
+  /// </remarks>
+  /// <param name="reportVersionIds">本次要读取的报告版本标识集合。</param>
+  /// <returns>普通检验结果行集合；集合为空或版本不可读时为空集合。</returns>
+  Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds);
+  /// <summary>
   /// 读取某个报告版本的细菌鉴定结果。
   /// </summary>
   /// <param name="reportVersionId">报告版本标识。</param>
@@ -85,11 +95,31 @@ public partial interface IMedicalRecognitionReportQueryRepository
   /// <returns>检查项目行集合；无项目时为空集合。</returns>
   Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsAsync(Guid reportVersionId);
   /// <summary>
+  /// 按一组报告版本读取检查项目，供互认匹配查询按本次绑定的版本集合一次取回检查项目级内容。
+  /// </summary>
+  /// <remarks>
+  /// 行集由本次绑定的版本集合决定，每行都带其报告版本归属，调用方据此把项目归到对应的报告下；
+  /// 集合内不存在的版本不产生行；按报告版本标识升序、项目标识升序返回，使同一批内的返回顺序稳定。
+  /// </remarks>
+  /// <param name="reportVersionIds">本次要读取的报告版本标识集合。</param>
+  /// <returns>检查项目行集合；集合为空或版本不可读时为空集合。</returns>
+  Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds);
+  /// <summary>
   /// 读取某条检查项目下的检查部位。
   /// </summary>
   /// <param name="examinationItemId">检查项目标识。</param>
   /// <returns>检查部位行集合；无部位时为空集合。</returns>
   Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesAsync(Guid examinationItemId);
+  /// <summary>
+  /// 按检查项目标识集合读取检查部位。
+  /// </summary>
+  /// <remarks>
+  /// 供互认匹配查询按本次命中的检查项目一次取回项目级内容，读取次数不随命中项目数增长；
+  /// 每个部位都带其检查项目归属；排序按检查项目标识升序、部位标识升序；集合为空时返回空集合。
+  /// </remarks>
+  /// <param name="examinationItemIds">本次命中的检查项目标识集合。</param>
+  /// <returns>检查部位行集合；集合为空或项目没有部位时为空集合。</returns>
+  Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesByItemsAsync(IReadOnlyList<Guid> examinationItemIds);
   /// <summary>
   /// 按报告标识读取报告的来源归属行，供管理端按报告标识校验可信范围。
   /// </summary>

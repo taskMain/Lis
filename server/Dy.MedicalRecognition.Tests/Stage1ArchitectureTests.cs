@@ -209,7 +209,7 @@ public sealed class Stage1ArchitectureTests
   }
 
   /// <summary>
-  /// 查询契约的 7 个方法及其完整签名：方法名、返回类型与逐项参数（modifier、类型、名称、默认值）。
+  /// 查询契约的每个方法及其完整签名：方法名、返回类型与逐项参数（modifier、类型、名称、默认值）。
   /// </summary>
   private static readonly (string MethodName, string ReturnType, string[] Parameters)[] QueryContractSignatures =
   [
@@ -234,7 +234,9 @@ public sealed class Stage1ArchitectureTests
     (nameof(IMedicalRecognitionReportQueryAppService.QueryMedicalReportVersionListAsync),
       "Task<IReadOnlyList<MedicalReportVersionListReadModel>>", ["MedicalReportVersionListQueryRequest request"]),
     (nameof(IMedicalRecognitionReportQueryAppService.QueryMedicalReportVersionDetailAsync),
-      "Task<MedicalReportVersionDetailQueryReadModel>", ["MedicalReportVersionDetailQueryRequest request"])
+      "Task<MedicalReportVersionDetailQueryReadModel>", ["MedicalReportVersionDetailQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryRecognitionCitationDetailAsync),
+      "Task<RecognitionCitationDetailReadModel>", ["RecognitionCitationDetailRequest request"])
   ];
 
   /// <summary>
@@ -501,8 +503,9 @@ public sealed class Stage1ArchitectureTests
 
   /// <summary>
   /// 校验读写契约分离：查询契约只继承应用服务标记而不含写方法，查询契约与查询仓储实现可相互赋值，
-  /// 查询契约的方法集合固定为阶段 1 的四个目录查询、阶段 2 的互认配置列表查询与阶段 3 的两个金额列表查询，
-  /// 且写入口契约中不得出现查询方法。
+  /// 查询契约的方法集合固定为阶段 1 的四个目录查询、阶段 2 的互认配置列表查询、阶段 3 的两个金额列表查询、
+  /// 阶段 4 的报告列表与版本查询，以及阶段 5 的引用详情查询，
+  /// 且写入口契约中不得出现只读查询方法。
   /// </summary>
   [Fact]
   public void Query_contract_is_separated_from_write_service_and_repository_implementation()
@@ -516,11 +519,12 @@ public sealed class Stage1ArchitectureTests
       "QueryBranchMedicalReportListAsync", "QueryBranchRecognitionAmountListAsync", "QueryEffectiveMedicalStandardCatalogAsync",
       "QueryMedicalReportListAsync", "QueryMedicalReportVersionDetailAsync", "QueryMedicalReportVersionListAsync",
       "QueryMedicalStandardCategoryListAsync", "QueryMedicalStandardGroupListAsync", "QueryMedicalStandardItemListAsync",
-      "QueryRecognitionAmountListAsync", "QueryRecognitionProjectConfigurationListAsync"
+      "QueryRecognitionAmountListAsync", "QueryRecognitionCitationDetailAsync", "QueryRecognitionProjectConfigurationListAsync"
     ];
     string[] actualQueryMethods = [.. typeof(IMedicalRecognitionReportQueryAppService).GetMethods().Select(method => method.Name).OrderBy(name => name, StringComparer.Ordinal)];
     Assert.Equal(expectedQueryMethods, actualQueryMethods);
 
+    // 写入口契约上不得出现任何名称以 Query 开头的公开方法：写入口的名称以 Query 开头即表达该入口是只读查询，与写侧职责冲突。
     Assert.DoesNotContain(typeof(Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.IMedicalRecognitionReportAppService).GetMethods(), method => method.Name.StartsWith("Query", StringComparison.Ordinal));
   }
 

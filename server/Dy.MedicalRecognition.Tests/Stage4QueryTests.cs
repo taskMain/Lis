@@ -589,7 +589,7 @@ public sealed class Stage4QueryTests
     FakeQueryRepository repository, RecordingOrganizationAppService organizationService)
   {
     TrustedRequestContext.Use(TrustedOrganization, TrustedHospital, TrustedBranch, TrustedOperId.ToString());
-    return new MedicalRecognitionReportQueryAppService(repository, organizationService, new StubUserAppService());
+    return new MedicalRecognitionReportQueryAppService(repository, organizationService, new StubUserAppService(), new StubSystemParameterAppService());
   }
 
   /// <summary>构建带组织、医院与院区数据的组织服务替身。</summary>
@@ -729,9 +729,9 @@ public sealed class Stage4QueryTests
       Guid itemId = Guid.NewGuid();
       repository.ExaminationItemViews[versionId] =
       [
-        new ExaminationItemView { ItemId = itemId, SourceProjectName = "胸部 CT", SourceProjectCode = "EP-1" }
+        new ExaminationItemView { ReportVersionId = versionId, ItemId = itemId, SourceProjectName = "胸部 CT", SourceProjectCode = "EP-1" }
       ];
-      repository.ExaminationSiteViews[itemId] = [new ExaminationSiteView { SiteName = "胸部", SourceSiteCode = "ST-1" }];
+      repository.ExaminationSiteViews[itemId] = [new ExaminationSiteView { ExaminationItemId = itemId, SiteName = "胸部", SourceSiteCode = "ST-1" }];
     }
 
     return (reportId, versionId, repository);

@@ -16,6 +16,12 @@ namespace Dy.MedicalRecognition.Repository.Queries;
 /// </remarks>
 public sealed partial class MedicalRecognitionReportQueryRepository
 {
+  /// <summary>
+  /// 检查部位语句集的作用域名；与 <c>ExaminationSite.xml</c> 的 <c>SqlMap Scope</c> 一一对应。
+  /// </summary>
+  /// <remarks>按检查项目集合读取检查部位的语句注册在该实体作用域下，与同文件其余查询的查询作用域不同。</remarks>
+  private const string ExaminationSiteScope = "ExaminationSite";
+
   /// <inheritdoc/>
   public async Task<long> CountMedicalReportListAsync(MedicalReportListFilter filter) =>
     await dataMapper.QuerySingleAsync<long>(filter, scope: SqlScope);
@@ -45,6 +51,12 @@ public sealed partial class MedicalRecognitionReportQueryRepository
       new { ReportVersionId = reportVersionId }, scope: SqlScope);
 
   /// <inheritdoc/>
+  public async Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds) =>
+    await dataMapper.QueryAsync<LaboratoryResultItemView>(
+      // 集合参数与候选查询同一形态：参数名跟在 in 之后、不带括号，由框架展开为值列表。
+      new { ReportVersionIds = reportVersionIds }, scope: SqlScope);
+
+  /// <inheritdoc/>
   public async Task<IEnumerable<LaboratoryBacteriaResultItem>> QueryLaboratoryBacteriaResultsAsync(Guid reportVersionId) =>
     await dataMapper.QueryAsync<LaboratoryBacteriaResultItem>(
       new { ReportVersionId = reportVersionId }, scope: SqlScope);
@@ -65,9 +77,27 @@ public sealed partial class MedicalRecognitionReportQueryRepository
       new { ReportVersionId = reportVersionId }, scope: SqlScope);
 
   /// <inheritdoc/>
+  public async Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds) =>
+    await dataMapper.QueryAsync<ExaminationItemView>(
+      // 集合参数与候选查询同一形态：参数名跟在 in 之后、不带括号，由框架展开为值列表。
+      new { ReportVersionIds = reportVersionIds }, scope: SqlScope);
+
+  /// <inheritdoc/>
   public async Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesAsync(Guid examinationItemId) =>
     await dataMapper.QueryAsync<ExaminationSiteView>(
       new { ExaminationItemId = examinationItemId }, scope: SqlScope);
+
+  /// <inheritdoc/>
+  public async Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesByItemsAsync(IReadOnlyList<Guid> examinationItemIds)
+  {
+    // 空集合必须在进入映射语句之前短路：该语句用集合参数写法，空集合在真实 Provider 上展开为空值列表，语句语法不成立。
+    // 检验报告的匹配响应没有检查项目，这条路径在正常业务上必然经过，因此这里不把空集合交给映射器。
+    if (examinationItemIds.Count == 0) return [];
+
+    // 该语句注册在检查部位的实体作用域下，与同文件其余查询的查询作用域不同，因此这里逐调用传入实体作用域名。
+    return await dataMapper.QueryAsync<ExaminationSiteView>(
+      new { ExaminationItemIds = examinationItemIds }, scope: ExaminationSiteScope);
+  }
 
   /// <inheritdoc/>
   public async Task<MedicalReportScopeItem?> GetMedicalReportScopeAsync(Guid reportId) =>

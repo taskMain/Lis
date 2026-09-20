@@ -3,8 +3,11 @@ namespace Dy.MedicalRecognition.Domain.Queries;
 /// <summary>
 /// 普通检验结果的查询投影行。
 /// </summary>
+/// <remarks>投影携带报告版本归属，使按报告版本集合一次读回的结果仍能归到对应的报告下。</remarks>
 public sealed record LaboratoryResultItemView
 {
+  /// <summary>所属报告版本标识，普通结果的固定归属。</summary>
+  public Guid ReportVersionId { get; init; }
   /// <summary>来源明细标识。</summary>
   public string? SourceDetailKey { get; init; }
   /// <summary>来源项目名称。</summary>

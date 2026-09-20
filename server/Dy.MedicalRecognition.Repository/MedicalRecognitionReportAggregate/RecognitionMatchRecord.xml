@@ -1,12 +1,96 @@
 <SqlMap Scope="RecognitionMatchRecord" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义互认匹配记录的通用查询字段清单，供按业务键读取语句复用。
+      结果：输出接收三值、患者证件、就诊标识、匹配生成时间、处理结果保存时间与操作审计字段，各字段业务含义见行内注释；
+      列顺序与实体属性声明顺序一致，操作人标识在操作时间之前，不随建表脚本的列序调整。
+    -->
     <Statement Id="RecognitionMatchRecordColumns">
-      id, receiver_organization_code, receiver_hospital_code, receiver_branch_code, identity_document_type_code, identity_document_no, visit_type, visit_serial_no, match_created_time, decision_saved_time, oper_id, oper_time
+      id,                           <!-- 匹配记录标识（主键） -->
+      receiver_organization_code,   <!-- 接收组织编码，来自可信调用身份 -->
+      receiver_hospital_code,       <!-- 接收医院编码，来自可信调用身份 -->
+      receiver_branch_code,         <!-- 接收院区编码，来自可信调用身份 -->
+      identity_document_type_code,  <!-- 证件类型代码，取请求提交的患者证件类型 -->
+      identity_document_no,         <!-- 证件号码，取规范形式处理后的请求证件号码 -->
+      visit_type,                   <!-- 就诊类型，取请求提交的本次来源就诊类型 -->
+      visit_serial_no,              <!-- 就诊流水号，取请求提交的院内就诊流水号 -->
+      match_created_time,           <!-- 互认匹配生成时间，取本次查询的平台接收时间 -->
+      decision_saved_time,          <!-- 处理结果保存时间，为空表示该组尚未作出处理决定 -->
+      oper_id,                      <!-- 操作人标识 -->
+      oper_time                     <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllRecognitionMatchRecord">
-      select
-      <Include RefId="RecognitionMatchRecordColumns" />
-      from recognition_match_record
+    <!--
+      功能：按接收三值与患者证件定位互认匹配记录，供查询同一就诊范围是否已有匹配记录。
+      结果：命中时返回一行匹配记录字段清单，未命中时返回空结果；六个业务键列与匹配生成时间上的索引承担该定位，
+      不筛选处理结果保存时间，因此已作出处理决定的记录同样命中，由领域层判定如何使用。
+    -->
+    <Statement Id="GetRecognitionMatchRecordByBusinessKey">
+      select <Include RefId="RecognitionMatchRecordColumns" /> from mrec_recognition_match_record
+      <!-- 定位键：接收组织、医院、院区与患者证件类型、证件号码同时相等即命中，处理结果保存时间不参与定位 -->
+      where receiver_organization_code = $ReceiverOrganizationCode and receiver_hospital_code = $ReceiverHospitalCode
+        and receiver_branch_code = $ReceiverBranchCode and identity_document_type_code = $IdentityDocumentTypeCode
+        and identity_document_no = $IdentityDocumentNo
+    </Statement>
+    <!--
+      功能：按主键读取一条互认匹配记录，供处理结果提交校验提交归属并取得匹配生成时间。
+      结果：命中时返回一行匹配记录字段清单，未命中时返回空结果；不筛选处理结果保存时间与任何状态，
+      因此已作出处理决定的记录同样命中，由领域层判定如何使用。
+    -->
+    <Statement Id="GetRecognitionMatchRecordById">
+      select <Include RefId="RecognitionMatchRecordColumns" /> from mrec_recognition_match_record
+      where id = $Id  <!-- 定位键：匹配记录主键 -->
+    </Statement>
+    <!--
+      功能：按互认匹配记录标识集合读取匹配记录，供提交引用结果时逐项反查各匹配项所属记录的接收三值。
+      结果：返回集合内命中的全部匹配记录字段清单；集合内不存在的标识不产生行，由领域层按匹配项反查不到所属记录拒绝；
+      不筛选处理结果保存时间与任何状态，因此已作出处理决定的记录同样命中；
+      排序按匹配记录标识升序，使同一批的返回顺序稳定。
+    -->
+    <Statement Id="QueryRecognitionMatchRecordsByIds">
+      select <Include RefId="RecognitionMatchRecordColumns" /> from mrec_recognition_match_record
+      <!-- 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表；空集合展开为空列表，不返回任何行 -->
+      where id in $RecognitionMatchRecordIds
+      order by id asc  <!-- 排序：按匹配记录标识升序，保证同一批内的返回顺序稳定 -->
+    </Statement>
+    <!--
+      功能：新增一条互认匹配记录，把一次非空匹配查询的接收归属、患者与就诊、匹配生成时间落库。
+      结果：写入记录标识、接收三值、患者证件、就诊标识、匹配生成时间与操作字段；
+      处理结果保存时间写入空值，表示该组尚待作出处理决定；操作时间显式取命令携带的服务端时间而不是数据库当前时间，
+      使写入时间与领域事件时间一致；全部列都显式绑定参数、不依赖任何数据库默认值。
+    -->
+    <Statement Id="CreateRecognitionMatchRecord">
+      insert into mrec_recognition_match_record (
+        <!-- 参数顺序与下面的值列表逐位对应，全部来自命令与可信上下文，不含数据库默认值 -->
+        id,                           <!-- 匹配记录标识（主键），由仓储在插入前生成 -->
+        receiver_organization_code,   <!-- 接收组织编码，取自可信调用身份 -->
+        receiver_hospital_code,       <!-- 接收医院编码，取自可信调用身份 -->
+        receiver_branch_code,         <!-- 接收院区编码，取自可信调用身份 -->
+        identity_document_type_code,  <!-- 证件类型代码，取自请求 -->
+        identity_document_no,         <!-- 证件号码，取自规范形式处理后的请求 -->
+        visit_type,                   <!-- 就诊类型，取自请求提交的本次来源就诊类型 -->
+        visit_serial_no,              <!-- 就诊流水号，取自请求提交的院内就诊流水号 -->
+        match_created_time,           <!-- 互认匹配生成时间，取命令携带的本次查询接收时间 -->
+        decision_saved_time,          <!-- 处理结果保存时间，新增写入空值表示尚待处理 -->
+        oper_id,                      <!-- 操作人标识，取自可信身份上下文 -->
+        oper_time                     <!-- 操作时间，取命令携带的服务端当前时间 -->
+      ) values ($Id, $ReceiverOrganizationCode, $ReceiverHospitalCode, $ReceiverBranchCode, $IdentityDocumentTypeCode,
+        $IdentityDocumentNo, $VisitType, $VisitSerialNo, $MatchCreatedTime, null, $OperId, $OperTime)
+    </Statement>
+    <!--
+      功能：把该组处理结果的保存时间写入匹配记录，并记录本次操作人和操作时间。
+      结果：仅当匹配记录主键命中且处理结果保存时间当前为空值时才更新 1 行；
+      重复提交、记录不存在都影响 0 行，调用方据此区分本次首次保存与其它情况；
+      只改变处理结果保存时间与操作字段，接收归属、患者证件、就诊标识与匹配生成时间都不在变更范围内。
+      条件带的空值判断必须使用数据库的 is null 形态：框架按实体属性绑定参数时，
+      实体上该属性的目标值会覆盖同名列参数，因此原值不接实体属性。
+    -->
+    <Statement Id="UpdateRecognitionMatchRecordDecisionSavedTime">
+      update mrec_recognition_match_record set
+        decision_saved_time = $DecisionSavedTime,  <!-- 处理结果保存时间，取命令携带的请求接收时间，与同为无时区业务时间的互认时间同一时钟口径 -->
+        oper_id = $OperId,                         <!-- 操作人标识，取自可信身份上下文 -->
+        oper_time = $OperTime                      <!-- 操作时间，取命令携带的服务端当前时间 -->
+      <!-- 条件定位：主键命中且该组尚未保存过处理结果时才更新，使影响行数表达首次保存结果 -->
+      where id = $Id and decision_saved_time is null
     </Statement>
   </Statements>
 </SqlMap>

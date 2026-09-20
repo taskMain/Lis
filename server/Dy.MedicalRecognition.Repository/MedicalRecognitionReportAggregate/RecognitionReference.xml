@@ -1,12 +1,54 @@
 <SqlMap Scope="RecognitionReference" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义互认引用事实的通用查询字段清单，供按匹配项标识集合读取与新增语句复用。
+      结果：输出互认匹配项标识、实际引用时间、引用科室与医生、操作审计字段，各字段业务含义见行内注释；
+      列顺序与实体属性声明顺序一致，操作人标识在操作时间之前，不随建表脚本的列序调整。
+      本表不保存标准项目编码，项目编码由互认匹配项标识反查匹配项取得。
+    -->
     <Statement Id="RecognitionReferenceColumns">
-      id, recognition_match_item_id, standard_project_code, referenced_time, reference_dept_id, reference_dept_name, reference_doctor_id, reference_doctor_name, oper_id, oper_time
+      id,                        <!-- 引用事实标识（主键） -->
+      recognition_match_item_id,  <!-- 互认匹配项标识，与匹配项一一对应 -->
+      referenced_time,            <!-- 实际引用时间，取请求提交的该项目被写入病历的时间 -->
+      reference_dept_id,          <!-- 引用科室ID，以字符串原样保存 -->
+      reference_dept_name,        <!-- 引用科室名称，与标识成对保存 -->
+      reference_doctor_id,        <!-- 引用医生ID，以字符串原样保存 -->
+      reference_doctor_name,      <!-- 引用医生名称，与标识成对保存 -->
+      oper_id,                    <!-- 操作人标识 -->
+      oper_time                   <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllRecognitionReference">
-      select
-      <Include RefId="RecognitionReferenceColumns" />
-      from recognition_reference
+    <!--
+      功能：按互认匹配项标识集合读取已保存的引用事实，供提交引用结果做幂等识别与冲突判定。
+      结果：返回集合内命中的全部引用事实字段清单；集合内尚未提交过引用事实的匹配项不产生行，由领域层判定首交；
+      排序按互认匹配项标识升序，使同一批的返回顺序稳定。
+    -->
+    <Statement Id="QueryRecognitionReferencesByMatchItemIds">
+      select <Include RefId="RecognitionReferenceColumns" /> from mrec_recognition_reference
+      <!-- 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表；空集合展开为空列表，不返回任何行 -->
+      where recognition_match_item_id in $RecognitionMatchItemIds
+      order by recognition_match_item_id asc  <!-- 排序：按匹配项标识升序，保证同一批内的返回顺序稳定 -->
+    </Statement>
+    <!--
+      功能：新增一条互认引用事实，记录一个互认匹配项被实际写入病历的项目级事实。
+      结果：写入引用事实标识、互认匹配项标识、实际引用时间、引用科室与医生与操作字段；
+      引用科室与医生标识与名称成对原样保存，不向权限系统补查，也不以调用账号替代；
+      操作时间显式取命令携带的服务端协调世界时而不是数据库当前时间，使写入时间与领域事件时间一致。
+      同一匹配项至多一个引用事实由该列上的唯一索引兜底，撞键时数据库异常按原样向外传播，本层不做识别与翻译。
+    -->
+    <Statement Id="CreateRecognitionReference">
+      insert into mrec_recognition_reference (
+        <!-- 参数顺序与下面的值列表逐位对应，全部来自命令与可信上下文，不含数据库默认值 -->
+        id,                        <!-- 引用事实标识（主键），由仓储在插入前生成 -->
+        recognition_match_item_id,  <!-- 互认匹配项标识，取自请求提交的引用项目 -->
+        referenced_time,            <!-- 实际引用时间，取请求提交的该项目实际引用时间 -->
+        reference_dept_id,          <!-- 引用科室ID，取自请求且与名称成对 -->
+        reference_dept_name,        <!-- 引用科室名称，取自请求且与标识成对 -->
+        reference_doctor_id,        <!-- 引用医生ID，取自请求且与名称成对 -->
+        reference_doctor_name,      <!-- 引用医生名称，取自请求且与标识成对 -->
+        oper_id,                    <!-- 操作人标识，取自可信身份上下文 -->
+        oper_time                   <!-- 操作时间，取命令携带的服务端当前时间 -->
+      ) values ($Id, $RecognitionMatchItemId, $ReferencedTime, $ReferenceDeptId, $ReferenceDeptName,
+        $ReferenceDoctorId, $ReferenceDoctorName, $OperId, $OperTime)
     </Statement>
   </Statements>
 </SqlMap>

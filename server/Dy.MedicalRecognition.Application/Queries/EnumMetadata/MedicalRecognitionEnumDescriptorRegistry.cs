@@ -31,6 +31,10 @@ internal static class MedicalRecognitionEnumDescriptorRegistry
         [nameof(LaboratoryResultType)] = ToReadOnly(LaboratoryResultTypeDescriptorList.List),
         [nameof(LaboratoryAbnormalFlag)] = ToReadOnly(LaboratoryAbnormalFlagDescriptorList.List),
         [nameof(SourceImageStatus)] = ToReadOnly(SourceImageStatusDescriptorList.List),
+        // 阶段 5 的处理结果与引用事实契约把下列两个枚举带入对外契约，因此在本阶段登记；
+        // 未登记时 OpenAPI 只声明 integer，生成端把可空枚举写成空对象，枚举元数据查询也查不到中文说明。
+        [nameof(RecognitionResult)] = ToReadOnly(RecognitionResultDescriptorList.List),
+        [nameof(RecognitionNonAdoptionReason)] = ToReadOnly(RecognitionNonAdoptionReasonDescriptorList.List),
       });
 
   /// <summary>

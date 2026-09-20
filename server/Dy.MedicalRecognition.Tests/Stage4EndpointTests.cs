@@ -45,6 +45,16 @@ public sealed class Stage4EndpointTests
   ];
 
   /// <summary>
+  /// 报告写入口在阶段 5 新增的方法名；互认匹配请求、处理结果提交与引用结果提交各由框架自动暴露为一条端点，
+  /// 前者在同一事务内写入匹配记录与匹配项，后者整批原子保存处理结果并写入处理结果保存时间，
+  /// 引用结果提交整批原子保存引用事实并登记一次引用结果已记录事件。
+  /// </summary>
+  private static readonly string[] Stage5WriteMethods =
+  [
+    "RequestRecognitionMatchesAsync", "SubmitRecognitionProcessingResultsAsync", "SubmitRecognitionReferencesAsync"
+  ];
+
+  /// <summary>
   /// 报告查询入口在阶段 1 至阶段 3 已交付的方法名。
   /// </summary>
   private static readonly string[] ExistingQueryMethods =
@@ -64,6 +74,15 @@ public sealed class Stage4EndpointTests
   ];
 
   /// <summary>
+  /// 报告查询入口在阶段 5 新增的方法名；获取引用详情由框架自动暴露为一条端点。
+  /// </summary>
+  /// <remarks>该入口是只读查询，返回引用详情响应，不声明显式事务。</remarks>
+  private static readonly string[] Stage5QueryMethods =
+  [
+    "QueryRecognitionCitationDetailAsync"
+  ];
+
+  /// <summary>
   /// 两个提交入口方法：它们同时是医院接入的提交入口与事务边界。
   /// </summary>
   private static readonly string[] SubmissionMethods =
@@ -77,6 +96,15 @@ public sealed class Stage4EndpointTests
   private static readonly string[] VoidMethods =
   [
     "VoidLaboratoryReportAsync", "VoidExaminationReportAsync"
+  ];
+
+  /// <summary>
+  /// 阶段 5 的三个医院接入写用例：它们都是多条独立写语句且要求全成全败，因此各自必须声明事务。
+  /// </summary>
+  /// <remarks>框架按路由端点元数据取事务声明，这三个入口是自动端点，声明本就在应用服务方法上。</remarks>
+  private static readonly string[] Stage5TransactionalMethods =
+  [
+    "RequestRecognitionMatchesAsync", "SubmitRecognitionProcessingResultsAsync", "SubmitRecognitionReferencesAsync"
   ];
 
   /// <summary>
@@ -112,7 +140,7 @@ public sealed class Stage4EndpointTests
   [Fact]
   public void Write_contract_method_set_matches_the_published_endpoint_inventory()
   {
-    string[] expected = [.. ExistingWriteMethods.Concat(Stage4WriteMethods).OrderBy(name => name, StringComparer.Ordinal)];
+    string[] expected = [.. ExistingWriteMethods.Concat(Stage4WriteMethods).Concat(Stage5WriteMethods).OrderBy(name => name, StringComparer.Ordinal)];
     string[] actual = MethodNamesAscending(typeof(IMedicalRecognitionReportAppService));
 
     Assert.Equal(expected, actual);
@@ -120,6 +148,12 @@ public sealed class Stage4EndpointTests
     // 变异证据：从副本里去掉一个新方法后，等值判据必须判为不相等。
     string[] mutated = [.. actual.Where(name => name != "SubmitCompleteLaboratoryReportAsync")];
     Assert.NotEqual(expected, mutated);
+    string[] withoutStage5Entry = [.. actual.Where(name => name != "RequestRecognitionMatchesAsync")];
+    Assert.NotEqual(expected, withoutStage5Entry);
+    string[] withoutProcessingResultEntry = [.. actual.Where(name => name != "SubmitRecognitionProcessingResultsAsync")];
+    Assert.NotEqual(expected, withoutProcessingResultEntry);
+    string[] withoutReferenceEntry = [.. actual.Where(name => name != "SubmitRecognitionReferencesAsync")];
+    Assert.NotEqual(expected, withoutReferenceEntry);
   }
 
   /// <summary>
@@ -128,13 +162,15 @@ public sealed class Stage4EndpointTests
   [Fact]
   public void Query_contract_method_set_matches_the_published_endpoint_inventory()
   {
-    string[] expected = [.. ExistingQueryMethods.Concat(Stage4QueryMethods).OrderBy(name => name, StringComparer.Ordinal)];
+    string[] expected = [.. ExistingQueryMethods.Concat(Stage4QueryMethods).Concat(Stage5QueryMethods).OrderBy(name => name, StringComparer.Ordinal)];
     string[] actual = MethodNamesAscending(typeof(IMedicalRecognitionReportQueryAppService));
 
     Assert.Equal(expected, actual);
 
     string[] mutated = [.. actual.Where(name => name != "QueryMedicalReportListAsync")];
     Assert.NotEqual(expected, mutated);
+    string[] withoutCitationEntry = [.. actual.Where(name => name != "QueryRecognitionCitationDetailAsync")];
+    Assert.NotEqual(expected, withoutCitationEntry);
   }
 
   /// <summary>
@@ -182,6 +218,32 @@ public sealed class Stage4EndpointTests
 
     // 下载动作只读，不带事务声明。
     Assert.DoesNotContain(ControllerActionMethod(DownloadAction).GetCustomAttributes(), attribute => attribute.GetType().Name == "WorkUnitAttribute");
+  }
+
+  /// <summary>
+  /// V87：阶段 5 的三个医院接入写用例各声明显式事务，声明就在自动端点对应的应用服务方法上。
+  /// </summary>
+  /// <remarks>
+  /// 匹配查询写匹配记录与匹配项两条语句，处理结果提交写 N 行处理结果并更新 1 行匹配记录，
+  /// 引用结果提交写 N 行引用事实并登记一次事件，都要求全成全败；
+  /// 三者都是自动端点，因此不存在控制器动作上的第二处声明，端点元数据即取这三个方法上的声明。
+  /// </remarks>
+  [Fact]
+  public void Stage5_hospital_entrypoints_declare_transaction()
+  {
+    Type appService = typeof(Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate.MedicalRecognitionReportAppService);
+
+    foreach (string name in Stage5TransactionalMethods)
+    {
+      MethodInfo method = appService.GetMethod(name)!;
+      Attribute workUnit = Assert.Single(method.GetCustomAttributes(), attribute => attribute.GetType().Name == "WorkUnitAttribute");
+      Assert.True((bool)workUnit.GetType().GetProperty("UseTransaction")!.GetValue(workUnit)!);
+    }
+
+    // 变异证据：把名单换成只有一条写语句的作废入口后，同一条判据必须失败，证明判定按方法名锚定而不是恒真。
+    Assert.DoesNotContain(
+      appService.GetMethod("VoidLaboratoryReportAsync")!.GetCustomAttributes(),
+      attribute => attribute.GetType().Name == "WorkUnitAttribute");
   }
 
   /// <summary>

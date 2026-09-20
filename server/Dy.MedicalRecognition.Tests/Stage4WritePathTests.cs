@@ -1636,7 +1636,7 @@ public sealed class Stage4WritePathTests
   /// <summary>构建报告领域管理器，注入内存仓储替身。</summary>
   /// <param name="repository">报告读写的内存替身。</param>
   /// <returns>可直接调用的领域管理器。</returns>
-  private static MedicalRecognitionReportManager CreateManager(FakeReportRepository repository) => new(repository);
+  private static MedicalRecognitionReportManager CreateManager(FakeReportRepository repository) => new(repository, new StubReportQueryRepository());
 
   /// <summary>固定的患者性别代码。</summary>
   private const string ProtocolGenderCode = "1";

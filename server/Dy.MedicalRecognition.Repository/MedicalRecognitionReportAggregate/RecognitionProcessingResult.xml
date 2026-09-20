@@ -1,12 +1,75 @@
 <SqlMap Scope="RecognitionProcessingResult" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
   <Statements>
+    <!--
+      功能：定义互认处理结果的通用查询字段清单，供按所属记录读取、按匹配项标识集合读取与新增语句复用。
+      结果：输出所属匹配记录、互认匹配项标识、互认时间与结果、互认科室与医生、不采纳原因与补充说明、
+      预计节省金额与操作审计字段，各字段业务含义见行内注释；列顺序与实体属性声明顺序一致，操作人标识在操作时间之前，不随建表脚本的列序调整。
+      本表不保存标准项目编码，项目编码由互认匹配项标识反查匹配项取得。
+    -->
     <Statement Id="RecognitionProcessingResultColumns">
-      id, recognition_match_record_id, recognition_match_item_id, standard_project_code, recognition_time, recognition_result, recognition_dept_id, recognition_dept_name, recognition_doctor_id, recognition_doctor_name, non_adoption_reason, non_adoption_description, estimated_saving_amount, oper_id, oper_time
+      id,                           <!-- 处理结果标识（主键） -->
+      recognition_match_record_id,   <!-- 所属互认匹配记录标识 -->
+      recognition_match_item_id,     <!-- 互认匹配项标识，与匹配项一一对应 -->
+      recognition_time,              <!-- 互认时间，取请求提交的作出决定时间 -->
+      recognition_result,            <!-- 互认结果：1=采纳、2=不采纳 -->
+      recognition_dept_id,           <!-- 互认科室ID，以字符串原样保存 -->
+      recognition_dept_name,         <!-- 互认科室名称，与标识成对保存 -->
+      recognition_doctor_id,         <!-- 互认医生ID，以字符串原样保存 -->
+      recognition_doctor_name,       <!-- 互认医生名称，与标识成对保存 -->
+      non_adoption_reason,           <!-- 不采纳原因，采纳项目写入空值 -->
+      non_adoption_description,      <!-- 不采纳补充说明，仅其他情形确需复查时填写 -->
+      estimated_saving_amount,       <!-- 预计节省金额，按保存时读取的接收方当前金额形成 -->
+      oper_id,                       <!-- 操作人标识 -->
+      oper_time                      <!-- 操作时间 -->
     </Statement>
-    <Statement Id="QueryAllRecognitionProcessingResult">
-      select
-      <Include RefId="RecognitionProcessingResultColumns" />
-      from recognition_processing_result
+    <!--
+      功能：按所属互认匹配记录读取该组已保存的全部处理结果，供处理结果提交做幂等识别与冲突判定。
+      结果：返回该记录下的全部处理结果字段清单；该组尚未提交过时返回空集合；
+      排序按匹配项标识升序，使同一组的返回顺序稳定，比对时不需要依赖数据库执行计划。
+    -->
+    <Statement Id="QueryRecognitionProcessingResultsByRecord">
+      select <Include RefId="RecognitionProcessingResultColumns" /> from mrec_recognition_processing_result
+      where recognition_match_record_id = $RecognitionMatchRecordId  <!-- 归属范围：只返回该匹配记录下的处理结果 -->
+      order by recognition_match_item_id asc  <!-- 排序：按匹配项标识升序，保证同一组内的返回顺序稳定 -->
+    </Statement>
+    <!--
+      功能：按互认匹配项标识集合读取处理结果，供提交引用结果时逐项反查该项目是否已采纳。
+      结果：返回集合内命中的全部处理结果字段清单；集合内不存在处理结果或决定为不采纳的匹配项不在此处判定，
+      由领域层按读回的决定判定；排序按匹配项标识升序，使同一批的返回顺序稳定。
+    -->
+    <Statement Id="QueryRecognitionProcessingResultsByMatchItemIds">
+      select <Include RefId="RecognitionProcessingResultColumns" /> from mrec_recognition_processing_result
+      <!-- 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表；空集合展开为空列表，不返回任何行 -->
+      where recognition_match_item_id in $RecognitionMatchItemIds
+      order by recognition_match_item_id asc  <!-- 排序：按匹配项标识升序，保证同一批内的返回顺序稳定 -->
+    </Statement>
+    <!--
+      功能：新增一条互认处理结果，保存一个互认匹配项的采纳或不采纳决定与作出决定的主体。
+      结果：写入处理结果标识、所属匹配记录、互认匹配项标识、互认时间与结果、互认科室与医生、不采纳原因与补充说明、
+      预计节省金额与操作字段；互认科室与医生标识与名称成对原样保存，不向权限系统补查；
+      不采纳原因与补充说明在采纳项目写入空值，预计节省金额在不采纳项目写入空值；
+      操作时间显式取命令携带的服务端时间而不是数据库当前时间，使写入时间与领域事件时间一致。
+    -->
+    <Statement Id="CreateRecognitionProcessingResult">
+      insert into mrec_recognition_processing_result (
+        <!-- 参数顺序与下面的值列表逐位对应，全部来自命令与可信上下文，不含数据库默认值 -->
+        id,                           <!-- 处理结果标识（主键），由仓储在插入前生成 -->
+        recognition_match_record_id,   <!-- 所属互认匹配记录标识，取自待提交的匹配记录 -->
+        recognition_match_item_id,     <!-- 互认匹配项标识，取自组内该项目的匹配项 -->
+        recognition_time,              <!-- 互认时间，取请求提交的组级互认时间 -->
+        recognition_result,            <!-- 互认结果，取该项目本次决定 -->
+        recognition_dept_id,           <!-- 互认科室ID，取自请求且与名称成对 -->
+        recognition_dept_name,         <!-- 互认科室名称，取自请求且与标识成对 -->
+        recognition_doctor_id,         <!-- 互认医生ID，取自请求且与名称成对 -->
+        recognition_doctor_name,       <!-- 互认医生名称，取自请求且与标识成对 -->
+        non_adoption_reason,           <!-- 不采纳原因，采纳项目写入空值 -->
+        non_adoption_description,      <!-- 不采纳补充说明，仅其他情形确需复查时填写 -->
+        estimated_saving_amount,       <!-- 预计节省金额，采纳项目取保存时读取的接收方当前金额，未配置金额按零元 -->
+        oper_id,                       <!-- 操作人标识，取自可信身份上下文 -->
+        oper_time                      <!-- 操作时间，取命令携带的服务端当前时间 -->
+      ) values ($Id, $RecognitionMatchRecordId, $RecognitionMatchItemId, $RecognitionTime, $RecognitionResult,
+        $RecognitionDeptId, $RecognitionDeptName, $RecognitionDoctorId, $RecognitionDoctorName,
+        $NonAdoptionReason, $NonAdoptionDescription, $EstimatedSavingAmount, $OperId, $OperTime)
     </Statement>
   </Statements>
 </SqlMap>

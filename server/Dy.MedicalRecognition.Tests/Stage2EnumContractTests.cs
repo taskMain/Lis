@@ -29,7 +29,8 @@ public sealed class Stage2EnumContractTests
   [
     nameof(ConfigurationStatus), nameof(MedicalItemType), nameof(MedicalStandardUsageStatus),
     nameof(MedicalReportType), nameof(MedicalReportLifecycleStatus), nameof(VisitType),
-    nameof(LaboratoryResultType), nameof(LaboratoryAbnormalFlag), nameof(SourceImageStatus)
+    nameof(LaboratoryResultType), nameof(LaboratoryAbnormalFlag), nameof(SourceImageStatus),
+    nameof(RecognitionResult), nameof(RecognitionNonAdoptionReason)
   ];
 
   /// <summary>
@@ -134,6 +135,28 @@ public sealed class Stage2EnumContractTests
     Assert.Equal([1, 2, 3], sourceImageStatus.Select(descriptor => descriptor.Value).ToArray());
     Assert.Equal(["Available", "None", "Unknown"], sourceImageStatus.Select(descriptor => descriptor.Name).ToArray());
     Assert.Equal(["有影像", "无影像", "未知"], sourceImageStatus.Select(descriptor => descriptor.Description).ToArray());
+
+    // 阶段 5 把处理结果与引用事实契约上的两个枚举带入对外契约并登记：取值、成员名与中文说明逐项冻结，
+    // 缺少这些断言时，新登记的枚举取值被改动、说明被改写或成员顺序被调整都不会让任何用例失败。
+    IReadOnlyList<IEnumDescriptor> recognitionResult = MedicalRecognitionEnumDescriptorRegistry.Descriptors[nameof(RecognitionResult)];
+    Assert.Equal([1, 2], recognitionResult.Select(descriptor => descriptor.Value).ToArray());
+    Assert.Equal(["Adopted", "NotAdopted"], recognitionResult.Select(descriptor => descriptor.Name).ToArray());
+    Assert.Equal(["采纳", "不采纳"], recognitionResult.Select(descriptor => descriptor.Description).ToArray());
+
+    IReadOnlyList<IEnumDescriptor> nonAdoptionReason = MedicalRecognitionEnumDescriptorRegistry.Descriptors[nameof(RecognitionNonAdoptionReason)];
+    Assert.Equal([1, 2, 3, 4, 5, 6], nonAdoptionReason.Select(descriptor => descriptor.Value).ToArray());
+    Assert.Equal(
+      [
+        "CurrentConditionMismatch", "RapidDiseaseProgression", "BeforeMajorMedicalMeasure",
+        "EmergencyCare", "ForensicOrDisabilityAssessment", "OtherReviewRequired"
+      ],
+      nonAdoptionReason.Select(descriptor => descriptor.Name).ToArray());
+    Assert.Equal(
+      [
+        "病情变化致结果难以满足诊疗需求", "结果在疾病发展演变中变化较快", "手术、输血等重大医疗措施前",
+        "患者处于急诊、急救等紧急状态", "涉及司法、伤残及病退等鉴定", "其他情形确需复查"
+      ],
+      nonAdoptionReason.Select(descriptor => descriptor.Description).ToArray());
   }
 
   /// <summary>

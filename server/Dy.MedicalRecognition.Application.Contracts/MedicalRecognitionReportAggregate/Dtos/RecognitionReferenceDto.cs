@@ -18,10 +18,6 @@ public partial record RecognitionReferenceDto : Dto
   /// </summary>
   public partial Guid RecognitionMatchItemId { get; set; }
   /// <summary>
-  /// 被引用项目的互认项目编码，与所属采纳处理结果一致；引用不累加采纳次数与预计节省金额。
-  /// </summary>
-  public partial string StandardProjectCode { get; set; }
-  /// <summary>
   /// 医生实际引用时间；引用统计的业务时间，首次保存后不可更正、撤销或删除。
   /// </summary>
   public partial DateTime ReferencedTime { get; set; }

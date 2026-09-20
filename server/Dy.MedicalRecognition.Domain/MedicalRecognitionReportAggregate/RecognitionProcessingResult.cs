@@ -22,10 +22,6 @@ public partial class RecognitionProcessingResult : Dy.Core.Abstractions.Domain.E
   /// </summary>
   public partial Guid RecognitionMatchItemId { get; set; }
   /// <summary>
-  /// 标准项目编码
-  /// </summary>
-  public partial string StandardProjectCode { get; set; }
-  /// <summary>
   /// 互认时间
   /// </summary>
   public partial DateTime RecognitionTime { get; set; }
@@ -66,7 +62,7 @@ public partial class RecognitionProcessingResult : Dy.Core.Abstractions.Domain.E
   /// </summary>
   public partial Guid OperId { get; set; }
   /// <summary>
-  /// 操作时间；由数据库当前时间写入，命令时间只用于领域事件。
+  /// 操作时间；由应用服务取服务端协调世界时写入，与领域事件的发生时间同源。
   /// </summary>
   public partial DateTimeOffset OperTime { get; set; }
 }

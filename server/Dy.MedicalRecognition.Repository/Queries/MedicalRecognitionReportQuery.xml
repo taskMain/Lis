@@ -421,11 +421,12 @@
       from mrec_laboratory_report_content where report_version_id = $ReportVersionId
     </Statement>
     <!--
-      功能：读取某个报告版本的普通检验结果，供管理端版本详情还原来源报告中的项目排列顺序。
-      结果：按展示序号升序返回全部普通结果，并以结果标识作为稳定兜底键；无结果时返回空集合。
+      功能：读取某个报告版本的普通检验结果，供管理端版本详情还原来源报告中的项目排列顺序，并按报告版本集合读取时供互认匹配查询组装项目级内容。
+      结果：按展示序号升序返回该版本的全部普通结果，并以结果标识作为稳定兜底键；每行携带报告版本归属，使按版本读取与按版本集合读取两次调用得到同一份归属取值；无结果时返回空集合。
     -->
     <Statement Id="QueryLaboratoryResultItems">
       select
+        report_version_id,                <!-- 报告版本标识：本投影按版本读取与按版本集合读取共用，两次调用均据此把结果归到对应的报告下 -->
         source_detail_key,                <!-- 来源明细标识 -->
         source_project_name,              <!-- 来源项目名称 -->
         source_project_code,              <!-- 来源项目编码 -->
@@ -531,11 +532,12 @@
       from mrec_examination_report_content where report_version_id = $ReportVersionId
     </Statement>
     <!--
-      功能：读取某个报告版本的检查项目，供管理端版本详情展示检查项目与其部位。
-      结果：返回该版本的全部检查项目，按标识升序保证顺序稳定；无项目时返回空集合。
+      功能：读取某个报告版本的检查项目，供管理端版本详情展示检查项目与其部位，并按报告版本集合读取时供互认匹配查询组装项目级内容。
+      结果：按标识升序返回该版本的全部检查项目，每行携带报告版本归属，使按版本读取与按版本集合读取两次调用得到同一份归属取值；无项目时返回空集合。
     -->
     <Statement Id="QueryExaminationItems">
       select
+        report_version_id,                <!-- 报告版本标识：本投影按版本读取与按版本集合读取共用，两次调用均据此把项目归到对应的报告下 -->
         id as item_id,                    <!-- 检查项目标识：检查部位按本标识归属 -->
         source_project_name,              <!-- 来源项目名称 -->
         source_project_code,              <!-- 来源项目编码 -->
@@ -546,15 +548,341 @@
     </Statement>
     <!--
       功能：读取某条检查项目下的检查部位。
-      结果：返回该项目下的全部检查部位，按标识升序保证顺序稳定；项目没有明确部位时返回空集合。
+      结果：返回该项目下的全部检查部位，并携带检查项目归属，使按检查项目读取与按检查项目集合读取得到同一份归属取值；
+      按标识升序保证顺序稳定；项目没有明确部位时返回空集合。
     -->
     <Statement Id="QueryExaminationSites">
       select
+        examination_item_id,              <!-- 检查项目标识：本投影按检查项目读取与按检查项目集合读取共用，两条读取路径的归属取值口径一致 -->
         site_name,                        <!-- 部位名称 -->
         source_site_code                  <!-- 来源部位编码 -->
       from mrec_examination_site
       where examination_item_id = $ExaminationItemId  <!-- 归属范围：只返回该检查项目下的部位 -->
       order by id asc  <!-- 排序：按标识升序，保证同一项目内的返回顺序稳定 -->
+    </Statement>
+
+    <!--
+      功能：按一组报告版本读取普通检验结果，供互认匹配查询按本次匹配项绑定的版本集合一次取回全部检验项目内容。
+      结果：行集由本次绑定的版本集合决定，每行携带报告版本归属与实际命中的标准项目编码，调用方据此在内存中按版本与项目编码分组填充；
+      集合内不存在的版本不产生行；排序按报告版本标识升序、展示序号升序、结果标识升序，使同一批内的返回顺序稳定，调用方不依赖数据库执行计划。
+    -->
+    <Statement Id="QueryLaboratoryResultItemsByVersions">
+      select
+        report_version_id,                <!-- 报告版本标识：按本列把结果归到对应的报告下 -->
+        source_detail_key,                <!-- 来源明细标识 -->
+        source_project_name,              <!-- 来源项目名称：匹配响应的检验结果明细按本项目名称返回 -->
+        standard_project_code,            <!-- 互认项目编码：本次命中的标准项目编码，按本列取出该项目的全部结果明细 -->
+        source_result_text,               <!-- 来源结果原文 -->
+        unit,                             <!-- 单位 -->
+        reference_range,                  <!-- 参考范围 -->
+        display_order,                    <!-- 展示序号：排序键的一部分 -->
+        abnormal_flag,                    <!-- 异常标志：按枚举声明解析为中文文本 -->
+        critical_value_flag               <!-- 危急值标志 -->
+      from mrec_laboratory_result_item
+      <!-- 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表；空集合展开为空列表，不返回任何行 -->
+      where report_version_id in $ReportVersionIds
+      order by report_version_id asc, display_order asc, id asc  <!-- 排序：按报告版本标识升序、展示序号升序、结果标识升序，保证同一批内的返回顺序稳定 -->
+    </Statement>
+
+    <!--
+      功能：按一组报告版本读取检查项目，供互认匹配查询按本次匹配项绑定的版本集合一次取回全部检查项目级内容。
+      结果：行集由本次绑定的版本集合决定，每行携带报告版本归属、检查项目标识与实际命中的标准项目编码，调用方据此在内存中按版本与项目编码分组填充；
+      集合内不存在的版本不产生行；排序按报告版本标识升序、项目标识升序，使同一批内的返回顺序稳定，调用方不依赖数据库执行计划。
+    -->
+    <Statement Id="QueryExaminationItemsByVersions">
+      select
+        report_version_id,                <!-- 报告版本标识：按本列把项目归到对应的报告下 -->
+        id as item_id,                    <!-- 检查项目标识：检查部位按本标识归属 -->
+        source_project_name,              <!-- 来源项目名称 -->
+        standard_project_code             <!-- 互认项目编码：本次命中的标准项目编码，按本列取出该项目的检查部位 -->
+      from mrec_examination_item
+      <!-- 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表；空集合展开为空列表，不返回任何行 -->
+      where report_version_id in $ReportVersionIds
+      order by report_version_id asc, id asc  <!-- 排序：按报告版本标识升序、项目标识升序，保证同一批内的返回顺序稳定 -->
+    </Statement>
+
+    <!--
+      功能：按可信接收三值与已解析平台患者、就诊范围读取标准项目下的候选报告，供互认匹配查询筛选可复用的他院报告。
+      结果：行集由本次提交的标准项目编码决定，每个编码下返回该组织范围内当前有效报告的全部候选行；
+      候选范围同时按报告主体上的平台患者与当前版本上的证件限定，两者共同表达「候选报告属于本次解析到的患者」；
+      每行给出报告标识、报告版本标识、项目类型与本次实际命中的标准项目编码，以及「匹配基准时间」与「报告时间」两个排序键；
+      排序键先按匹配基准时间倒序、再按报告时间倒序、最后按报告版本标识升序，因此同一编码下第一行就是最晚出具的一份稳定候选；
+      未命中任何报告时返回空集合，由应用层表达为成功的空匹配。
+    -->
+    <Statement Id="QueryRecognitionMatchCandidateReports">
+      select
+        c.report_id,                    <!-- 报告标识 -->
+        c.report_version_id,            <!-- 报告版本标识：兜底排序键，同时供应用层固定匹配项绑定的版本 -->
+        c.source_hospital_code,         <!-- 来源医院编码：与接收医院相同即本院报告，是否参与匹配由领域层判定 -->
+        c.standard_project_code,        <!-- 标准项目编码：本次实际命中一侧的编码，检验与检查各自取对应项目表的列 -->
+        c.item_type,                    <!-- 项目类型：检验分支固定为检验、检查分支固定为检查，值域与标准项目类型一致 -->
+        c.match_baseline_time,          <!-- 匹配基准时间：检验取检测完成时间、检查取实际检查时间，两个专项内容列合并后的统一排序键 -->
+        c.report_time                   <!-- 报告时间：取自报告主体上冗余保存的报告时间列，恒有值 -->
+      from (
+        <!--
+          处理：检验报告与检查报告各成一个分支，每个分支按报告类型取该类的当前有效报告，再左连接对应的专项内容表与项目表；
+          两个分支用 union all 合并为同一行形状，由外层统一按本次提交的标准项目编码过滤与排序。
+          原因：匹配基准时间与标准项目编码分属检验与检查两套表，项目类型也必须随实际命中的一侧派生；
+          用左连接加合并取值时，两个编码列会同时出现在同一行，外层按项目类型过滤仍可能取到另一侧的编码，
+          因此按报告类型先分成两个分支，使项目类型与标准项目编码都来自本次真正命中的那一侧。
+          结果：每一行承载一个报告版本在该报告类型下命中的一条项目记录，项目类型、标准项目编码与匹配基准时间三者同源。
+        -->
+        select
+          r.id as report_id,            <!-- 报告标识 -->
+          r.report_time,                <!-- 报告时间：报告主体上的冗余检索列，恒等于当前版本取值 -->
+          r.hospital_code as source_hospital_code,  <!-- 来源医院编码：取自报告主体，供领域层判定是否本院报告 -->
+          v.id as report_version_id,    <!-- 报告版本标识：取自当前版本指向，只取当前有效版本 -->
+          0 as item_type,               <!-- 项目类型：本分支只承载检验报告，取值与标准项目类型的检验编号一致 -->
+          l.standard_project_code,      <!-- 标准项目编码：取自检验结果项，本分支不读检查侧编码列 -->
+          <!--
+            处理：检验专项内容的检测完成时间与检查专项内容的实际检查时间合并为一个排序键。
+            原因：本分支只可能命中检验侧，合并取值保证两侧都没有内容时排序键为空而不是行消失。
+            结果：每一行的匹配基准时间就是该报告版本的检验检测完成时间。
+          -->
+          coalesce(lc.testing_completed_time, ec.examination_time) as match_baseline_time  <!-- 匹配基准时间 -->
+        from mrec_medical_recognition_report r
+        <!--
+          关联原因：报告主体只保存当前版本指向，候选筛选必须落在当前有效版本上，历史版本不参与匹配；
+          连接键为主键等值，最多命中一行。
+        -->
+        join mrec_medical_report_version v on v.id = r.current_version_id
+        <!--
+          关联原因：检验报告的匹配基准时间与标准项目编码分别在检验专项内容与检验结果项上；
+          两张表都按报告版本标识等值左连接，最多各命中一行，不放大结果行数。
+        -->
+        left join mrec_laboratory_report_content lc on lc.report_version_id = v.id
+        left join mrec_laboratory_result_item l on l.report_version_id = v.id
+        left join mrec_examination_report_content ec on ec.report_version_id = v.id
+        where r.organization_code = $OrganizationCode      <!-- 来源范围：MVP 只匹配来源组织与接收组织一致的报告 -->
+          and r.hospital_code = $HospitalCode             <!-- 来源医院：与接收医院是否相同决定本院报告是否参与匹配，判定在应用层完成 -->
+          and r.branch_code = $BranchCode                 <!-- 来源院区 -->
+          and r.patient_id = $PatientId                   <!-- 平台患者：候选报告主体必须关联本次按证件解析到的患者 -->
+          and v.identity_document_type_code = $IdentityDocumentTypeCode  <!-- 患者证件类型：取自当前报告版本，候选范围限定为同一患者 -->
+          and v.identity_document_no = $IdentityDocumentNo                <!-- 证件号码：取自当前报告版本，候选范围限定为同一患者 -->
+          and v.visit_type = $VisitType                   <!-- 就诊类型：取自当前报告版本，与就诊流水号共同限定本次来源就诊 -->
+          and v.visit_serial_no = $VisitSerialNo          <!-- 就诊流水号：取自当前报告版本 -->
+          and r.status = 1                                <!-- 生命周期状态：只取当前有效报告，已作废报告不参与匹配 -->
+          and r.report_type = 1                           <!-- 报告类型：本分支只承载检验报告，类型编号取自报告类型的检验取值 -->
+        union all
+        select
+          r.id as report_id,            <!-- 报告标识 -->
+          r.report_time,                <!-- 报告时间：报告主体上的冗余检索列，恒等于当前版本取值 -->
+          r.hospital_code as source_hospital_code,  <!-- 来源医院编码：取自报告主体，供领域层判定是否本院报告 -->
+          v.id as report_version_id,    <!-- 报告版本标识：取自当前版本指向，只取当前有效版本 -->
+          1 as item_type,               <!-- 项目类型：本分支只承载检查报告，取值与标准项目类型的检查编号一致 -->
+          e.standard_project_code,      <!-- 标准项目编码：取自检查项目，本分支不读检验侧编码列 -->
+          <!--
+            处理：与检验分支相同的合并取值，检查报告的匹配基准时间取自检查专项内容的实际检查时间。
+            原因：本分支只可能命中检查侧，合并取值保证两侧都没有内容时排序键为空而不是行消失。
+            结果：每一行的匹配基准时间就是该报告版本的实际检查时间。
+          -->
+          coalesce(lc.testing_completed_time, ec.examination_time) as match_baseline_time  <!-- 匹配基准时间 -->
+        from mrec_medical_recognition_report r
+        join mrec_medical_report_version v on v.id = r.current_version_id
+        <!--
+          关联原因：检查报告的匹配基准时间与标准项目编码分别在检查专项内容与检查项目上；
+          两张表都按报告版本标识等值左连接，最多各命中一行，不放大结果行数。
+        -->
+        left join mrec_laboratory_report_content lc on lc.report_version_id = v.id
+        left join mrec_examination_report_content ec on ec.report_version_id = v.id
+        left join mrec_examination_item e on e.report_version_id = v.id
+        where r.organization_code = $OrganizationCode      <!-- 来源范围：与检验分支同一口径 -->
+          and r.hospital_code = $HospitalCode             <!-- 来源医院 -->
+          and r.branch_code = $BranchCode                 <!-- 来源院区 -->
+          and r.patient_id = $PatientId                   <!-- 平台患者：与检验分支同一口径，候选报告主体必须关联本次按证件解析到的患者 -->
+          and v.identity_document_type_code = $IdentityDocumentTypeCode  <!-- 患者证件类型：取自当前报告版本 -->
+          and v.identity_document_no = $IdentityDocumentNo                <!-- 证件号码：取自当前报告版本 -->
+          and v.visit_type = $VisitType                   <!-- 就诊类型：取自当前报告版本 -->
+          and v.visit_serial_no = $VisitSerialNo          <!-- 就诊流水号：取自当前报告版本 -->
+          and r.status = 1                                <!-- 生命周期状态：只取当前有效报告 -->
+          and r.report_type = 2                           <!-- 报告类型：本分支只承载检查报告，类型编号取自报告类型的检查取值 -->
+      ) c
+      <!--
+        处理：按本次提交的一组标准项目编码过滤合并后的行集，使用集合参数写法。
+        原因：项目类型与标准项目编码已在两个分支内同源派生，外层不再需要按类型分支取编码，
+        集合参数名直接跟在 in 之后、不带括号，由框架展开为值列表。
+        结果：只返回本次提交的每个标准项目编码下符合报告类型的候选行。
+      -->
+      where c.standard_project_code in $StandardProjectCodes
+      order by c.match_baseline_time desc, c.report_time desc, c.report_version_id asc  <!-- 排序：匹配基准时间倒序、报告时间倒序、报告版本标识升序兜底 -->
+    </Statement>
+
+    <!--
+      功能：按本次匹配项绑定的一组报告版本读取匹配响应的报告事实，供互认匹配查询一次取回报告公共信息、业务时间与文件入口。
+      结果：行集由本次绑定版本集合决定，每个版本恰好一行；
+      每行返回报告标识、报告版本标识、报告类型、来源报告单号与名称、来源组织、医院、院区三个编码、检查或检验时间、报告时间、PDF 文件标识、PDF 文件名、标本类型名称、整体异常标识、来源影像状态与影像调阅地址；
+      检验时间取检验专项内容的检测完成时间、检查时间取检查专项内容的实际检查时间，两个专项内容表都按报告版本标识等值左连接，最多各命中一行，不放大结果行数；
+      标本类型名称与整体异常标识只在检验侧有值、来源影像状态与影像调阅地址只在检查侧有值，为空值表示该报告类型没有这一项事实；
+      排序按报告版本标识升序，使同一批的返回顺序稳定，调用方不依赖数据库执行计划。
+    -->
+    <Statement Id="QueryRecognitionMatchReportFacts">
+      select
+        r.id as report_id,                    <!-- 报告标识 -->
+        v.id as report_version_id,            <!-- 报告版本标识：本次匹配项绑定的版本 -->
+        r.report_type,                        <!-- 报告类型：决定匹配响应按检验还是检查组织项目级内容 -->
+        r.report_no,                          <!-- 来源报告单号 -->
+        v.source_report_name as report_name,  <!-- 来源报告名称 -->
+        r.organization_code as source_organization_code,  <!-- 来源组织编码：投影别名取投影类型的属性名，供应用层批量回填来源医疗机构名称 -->
+        r.hospital_code as source_hospital_code,          <!-- 来源医院编码：同上，别名取投影类型的属性名 -->
+        r.branch_code as source_branch_code,              <!-- 来源院区编码：同上，别名取投影类型的属性名 -->
+        <!--
+          处理：检验专项内容的检测完成时间与检查专项内容的实际检查时间合并为一个业务时间列。
+          原因：检查或检验时间按报告类型分属两张专项内容表，调用方只按一个字段读取；
+          两个专项内容表都按报告版本标识等值左连接，最多各命中一行。
+          结果：检验报告得到检测完成时间、检查报告得到实际检查时间，两者都不会让行消失。
+        -->
+        coalesce(lc.testing_completed_time, ec.examination_time) as clinical_time,  <!-- 检查或检验时间 -->
+        r.report_time,                        <!-- 报告时间：取自报告主体上的冗余检索列，恒等于当前版本取值 -->
+        v.pdf_file_id,                        <!-- PDF 文件标识：平台保存的文件键 -->
+        v.pdf_file_name,                      <!-- PDF 文件名：该版本保存的原始文件名 -->
+        lc.specimen_type_name,                <!-- 标本类型名称：检验侧专项内容列，检查报告为空值 -->
+        <!--
+          处理：检验侧与检查侧的整体异常标识合并为一个列。
+          原因：两张专项内容表都保存该标识，调用方只按一个字段读取；本列只表达来源医院的判断，平台不重新计算。
+          结果：报告类型对应的那一侧有值，另一侧为空值。
+        -->
+        coalesce(lc.overall_abnormal_flag, ec.overall_abnormal_flag) as overall_abnormal_flag,  <!-- 来源报告的整体异常标识 -->
+        ec.source_image_status,               <!-- 来源影像状态：检查侧专项内容列，检验报告为空值 -->
+        ec.image_access_url                   <!-- 影像调阅地址：检查侧专项内容列，检验报告为空值 -->
+      from mrec_medical_report_version v
+      join mrec_medical_recognition_report r on r.id = v.report_id  <!-- 关联原因：报告类型、来源三值与报告时间只保存在报告主体上 -->
+      <!--
+        关联原因：匹配响应的检验项目级内容需要标本类型名称与整体异常标识，检查项目级内容需要来源影像状态与影像调阅地址，
+        两张专项内容表都按报告版本标识等值左连接，最多各命中一行，不放大结果行数。
+      -->
+      left join mrec_laboratory_report_content lc on lc.report_version_id = v.id
+      left join mrec_examination_report_content ec on ec.report_version_id = v.id
+      <!-- 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表；空集合展开为空列表，不返回任何行 -->
+      where v.id in $ReportVersionIds
+      order by v.id asc  <!-- 排序：按报告版本标识升序，保证同一批内的返回顺序稳定 -->
+    </Statement>
+
+    <!--
+      功能：从一组报告版本中筛出仍为当前有效版本的标识，供处理结果提交在未命中幂等时校验匹配项绑定报告版本是否仍可用。
+      结果：只返回同时满足两个条件的版本标识：该版本仍是所属报告的当前版本，且所属报告的生命周期状态为有效；
+      已形成后续版本的旧版本与已作废报告的版本都不返回，调用方按"未出现在返回集合中"判定该绑定版本已失效；
+      排序按报告版本标识升序，使同一批的返回顺序稳定，调用方不依赖数据库执行计划。
+    -->
+    <Statement Id="QueryValidRecognitionReportVersionIds">
+      select
+        v.id as id       <!-- 仍为当前有效版本的报告版本标识：投影是标量标识，别名取投影目标类型的属性名 -->
+      from mrec_medical_report_version v
+      join mrec_medical_recognition_report r on r.id = v.report_id  <!-- 关联原因：当前版本指针与生命周期状态只保存在报告主体上 -->
+      <!-- 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表；空集合展开为空列表，不返回任何行 -->
+      where v.id in $ReportVersionIds
+        and r.current_version_id = v.id  <!-- 当前版本判断：版本标识必须等于报告主体的当前版本指针 -->
+        and r.status = 1                 <!-- 生命周期状态：只取当前有效报告，已作废报告不参与 -->
+      order by v.id asc  <!-- 排序：按报告版本标识升序，保证同一批内的返回顺序稳定 -->
+    </Statement>
+
+    <!--
+      功能：按可信接收三值与患者证件、本次来源就诊读取已经采纳的互认匹配项，供获取引用详情定位本次就诊下仍可引用的项目。
+      结果：行集由可信接收组织、医院、院区与匹配记录上的患者证件类型、证件号码、就诊类型、就诊流水号共同严格匹配，
+      因此每一行都属于本次就诊，不返回其他医院、院区、患者或就诊的记录；
+      只返回已经保存处理结果且决定为采纳的匹配项，未保存处理结果的匹配项不参与；
+      每行给出所属匹配记录的处理结果保存时间（引用详情有效期起点）、匹配记录标识、匹配项标识、标准项目编码与匹配项绑定的报告与报告版本标识；
+      接收三值与患者证件、就诊两值只作为筛选条件在 where 中消费，**不进入投影**：调用方按本次可信上下文与请求判断归属与身份；
+      排序为处理结果保存时间倒序加互认匹配项标识升序，因此同一报告版本与同一互认项目存在多条采纳时，第一行就是保存时间最近的一条；
+      未命中任何采纳记录时返回空集合，由应用层表达为按平台可确认的原因拒绝。
+    -->
+    <Statement Id="QueryRecognitionCitationCandidates">
+      select
+        mr.decision_saved_time,             <!-- 处理结果保存时间：引用详情有效期起点，取自所属互认匹配记录 -->
+        mi.recognition_match_record_id,     <!-- 互认匹配记录标识 -->
+        mi.id as recognition_match_item_id, <!-- 互认匹配项标识：医院 HIS 随后提交引用结果时使用 -->
+        pr.recognition_result,              <!-- 互认结果：只返回采纳的匹配项是引用详情的逐项校验条件 -->
+        mi.standard_project_code,           <!-- 标准项目编码 -->
+        mi.report_id,                       <!-- 报告标识 -->
+        mi.report_version_id                <!-- 报告版本标识：项目内容按本标识取回 -->
+      from mrec_recognition_processing_result pr
+      <!--
+        关联原因：有效期起点保存在互认匹配记录上、患者证件与来源就诊也保存在该记录上，处理结果自身不冗余保存这两类取值。
+        连接键为记录主键等值，最多命中一行，不放大结果行数。
+      -->
+      join mrec_recognition_match_record mr on mr.id = pr.recognition_match_record_id
+      <!--
+        关联原因：项目编码与匹配项绑定的报告版本保存在互认匹配项上，处理结果表按设计不保存冗余的项目编码列。
+        连接键为匹配项主键等值，最多命中一行，不放大结果行数。
+      -->
+      join mrec_recognition_match_item mi on mi.id = pr.recognition_match_item_id
+      <!-- 决定范围：只返回明确采纳的匹配项；不采纳项目不参与引用详情。 -->
+      where pr.recognition_result = 1
+        and mr.decision_saved_time is not null  <!-- 处理结果保存时间：空值表示该组尚未保存处理结果，没有引用详情有效期起点，不作为可引用事实参与 -->
+        and mr.receiver_organization_code = $OrganizationCode  <!-- 接收组织范围：只返回本次可信组织的匹配记录 -->
+        and mr.receiver_hospital_code = $HospitalCode          <!-- 接收医院范围：只返回本次可信医院的匹配记录 -->
+        and mr.receiver_branch_code = $BranchCode              <!-- 接收院区范围：只返回本次可信院区的匹配记录 -->
+        and mr.identity_document_type_code = $IdentityDocumentTypeCode  <!-- 患者证件类型：与证件号码共同限定本次患者 -->
+        and mr.identity_document_no = $IdentityDocumentNo              <!-- 患者证件号码 -->
+        and mr.visit_type = $VisitType                         <!-- 就诊类型：与就诊流水号共同限定本次来源就诊 -->
+        and mr.visit_serial_no = $VisitSerialNo                <!-- 就诊流水号 -->
+      order by mr.decision_saved_time desc, mi.id asc  <!-- 排序：处理结果保存时间倒序，并以匹配项标识升序作为稳定兜底键 -->
+    </Statement>
+
+    <!--
+      功能：按本次要返回的一组报告版本读取引用详情的报告公共上下文，供医院 HIS 写入病历时注明结果出处。
+      结果：行集由传入的版本集合决定，每个版本恰好一行；
+      每行返回报告标识、报告版本标识、报告类型、来源报告单号与名称、来源组织、医院、院区三个编码、检查或检验时间、报告时间、
+      来源申请与审核医生的标识与名称、检查所见与检查结论、PDF 文件标识与文件名、来源影像状态与影像调阅地址；
+      检查或检验时间按报告类型合并取值：检验取检验专项内容的检测完成时间、检查取检查专项内容的实际检查时间；
+      检查所见与检查结论、来源影像状态与影像调阅地址只在检查侧有值，为空值表示该报告类型没有这一项事实；
+      排序按报告版本标识升序，使同一批的返回顺序稳定，调用方不依赖数据库执行计划。
+    -->
+    <Statement Id="QueryRecognitionCitationReportContexts">
+      select
+        r.id as report_id,                    <!-- 报告标识 -->
+        v.id as report_version_id,            <!-- 报告版本标识：本次要返回的版本 -->
+        r.report_type,                        <!-- 报告类型：决定项目级内容取检验结果还是检查部位 -->
+        r.report_no,                          <!-- 来源报告单号 -->
+        v.source_report_name as report_name,  <!-- 来源报告名称 -->
+        r.organization_code as source_organization_code,  <!-- 来源组织编码：投影别名取投影类型的属性名，供应用层批量回填来源医疗机构名称 -->
+        r.hospital_code as source_hospital_code,          <!-- 来源医院编码：同上，别名取投影类型的属性名 -->
+        r.branch_code as source_branch_code,              <!-- 来源院区编码：同上，别名取投影类型的属性名 -->
+        <!--
+          处理：检验专项内容的检测完成时间与检查专项内容的实际检查时间合并为一个业务时间列。
+          原因：检查或检验时间按报告类型分属两张专项内容表，调用方只按一个字段读取；
+          两个专项内容表都按报告版本标识等值左连接，最多各命中一行。
+          结果：检验报告得到检测完成时间、检查报告得到实际检查时间，两者都不会让行消失。
+        -->
+        coalesce(lc.testing_completed_time, ec.examination_time) as clinical_time,  <!-- 检查或检验时间 -->
+        r.report_time,                        <!-- 报告时间：取自报告主体上的冗余检索列，恒等于当前版本取值 -->
+        v.application_doctor_id as source_applicant_doctor_id,      <!-- 来源申请医生ID -->
+        v.application_doctor_name as source_applicant_doctor_name,  <!-- 来源申请医生名称 -->
+        v.review_doctor_id as source_reviewer_doctor_id,            <!-- 来源审核医生ID -->
+        v.review_doctor_name as source_reviewer_doctor_name,        <!-- 来源审核医生名称 -->
+        ec.findings as examination_findings,  <!-- 检查所见：检查侧专项内容列，检验报告为空值；别名取投影类型的属性名 -->
+        ec.conclusion as examination_conclusion,  <!-- 检查结论：检查侧专项内容列，检验报告为空值；别名取投影类型的属性名 -->
+        v.pdf_file_id,                        <!-- PDF 文件标识：平台保存的文件键 -->
+        v.pdf_file_name,                      <!-- PDF 文件名：该版本保存的原始文件名 -->
+        ec.source_image_status,               <!-- 来源影像状态：检查侧专项内容列，检验报告为空值 -->
+        ec.image_access_url                   <!-- 影像调阅地址：检查侧专项内容列，检验报告为空值 -->
+      from mrec_medical_report_version v
+      join mrec_medical_recognition_report r on r.id = v.report_id  <!-- 关联原因：报告类型、来源三值与报告时间只保存在报告主体上 -->
+      <!--
+        关联原因：检查或检验时间、检查所见与检查结论、来源影像状态与影像调阅地址分属两张专项内容表；
+        两张表都按报告版本标识等值左连接，最多各命中一行，不放大结果行数，也不让没有专项内容的版本消失。
+      -->
+      left join mrec_laboratory_report_content lc on lc.report_version_id = v.id
+      left join mrec_examination_report_content ec on ec.report_version_id = v.id
+      <!-- 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表；空集合展开为空列表，不返回任何行 -->
+      where v.id in $ReportVersionIds
+      order by v.id asc  <!-- 排序：按报告版本标识升序，保证同一批内的返回顺序稳定 -->
+    </Statement>
+
+    <!--
+      功能：按一组标准项目编码读取它们在标准目录中的展示名称，供引用详情返回本次命中项目的名称。
+      结果：只返回本次编码集合中在标准目录里存在的行，每行给出标准项目编码与标准项目名称；
+      读取不按互认配置或标准目录的启用状态过滤：已采纳项目不因配置或目录停用而失去引用详情；
+      编码在标准目录中不存在时不产生行，调用方按名称缺失返回空白文本，不按编码拼接名称；
+      排序按标准项目编码升序，使同一批的返回顺序稳定，调用方不依赖数据库执行计划。
+    -->
+    <Statement Id="QueryRecognitionCitationStandardProjectNames">
+      select
+        i.code as standard_project_code,  <!-- 标准项目编码 -->
+        i.name as standard_project_name   <!-- 标准项目名称：取自标准目录，来源报告明细上的项目名称是另一个来源 -->
+      from mrec_medical_standard_item i
+      <!-- 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表；空集合展开为空列表，不返回任何行 -->
+      where i.code in $StandardProjectCodes
+      order by i.code asc  <!-- 排序：按标准项目编码升序，保证同一批内的返回顺序稳定 -->
     </Statement>
   </Statements>
 </SqlMap>

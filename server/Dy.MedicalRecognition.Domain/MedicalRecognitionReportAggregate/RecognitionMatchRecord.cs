@@ -54,7 +54,7 @@ public partial class RecognitionMatchRecord : Dy.Core.Abstractions.Domain.Entity
   /// </summary>
   public partial Guid OperId { get; set; }
   /// <summary>
-  /// 操作时间；由数据库当前时间写入，命令时间只用于领域事件。
+  /// 操作时间；由应用服务取服务端协调世界时写入。
   /// </summary>
   public partial DateTimeOffset OperTime { get; set; }
 }

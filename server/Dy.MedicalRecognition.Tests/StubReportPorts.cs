@@ -76,6 +76,9 @@ internal sealed class StubReportQueryRepository : IMedicalRecognitionReportQuery
   public Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsAsync(Guid reportVersionId) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
+  public Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
   public Task<IEnumerable<LaboratoryBacteriaResultItem>> QueryLaboratoryBacteriaResultsAsync(Guid reportVersionId) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
@@ -88,10 +91,50 @@ internal sealed class StubReportQueryRepository : IMedicalRecognitionReportQuery
   public Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsAsync(Guid reportVersionId) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
+  public Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
   public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesAsync(Guid examinationItemId) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
+  public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesByItemsAsync(IReadOnlyList<Guid> examinationItemIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionMatchCandidateReportItem>> QueryRecognitionMatchCandidateReportsAsync(
+    string organizationCode,
+    string hospitalCode,
+    string branchCode,
+    Guid patientId,
+    string identityDocumentTypeCode,
+    string identityDocumentNo,
+    VisitType visitType,
+    string visitSerialNo,
+    IReadOnlyList<string> standardProjectCodes) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionMatchReportFactsItem>> QueryRecognitionMatchReportFactsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionValidReportVersionItem>> QueryValidRecognitionReportVersionIdsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
   public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionCitationCandidateItem>> QueryRecognitionCitationCandidatesAsync(
+    string organizationCode,
+    string hospitalCode,
+    string branchCode,
+    string identityDocumentTypeCode,
+    string identityDocumentNo,
+    VisitType visitType,
+    string visitSerialNo) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionCitationReportContextItem>> QueryRecognitionCitationReportContextsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<CitationStandardProjectNameItem>> QueryRecognitionCitationStandardProjectNamesAsync(IReadOnlyList<string> standardProjectCodes) => throw new NotSupportedException(UnusedMember);
 }
 
 /// <summary>
@@ -130,6 +173,9 @@ internal sealed class SyntheticReportPorts : IMedicalRecognitionReportQueryRepos
   public Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsAsync(Guid reportVersionId) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
+  public Task<IEnumerable<LaboratoryResultItemView>> QueryLaboratoryResultItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
   public Task<IEnumerable<LaboratoryBacteriaResultItem>> QueryLaboratoryBacteriaResultsAsync(Guid reportVersionId) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
@@ -142,7 +188,31 @@ internal sealed class SyntheticReportPorts : IMedicalRecognitionReportQueryRepos
   public Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsAsync(Guid reportVersionId) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
+  public Task<IEnumerable<ExaminationItemView>> QueryExaminationItemsByVersionsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
   public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesAsync(Guid examinationItemId) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesByItemsAsync(IReadOnlyList<Guid> examinationItemIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionMatchCandidateReportItem>> QueryRecognitionMatchCandidateReportsAsync(
+    string organizationCode,
+    string hospitalCode,
+    string branchCode,
+    Guid patientId,
+    string identityDocumentTypeCode,
+    string identityDocumentNo,
+    VisitType visitType,
+    string visitSerialNo,
+    IReadOnlyList<string> standardProjectCodes) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionMatchReportFactsItem>> QueryRecognitionMatchReportFactsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionValidReportVersionItem>> QueryValidRecognitionReportVersionIdsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
   public Task<IEnumerable<MedicalStandardCategoryListItem>> QueryMedicalStandardCategoryListAsync(MedicalItemType? itemType) => throw new NotSupportedException(UnusedMember);
@@ -173,4 +243,20 @@ internal sealed class SyntheticReportPorts : IMedicalRecognitionReportQueryRepos
 
   /// <inheritdoc/>
   public Task<MedicalReportVersionDetailItem?> GetMedicalReportVersionDetailAsync(Guid reportId, Guid reportVersionId) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionCitationCandidateItem>> QueryRecognitionCitationCandidatesAsync(
+    string organizationCode,
+    string hospitalCode,
+    string branchCode,
+    string identityDocumentTypeCode,
+    string identityDocumentNo,
+    VisitType visitType,
+    string visitSerialNo) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionCitationReportContextItem>> QueryRecognitionCitationReportContextsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<CitationStandardProjectNameItem>> QueryRecognitionCitationStandardProjectNamesAsync(IReadOnlyList<string> standardProjectCodes) => throw new NotSupportedException(UnusedMember);
 }

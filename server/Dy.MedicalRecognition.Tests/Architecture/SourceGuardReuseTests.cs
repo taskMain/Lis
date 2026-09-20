@@ -34,7 +34,11 @@ public sealed class SourceGuardReuseTests
     // 阶段 4 的端点清单守卫按语法节点核对控制器路由与动作特性，登记为共享语法工具的消费方。
     "Stage4EndpointTests.cs",
     // 阶段 4 的实现约束守卫按语法节点核对数据访问调用点与禁止类型，登记为共享语法工具的消费方。
-    "Stage4ConstraintTests.cs"
+    "Stage4ConstraintTests.cs",
+    // 阶段 5 的映射守卫按仓储目录内定位建表脚本与映射文件，登记为共享语法工具的消费方。
+    "Stage5SqlMapTests.cs",
+    // 阶段 5 的收尾守卫按语法节点核对四个入口的事务声明、禁止类型后缀与引用详情链的写入面，登记为共享语法工具的消费方。
+    "Stage5ConstraintTests.cs"
   ];
 
   /// <summary>测试工程内不得重复声明的方法名：这两份私有实现历史上各复制过一次。</summary>

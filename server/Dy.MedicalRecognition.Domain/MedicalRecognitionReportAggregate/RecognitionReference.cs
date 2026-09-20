@@ -18,10 +18,6 @@ public partial class RecognitionReference : Dy.Core.Abstractions.Domain.Entity
   /// </summary>
   public partial Guid RecognitionMatchItemId { get; set; }
   /// <summary>
-  /// 标准项目编码
-  /// </summary>
-  public partial string StandardProjectCode { get; set; }
-  /// <summary>
   /// 实际引用时间；与引用科室、引用医生均来自医院提交的引用事实，引用记录由已采纳的匹配项登记产生。
   /// </summary>
   public partial DateTime ReferencedTime { get; set; }
@@ -46,7 +42,7 @@ public partial class RecognitionReference : Dy.Core.Abstractions.Domain.Entity
   /// </summary>
   public partial Guid OperId { get; set; }
   /// <summary>
-  /// 操作时间；由数据库当前时间写入，命令时间只用于领域事件。
+  /// 操作时间；由应用服务取服务端协调世界时写入，与领域事件的发生时间同源。
   /// </summary>
   public partial DateTimeOffset OperTime { get; set; }
 }
