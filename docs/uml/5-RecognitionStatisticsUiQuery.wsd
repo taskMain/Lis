@@ -71,7 +71,8 @@ ReadModel('RecognitionUsageDetailReadModel')[
     互认项目(Item RecognitionStatisticsItemReadModel)
     业务时间(BusinessTime DateTime)
     未反馈(IsUnprocessed Boolean)
-    患者脱敏信息(MaskedPatientInfo Text)
+    患者姓名(PatientName String)
+    患者证件号码(IdentityDocumentNo String)
     互认科室ID(RecognitionDeptId String)
     互认科室名称(RecognitionDeptName String)
     互认医生ID(RecognitionDoctorId String)
@@ -120,7 +121,8 @@ ReadModel('SourceRecognitionDetailReadModel')[
     互认医生ID(RecognitionDoctorId String)
     互认医生名称(RecognitionDoctorName String)
     互认时间(RecognitionTime DateTime)
-    患者脱敏信息(MaskedPatientInfo Text)
+    患者姓名(PatientName String)
+    患者证件号码(IdentityDocumentNo String)
 ]
 ReadModel('StatisticsExportFileReadModel')[
     统计导出文件
@@ -163,7 +165,7 @@ ReadModel('RecognitionProcessingResultDetailReadModel')[
     --属性--
     是否已反馈(IsProcessed Boolean)
     互认时间(RecognitionTime DateTime)
-    处理结果(Decision String)
+    处理结果(Decision RecognitionResultEnum)
     不采纳原因代码(NonAdoptionReasonCode String)
     不采纳原因名称(NonAdoptionReasonName String)
     不采纳补充说明(NonAdoptionSupplementDescription String)
@@ -183,7 +185,8 @@ ReadModel('RecognitionMatchRecordReadModel')[
     互认匹配记录ID(RecognitionMatchRecordId Guid)
     互认匹配生成时间(MatchCreatedTime DateTime)
     接收归属(Receiver ReceiverOrganizationReadModel)
-    患者脱敏信息(MaskedPatientInfo Text)
+    患者姓名(PatientName String)
+    患者证件号码(IdentityDocumentNo String)
     本次来源就诊类型(VisitType VisitType)
     本次来源就诊流水号(VisitSerialNo String)
     是否已反馈(IsProcessed Boolean)
@@ -203,7 +206,7 @@ ReadModel('RecognitionMatchRecordItemReadModel')[
     报告ID(ReportId Guid)
     报告版本ID(ReportVersionId Guid)
     是否已反馈(IsProcessed Boolean)
-    处理结果(Decision String)
+    处理结果(Decision RecognitionResultEnum)
     不采纳原因代码(NonAdoptionReasonCode String)
     不采纳原因名称(NonAdoptionReasonName String)
 ]
@@ -329,7 +332,7 @@ note right of RecognitionUsageSummaryReadModel
   同期互认率分母为同期提醒次数；提醒为零时 Calculated=false，数值无业务含义。
   不采纳原因按平台原因代码汇总。
   互认科室按院区+科室ID归类，展示当前范围内互认时间最晚处理结果保存的名称。
-  导出继承页面查询条件、汇总维度、既有业务范围和脱敏规则；当前条件下无记录时不生成文件、不扩大查询范围。本模块不重复判断操作权限。
+  导出继承页面查询条件、汇总维度、既有业务范围和患者信息口径（MVP 不实现脱敏，患者姓名与证件号码按业务原值）；当前条件下无记录时不生成文件、不扩大查询范围。本模块不重复判断操作权限。
 end note
 PlatformAdministrator --> RecognitionStatisticsModule
 HospitalAdministrator --> RecognitionStatisticsModule
