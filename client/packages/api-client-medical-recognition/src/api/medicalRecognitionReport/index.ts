@@ -30,6 +30,8 @@ import { EnableMutualRecognitionItemRequestBuilderRequestsMetadata, type EnableM
 // @ts-ignore
 import { OpenReportVersionPdfRequestBuilderRequestsMetadata, type OpenReportVersionPdfRequestBuilder } from './openReportVersionPdf/index.js';
 // @ts-ignore
+import { RequestRecognitionMatchesRequestBuilderRequestsMetadata, type RequestRecognitionMatchesRequestBuilder } from './requestRecognitionMatches/index.js';
+// @ts-ignore
 import { SaveBranchRecognitionAmountRequestBuilderRequestsMetadata, type SaveBranchRecognitionAmountRequestBuilder } from './saveBranchRecognitionAmount/index.js';
 // @ts-ignore
 import { SaveOrganizationHospitalBranchRecognitionAmountRequestBuilderRequestsMetadata, type SaveOrganizationHospitalBranchRecognitionAmountRequestBuilder } from './saveOrganizationHospitalBranchRecognitionAmount/index.js';
@@ -37,6 +39,10 @@ import { SaveOrganizationHospitalBranchRecognitionAmountRequestBuilderRequestsMe
 import { SubmitCompleteExaminationReportRequestBuilderRequestsMetadata, type SubmitCompleteExaminationReportRequestBuilder } from './submitCompleteExaminationReport/index.js';
 // @ts-ignore
 import { SubmitCompleteLaboratoryReportRequestBuilderRequestsMetadata, type SubmitCompleteLaboratoryReportRequestBuilder } from './submitCompleteLaboratoryReport/index.js';
+// @ts-ignore
+import { SubmitRecognitionProcessingResultsRequestBuilderRequestsMetadata, type SubmitRecognitionProcessingResultsRequestBuilder } from './submitRecognitionProcessingResults/index.js';
+// @ts-ignore
+import { SubmitRecognitionReferencesRequestBuilderRequestsMetadata, type SubmitRecognitionReferencesRequestBuilder } from './submitRecognitionReferences/index.js';
 // @ts-ignore
 import { type UpdateMedicalStandardCategoryRequestBuilder, UpdateMedicalStandardCategoryRequestBuilderRequestsMetadata } from './updateMedicalStandardCategory/index.js';
 // @ts-ignore
@@ -111,6 +117,10 @@ export interface MedicalRecognitionReportRequestBuilder extends BaseRequestBuild
      */
     get openReportVersionPdf(): OpenReportVersionPdfRequestBuilder;
     /**
+     * The RequestRecognitionMatches property
+     */
+    get requestRecognitionMatches(): RequestRecognitionMatchesRequestBuilder;
+    /**
      * The SaveBranchRecognitionAmount property
      */
     get saveBranchRecognitionAmount(): SaveBranchRecognitionAmountRequestBuilder;
@@ -126,6 +136,14 @@ export interface MedicalRecognitionReportRequestBuilder extends BaseRequestBuild
      * The SubmitCompleteLaboratoryReport property
      */
     get submitCompleteLaboratoryReport(): SubmitCompleteLaboratoryReportRequestBuilder;
+    /**
+     * The SubmitRecognitionProcessingResults property
+     */
+    get submitRecognitionProcessingResults(): SubmitRecognitionProcessingResultsRequestBuilder;
+    /**
+     * The SubmitRecognitionReferences property
+     */
+    get submitRecognitionReferences(): SubmitRecognitionReferencesRequestBuilder;
     /**
      * The UpdateMedicalStandardCategory property
      */
@@ -197,6 +215,9 @@ export const MedicalRecognitionReportRequestBuilderNavigationMetadata: Record<Ex
     openReportVersionPdf: {
         requestsMetadata: OpenReportVersionPdfRequestBuilderRequestsMetadata,
     },
+    requestRecognitionMatches: {
+        requestsMetadata: RequestRecognitionMatchesRequestBuilderRequestsMetadata,
+    },
     saveBranchRecognitionAmount: {
         requestsMetadata: SaveBranchRecognitionAmountRequestBuilderRequestsMetadata,
     },
@@ -208,6 +229,12 @@ export const MedicalRecognitionReportRequestBuilderNavigationMetadata: Record<Ex
     },
     submitCompleteLaboratoryReport: {
         requestsMetadata: SubmitCompleteLaboratoryReportRequestBuilderRequestsMetadata,
+    },
+    submitRecognitionProcessingResults: {
+        requestsMetadata: SubmitRecognitionProcessingResultsRequestBuilderRequestsMetadata,
+    },
+    submitRecognitionReferences: {
+        requestsMetadata: SubmitRecognitionReferencesRequestBuilderRequestsMetadata,
     },
     updateMedicalStandardCategory: {
         requestsMetadata: UpdateMedicalStandardCategoryRequestBuilderRequestsMetadata,

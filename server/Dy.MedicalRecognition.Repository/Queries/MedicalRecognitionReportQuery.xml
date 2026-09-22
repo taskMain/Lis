@@ -884,5 +884,881 @@
       where i.code in $StandardProjectCodes
       order by i.code asc  <!-- 排序：按标准项目编码升序，保证同一批内的返回顺序稳定 -->
     </Statement>
+
+    <!--
+      功能：统计接收侧互认使用汇总满足筛选条件的分组行总数，供服务端分页在取当页分组行之前计算总数。
+      结果：行集按所选汇总维度在数据库侧聚合为分组行后计数，计数对象是分组行而不是匹配项行；
+      筛选条件与当页分组语句逐字共用同一套，分组键由参数 $GroupDimension 的标准 CASE 表达式切换，
+      筛选条件由内部参数类型 RecognitionUsageSummaryFilter 承载。
+    -->
+    <Statement Id="CountRecognitionUsageSummaryGroups">
+      select count(1) as total_count from (
+      select
+        case when $GroupDimension in (1, 2, 3) then mr.receiver_organization_code end,
+        case when $GroupDimension in (1, 2, 3) then mr.receiver_hospital_code end,
+        case when $GroupDimension in (2, 3) then mr.receiver_branch_code end,
+        case when $GroupDimension = 3 then pr.recognition_dept_id end,
+        case when $GroupDimension = 4 then sc.item_type end,
+        case when $GroupDimension = 4 then mi.standard_project_code end,
+        case when $GroupDimension = 4 then si.name end,
+        case when $GroupDimension = 4 then sc.name end,
+        case when $GroupDimension = 4 then sg.name end
+      from mrec_recognition_match_record mr
+      <!--
+        关联原因：接收侧以匹配记录为范围主体，提醒事实按匹配项计数，因此左联匹配项取得项级行；
+        一条匹配记录至少有一个匹配项，左联只是防御性写法，项级行数由 count 内的匹配项判据控制。
+      -->
+      left join mrec_recognition_match_item mi on mi.recognition_match_record_id = mr.id
+      <!--
+        关联原因：采纳、不采纳、金额与互认科室归属都保存在处理结果上；
+        处理结果与匹配项被唯一索引限定为一对一，左联不放大行数。
+      -->
+      left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+      <!-- 关联原因：引用次数按引用事实计数；引用事实与匹配项被唯一索引限定为一对一，左联不放大行数。 -->
+      left join mrec_recognition_reference rf on rf.recognition_match_item_id = mi.id
+      <!--
+        关联原因：来源组筛选与明细患者姓名都取自匹配项绑定报告的报告主体；
+        报告标识是匹配项上的外键，按主键等值左联不放大行数。
+      -->
+      left join mrec_medical_recognition_report r on r.id = mi.report_id
+      <!--
+        关联原因：项目类型、分类、分组与标准项目名称实时取自标准目录三表；
+        标准项目编码跨检验与检查全局唯一，三表按编码与主键逐级等值左联，不放大行数。
+      -->
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+      <IsNotEmpty Prepend="and" Property="OrganizationCode">mr.receiver_organization_code = $OrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="HospitalCode">mr.receiver_hospital_code = $HospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="BranchCode">mr.receiver_branch_code = $BranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围，取自匹配项绑定报告的主体 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室，未反馈项无科室归属、随该筛选一并排除 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值，与四类明细语句的项目类型筛选同列，同一条件下汇总与明细同源 -->
+      <!--
+        处理：对用户输入的转义符 ! 先加倍，再将 % 转义为 !%、_ 转义为 !_，然后首尾拼接通配符并用 escape '!' 声明转义符。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符，使分类名称的“字面包含”匹配范围被放大。
+        结果：按分类名称做字面包含匹配，用户输入的通配符字符只作为普通字符参与比较。
+      -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称，转义口径同分类名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码，转义口径同分类名称 -->
+      <!--
+        处理：行集按三向时间或条件限定为与统计范围相关的事实——提醒按匹配生成时间、采纳与不采纳及金额按处理结果互认时间、
+        引用按引用事实实际引用时间，各自过滤同一起止日期；日期边界由应用层按本地日换算后传入，起始日零点含边界、结束日为零点起算不含。
+        原因：汇总行集必须包含任一指标在范围内成立的分组，又不能让全部范围外行都参与聚合。
+        结果：分组只由范围内至少有一项指标成立的事实组成，组内各指标再按自己的时间列独立计数。
+      -->
+      and (
+        mr.match_created_time &gt;= $PeriodStart and mr.match_created_time &lt; $PeriodEnd
+        or pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
+        or rf.referenced_time &gt;= $PeriodStart and rf.referenced_time &lt; $PeriodEnd
+      )
+      <!--
+        处理：维度取互认科室时排除还没有处理结果的匹配项。
+        原因：未反馈匹配项没有处理结果、没有互认科室归属，按科室 ID 分组时会全部落入一个空键分组。
+        结果：互认科室维度的行集只含有处理结果的匹配项，与设计口径 S6-D17 一致。
+      -->
+      and ( $GroupDimension &lt;&gt; 3 or pr.recognition_dept_id is not null )
+      group by
+        case when $GroupDimension in (1, 2, 3) then mr.receiver_organization_code end,
+        case when $GroupDimension in (1, 2, 3) then mr.receiver_hospital_code end,
+        case when $GroupDimension in (2, 3) then mr.receiver_branch_code end,
+        case when $GroupDimension = 3 then pr.recognition_dept_id end,
+        case when $GroupDimension = 4 then sc.item_type end,
+        case when $GroupDimension = 4 then mi.standard_project_code end,
+        case when $GroupDimension = 4 then si.name end,
+        case when $GroupDimension = 4 then sc.name end,
+        case when $GroupDimension = 4 then sg.name end
+      ) g
+    </Statement>
+
+    <!--
+      功能：取接收侧互认使用汇总的当页分组行，按所选汇总维度在数据库侧聚合，一次成型六项指标与预计节省金额。
+      结果：每行为所选维度的一个分组值，未参与分组的维度键为空值；
+      提醒次数按匹配生成时间、采纳与不采纳次数与预计节省金额按处理结果互认时间、引用次数按实际引用时间各自独立过滤同一起止日期；
+      互认科室维度的展示名称取查询范围内互认时间最晚一条处理结果保存的名称；
+      分组键排序升序即稳定唯一顺序，分页窗口由数据映射器的 Provider 适配层附加，本语句保持 Provider 中立。
+    -->
+    <Statement Id="QueryRecognitionUsageSummaryPage">
+      select
+        g.receiver_organization_code,   <!-- 接收组织编码：仅医院、院区与互认科室维度行有值 -->
+        g.receiver_hospital_code,       <!-- 接收医院编码：仅医院、院区与互认科室维度行有值 -->
+        g.receiver_branch_code,         <!-- 接收院区编码：仅院区与互认科室维度行有值 -->
+        g.recognition_dept_id,          <!-- 互认科室ID：按「接收院区加处理结果互认科室ID」归类，仅互认科室维度行有值 -->
+        <!--
+          处理：按组内最晚互认时间等值取该时间点保存的互认科室名称，并经处理结果自带的匹配记录标识等值连接匹配记录，
+          把名称候选限定在接收组织、接收医院与接收院区三值都与外层分组行相等的处理结果内，多条并列时取最小值归一为单值。
+          原因：汇总展示名称要求取查询范围内互认时间最晚一条处理结果保存的名称，而互认科室 ID 的唯一范围是院区级，
+          同一 ID 字符串可被不同医院或院区分别使用，只按科室 ID 加时间等值会让其他分组处理结果保存的名称混入候选集合；
+          等值条件天然限定为该时间点的保存值，连接键为记录主键等值、最多命中一行不放大行数，
+          最小值只用于同刻多行的归一，标准 SQL 无方言取首行写法。
+          结果：互认科室维度行得到本分组事实集内最晚互认时间保存的科室名称，非互认科室维度行为空值。
+        -->
+        ( select min(l.recognition_dept_name) from mrec_recognition_processing_result l
+          join mrec_recognition_match_record m on m.id = l.recognition_match_record_id
+          where l.recognition_dept_id = g.recognition_dept_id and l.recognition_time = g.last_recognition_time
+            and l.recognition_time &gt;= $PeriodStart and l.recognition_time &lt; $PeriodEnd
+            and m.receiver_organization_code = g.receiver_organization_code
+            and m.receiver_hospital_code = g.receiver_hospital_code
+            and m.receiver_branch_code = g.receiver_branch_code ) as recognition_dept_name,
+        g.item_type,                    <!-- 项目类型：实时取自标准目录所属分类，仅标准项目维度行有值 -->
+        g.standard_project_code,        <!-- 标准项目编码：仅标准项目维度行有值 -->
+        g.standard_item_name,           <!-- 标准项目名称：实时取自标准目录，仅标准项目维度行有值 -->
+        g.category_name,                <!-- 标准目录分类名称：仅标准项目维度行有值 -->
+        g.group_name,                   <!-- 标准目录分组名称：仅标准项目维度行有值 -->
+        g.reminder_count,               <!-- 提醒次数：按匹配生成时间统计的匹配项数，同一查询重复编码已在匹配时去重 -->
+        g.adoption_count,               <!-- 采纳次数：按处理结果互认时间统计 -->
+        g.non_adoption_count,           <!-- 不采纳次数：按处理结果互认时间统计 -->
+        g.reference_count,              <!-- 引用次数：按引用事实实际引用时间统计 -->
+        g.estimated_saving_amount       <!-- 预计节省金额：本行采纳项金额合计，按互认时间过滤，无采纳时为零 -->
+      from (
+        select
+          case when $GroupDimension in (1, 2, 3) then mr.receiver_organization_code end as receiver_organization_code,
+          case when $GroupDimension in (1, 2, 3) then mr.receiver_hospital_code end as receiver_hospital_code,
+          case when $GroupDimension in (2, 3) then mr.receiver_branch_code end as receiver_branch_code,
+          case when $GroupDimension = 3 then pr.recognition_dept_id end as recognition_dept_id,
+          case when $GroupDimension = 4 then sc.item_type end as item_type,
+          case when $GroupDimension = 4 then mi.standard_project_code end as standard_project_code,
+          case when $GroupDimension = 4 then si.name end as standard_item_name,
+          case when $GroupDimension = 4 then sc.name end as category_name,
+          case when $GroupDimension = 4 then sg.name end as group_name,
+          <!--
+            处理：六项指标与金额用标准 CASE 条件聚合在分组行内一次成型，各指标按自身业务时间列独立过滤同一起止日期。
+            原因：提醒、采纳、引用三类事实的业务时间列不同，行级时间过滤会让其余指标丢失范围外事实。
+            结果：每个分组行同时携带四个次数与金额，各自只统计自己时间列落在范围内的部分。
+          -->
+          count(case when mi.id is not null and mr.match_created_time &gt;= $PeriodStart and mr.match_created_time &lt; $PeriodEnd then 1 end) as reminder_count,
+          count(case when pr.recognition_result = 1 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd then 1 end) as adoption_count,
+          count(case when pr.recognition_result = 2 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd then 1 end) as non_adoption_count,
+          count(case when rf.id is not null and rf.referenced_time &gt;= $PeriodStart and rf.referenced_time &lt; $PeriodEnd then 1 end) as reference_count,
+          coalesce(sum(case when pr.recognition_result = 1 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd then pr.estimated_saving_amount end), 0) as estimated_saving_amount,
+          <!-- 处理：组内最晚互认时间只在范围内取值，供外层按时间等值取互认科室展示名称；范围内没有互认事实时为空值。 -->
+          max(case when pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd then pr.recognition_time end) as last_recognition_time
+        from mrec_recognition_match_record mr
+        left join mrec_recognition_match_item mi on mi.recognition_match_record_id = mr.id
+        left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+        left join mrec_recognition_reference rf on rf.recognition_match_item_id = mi.id
+        left join mrec_medical_recognition_report r on r.id = mi.report_id
+        left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+        left join mrec_medical_standard_group sg on sg.id = si.group_id
+        left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+        where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+        <IsNotEmpty Prepend="and" Property="OrganizationCode">mr.receiver_organization_code = $OrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+        <IsNotEmpty Prepend="and" Property="HospitalCode">mr.receiver_hospital_code = $HospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+        <IsNotEmpty Prepend="and" Property="BranchCode">mr.receiver_branch_code = $BranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+        <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围，取自匹配项绑定报告的主体 -->
+        <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+        <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+        <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室，未反馈项无科室归属、随该筛选一并排除 -->
+        <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值，与四类明细语句的项目类型筛选同列，同一条件下汇总与明细同源 -->
+        <!-- 转义口径与标准项目类查询一致：对用户输入先转义 %、_ 与 !，再按字面包含匹配分类名称。 -->
+        <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+        <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称，转义口径同分类名称 -->
+        <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码，转义口径同分类名称 -->
+        <!-- 三向时间或条件与互认科室维度排除谓词同计数语句逐字一致，保证总数与当页分组行同筛选。 -->
+        and (
+          mr.match_created_time &gt;= $PeriodStart and mr.match_created_time &lt; $PeriodEnd
+          or pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
+          or rf.referenced_time &gt;= $PeriodStart and rf.referenced_time &lt; $PeriodEnd
+        )
+        and ( $GroupDimension &lt;&gt; 3 or pr.recognition_dept_id is not null )
+        group by
+          case when $GroupDimension in (1, 2, 3) then mr.receiver_organization_code end,
+          case when $GroupDimension in (1, 2, 3) then mr.receiver_hospital_code end,
+          case when $GroupDimension in (2, 3) then mr.receiver_branch_code end,
+          case when $GroupDimension = 3 then pr.recognition_dept_id end,
+          case when $GroupDimension = 4 then sc.item_type end,
+          case when $GroupDimension = 4 then mi.standard_project_code end,
+          case when $GroupDimension = 4 then si.name end,
+          case when $GroupDimension = 4 then sc.name end,
+          case when $GroupDimension = 4 then sg.name end
+      ) g
+      order by g.receiver_organization_code asc, g.receiver_hospital_code asc, g.receiver_branch_code asc, g.recognition_dept_id asc, g.item_type asc, g.standard_project_code asc  <!-- 排序：分组键升序，分组键元组在行集内唯一，排序即稳定唯一 -->
+    </Statement>
+
+    <!--
+      功能：取接收侧汇总的不采纳原因汇总行，按与汇总当页语句同套的分组键加原因代码分组，独立成行返回原因代码与次数。
+      结果：每行是一个分组值下的一种不采纳原因及其次数；行集限定为处理结果为不采纳、原因已填写且互认时间在统计范围内的匹配项；
+      不做字符串聚合，由应用层把原因行装配进所属分组行；排序按分组键加原因代码升序，顺序稳定。
+    -->
+    <Statement Id="QueryRecognitionUsageSummaryReasons">
+      select
+        case when $GroupDimension in (1, 2, 3) then mr.receiver_organization_code end as receiver_organization_code,  <!-- 接收组织编码：与汇总当页语句同套分组键，应用层按键装配 -->
+        case when $GroupDimension in (1, 2, 3) then mr.receiver_hospital_code end as receiver_hospital_code,  <!-- 接收医院编码 -->
+        case when $GroupDimension in (2, 3) then mr.receiver_branch_code end as receiver_branch_code,  <!-- 接收院区编码 -->
+        case when $GroupDimension = 3 then pr.recognition_dept_id end as recognition_dept_id,  <!-- 互认科室ID -->
+        case when $GroupDimension = 4 then sc.item_type end as item_type,  <!-- 项目类型 -->
+        case when $GroupDimension = 4 then mi.standard_project_code end as standard_project_code,  <!-- 标准项目编码 -->
+        case when $GroupDimension = 4 then si.name end as standard_item_name,  <!-- 标准项目名称 -->
+        case when $GroupDimension = 4 then sc.name end as category_name,  <!-- 标准目录分类名称 -->
+        case when $GroupDimension = 4 then sg.name end as group_name,  <!-- 标准目录分组名称 -->
+        pr.non_adoption_reason as non_adoption_reason,  <!-- 不采纳原因：平台统一原因代码，随枚举值返回 -->
+        count(1) as reason_count  <!-- 该分组行内此原因的不采纳次数 -->
+      from mrec_recognition_match_record mr
+      left join mrec_recognition_match_item mi on mi.recognition_match_record_id = mr.id
+      left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+      left join mrec_recognition_reference rf on rf.recognition_match_item_id = mi.id
+      left join mrec_medical_recognition_report r on r.id = mi.report_id
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：与汇总计数、当页语句共用的筛选片段从这句起逐字一致，之后追加不采纳限定 -->
+      <IsNotEmpty Prepend="and" Property="OrganizationCode">mr.receiver_organization_code = $OrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="HospitalCode">mr.receiver_hospital_code = $HospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="BranchCode">mr.receiver_branch_code = $BranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值，与四类明细语句的项目类型筛选同列，同一条件下汇总与明细同源 -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      and (
+        mr.match_created_time &gt;= $PeriodStart and mr.match_created_time &lt; $PeriodEnd
+        or pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
+        or rf.referenced_time &gt;= $PeriodStart and rf.referenced_time &lt; $PeriodEnd
+      )
+      and ( $GroupDimension &lt;&gt; 3 or pr.recognition_dept_id is not null )
+      <!-- 原因汇总限定：只统计处理结果为不采纳、原因已填写且互认时间在统计范围内的匹配项；「其他」原因按平台统一代码归集。 -->
+      and pr.recognition_result = 2
+      and pr.non_adoption_reason is not null
+      and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
+      group by
+        case when $GroupDimension in (1, 2, 3) then mr.receiver_organization_code end,
+        case when $GroupDimension in (1, 2, 3) then mr.receiver_hospital_code end,
+        case when $GroupDimension in (2, 3) then mr.receiver_branch_code end,
+        case when $GroupDimension = 3 then pr.recognition_dept_id end,
+        case when $GroupDimension = 4 then sc.item_type end,
+        case when $GroupDimension = 4 then mi.standard_project_code end,
+        case when $GroupDimension = 4 then si.name end,
+        case when $GroupDimension = 4 then sc.name end,
+        case when $GroupDimension = 4 then sg.name end,
+        pr.non_adoption_reason
+      order by receiver_organization_code asc, receiver_hospital_code asc, receiver_branch_code asc, recognition_dept_id asc, item_type asc, standard_project_code asc, non_adoption_reason asc  <!-- 排序：分组键加原因代码升序，应用层按分组键装配进所属汇总行 -->
+    </Statement>
+
+    <!--
+      功能：统计来源医院被互认汇总满足筛选条件的分组行总数，供服务端分页在取当页分组行之前计算总数。
+      结果：行集限定为统计范围内的采纳事实，按所选汇总维度聚合为分组行后计数，计数对象是分组行；
+      被互认次数只计采纳事实、不等待引用、不含金额；筛选条件与当页分组语句逐字共用同一套。
+    -->
+    <Statement Id="CountSourceRecognitionSummaryGroups">
+      select count(1) as total_count from (
+      select
+        case when $GroupDimension in (1, 2) then r.organization_code end,
+        case when $GroupDimension = 1 then r.hospital_code end,
+        case when $GroupDimension = 2 then r.branch_code end,
+        case when $GroupDimension = 4 then sc.item_type end,
+        case when $GroupDimension = 4 then mi.standard_project_code end,
+        case when $GroupDimension = 4 then si.name end,
+        case when $GroupDimension = 4 then sc.name end,
+        case when $GroupDimension = 4 then sg.name end
+      from mrec_recognition_processing_result pr
+      <!--
+        关联原因：来源侧统计的报告主体来源三值、匹配项编码与匹配记录的接收三值分散在四张事实表上；
+        处理结果按唯一索引与匹配项一对一，匹配项、匹配记录与报告按主键等值连接，均不放大行数。
+      -->
+      join mrec_recognition_match_item mi on mi.id = pr.recognition_match_item_id
+      join mrec_recognition_match_record mr on mr.id = mi.recognition_match_record_id
+      join mrec_medical_recognition_report r on r.id = mi.report_id
+      <!-- 关联原因：项目类型、分类、分组与标准项目名称实时取自标准目录三表，标准项目编码全局唯一，左联不放大行数。 -->
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围，取自报告主体 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="ReceiverOrganizationCode">mr.receiver_organization_code = $ReceiverOrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="ReceiverHospitalCode">mr.receiver_hospital_code = $ReceiverHospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="ReceiverBranchCode">mr.receiver_branch_code = $ReceiverBranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值，与四类明细语句的项目类型筛选同列，同一条件下汇总与明细同源 -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称，转义口径同标准项目类查询 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      <!-- 来源侧行集即采纳事实：只统计处理结果为采纳且互认时间在统计范围内的匹配项，日期边界参数化。 -->
+      and pr.recognition_result = 1
+      and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
+      group by
+        case when $GroupDimension in (1, 2) then r.organization_code end,
+        case when $GroupDimension = 1 then r.hospital_code end,
+        case when $GroupDimension = 2 then r.branch_code end,
+        case when $GroupDimension = 4 then sc.item_type end,
+        case when $GroupDimension = 4 then mi.standard_project_code end,
+        case when $GroupDimension = 4 then si.name end,
+        case when $GroupDimension = 4 then sc.name end,
+        case when $GroupDimension = 4 then sg.name end
+      ) g
+    </Statement>
+
+    <!--
+      功能：取来源医院被互认汇总的当页分组行，按所选汇总维度在数据库侧聚合被互认次数。
+      结果：每行为所选维度的一个分组值，未参与分组的维度键为空值；被互认次数等于本行范围内的采纳事实数；
+      分组键排序升序即稳定唯一顺序，分页窗口由数据映射器的 Provider 适配层附加，本语句保持 Provider 中立。
+    -->
+    <Statement Id="QuerySourceRecognitionSummaryPage">
+      select
+        g.source_organization_code,   <!-- 来源组织编码：取自报告主体，仅来源医院与来源院区维度行有值 -->
+        g.source_hospital_code,       <!-- 来源医院编码：仅来源医院维度行有值 -->
+        g.source_branch_code,         <!-- 来源院区编码：仅来源院区维度行有值 -->
+        g.item_type,                  <!-- 项目类型：实时取自标准目录所属分类，仅标准项目维度行有值 -->
+        g.standard_project_code,      <!-- 标准项目编码：仅标准项目维度行有值 -->
+        g.standard_item_name,         <!-- 标准项目名称：实时取自标准目录，仅标准项目维度行有值 -->
+        g.category_name,              <!-- 标准目录分类名称：仅标准项目维度行有值 -->
+        g.group_name,                 <!-- 标准目录分组名称：仅标准项目维度行有值 -->
+        g.recognition_count           <!-- 被互认次数：本行范围内采纳事实数，只计采纳、不等待引用、不含金额 -->
+      from (
+        select
+          case when $GroupDimension in (1, 2) then r.organization_code end as source_organization_code,
+          case when $GroupDimension = 1 then r.hospital_code end as source_hospital_code,
+          case when $GroupDimension = 2 then r.branch_code end as source_branch_code,
+          case when $GroupDimension = 4 then sc.item_type end as item_type,
+          case when $GroupDimension = 4 then mi.standard_project_code end as standard_project_code,
+          case when $GroupDimension = 4 then si.name end as standard_item_name,
+          case when $GroupDimension = 4 then sc.name end as category_name,
+          case when $GroupDimension = 4 then sg.name end as group_name,
+          count(1) as recognition_count
+        from mrec_recognition_processing_result pr
+        join mrec_recognition_match_item mi on mi.id = pr.recognition_match_item_id
+        join mrec_recognition_match_record mr on mr.id = mi.recognition_match_record_id
+        join mrec_medical_recognition_report r on r.id = mi.report_id
+        left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+        left join mrec_medical_standard_group sg on sg.id = si.group_id
+        left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+        where 1 = 1  <!-- 恒真占位条件：与来源侧汇总计数语句逐字共用同一套筛选片段 -->
+        <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
+        <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+        <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+        <IsNotEmpty Prepend="and" Property="ReceiverOrganizationCode">mr.receiver_organization_code = $ReceiverOrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+        <IsNotEmpty Prepend="and" Property="ReceiverHospitalCode">mr.receiver_hospital_code = $ReceiverHospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+        <IsNotEmpty Prepend="and" Property="ReceiverBranchCode">mr.receiver_branch_code = $ReceiverBranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+        <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值，与四类明细语句的项目类型筛选同列，同一条件下汇总与明细同源 -->
+        <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+        <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+        <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+        and pr.recognition_result = 1
+        and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
+        group by
+          case when $GroupDimension in (1, 2) then r.organization_code end,
+          case when $GroupDimension = 1 then r.hospital_code end,
+          case when $GroupDimension = 2 then r.branch_code end,
+          case when $GroupDimension = 4 then sc.item_type end,
+          case when $GroupDimension = 4 then mi.standard_project_code end,
+          case when $GroupDimension = 4 then si.name end,
+          case when $GroupDimension = 4 then sc.name end,
+          case when $GroupDimension = 4 then sg.name end
+      ) g
+      order by g.source_organization_code asc, g.source_hospital_code asc, g.source_branch_code asc, g.item_type asc, g.standard_project_code asc  <!-- 排序：分组键升序，分组键元组在行集内唯一 -->
+    </Statement>
+
+    <!--
+      功能：统计接收侧提醒明细满足筛选条件的行数，供服务端分页在取当页之前计算总数。
+      结果：提醒事实即统计范围内按匹配生成时间落入的匹配项，包含尚未反馈处理结果的项；
+      筛选条件与当页明细语句逐字共用同一套，筛选条件由内部参数类型 RecognitionUsageDetailFilter 承载。
+    -->
+    <Statement Id="CountRecognitionUsageReminderDetails">
+      select count(1) as total_count
+      from mrec_recognition_match_record mr
+      left join mrec_recognition_match_item mi on mi.recognition_match_record_id = mr.id
+      left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+      left join mrec_recognition_reference rf on rf.recognition_match_item_id = mi.id
+      left join mrec_medical_recognition_report r on r.id = mi.report_id
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+      <IsNotEmpty Prepend="and" Property="OrganizationCode">mr.receiver_organization_code = $OrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="HospitalCode">mr.receiver_hospital_code = $HospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="BranchCode">mr.receiver_branch_code = $BranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围，取自匹配项绑定报告的主体 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室，取处理结果保存值，未反馈项无科室归属、随该筛选一并排除 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生，取处理结果保存值，只作明细查询条件 -->
+      <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码，提醒明细由调用方不传该条件 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值 -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称，转义口径同标准项目类查询 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      <!-- 提醒口径：按互认匹配生成时间取行；不按处理结果排除，未反馈项与已反馈项都在提醒明细内。 -->
+      and mr.match_created_time &gt;= $PeriodStart and mr.match_created_time &lt; $PeriodEnd
+    </Statement>
+
+    <!--
+      功能：取接收侧提醒明细的当页行，逐匹配项返回统计范围内按匹配生成时间落入的提醒事实。
+      结果：包含尚未反馈处理结果的项；患者姓名取自匹配项绑定报告的报告主体检索列，证件号码取匹配记录保存值；
+      处理结果字段为空值表示该项未反馈，由应用层显示「未反馈」，不推断为不采纳；
+      排序为匹配生成时间倒序加匹配项标识升序，跨页无重复无遗漏；分页窗口由数据映射器的 Provider 适配层附加。
+    -->
+    <Statement Id="QueryRecognitionUsageReminderDetails">
+      select
+        mr.id as recognition_match_record_id,   <!-- 互认匹配记录标识：打开匹配记录集合视图使用 -->
+        mi.id as recognition_match_item_id,     <!-- 互认匹配项标识 -->
+        mr.match_created_time,                  <!-- 互认匹配生成时间：提醒口径的业务时间 -->
+        mr.visit_type,                          <!-- 本次来源就诊类型 -->
+        mr.visit_serial_no,                     <!-- 本次来源就诊流水号 -->
+        mr.receiver_organization_code,          <!-- 接收组织编码 -->
+        mr.receiver_hospital_code,              <!-- 接收医院编码 -->
+        mr.receiver_branch_code,                <!-- 接收院区编码 -->
+        r.organization_code as source_organization_code,  <!-- 来源组织编码：取自匹配项绑定报告的主体 -->
+        r.hospital_code as source_hospital_code,          <!-- 来源医院编码 -->
+        r.branch_code as source_branch_code,              <!-- 来源院区编码 -->
+        mi.item_type,                           <!-- 项目类型：取匹配项自身保存值 -->
+        sc.name as category_name,               <!-- 标准目录分类名称：实时取自标准目录 -->
+        sg.name as group_name,                  <!-- 标准目录分组名称：实时取自标准目录 -->
+        mi.standard_project_code,               <!-- 标准项目编码 -->
+        si.name as standard_item_name,          <!-- 标准项目名称：实时取自标准目录 -->
+        r.patient_name as patient_name,         <!-- 患者姓名：取自匹配项绑定报告的报告主体检索列 -->
+        mr.identity_document_no as identity_document_no,  <!-- 患者证件号码：取匹配记录保存值 -->
+        pr.recognition_time as processing_time,           <!-- 处理结果的互认时间：空值表示该项未反馈 -->
+        pr.recognition_result as decision,                <!-- 处理结果决策：取处理结果自身保存值，未反馈行随左联为空值 -->
+        pr.recognition_dept_id as processing_dept_id,     <!-- 互认科室ID：取处理结果自身保存值，未反馈为空值 -->
+        pr.recognition_dept_name as processing_dept_name, <!-- 互认科室名称 -->
+        pr.recognition_doctor_id as processing_doctor_id, <!-- 互认医生ID -->
+        pr.recognition_doctor_name as processing_doctor_name  <!-- 互认医生名称 -->
+      from mrec_recognition_match_record mr
+      left join mrec_recognition_match_item mi on mi.recognition_match_record_id = mr.id
+      left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+      left join mrec_recognition_reference rf on rf.recognition_match_item_id = mi.id
+      left join mrec_medical_recognition_report r on r.id = mi.report_id
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：与提醒明细计数语句逐字共用同一套筛选片段 -->
+      <IsNotEmpty Prepend="and" Property="OrganizationCode">mr.receiver_organization_code = $OrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="HospitalCode">mr.receiver_hospital_code = $HospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="BranchCode">mr.receiver_branch_code = $BranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      and mr.match_created_time &gt;= $PeriodStart and mr.match_created_time &lt; $PeriodEnd
+      order by mr.match_created_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底，跨页无重复无遗漏 -->
+    </Statement>
+
+    <!--
+      功能：统计接收侧采纳明细满足筛选条件的行数，供服务端分页在取当页之前计算总数。
+      结果：行集限定为处理结果为采纳且互认时间在统计范围内的匹配项；筛选条件与当页明细语句逐字共用同一套。
+    -->
+    <Statement Id="CountRecognitionUsageAdoptionDetails">
+      select count(1) as total_count
+      from mrec_recognition_match_record mr
+      left join mrec_recognition_match_item mi on mi.recognition_match_record_id = mr.id
+      left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+      left join mrec_recognition_reference rf on rf.recognition_match_item_id = mi.id
+      left join mrec_medical_recognition_report r on r.id = mi.report_id
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+      <IsNotEmpty Prepend="and" Property="OrganizationCode">mr.receiver_organization_code = $OrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="HospitalCode">mr.receiver_hospital_code = $HospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="BranchCode">mr.receiver_branch_code = $BranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码，采纳明细由调用方不传该条件 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      <!-- 采纳口径：按处理结果互认时间取行，只含采纳决策。 -->
+      and pr.recognition_result = 1 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
+    </Statement>
+
+    <!--
+      功能：取接收侧采纳明细的当页行，逐匹配项返回统计范围内按互认时间落入的采纳事实及其预计节省金额。
+      结果：患者姓名取自匹配项绑定报告的报告主体检索列，证件号码取匹配记录保存值；
+      排序为互认时间倒序加匹配项标识升序；分页窗口由数据映射器的 Provider 适配层附加。
+    -->
+    <Statement Id="QueryRecognitionUsageAdoptionDetails">
+      select
+        mr.id as recognition_match_record_id,   <!-- 互认匹配记录标识 -->
+        mi.id as recognition_match_item_id,     <!-- 互认匹配项标识 -->
+        mr.match_created_time,                  <!-- 互认匹配生成时间：随行携带，供应用层还原匹配时间 -->
+        mr.visit_type,                          <!-- 本次来源就诊类型 -->
+        mr.visit_serial_no,                     <!-- 本次来源就诊流水号 -->
+        mr.receiver_organization_code,          <!-- 接收组织编码 -->
+        mr.receiver_hospital_code,              <!-- 接收医院编码 -->
+        mr.receiver_branch_code,                <!-- 接收院区编码 -->
+        r.organization_code as source_organization_code,  <!-- 来源组织编码 -->
+        r.hospital_code as source_hospital_code,          <!-- 来源医院编码 -->
+        r.branch_code as source_branch_code,              <!-- 来源院区编码 -->
+        mi.item_type,                           <!-- 项目类型：取匹配项自身保存值 -->
+        sc.name as category_name,               <!-- 标准目录分类名称 -->
+        sg.name as group_name,                  <!-- 标准目录分组名称 -->
+        mi.standard_project_code,               <!-- 标准项目编码 -->
+        si.name as standard_item_name,          <!-- 标准项目名称 -->
+        r.patient_name as patient_name,         <!-- 患者姓名：取自匹配项绑定报告的报告主体检索列 -->
+        mr.identity_document_no as identity_document_no,  <!-- 患者证件号码：取匹配记录保存值 -->
+        pr.recognition_time as processing_time,           <!-- 处理结果的互认时间：采纳口径的业务时间 -->
+        pr.recognition_dept_id as processing_dept_id,     <!-- 互认科室ID -->
+        pr.recognition_dept_name as processing_dept_name, <!-- 互认科室名称 -->
+        pr.recognition_doctor_id as processing_doctor_id, <!-- 互认医生ID -->
+        pr.recognition_doctor_name as processing_doctor_name,  <!-- 互认医生名称 -->
+        pr.estimated_saving_amount as estimated_saving_amount  <!-- 预计节省金额：随采纳事实形成，不另建金额事实 -->
+      from mrec_recognition_match_record mr
+      left join mrec_recognition_match_item mi on mi.recognition_match_record_id = mr.id
+      left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+      left join mrec_recognition_reference rf on rf.recognition_match_item_id = mi.id
+      left join mrec_medical_recognition_report r on r.id = mi.report_id
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：与采纳明细计数语句逐字共用同一套筛选片段 -->
+      <IsNotEmpty Prepend="and" Property="OrganizationCode">mr.receiver_organization_code = $OrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="HospitalCode">mr.receiver_hospital_code = $HospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="BranchCode">mr.receiver_branch_code = $BranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      and pr.recognition_result = 1 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
+      order by pr.recognition_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底 -->
+    </Statement>
+
+    <!--
+      功能：统计接收侧不采纳明细满足筛选条件的行数，供服务端分页在取当页之前计算总数。
+      结果：行集限定为处理结果为不采纳且互认时间在统计范围内的匹配项；筛选条件与当页明细语句逐字共用同一套。
+    -->
+    <Statement Id="CountRecognitionUsageNonAdoptionDetails">
+      select count(1) as total_count
+      from mrec_recognition_match_record mr
+      left join mrec_recognition_match_item mi on mi.recognition_match_record_id = mr.id
+      left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+      left join mrec_recognition_reference rf on rf.recognition_match_item_id = mi.id
+      left join mrec_medical_recognition_report r on r.id = mi.report_id
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+      <IsNotEmpty Prepend="and" Property="OrganizationCode">mr.receiver_organization_code = $OrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="HospitalCode">mr.receiver_hospital_code = $HospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="BranchCode">mr.receiver_branch_code = $BranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      <!-- 不采纳口径：按处理结果互认时间取行，只含不采纳决策；原因代码筛选作用于保存的原因列。 -->
+      and pr.recognition_result = 2 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
+    </Statement>
+
+    <!--
+      功能：取接收侧不采纳明细的当页行，逐匹配项返回统计范围内按互认时间落入的不采纳事实及其原因代码与补充说明。
+      结果：原因代码取平台统一原因枚举值，补充说明按业务原值返回、只在明细与导出展示；
+      患者姓名取自匹配项绑定报告的报告主体检索列，证件号码取匹配记录保存值；
+      排序为互认时间倒序加匹配项标识升序；分页窗口由数据映射器的 Provider 适配层附加。
+    -->
+    <Statement Id="QueryRecognitionUsageNonAdoptionDetails">
+      select
+        mr.id as recognition_match_record_id,   <!-- 互认匹配记录标识 -->
+        mi.id as recognition_match_item_id,     <!-- 互认匹配项标识 -->
+        mr.match_created_time,                  <!-- 互认匹配生成时间：随行携带 -->
+        mr.visit_type,                          <!-- 本次来源就诊类型 -->
+        mr.visit_serial_no,                     <!-- 本次来源就诊流水号 -->
+        mr.receiver_organization_code,          <!-- 接收组织编码 -->
+        mr.receiver_hospital_code,              <!-- 接收医院编码 -->
+        mr.receiver_branch_code,                <!-- 接收院区编码 -->
+        r.organization_code as source_organization_code,  <!-- 来源组织编码 -->
+        r.hospital_code as source_hospital_code,          <!-- 来源医院编码 -->
+        r.branch_code as source_branch_code,              <!-- 来源院区编码 -->
+        mi.item_type,                           <!-- 项目类型：取匹配项自身保存值 -->
+        sc.name as category_name,               <!-- 标准目录分类名称 -->
+        sg.name as group_name,                  <!-- 标准目录分组名称 -->
+        mi.standard_project_code,               <!-- 标准项目编码 -->
+        si.name as standard_item_name,          <!-- 标准项目名称 -->
+        r.patient_name as patient_name,         <!-- 患者姓名：取自匹配项绑定报告的报告主体检索列 -->
+        mr.identity_document_no as identity_document_no,  <!-- 患者证件号码：取匹配记录保存值 -->
+        pr.recognition_time as processing_time,           <!-- 处理结果的互认时间：不采纳口径的业务时间 -->
+        pr.recognition_dept_id as processing_dept_id,     <!-- 互认科室ID -->
+        pr.recognition_dept_name as processing_dept_name, <!-- 互认科室名称 -->
+        pr.recognition_doctor_id as processing_doctor_id, <!-- 互认医生ID -->
+        pr.recognition_doctor_name as processing_doctor_name,  <!-- 互认医生名称 -->
+        pr.non_adoption_reason as non_adoption_reason,    <!-- 不采纳原因：平台统一原因代码 -->
+        pr.non_adoption_description as non_adoption_description  <!-- 不采纳补充说明：只在明细与导出展示，原因汇总不聚合该文本 -->
+      from mrec_recognition_match_record mr
+      left join mrec_recognition_match_item mi on mi.recognition_match_record_id = mr.id
+      left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+      left join mrec_recognition_reference rf on rf.recognition_match_item_id = mi.id
+      left join mrec_medical_recognition_report r on r.id = mi.report_id
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：与不采纳明细计数语句逐字共用同一套筛选片段 -->
+      <IsNotEmpty Prepend="and" Property="OrganizationCode">mr.receiver_organization_code = $OrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="HospitalCode">mr.receiver_hospital_code = $HospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="BranchCode">mr.receiver_branch_code = $BranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      and pr.recognition_result = 2 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
+      order by pr.recognition_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底 -->
+    </Statement>
+
+    <!--
+      功能：统计接收侧引用明细满足筛选条件的行数，供服务端分页在取当页之前计算总数。
+      结果：行集限定为引用事实的实际引用时间在统计范围内的匹配项；筛选条件与当页明细语句逐字共用同一套。
+    -->
+    <Statement Id="CountRecognitionUsageReferenceDetails">
+      select count(1) as total_count
+      from mrec_recognition_match_record mr
+      left join mrec_recognition_match_item mi on mi.recognition_match_record_id = mr.id
+      left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+      left join mrec_recognition_reference rf on rf.recognition_match_item_id = mi.id
+      left join mrec_medical_recognition_report r on r.id = mi.report_id
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+      <IsNotEmpty Prepend="and" Property="OrganizationCode">mr.receiver_organization_code = $OrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="HospitalCode">mr.receiver_hospital_code = $HospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="BranchCode">mr.receiver_branch_code = $BranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码，引用明细由调用方不传该条件 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      <!-- 引用口径：按引用事实实际引用时间取行，无引用事实的匹配项不参与。 -->
+      and rf.id is not null and rf.referenced_time &gt;= $PeriodStart and rf.referenced_time &lt; $PeriodEnd
+    </Statement>
+
+    <!--
+      功能：取接收侧引用明细的当页行，逐匹配项返回统计范围内按实际引用时间落入的引用事实及其引用科室与医生。
+      结果：引用事实与匹配项被唯一索引限定为一对一；患者姓名取自匹配项绑定报告的报告主体检索列，证件号码取匹配记录保存值；
+      排序为实际引用时间倒序加匹配项标识升序；分页窗口由数据映射器的 Provider 适配层附加。
+    -->
+    <Statement Id="QueryRecognitionUsageReferenceDetails">
+      select
+        mr.id as recognition_match_record_id,   <!-- 互认匹配记录标识 -->
+        mi.id as recognition_match_item_id,     <!-- 互认匹配项标识 -->
+        mr.match_created_time,                  <!-- 互认匹配生成时间：随行携带 -->
+        mr.visit_type,                          <!-- 本次来源就诊类型 -->
+        mr.visit_serial_no,                     <!-- 本次来源就诊流水号 -->
+        mr.receiver_organization_code,          <!-- 接收组织编码 -->
+        mr.receiver_hospital_code,              <!-- 接收医院编码 -->
+        mr.receiver_branch_code,                <!-- 接收院区编码 -->
+        r.organization_code as source_organization_code,  <!-- 来源组织编码 -->
+        r.hospital_code as source_hospital_code,          <!-- 来源医院编码 -->
+        r.branch_code as source_branch_code,              <!-- 来源院区编码 -->
+        mi.item_type,                           <!-- 项目类型：取匹配项自身保存值 -->
+        sc.name as category_name,               <!-- 标准目录分类名称 -->
+        sg.name as group_name,                  <!-- 标准目录分组名称 -->
+        mi.standard_project_code,               <!-- 标准项目编码 -->
+        si.name as standard_item_name,          <!-- 标准项目名称 -->
+        r.patient_name as patient_name,         <!-- 患者姓名：取自匹配项绑定报告的报告主体检索列 -->
+        mr.identity_document_no as identity_document_no,  <!-- 患者证件号码：取匹配记录保存值 -->
+        pr.recognition_time as processing_time,           <!-- 处理结果的互认时间：被引用项均为已采纳，恒有值 -->
+        pr.recognition_dept_id as processing_dept_id,     <!-- 互认科室ID：取处理结果自身保存值 -->
+        pr.recognition_dept_name as processing_dept_name, <!-- 互认科室名称 -->
+        pr.recognition_doctor_id as processing_doctor_id, <!-- 互认医生ID -->
+        pr.recognition_doctor_name as processing_doctor_name,  <!-- 互认医生名称 -->
+        rf.referenced_time as reference_time,             <!-- 实际引用时间：引用口径的业务时间 -->
+        rf.reference_dept_id as reference_dept_id,        <!-- 引用科室ID：取引用事实自身保存值 -->
+        rf.reference_dept_name as reference_dept_name,    <!-- 引用科室名称 -->
+        rf.reference_doctor_id as reference_doctor_id,    <!-- 引用医生ID -->
+        rf.reference_doctor_name as reference_doctor_name <!-- 引用医生名称 -->
+      from mrec_recognition_match_record mr
+      left join mrec_recognition_match_item mi on mi.recognition_match_record_id = mr.id
+      left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+      left join mrec_recognition_reference rf on rf.recognition_match_item_id = mi.id
+      left join mrec_medical_recognition_report r on r.id = mi.report_id
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：与引用明细计数语句逐字共用同一套筛选片段 -->
+      <IsNotEmpty Prepend="and" Property="OrganizationCode">mr.receiver_organization_code = $OrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="HospitalCode">mr.receiver_hospital_code = $HospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="BranchCode">mr.receiver_branch_code = $BranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      and rf.id is not null and rf.referenced_time &gt;= $PeriodStart and rf.referenced_time &lt; $PeriodEnd
+      order by rf.referenced_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底 -->
+    </Statement>
+
+    <!--
+      功能：统计来源侧被互认明细满足筛选条件的行数，供服务端分页在取当页之前计算总数。
+      结果：行集限定为来源组与接收组范围内、处理结果为采纳且互认时间在统计范围内的匹配项；
+      筛选条件与当页明细语句逐字共用同一套，筛选条件由内部参数类型 SourceRecognitionDetailFilter 承载。
+    -->
+    <Statement Id="CountSourceRecognitionDetails">
+      select count(1) as total_count
+      from mrec_recognition_processing_result pr
+      join mrec_recognition_match_item mi on mi.id = pr.recognition_match_item_id
+      join mrec_recognition_match_record mr on mr.id = mi.recognition_match_record_id
+      join mrec_medical_recognition_report r on r.id = mi.report_id
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="ReceiverOrganizationCode">mr.receiver_organization_code = $ReceiverOrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="ReceiverHospitalCode">mr.receiver_hospital_code = $ReceiverHospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="ReceiverBranchCode">mr.receiver_branch_code = $ReceiverBranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值 -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      <!-- 来源侧明细只反映被采纳事实：按处理结果互认时间取行。 -->
+      and pr.recognition_result = 1 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
+    </Statement>
+
+    <!--
+      功能：取来源侧被互认明细的当页行，逐匹配项返回本组织作为来源方被其他医院采纳的事实。
+      结果：互认科室与医生取处理结果自身保存值，患者姓名取自匹配项绑定报告的报告主体检索列，证件号码取匹配记录保存值；
+      排序为互认时间倒序加匹配项标识升序；分页窗口由数据映射器的 Provider 适配层附加。
+    -->
+    <Statement Id="QuerySourceRecognitionDetails">
+      select
+        mr.id as recognition_match_record_id,   <!-- 互认匹配记录标识：打开匹配记录集合视图使用 -->
+        mi.id as recognition_match_item_id,     <!-- 互认匹配项标识 -->
+        r.organization_code as source_organization_code,  <!-- 来源组织编码：取自匹配项绑定报告的主体 -->
+        r.hospital_code as source_hospital_code,          <!-- 来源医院编码 -->
+        r.branch_code as source_branch_code,              <!-- 来源院区编码 -->
+        mr.receiver_organization_code,          <!-- 接收组织编码 -->
+        mr.receiver_hospital_code,              <!-- 接收医院编码 -->
+        mr.receiver_branch_code,                <!-- 接收院区编码 -->
+        mi.standard_project_code,               <!-- 标准项目编码 -->
+        pr.recognition_time as recognition_time,          <!-- 处理结果的互认时间：来源侧明细的业务时间，恒有值 -->
+        pr.recognition_dept_id,                 <!-- 互认科室ID：取处理结果自身保存值 -->
+        pr.recognition_dept_name,               <!-- 互认科室名称 -->
+        pr.recognition_doctor_id,               <!-- 互认医生ID -->
+        pr.recognition_doctor_name,             <!-- 互认医生名称 -->
+        r.patient_name as patient_name,         <!-- 患者姓名：取自匹配项绑定报告的报告主体检索列 -->
+        mr.identity_document_no as identity_document_no  <!-- 患者证件号码：取匹配记录保存值 -->
+      from mrec_recognition_processing_result pr
+      join mrec_recognition_match_item mi on mi.id = pr.recognition_match_item_id
+      join mrec_recognition_match_record mr on mr.id = mi.recognition_match_record_id
+      join mrec_medical_recognition_report r on r.id = mi.report_id
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where 1 = 1  <!-- 恒真占位条件：与来源侧明细计数语句逐字共用同一套筛选片段 -->
+      <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
+      <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
+      <IsNotEmpty Prepend="and" Property="ReceiverOrganizationCode">mr.receiver_organization_code = $ReceiverOrganizationCode</IsNotEmpty>  <!-- 可选筛选：接收组织范围 -->
+      <IsNotEmpty Prepend="and" Property="ReceiverHospitalCode">mr.receiver_hospital_code = $ReceiverHospitalCode</IsNotEmpty>  <!-- 可选筛选：接收医院范围 -->
+      <IsNotEmpty Prepend="and" Property="ReceiverBranchCode">mr.receiver_branch_code = $ReceiverBranchCode</IsNotEmpty>  <!-- 可选筛选：接收院区范围 -->
+      <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
+      <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
+      <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      and pr.recognition_result = 1 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
+      order by pr.recognition_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底 -->
+    </Statement>
+
+    <!--
+      功能：按标识读取互认匹配记录的组级信息行，供互认匹配记录集合视图展示记录级归属、患者就诊与反馈状态。
+      结果：未命中时返回空结果；记录是否已反馈由组内全部匹配项的反馈状态聚合判定，全部有处理结果才算已反馈；
+      记录级的互认时间、互认科室与互认医生在组内聚合归一，未反馈记录没有这些取值；
+      患者姓名经匹配项绑定报告的报告主体检索列取得，组内取值相同，聚合归一为单值。
+    -->
+    <Statement Id="QueryRecognitionMatchRecordView">
+      select
+        mr.id as recognition_match_record_id,   <!-- 互认匹配记录标识 -->
+        mr.match_created_time,                  <!-- 互认匹配生成时间 -->
+        mr.receiver_organization_code,          <!-- 接收组织编码 -->
+        mr.receiver_hospital_code,              <!-- 接收医院编码 -->
+        mr.receiver_branch_code,                <!-- 接收院区编码 -->
+        max(r.patient_name) as patient_name,    <!-- 患者姓名：组内各匹配项绑定同一患者，聚合归一为单值 -->
+        mr.identity_document_no as identity_document_no,  <!-- 患者证件号码：取匹配记录保存值 -->
+        mr.visit_type,                          <!-- 本次来源就诊类型 -->
+        mr.visit_serial_no,                     <!-- 本次来源就诊流水号 -->
+        <!--
+          处理：组内匹配项数与已有处理结果的匹配项数做计数比较，全部有处理结果且组内至少一项才算已反馈。
+          原因：记录级的反馈状态取组内全部匹配项的反馈状态，左联下计数比较等价于「不存在未反馈项」的判定。
+          结果：布尔列，全部匹配项均已保存处理结果时为真。
+        -->
+        count(mi.id) &gt; 0 and count(mi.id) = count(pr.id) as is_processed,
+        max(pr.recognition_time) as recognition_time,            <!-- 记录级的互认时间：组内聚合归一，未反馈记录为空值 -->
+        max(pr.recognition_dept_id) as recognition_dept_id,      <!-- 记录级的互认科室ID：组内处理结果同批保存，聚合归一 -->
+        max(pr.recognition_dept_name) as recognition_dept_name,  <!-- 记录级的互认科室名称 -->
+        max(pr.recognition_doctor_id) as recognition_doctor_id,  <!-- 记录级的互认医生ID -->
+        max(pr.recognition_doctor_name) as recognition_doctor_name  <!-- 记录级的互认医生名称 -->
+      from mrec_recognition_match_record mr
+      left join mrec_recognition_match_item mi on mi.recognition_match_record_id = mr.id
+      left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+      left join mrec_medical_recognition_report r on r.id = mi.report_id
+      where mr.id = $RecognitionMatchRecordId  <!-- 归属定位：只取该匹配记录 -->
+      group by mr.id, mr.match_created_time, mr.receiver_organization_code, mr.receiver_hospital_code, mr.receiver_branch_code, mr.identity_document_no, mr.visit_type, mr.visit_serial_no
+    </Statement>
+
+    <!--
+      功能：按标识读取互认匹配记录的全部匹配项行，供集合视图逐项展示项目资料、来源归属与各自反馈状态。
+      结果：行集由该记录的全部匹配项决定；反馈状态与决策取各匹配项自身的处理结果，未反馈项的决策与原因为空值；
+      排序按匹配项标识升序，顺序稳定。
+    -->
+    <Statement Id="QueryRecognitionMatchRecordViewItems">
+      select
+        mi.id as recognition_match_item_id,     <!-- 互认匹配项标识 -->
+        mi.item_type,                           <!-- 项目类型：取匹配项自身保存值 -->
+        sc.name as category_name,               <!-- 标准目录分类名称：实时取自标准目录 -->
+        sg.name as group_name,                  <!-- 标准目录分组名称 -->
+        mi.standard_project_code,               <!-- 标准项目编码 -->
+        si.name as standard_item_name,          <!-- 标准项目名称：实时取自标准目录 -->
+        r.organization_code as source_organization_code,  <!-- 来源组织编码：取自匹配项绑定报告的主体 -->
+        r.hospital_code as source_hospital_code,          <!-- 来源医院编码 -->
+        r.branch_code as source_branch_code,              <!-- 来源院区编码 -->
+        mi.report_id,                           <!-- 匹配项绑定报告的标识 -->
+        mi.report_version_id,                   <!-- 匹配项绑定报告版本的标识 -->
+        pr.id is not null as is_processed,      <!-- 该项是否已保存处理结果 -->
+        pr.recognition_result as decision,      <!-- 该项的处理结果决策：首次保存后不可更改，未反馈为空值 -->
+        pr.non_adoption_reason as non_adoption_reason  <!-- 不采纳原因代码：仅不采纳决策携带 -->
+      from mrec_recognition_match_item mi
+      join mrec_recognition_match_record mr on mr.id = mi.recognition_match_record_id
+      left join mrec_recognition_processing_result pr on pr.recognition_match_item_id = mi.id
+      left join mrec_medical_recognition_report r on r.id = mi.report_id
+      left join mrec_medical_standard_item si on si.code = mi.standard_project_code
+      left join mrec_medical_standard_group sg on sg.id = si.group_id
+      left join mrec_medical_standard_category sc on sc.id = si.category_id and sc.id = sg.category_id
+      where mi.recognition_match_record_id = $RecognitionMatchRecordId  <!-- 归属范围：只返回该记录的匹配项 -->
+      order by mi.id asc  <!-- 排序：按匹配项标识升序，顺序稳定 -->
+    </Statement>
   </Statements>
 </SqlMap>

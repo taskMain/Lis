@@ -91,4 +91,41 @@ describe('子应用路由表', () => {
     expect(paths).not.toContain('recognition-amounts/')
     expect(paths).not.toContain('branch-recognition-amounts/')
   })
+
+  it('登记四个统计页路由，与既有页面路由同级', () => {
+    expect(paths).toEqual(expect.arrayContaining([
+      'recognition-usage-statistics',
+      'branch-recognition-usage-statistics',
+      'source-recognition-statistics',
+      'branch-source-recognition-statistics',
+    ]))
+  })
+
+  it('在子应用路径 recognition-usage-statistics 下挂载接收医院互认使用统计页面（宿主路径 /subApps/medical-recognition/recognition-usage-statistics）', async () => {
+    renderPath('/recognition-usage-statistics')
+
+    expect(await screen.findByRole('heading', { name: '接收医院互认使用统计' })).toBeInTheDocument()
+    expect(document.querySelector('.statistics-board')).not.toBeNull()
+  })
+
+  it('在子应用路径 branch-recognition-usage-statistics 下挂载本院互认使用统计页面（宿主路径 /subApps/medical-recognition/branch-recognition-usage-statistics）', async () => {
+    renderPath('/branch-recognition-usage-statistics')
+
+    expect(await screen.findByRole('heading', { name: '本院互认使用统计' })).toBeInTheDocument()
+    expect(document.querySelector('.statistics-board')).not.toBeNull()
+  })
+
+  it('在子应用路径 source-recognition-statistics 下挂载来源医院被互认统计页面（宿主路径 /subApps/medical-recognition/source-recognition-statistics）', async () => {
+    renderPath('/source-recognition-statistics')
+
+    expect(await screen.findByRole('heading', { name: '来源医院被互认统计' })).toBeInTheDocument()
+    expect(document.querySelector('.statistics-board')).not.toBeNull()
+  })
+
+  it('在子应用路径 branch-source-recognition-statistics 下挂载本院被互认统计页面（宿主路径 /subApps/medical-recognition/branch-source-recognition-statistics）', async () => {
+    renderPath('/branch-source-recognition-statistics')
+
+    expect(await screen.findByRole('heading', { name: '本院被互认统计' })).toBeInTheDocument()
+    expect(document.querySelector('.statistics-board')).not.toBeNull()
+  })
 })

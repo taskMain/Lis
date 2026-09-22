@@ -38,7 +38,15 @@ public sealed class SourceGuardReuseTests
     // 阶段 5 的映射守卫按仓储目录内定位建表脚本与映射文件，登记为共享语法工具的消费方。
     "Stage5SqlMapTests.cs",
     // 阶段 5 的收尾守卫按语法节点核对四个入口的事务声明、禁止类型后缀与引用详情链的写入面，登记为共享语法工具的消费方。
-    "Stage5ConstraintTests.cs"
+    "Stage5ConstraintTests.cs",
+    // 阶段 6 的统计契约守卫按语法节点核对契约分片、请求与读模型形状、枚举声明与分页形状，登记为共享语法工具的消费方。
+    "Stage6StatisticsContractTests.cs",
+    // 阶段 6 的统计索引守卫按仓储目录内定位迁移文件与建表脚本，登记为共享语法工具的消费方。
+    "Stage6SqlMapTests.cs",
+    // 阶段 6 的导出端点守卫按语法节点核对导出控制器的路由、动作绑定与响应组装，登记为共享语法工具的消费方。
+    "Stage6EndpointTests.cs",
+    // 阶段 6 的收口守卫按语法节点核对统计与导出链的零写入面与统计语句的只读动词，登记为共享语法工具的消费方。
+    "Stage6ConstraintTests.cs"
   ];
 
   /// <summary>测试工程内不得重复声明的方法名：这两份私有实现历史上各复制过一次。</summary>

@@ -14,6 +14,180 @@ export interface BranchRecognitionAmountListQueryRequest extends AdditionalDataH
      */
     standardProjectCode?: string | null;
 }
+export interface BranchRecognitionStatisticsExportRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The branchCode property
+     */
+    branchCode?: string | null;
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The endTime property
+     */
+    endTime?: DateOnly | null;
+    /**
+     * The exportType property
+     */
+    exportType?: number | null;
+    /**
+     * The groupDimension property
+     */
+    groupDimension?: number | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The nonAdoptionReasonCode property
+     */
+    nonAdoptionReasonCode?: string | null;
+    /**
+     * The receiverBranchCode property
+     */
+    receiverBranchCode?: string | null;
+    /**
+     * The receiverHospitalCode property
+     */
+    receiverHospitalCode?: string | null;
+    /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
+     * The recognitionDoctorId property
+     */
+    recognitionDoctorId?: string | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The sourceHospitalCode property
+     */
+    sourceHospitalCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The startTime property
+     */
+    startTime?: DateOnly | null;
+}
+export interface BranchRecognitionUsageDetailsQueryRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The branchCode property
+     */
+    branchCode?: string | null;
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The detailType property
+     */
+    detailType?: number | null;
+    /**
+     * The endTime property
+     */
+    endTime?: DateOnly | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The nonAdoptionReasonCode property
+     */
+    nonAdoptionReasonCode?: string | null;
+    /**
+     * The page property
+     */
+    page?: PageRequestDto | null;
+    /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
+     * The recognitionDoctorId property
+     */
+    recognitionDoctorId?: string | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The sourceHospitalCode property
+     */
+    sourceHospitalCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The startTime property
+     */
+    startTime?: DateOnly | null;
+}
+export interface BranchRecognitionUsageSummaryQueryRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The branchCode property
+     */
+    branchCode?: string | null;
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The endTime property
+     */
+    endTime?: DateOnly | null;
+    /**
+     * The groupDimension property
+     */
+    groupDimension?: number | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The page property
+     */
+    page?: PageRequestDto | null;
+    /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The sourceHospitalCode property
+     */
+    sourceHospitalCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The startTime property
+     */
+    startTime?: DateOnly | null;
+}
 export interface BranchReportListQueryRequest extends AdditionalDataHolder, Parsable {
     /**
      * The branchCode property
@@ -47,6 +221,94 @@ export interface BranchReportListQueryRequest extends AdditionalDataHolder, Pars
      * The reportType property
      */
     reportType?: number | null;
+}
+export interface BranchSourceRecognitionDetailsQueryRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The endTime property
+     */
+    endTime?: DateOnly | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The page property
+     */
+    page?: PageRequestDto | null;
+    /**
+     * The receiverBranchCode property
+     */
+    receiverBranchCode?: string | null;
+    /**
+     * The receiverHospitalCode property
+     */
+    receiverHospitalCode?: string | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The startTime property
+     */
+    startTime?: DateOnly | null;
+}
+export interface BranchSourceRecognitionSummaryQueryRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The endTime property
+     */
+    endTime?: DateOnly | null;
+    /**
+     * The groupDimension property
+     */
+    groupDimension?: number | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The page property
+     */
+    page?: PageRequestDto | null;
+    /**
+     * The receiverBranchCode property
+     */
+    receiverBranchCode?: string | null;
+    /**
+     * The receiverHospitalCode property
+     */
+    receiverHospitalCode?: string | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The startTime property
+     */
+    startTime?: DateOnly | null;
 }
 export interface ChangeMedicalStandardItemRemarkRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -88,11 +350,56 @@ export function createBranchRecognitionAmountListQueryRequestFromDiscriminatorVa
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BranchRecognitionStatisticsExportRequest}
+ */
+// @ts-ignore
+export function createBranchRecognitionStatisticsExportRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBranchRecognitionStatisticsExportRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BranchRecognitionUsageDetailsQueryRequest}
+ */
+// @ts-ignore
+export function createBranchRecognitionUsageDetailsQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBranchRecognitionUsageDetailsQueryRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BranchRecognitionUsageSummaryQueryRequest}
+ */
+// @ts-ignore
+export function createBranchRecognitionUsageSummaryQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBranchRecognitionUsageSummaryQueryRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {BranchReportListQueryRequest}
  */
 // @ts-ignore
 export function createBranchReportListQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoBranchReportListQueryRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BranchSourceRecognitionDetailsQueryRequest}
+ */
+// @ts-ignore
+export function createBranchSourceRecognitionDetailsQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBranchSourceRecognitionDetailsQueryRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BranchSourceRecognitionSummaryQueryRequest}
+ */
+// @ts-ignore
+export function createBranchSourceRecognitionSummaryQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBranchSourceRecognitionSummaryQueryRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -560,6 +867,15 @@ export interface CreateMutualRecognitionItemRequest extends AdditionalDataHolder
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {NonAdoptionReasonSummaryReadModel}
+ */
+// @ts-ignore
+export function createNonAdoptionReasonSummaryReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoNonAdoptionReasonSummaryReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {PageInfoDto}
  */
 // @ts-ignore
@@ -587,11 +903,65 @@ export function createPageResultDtoOfMedicalReportListReadModelFromDiscriminator
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PageResultDtoOfRecognitionUsageDetailReadModel}
+ */
+// @ts-ignore
+export function createPageResultDtoOfRecognitionUsageDetailReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPageResultDtoOfRecognitionUsageDetailReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PageResultDtoOfRecognitionUsageSummaryReadModel}
+ */
+// @ts-ignore
+export function createPageResultDtoOfRecognitionUsageSummaryReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPageResultDtoOfRecognitionUsageSummaryReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PageResultDtoOfSourceRecognitionDetailReadModel}
+ */
+// @ts-ignore
+export function createPageResultDtoOfSourceRecognitionDetailReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPageResultDtoOfSourceRecognitionDetailReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PageResultDtoOfSourceRecognitionSummaryReadModel}
+ */
+// @ts-ignore
+export function createPageResultDtoOfSourceRecognitionSummaryReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPageResultDtoOfSourceRecognitionSummaryReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {PdfAndImageAccessReadModel}
+ */
+// @ts-ignore
+export function createPdfAndImageAccessReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoPdfAndImageAccessReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {QueryEnumMetadataRequest}
  */
 // @ts-ignore
 export function createQueryEnumMetadataRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoQueryEnumMetadataRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {ReceiverOrganizationReadModel}
+ */
+// @ts-ignore
+export function createReceiverOrganizationReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoReceiverOrganizationReadModel;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -614,6 +984,159 @@ export function createRecognitionAmountReadModelFromDiscriminatorValue(parseNode
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionCitationDetailReadModel}
+ */
+// @ts-ignore
+export function createRecognitionCitationDetailReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionCitationDetailReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionCitationDetailRequest}
+ */
+// @ts-ignore
+export function createRecognitionCitationDetailRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionCitationDetailRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionCitationItemReadModel}
+ */
+// @ts-ignore
+export function createRecognitionCitationItemReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionCitationItemReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionCitationLaboratoryResultReadModel}
+ */
+// @ts-ignore
+export function createRecognitionCitationLaboratoryResultReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionCitationLaboratoryResultReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionExaminationSiteReadModel}
+ */
+// @ts-ignore
+export function createRecognitionExaminationSiteReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionExaminationSiteReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionMatchesResponseReadModel}
+ */
+// @ts-ignore
+export function createRecognitionMatchesResponseReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionMatchesResponseReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionMatchItemReadModel}
+ */
+// @ts-ignore
+export function createRecognitionMatchItemReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionMatchItemReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionMatchLaboratoryResultReadModel}
+ */
+// @ts-ignore
+export function createRecognitionMatchLaboratoryResultReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionMatchLaboratoryResultReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionMatchProposedItemRequest}
+ */
+// @ts-ignore
+export function createRecognitionMatchProposedItemRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionMatchProposedItemRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionMatchQueryRequest}
+ */
+// @ts-ignore
+export function createRecognitionMatchQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionMatchQueryRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionMatchRecordItemReadModel}
+ */
+// @ts-ignore
+export function createRecognitionMatchRecordItemReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionMatchRecordItemReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionMatchRecordQueryRequest}
+ */
+// @ts-ignore
+export function createRecognitionMatchRecordQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionMatchRecordQueryRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionMatchRecordReadModel}
+ */
+// @ts-ignore
+export function createRecognitionMatchRecordReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionMatchRecordReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionMatchReportReadModel}
+ */
+// @ts-ignore
+export function createRecognitionMatchReportReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionMatchReportReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionProcessingResultDetailReadModel}
+ */
+// @ts-ignore
+export function createRecognitionProcessingResultDetailReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionProcessingResultDetailReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionProcessingResultItemRequest}
+ */
+// @ts-ignore
+export function createRecognitionProcessingResultItemRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionProcessingResultItemRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionProcessingResultSubmissionRequest}
+ */
+// @ts-ignore
+export function createRecognitionProcessingResultSubmissionRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionProcessingResultSubmissionRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {RecognitionProjectConfigurationListQueryRequest}
  */
 // @ts-ignore
@@ -628,6 +1151,96 @@ export function createRecognitionProjectConfigurationListQueryRequestFromDiscrim
 // @ts-ignore
 export function createRecognitionProjectConfigurationReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoRecognitionProjectConfigurationReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionReferenceDetailReadModel}
+ */
+// @ts-ignore
+export function createRecognitionReferenceDetailReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionReferenceDetailReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionReferenceItemRequest}
+ */
+// @ts-ignore
+export function createRecognitionReferenceItemRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionReferenceItemRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionReferenceSubmissionRequest}
+ */
+// @ts-ignore
+export function createRecognitionReferenceSubmissionRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionReferenceSubmissionRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionReportContextReadModel}
+ */
+// @ts-ignore
+export function createRecognitionReportContextReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionReportContextReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionStatisticsExportRequest}
+ */
+// @ts-ignore
+export function createRecognitionStatisticsExportRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionStatisticsExportRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionStatisticsItemReadModel}
+ */
+// @ts-ignore
+export function createRecognitionStatisticsItemReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionStatisticsItemReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionUsageDetailReadModel}
+ */
+// @ts-ignore
+export function createRecognitionUsageDetailReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionUsageDetailReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionUsageDetailsQueryRequest}
+ */
+// @ts-ignore
+export function createRecognitionUsageDetailsQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionUsageDetailsQueryRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionUsageSummaryQueryRequest}
+ */
+// @ts-ignore
+export function createRecognitionUsageSummaryQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionUsageSummaryQueryRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionUsageSummaryReadModel}
+ */
+// @ts-ignore
+export function createRecognitionUsageSummaryReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionUsageSummaryReadModel;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -677,6 +1290,51 @@ export function createSaveOrganizationHospitalBranchRecognitionAmountRequestFrom
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SourceOrganizationReadModel}
+ */
+// @ts-ignore
+export function createSourceOrganizationReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSourceOrganizationReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SourceRecognitionDetailReadModel}
+ */
+// @ts-ignore
+export function createSourceRecognitionDetailReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSourceRecognitionDetailReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SourceRecognitionDetailsQueryRequest}
+ */
+// @ts-ignore
+export function createSourceRecognitionDetailsQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSourceRecognitionDetailsQueryRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SourceRecognitionSummaryQueryRequest}
+ */
+// @ts-ignore
+export function createSourceRecognitionSummaryQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSourceRecognitionSummaryQueryRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SourceRecognitionSummaryReadModel}
+ */
+// @ts-ignore
+export function createSourceRecognitionSummaryReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSourceRecognitionSummaryReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {UpdateMedicalStandardCategoryRequest}
  */
 // @ts-ignore
@@ -715,6 +1373,78 @@ export function deserializeIntoBranchRecognitionAmountListQueryRequest(branchRec
 }
 /**
  * The deserialization information for the current model
+ * @param BranchRecognitionStatisticsExportRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBranchRecognitionStatisticsExportRequest(branchRecognitionStatisticsExportRequest: Partial<BranchRecognitionStatisticsExportRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branchCode": n => { branchRecognitionStatisticsExportRequest.branchCode = n.getStringValue(); },
+        "categoryName": n => { branchRecognitionStatisticsExportRequest.categoryName = n.getStringValue(); },
+        "endTime": n => { branchRecognitionStatisticsExportRequest.endTime = n.getDateOnlyValue(); },
+        "exportType": n => { branchRecognitionStatisticsExportRequest.exportType = n.getNumberValue(); },
+        "groupDimension": n => { branchRecognitionStatisticsExportRequest.groupDimension = n.getNumberValue(); },
+        "groupName": n => { branchRecognitionStatisticsExportRequest.groupName = n.getStringValue(); },
+        "itemType": n => { branchRecognitionStatisticsExportRequest.itemType = n.getNumberValue(); },
+        "nonAdoptionReasonCode": n => { branchRecognitionStatisticsExportRequest.nonAdoptionReasonCode = n.getStringValue(); },
+        "receiverBranchCode": n => { branchRecognitionStatisticsExportRequest.receiverBranchCode = n.getStringValue(); },
+        "receiverHospitalCode": n => { branchRecognitionStatisticsExportRequest.receiverHospitalCode = n.getStringValue(); },
+        "recognitionDeptId": n => { branchRecognitionStatisticsExportRequest.recognitionDeptId = n.getStringValue(); },
+        "recognitionDoctorId": n => { branchRecognitionStatisticsExportRequest.recognitionDoctorId = n.getStringValue(); },
+        "sourceBranchCode": n => { branchRecognitionStatisticsExportRequest.sourceBranchCode = n.getStringValue(); },
+        "sourceHospitalCode": n => { branchRecognitionStatisticsExportRequest.sourceHospitalCode = n.getStringValue(); },
+        "standardProjectCode": n => { branchRecognitionStatisticsExportRequest.standardProjectCode = n.getStringValue(); },
+        "startTime": n => { branchRecognitionStatisticsExportRequest.startTime = n.getDateOnlyValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param BranchRecognitionUsageDetailsQueryRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBranchRecognitionUsageDetailsQueryRequest(branchRecognitionUsageDetailsQueryRequest: Partial<BranchRecognitionUsageDetailsQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branchCode": n => { branchRecognitionUsageDetailsQueryRequest.branchCode = n.getStringValue(); },
+        "categoryName": n => { branchRecognitionUsageDetailsQueryRequest.categoryName = n.getStringValue(); },
+        "detailType": n => { branchRecognitionUsageDetailsQueryRequest.detailType = n.getNumberValue(); },
+        "endTime": n => { branchRecognitionUsageDetailsQueryRequest.endTime = n.getDateOnlyValue(); },
+        "groupName": n => { branchRecognitionUsageDetailsQueryRequest.groupName = n.getStringValue(); },
+        "itemType": n => { branchRecognitionUsageDetailsQueryRequest.itemType = n.getNumberValue(); },
+        "nonAdoptionReasonCode": n => { branchRecognitionUsageDetailsQueryRequest.nonAdoptionReasonCode = n.getStringValue(); },
+        "page": n => { branchRecognitionUsageDetailsQueryRequest.page = n.getObjectValue<PageRequestDto>(createPageRequestDtoFromDiscriminatorValue); },
+        "recognitionDeptId": n => { branchRecognitionUsageDetailsQueryRequest.recognitionDeptId = n.getStringValue(); },
+        "recognitionDoctorId": n => { branchRecognitionUsageDetailsQueryRequest.recognitionDoctorId = n.getStringValue(); },
+        "sourceBranchCode": n => { branchRecognitionUsageDetailsQueryRequest.sourceBranchCode = n.getStringValue(); },
+        "sourceHospitalCode": n => { branchRecognitionUsageDetailsQueryRequest.sourceHospitalCode = n.getStringValue(); },
+        "standardProjectCode": n => { branchRecognitionUsageDetailsQueryRequest.standardProjectCode = n.getStringValue(); },
+        "startTime": n => { branchRecognitionUsageDetailsQueryRequest.startTime = n.getDateOnlyValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param BranchRecognitionUsageSummaryQueryRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBranchRecognitionUsageSummaryQueryRequest(branchRecognitionUsageSummaryQueryRequest: Partial<BranchRecognitionUsageSummaryQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branchCode": n => { branchRecognitionUsageSummaryQueryRequest.branchCode = n.getStringValue(); },
+        "categoryName": n => { branchRecognitionUsageSummaryQueryRequest.categoryName = n.getStringValue(); },
+        "endTime": n => { branchRecognitionUsageSummaryQueryRequest.endTime = n.getDateOnlyValue(); },
+        "groupDimension": n => { branchRecognitionUsageSummaryQueryRequest.groupDimension = n.getNumberValue(); },
+        "groupName": n => { branchRecognitionUsageSummaryQueryRequest.groupName = n.getStringValue(); },
+        "itemType": n => { branchRecognitionUsageSummaryQueryRequest.itemType = n.getNumberValue(); },
+        "page": n => { branchRecognitionUsageSummaryQueryRequest.page = n.getObjectValue<PageRequestDto>(createPageRequestDtoFromDiscriminatorValue); },
+        "recognitionDeptId": n => { branchRecognitionUsageSummaryQueryRequest.recognitionDeptId = n.getStringValue(); },
+        "sourceBranchCode": n => { branchRecognitionUsageSummaryQueryRequest.sourceBranchCode = n.getStringValue(); },
+        "sourceHospitalCode": n => { branchRecognitionUsageSummaryQueryRequest.sourceHospitalCode = n.getStringValue(); },
+        "standardProjectCode": n => { branchRecognitionUsageSummaryQueryRequest.standardProjectCode = n.getStringValue(); },
+        "startTime": n => { branchRecognitionUsageSummaryQueryRequest.startTime = n.getDateOnlyValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param BranchReportListQueryRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -729,6 +1459,47 @@ export function deserializeIntoBranchReportListQueryRequest(branchReportListQuer
         "reportDateTo": n => { branchReportListQueryRequest.reportDateTo = n.getDateOnlyValue(); },
         "reportNo": n => { branchReportListQueryRequest.reportNo = n.getStringValue(); },
         "reportType": n => { branchReportListQueryRequest.reportType = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param BranchSourceRecognitionDetailsQueryRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBranchSourceRecognitionDetailsQueryRequest(branchSourceRecognitionDetailsQueryRequest: Partial<BranchSourceRecognitionDetailsQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "categoryName": n => { branchSourceRecognitionDetailsQueryRequest.categoryName = n.getStringValue(); },
+        "endTime": n => { branchSourceRecognitionDetailsQueryRequest.endTime = n.getDateOnlyValue(); },
+        "groupName": n => { branchSourceRecognitionDetailsQueryRequest.groupName = n.getStringValue(); },
+        "itemType": n => { branchSourceRecognitionDetailsQueryRequest.itemType = n.getNumberValue(); },
+        "page": n => { branchSourceRecognitionDetailsQueryRequest.page = n.getObjectValue<PageRequestDto>(createPageRequestDtoFromDiscriminatorValue); },
+        "receiverBranchCode": n => { branchSourceRecognitionDetailsQueryRequest.receiverBranchCode = n.getStringValue(); },
+        "receiverHospitalCode": n => { branchSourceRecognitionDetailsQueryRequest.receiverHospitalCode = n.getStringValue(); },
+        "sourceBranchCode": n => { branchSourceRecognitionDetailsQueryRequest.sourceBranchCode = n.getStringValue(); },
+        "standardProjectCode": n => { branchSourceRecognitionDetailsQueryRequest.standardProjectCode = n.getStringValue(); },
+        "startTime": n => { branchSourceRecognitionDetailsQueryRequest.startTime = n.getDateOnlyValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param BranchSourceRecognitionSummaryQueryRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBranchSourceRecognitionSummaryQueryRequest(branchSourceRecognitionSummaryQueryRequest: Partial<BranchSourceRecognitionSummaryQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "categoryName": n => { branchSourceRecognitionSummaryQueryRequest.categoryName = n.getStringValue(); },
+        "endTime": n => { branchSourceRecognitionSummaryQueryRequest.endTime = n.getDateOnlyValue(); },
+        "groupDimension": n => { branchSourceRecognitionSummaryQueryRequest.groupDimension = n.getNumberValue(); },
+        "groupName": n => { branchSourceRecognitionSummaryQueryRequest.groupName = n.getStringValue(); },
+        "itemType": n => { branchSourceRecognitionSummaryQueryRequest.itemType = n.getNumberValue(); },
+        "page": n => { branchSourceRecognitionSummaryQueryRequest.page = n.getObjectValue<PageRequestDto>(createPageRequestDtoFromDiscriminatorValue); },
+        "receiverBranchCode": n => { branchSourceRecognitionSummaryQueryRequest.receiverBranchCode = n.getStringValue(); },
+        "receiverHospitalCode": n => { branchSourceRecognitionSummaryQueryRequest.receiverHospitalCode = n.getStringValue(); },
+        "sourceBranchCode": n => { branchSourceRecognitionSummaryQueryRequest.sourceBranchCode = n.getStringValue(); },
+        "standardProjectCode": n => { branchSourceRecognitionSummaryQueryRequest.standardProjectCode = n.getStringValue(); },
+        "startTime": n => { branchSourceRecognitionSummaryQueryRequest.startTime = n.getDateOnlyValue(); },
     }
 }
 /**
@@ -1406,6 +2177,20 @@ export function deserializeIntoMedicalStandardItemListReadModel(medicalStandardI
 }
 /**
  * The deserialization information for the current model
+ * @param NonAdoptionReasonSummaryReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoNonAdoptionReasonSummaryReadModel(nonAdoptionReasonSummaryReadModel: Partial<NonAdoptionReasonSummaryReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "count": n => { nonAdoptionReasonSummaryReadModel.count = n.getNumberValue(); },
+        "ratio": n => { nonAdoptionReasonSummaryReadModel.ratio = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+        "reasonCode": n => { nonAdoptionReasonSummaryReadModel.reasonCode = n.getStringValue(); },
+        "reasonName": n => { nonAdoptionReasonSummaryReadModel.reasonName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param PageInfoDto The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1443,6 +2228,70 @@ export function deserializeIntoPageResultDtoOfMedicalReportListReadModel(pageRes
 }
 /**
  * The deserialization information for the current model
+ * @param PageResultDtoOfRecognitionUsageDetailReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPageResultDtoOfRecognitionUsageDetailReadModel(pageResultDtoOfRecognitionUsageDetailReadModel: Partial<PageResultDtoOfRecognitionUsageDetailReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "items": n => { pageResultDtoOfRecognitionUsageDetailReadModel.items = n.getCollectionOfObjectValues<RecognitionUsageDetailReadModel>(createRecognitionUsageDetailReadModelFromDiscriminatorValue); },
+        "page": n => { pageResultDtoOfRecognitionUsageDetailReadModel.page = n.getObjectValue<PageInfoDto>(createPageInfoDtoFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PageResultDtoOfRecognitionUsageSummaryReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPageResultDtoOfRecognitionUsageSummaryReadModel(pageResultDtoOfRecognitionUsageSummaryReadModel: Partial<PageResultDtoOfRecognitionUsageSummaryReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "items": n => { pageResultDtoOfRecognitionUsageSummaryReadModel.items = n.getCollectionOfObjectValues<RecognitionUsageSummaryReadModel>(createRecognitionUsageSummaryReadModelFromDiscriminatorValue); },
+        "page": n => { pageResultDtoOfRecognitionUsageSummaryReadModel.page = n.getObjectValue<PageInfoDto>(createPageInfoDtoFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PageResultDtoOfSourceRecognitionDetailReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPageResultDtoOfSourceRecognitionDetailReadModel(pageResultDtoOfSourceRecognitionDetailReadModel: Partial<PageResultDtoOfSourceRecognitionDetailReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "items": n => { pageResultDtoOfSourceRecognitionDetailReadModel.items = n.getCollectionOfObjectValues<SourceRecognitionDetailReadModel>(createSourceRecognitionDetailReadModelFromDiscriminatorValue); },
+        "page": n => { pageResultDtoOfSourceRecognitionDetailReadModel.page = n.getObjectValue<PageInfoDto>(createPageInfoDtoFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PageResultDtoOfSourceRecognitionSummaryReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPageResultDtoOfSourceRecognitionSummaryReadModel(pageResultDtoOfSourceRecognitionSummaryReadModel: Partial<PageResultDtoOfSourceRecognitionSummaryReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "items": n => { pageResultDtoOfSourceRecognitionSummaryReadModel.items = n.getCollectionOfObjectValues<SourceRecognitionSummaryReadModel>(createSourceRecognitionSummaryReadModelFromDiscriminatorValue); },
+        "page": n => { pageResultDtoOfSourceRecognitionSummaryReadModel.page = n.getObjectValue<PageInfoDto>(createPageInfoDtoFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param PdfAndImageAccessReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoPdfAndImageAccessReadModel(pdfAndImageAccessReadModel: Partial<PdfAndImageAccessReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "imageAccessUrl": n => { pdfAndImageAccessReadModel.imageAccessUrl = n.getStringValue(); },
+        "pdfDownloadUrl": n => { pdfAndImageAccessReadModel.pdfDownloadUrl = n.getStringValue(); },
+        "pdfFileId": n => { pdfAndImageAccessReadModel.pdfFileId = n.getStringValue(); },
+        "pdfOriginalFileName": n => { pdfAndImageAccessReadModel.pdfOriginalFileName = n.getStringValue(); },
+        "sourceImageStatus": n => { pdfAndImageAccessReadModel.sourceImageStatus = n.getNumberValue(); },
+        "sourceImageStatusText": n => { pdfAndImageAccessReadModel.sourceImageStatusText = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param QueryEnumMetadataRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1450,6 +2299,22 @@ export function deserializeIntoPageResultDtoOfMedicalReportListReadModel(pageRes
 export function deserializeIntoQueryEnumMetadataRequest(queryEnumMetadataRequest: Partial<QueryEnumMetadataRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "enumName": n => { queryEnumMetadataRequest.enumName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param ReceiverOrganizationReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoReceiverOrganizationReadModel(receiverOrganizationReadModel: Partial<ReceiverOrganizationReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branchCode": n => { receiverOrganizationReadModel.branchCode = n.getStringValue(); },
+        "branchName": n => { receiverOrganizationReadModel.branchName = n.getStringValue(); },
+        "hospitalCode": n => { receiverOrganizationReadModel.hospitalCode = n.getStringValue(); },
+        "hospitalName": n => { receiverOrganizationReadModel.hospitalName = n.getStringValue(); },
+        "organizationCode": n => { receiverOrganizationReadModel.organizationCode = n.getStringValue(); },
+        "organizationName": n => { receiverOrganizationReadModel.organizationName = n.getStringValue(); },
     }
 }
 /**
@@ -1492,6 +2357,283 @@ export function deserializeIntoRecognitionAmountReadModel(recognitionAmountReadM
 }
 /**
  * The deserialization information for the current model
+ * @param RecognitionCitationDetailReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionCitationDetailReadModel(recognitionCitationDetailReadModel: Partial<RecognitionCitationDetailReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "matchItems": n => { recognitionCitationDetailReadModel.matchItems = n.getCollectionOfObjectValues<RecognitionCitationItemReadModel>(createRecognitionCitationItemReadModelFromDiscriminatorValue); },
+        "reportContext": n => { recognitionCitationDetailReadModel.reportContext = n.getCollectionOfObjectValues<RecognitionReportContextReadModel>(createRecognitionReportContextReadModelFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionCitationDetailRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionCitationDetailRequest(recognitionCitationDetailRequest: Partial<RecognitionCitationDetailRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "identityDocumentNo": n => { recognitionCitationDetailRequest.identityDocumentNo = n.getStringValue(); },
+        "identityDocumentTypeCode": n => { recognitionCitationDetailRequest.identityDocumentTypeCode = n.getStringValue(); },
+        "visitSerialNo": n => { recognitionCitationDetailRequest.visitSerialNo = n.getStringValue(); },
+        "visitType": n => { recognitionCitationDetailRequest.visitType = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionCitationItemReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionCitationItemReadModel(recognitionCitationItemReadModel: Partial<RecognitionCitationItemReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "examinationSites": n => { recognitionCitationItemReadModel.examinationSites = n.getCollectionOfObjectValues<RecognitionExaminationSiteReadModel>(createRecognitionExaminationSiteReadModelFromDiscriminatorValue); },
+        "laboratoryResults": n => { recognitionCitationItemReadModel.laboratoryResults = n.getCollectionOfObjectValues<RecognitionCitationLaboratoryResultReadModel>(createRecognitionCitationLaboratoryResultReadModelFromDiscriminatorValue); },
+        "recognitionMatchItemId": n => { recognitionCitationItemReadModel.recognitionMatchItemId = n.getGuidValue(); },
+        "reportId": n => { recognitionCitationItemReadModel.reportId = n.getGuidValue(); },
+        "reportVersionId": n => { recognitionCitationItemReadModel.reportVersionId = n.getGuidValue(); },
+        "standardProjectCode": n => { recognitionCitationItemReadModel.standardProjectCode = n.getStringValue(); },
+        "standardProjectName": n => { recognitionCitationItemReadModel.standardProjectName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionCitationLaboratoryResultReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionCitationLaboratoryResultReadModel(recognitionCitationLaboratoryResultReadModel: Partial<RecognitionCitationLaboratoryResultReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "resultItemName": n => { recognitionCitationLaboratoryResultReadModel.resultItemName = n.getStringValue(); },
+        "sourceAbnormalFlag": n => { recognitionCitationLaboratoryResultReadModel.sourceAbnormalFlag = n.getStringValue(); },
+        "sourceCriticalValueFlag": n => { recognitionCitationLaboratoryResultReadModel.sourceCriticalValueFlag = n.getStringValue(); },
+        "sourceReferenceRange": n => { recognitionCitationLaboratoryResultReadModel.sourceReferenceRange = n.getStringValue(); },
+        "sourceResultContent": n => { recognitionCitationLaboratoryResultReadModel.sourceResultContent = n.getStringValue(); },
+        "unit": n => { recognitionCitationLaboratoryResultReadModel.unit = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionExaminationSiteReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionExaminationSiteReadModel(recognitionExaminationSiteReadModel: Partial<RecognitionExaminationSiteReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "siteName": n => { recognitionExaminationSiteReadModel.siteName = n.getStringValue(); },
+        "sourceSiteCode": n => { recognitionExaminationSiteReadModel.sourceSiteCode = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionMatchesResponseReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionMatchesResponseReadModel(recognitionMatchesResponseReadModel: Partial<RecognitionMatchesResponseReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "hasMatches": n => { recognitionMatchesResponseReadModel.hasMatches = n.getBooleanValue(); },
+        "matchCreatedTime": n => { recognitionMatchesResponseReadModel.matchCreatedTime = n.getDateValue(); },
+        "recognitionMatchRecordId": n => { recognitionMatchesResponseReadModel.recognitionMatchRecordId = n.getGuidValue(); },
+        "reports": n => { recognitionMatchesResponseReadModel.reports = n.getCollectionOfObjectValues<RecognitionMatchReportReadModel>(createRecognitionMatchReportReadModelFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionMatchItemReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionMatchItemReadModel(recognitionMatchItemReadModel: Partial<RecognitionMatchItemReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "examinationSites": n => { recognitionMatchItemReadModel.examinationSites = n.getCollectionOfObjectValues<RecognitionExaminationSiteReadModel>(createRecognitionExaminationSiteReadModelFromDiscriminatorValue); },
+        "laboratoryResults": n => { recognitionMatchItemReadModel.laboratoryResults = n.getCollectionOfObjectValues<RecognitionMatchLaboratoryResultReadModel>(createRecognitionMatchLaboratoryResultReadModelFromDiscriminatorValue); },
+        "overallAbnormalFlag": n => { recognitionMatchItemReadModel.overallAbnormalFlag = n.getStringValue(); },
+        "recognitionMatchItemId": n => { recognitionMatchItemReadModel.recognitionMatchItemId = n.getGuidValue(); },
+        "specimenTypeName": n => { recognitionMatchItemReadModel.specimenTypeName = n.getStringValue(); },
+        "standardProjectCode": n => { recognitionMatchItemReadModel.standardProjectCode = n.getStringValue(); },
+        "standardProjectName": n => { recognitionMatchItemReadModel.standardProjectName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionMatchLaboratoryResultReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionMatchLaboratoryResultReadModel(recognitionMatchLaboratoryResultReadModel: Partial<RecognitionMatchLaboratoryResultReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "resultItemName": n => { recognitionMatchLaboratoryResultReadModel.resultItemName = n.getStringValue(); },
+        "sourceAbnormalFlag": n => { recognitionMatchLaboratoryResultReadModel.sourceAbnormalFlag = n.getStringValue(); },
+        "sourceCriticalValueFlag": n => { recognitionMatchLaboratoryResultReadModel.sourceCriticalValueFlag = n.getStringValue(); },
+        "sourceReferenceRange": n => { recognitionMatchLaboratoryResultReadModel.sourceReferenceRange = n.getStringValue(); },
+        "sourceResultContent": n => { recognitionMatchLaboratoryResultReadModel.sourceResultContent = n.getStringValue(); },
+        "unit": n => { recognitionMatchLaboratoryResultReadModel.unit = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionMatchProposedItemRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionMatchProposedItemRequest(recognitionMatchProposedItemRequest: Partial<RecognitionMatchProposedItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "itemType": n => { recognitionMatchProposedItemRequest.itemType = n.getNumberValue(); },
+        "standardProjectCode": n => { recognitionMatchProposedItemRequest.standardProjectCode = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionMatchQueryRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionMatchQueryRequest(recognitionMatchQueryRequest: Partial<RecognitionMatchQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "identityDocumentNo": n => { recognitionMatchQueryRequest.identityDocumentNo = n.getStringValue(); },
+        "identityDocumentTypeCode": n => { recognitionMatchQueryRequest.identityDocumentTypeCode = n.getStringValue(); },
+        "proposedItems": n => { recognitionMatchQueryRequest.proposedItems = n.getCollectionOfObjectValues<RecognitionMatchProposedItemRequest>(createRecognitionMatchProposedItemRequestFromDiscriminatorValue); },
+        "visitSerialNo": n => { recognitionMatchQueryRequest.visitSerialNo = n.getStringValue(); },
+        "visitType": n => { recognitionMatchQueryRequest.visitType = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionMatchRecordItemReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionMatchRecordItemReadModel(recognitionMatchRecordItemReadModel: Partial<RecognitionMatchRecordItemReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "decision": n => { recognitionMatchRecordItemReadModel.decision = n.getNumberValue(); },
+        "decisionText": n => { recognitionMatchRecordItemReadModel.decisionText = n.getStringValue(); },
+        "isProcessed": n => { recognitionMatchRecordItemReadModel.isProcessed = n.getBooleanValue(); },
+        "item": n => { recognitionMatchRecordItemReadModel.item = n.getObjectValue<RecognitionStatisticsItemReadModel>(createRecognitionStatisticsItemReadModelFromDiscriminatorValue); },
+        "nonAdoptionReasonCode": n => { recognitionMatchRecordItemReadModel.nonAdoptionReasonCode = n.getStringValue(); },
+        "nonAdoptionReasonName": n => { recognitionMatchRecordItemReadModel.nonAdoptionReasonName = n.getStringValue(); },
+        "recognitionMatchItemId": n => { recognitionMatchRecordItemReadModel.recognitionMatchItemId = n.getGuidValue(); },
+        "reportId": n => { recognitionMatchRecordItemReadModel.reportId = n.getGuidValue(); },
+        "reportVersionId": n => { recognitionMatchRecordItemReadModel.reportVersionId = n.getGuidValue(); },
+        "source": n => { recognitionMatchRecordItemReadModel.source = n.getObjectValue<SourceOrganizationReadModel>(createSourceOrganizationReadModelFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionMatchRecordQueryRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionMatchRecordQueryRequest(recognitionMatchRecordQueryRequest: Partial<RecognitionMatchRecordQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "recognitionMatchRecordId": n => { recognitionMatchRecordQueryRequest.recognitionMatchRecordId = n.getGuidValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionMatchRecordReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionMatchRecordReadModel(recognitionMatchRecordReadModel: Partial<RecognitionMatchRecordReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "identityDocumentNo": n => { recognitionMatchRecordReadModel.identityDocumentNo = n.getStringValue(); },
+        "isProcessed": n => { recognitionMatchRecordReadModel.isProcessed = n.getBooleanValue(); },
+        "matchCreatedTime": n => { recognitionMatchRecordReadModel.matchCreatedTime = n.getDateValue(); },
+        "matchItems": n => { recognitionMatchRecordReadModel.matchItems = n.getCollectionOfObjectValues<RecognitionMatchRecordItemReadModel>(createRecognitionMatchRecordItemReadModelFromDiscriminatorValue); },
+        "patientName": n => { recognitionMatchRecordReadModel.patientName = n.getStringValue(); },
+        "receiver": n => { recognitionMatchRecordReadModel.receiver = n.getObjectValue<ReceiverOrganizationReadModel>(createReceiverOrganizationReadModelFromDiscriminatorValue); },
+        "recognitionDeptId": n => { recognitionMatchRecordReadModel.recognitionDeptId = n.getStringValue(); },
+        "recognitionDeptName": n => { recognitionMatchRecordReadModel.recognitionDeptName = n.getStringValue(); },
+        "recognitionDoctorId": n => { recognitionMatchRecordReadModel.recognitionDoctorId = n.getStringValue(); },
+        "recognitionDoctorName": n => { recognitionMatchRecordReadModel.recognitionDoctorName = n.getStringValue(); },
+        "recognitionMatchRecordId": n => { recognitionMatchRecordReadModel.recognitionMatchRecordId = n.getGuidValue(); },
+        "recognitionTime": n => { recognitionMatchRecordReadModel.recognitionTime = n.getDateValue(); },
+        "visitSerialNo": n => { recognitionMatchRecordReadModel.visitSerialNo = n.getStringValue(); },
+        "visitType": n => { recognitionMatchRecordReadModel.visitType = n.getNumberValue(); },
+        "visitTypeText": n => { recognitionMatchRecordReadModel.visitTypeText = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionMatchReportReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionMatchReportReadModel(recognitionMatchReportReadModel: Partial<RecognitionMatchReportReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "clinicalTime": n => { recognitionMatchReportReadModel.clinicalTime = n.getDateValue(); },
+        "file": n => { recognitionMatchReportReadModel.file = n.getObjectValue<PdfAndImageAccessReadModel>(createPdfAndImageAccessReadModelFromDiscriminatorValue); },
+        "matchItems": n => { recognitionMatchReportReadModel.matchItems = n.getCollectionOfObjectValues<RecognitionMatchItemReadModel>(createRecognitionMatchItemReadModelFromDiscriminatorValue); },
+        "reportId": n => { recognitionMatchReportReadModel.reportId = n.getGuidValue(); },
+        "reportName": n => { recognitionMatchReportReadModel.reportName = n.getStringValue(); },
+        "reportNo": n => { recognitionMatchReportReadModel.reportNo = n.getStringValue(); },
+        "reportTime": n => { recognitionMatchReportReadModel.reportTime = n.getDateValue(); },
+        "reportType": n => { recognitionMatchReportReadModel.reportType = n.getNumberValue(); },
+        "reportTypeText": n => { recognitionMatchReportReadModel.reportTypeText = n.getStringValue(); },
+        "reportVersionId": n => { recognitionMatchReportReadModel.reportVersionId = n.getGuidValue(); },
+        "sourceBranchCode": n => { recognitionMatchReportReadModel.sourceBranchCode = n.getStringValue(); },
+        "sourceBranchName": n => { recognitionMatchReportReadModel.sourceBranchName = n.getStringValue(); },
+        "sourceHospitalCode": n => { recognitionMatchReportReadModel.sourceHospitalCode = n.getStringValue(); },
+        "sourceHospitalName": n => { recognitionMatchReportReadModel.sourceHospitalName = n.getStringValue(); },
+        "sourceOrganizationCode": n => { recognitionMatchReportReadModel.sourceOrganizationCode = n.getStringValue(); },
+        "sourceOrganizationName": n => { recognitionMatchReportReadModel.sourceOrganizationName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionProcessingResultDetailReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionProcessingResultDetailReadModel(recognitionProcessingResultDetailReadModel: Partial<RecognitionProcessingResultDetailReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "decision": n => { recognitionProcessingResultDetailReadModel.decision = n.getNumberValue(); },
+        "decisionText": n => { recognitionProcessingResultDetailReadModel.decisionText = n.getStringValue(); },
+        "estimatedSavingAmount": n => { recognitionProcessingResultDetailReadModel.estimatedSavingAmount = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+        "isProcessed": n => { recognitionProcessingResultDetailReadModel.isProcessed = n.getBooleanValue(); },
+        "nonAdoptionReasonCode": n => { recognitionProcessingResultDetailReadModel.nonAdoptionReasonCode = n.getStringValue(); },
+        "nonAdoptionReasonName": n => { recognitionProcessingResultDetailReadModel.nonAdoptionReasonName = n.getStringValue(); },
+        "nonAdoptionSupplementDescription": n => { recognitionProcessingResultDetailReadModel.nonAdoptionSupplementDescription = n.getStringValue(); },
+        "recognitionTime": n => { recognitionProcessingResultDetailReadModel.recognitionTime = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionProcessingResultItemRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionProcessingResultItemRequest(recognitionProcessingResultItemRequest: Partial<RecognitionProcessingResultItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "nonAdoptionDescription": n => { recognitionProcessingResultItemRequest.nonAdoptionDescription = n.getStringValue(); },
+        "nonAdoptionReason": n => { recognitionProcessingResultItemRequest.nonAdoptionReason = n.getNumberValue(); },
+        "recognitionMatchItemId": n => { recognitionProcessingResultItemRequest.recognitionMatchItemId = n.getGuidValue(); },
+        "result": n => { recognitionProcessingResultItemRequest.result = n.getNumberValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionProcessingResultSubmissionRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionProcessingResultSubmissionRequest(recognitionProcessingResultSubmissionRequest: Partial<RecognitionProcessingResultSubmissionRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "changedProperties": n => { recognitionProcessingResultSubmissionRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "processingResults": n => { recognitionProcessingResultSubmissionRequest.processingResults = n.getCollectionOfObjectValues<RecognitionProcessingResultItemRequest>(createRecognitionProcessingResultItemRequestFromDiscriminatorValue); },
+        "recognitionDeptId": n => { recognitionProcessingResultSubmissionRequest.recognitionDeptId = n.getStringValue(); },
+        "recognitionDeptName": n => { recognitionProcessingResultSubmissionRequest.recognitionDeptName = n.getStringValue(); },
+        "recognitionDoctorId": n => { recognitionProcessingResultSubmissionRequest.recognitionDoctorId = n.getStringValue(); },
+        "recognitionDoctorName": n => { recognitionProcessingResultSubmissionRequest.recognitionDoctorName = n.getStringValue(); },
+        "recognitionMatchRecordId": n => { recognitionProcessingResultSubmissionRequest.recognitionMatchRecordId = n.getGuidValue(); },
+        "recognitionTime": n => { recognitionProcessingResultSubmissionRequest.recognitionTime = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param RecognitionProjectConfigurationListQueryRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -1522,6 +2664,239 @@ export function deserializeIntoRecognitionProjectConfigurationReadModel(recognit
         "standardItemName": n => { recognitionProjectConfigurationReadModel.standardItemName = n.getStringValue(); },
         "standardProjectCode": n => { recognitionProjectConfigurationReadModel.standardProjectCode = n.getStringValue(); },
         "unavailableReason": n => { recognitionProjectConfigurationReadModel.unavailableReason = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionReferenceDetailReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionReferenceDetailReadModel(recognitionReferenceDetailReadModel: Partial<RecognitionReferenceDetailReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "isReferenced": n => { recognitionReferenceDetailReadModel.isReferenced = n.getBooleanValue(); },
+        "referenceDeptId": n => { recognitionReferenceDetailReadModel.referenceDeptId = n.getStringValue(); },
+        "referenceDeptName": n => { recognitionReferenceDetailReadModel.referenceDeptName = n.getStringValue(); },
+        "referenceDoctorId": n => { recognitionReferenceDetailReadModel.referenceDoctorId = n.getStringValue(); },
+        "referenceDoctorName": n => { recognitionReferenceDetailReadModel.referenceDoctorName = n.getStringValue(); },
+        "referenceTime": n => { recognitionReferenceDetailReadModel.referenceTime = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionReferenceItemRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionReferenceItemRequest(recognitionReferenceItemRequest: Partial<RecognitionReferenceItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "recognitionMatchItemId": n => { recognitionReferenceItemRequest.recognitionMatchItemId = n.getGuidValue(); },
+        "referenceDeptId": n => { recognitionReferenceItemRequest.referenceDeptId = n.getStringValue(); },
+        "referenceDeptName": n => { recognitionReferenceItemRequest.referenceDeptName = n.getStringValue(); },
+        "referenceDoctorId": n => { recognitionReferenceItemRequest.referenceDoctorId = n.getStringValue(); },
+        "referenceDoctorName": n => { recognitionReferenceItemRequest.referenceDoctorName = n.getStringValue(); },
+        "referencedTime": n => { recognitionReferenceItemRequest.referencedTime = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionReferenceSubmissionRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionReferenceSubmissionRequest(recognitionReferenceSubmissionRequest: Partial<RecognitionReferenceSubmissionRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "referenceItems": n => { recognitionReferenceSubmissionRequest.referenceItems = n.getCollectionOfObjectValues<RecognitionReferenceItemRequest>(createRecognitionReferenceItemRequestFromDiscriminatorValue); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionReportContextReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionReportContextReadModel(recognitionReportContextReadModel: Partial<RecognitionReportContextReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "clinicalTime": n => { recognitionReportContextReadModel.clinicalTime = n.getDateValue(); },
+        "examinationConclusion": n => { recognitionReportContextReadModel.examinationConclusion = n.getStringValue(); },
+        "examinationFindings": n => { recognitionReportContextReadModel.examinationFindings = n.getStringValue(); },
+        "file": n => { recognitionReportContextReadModel.file = n.getObjectValue<PdfAndImageAccessReadModel>(createPdfAndImageAccessReadModelFromDiscriminatorValue); },
+        "reportId": n => { recognitionReportContextReadModel.reportId = n.getGuidValue(); },
+        "reportName": n => { recognitionReportContextReadModel.reportName = n.getStringValue(); },
+        "reportNo": n => { recognitionReportContextReadModel.reportNo = n.getStringValue(); },
+        "reportTime": n => { recognitionReportContextReadModel.reportTime = n.getDateValue(); },
+        "reportType": n => { recognitionReportContextReadModel.reportType = n.getNumberValue(); },
+        "reportTypeText": n => { recognitionReportContextReadModel.reportTypeText = n.getStringValue(); },
+        "reportVersionId": n => { recognitionReportContextReadModel.reportVersionId = n.getGuidValue(); },
+        "sourceApplicantDoctorId": n => { recognitionReportContextReadModel.sourceApplicantDoctorId = n.getStringValue(); },
+        "sourceApplicantDoctorName": n => { recognitionReportContextReadModel.sourceApplicantDoctorName = n.getStringValue(); },
+        "sourceBranchCode": n => { recognitionReportContextReadModel.sourceBranchCode = n.getStringValue(); },
+        "sourceBranchName": n => { recognitionReportContextReadModel.sourceBranchName = n.getStringValue(); },
+        "sourceHospitalCode": n => { recognitionReportContextReadModel.sourceHospitalCode = n.getStringValue(); },
+        "sourceHospitalName": n => { recognitionReportContextReadModel.sourceHospitalName = n.getStringValue(); },
+        "sourceOrganizationCode": n => { recognitionReportContextReadModel.sourceOrganizationCode = n.getStringValue(); },
+        "sourceOrganizationName": n => { recognitionReportContextReadModel.sourceOrganizationName = n.getStringValue(); },
+        "sourceReviewerDoctorId": n => { recognitionReportContextReadModel.sourceReviewerDoctorId = n.getStringValue(); },
+        "sourceReviewerDoctorName": n => { recognitionReportContextReadModel.sourceReviewerDoctorName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionStatisticsExportRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionStatisticsExportRequest(recognitionStatisticsExportRequest: Partial<RecognitionStatisticsExportRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "categoryName": n => { recognitionStatisticsExportRequest.categoryName = n.getStringValue(); },
+        "endTime": n => { recognitionStatisticsExportRequest.endTime = n.getDateOnlyValue(); },
+        "exportType": n => { recognitionStatisticsExportRequest.exportType = n.getNumberValue(); },
+        "groupDimension": n => { recognitionStatisticsExportRequest.groupDimension = n.getNumberValue(); },
+        "groupName": n => { recognitionStatisticsExportRequest.groupName = n.getStringValue(); },
+        "itemType": n => { recognitionStatisticsExportRequest.itemType = n.getNumberValue(); },
+        "nonAdoptionReasonCode": n => { recognitionStatisticsExportRequest.nonAdoptionReasonCode = n.getStringValue(); },
+        "receiverBranchCode": n => { recognitionStatisticsExportRequest.receiverBranchCode = n.getStringValue(); },
+        "receiverHospitalCode": n => { recognitionStatisticsExportRequest.receiverHospitalCode = n.getStringValue(); },
+        "receiverOrganizationCode": n => { recognitionStatisticsExportRequest.receiverOrganizationCode = n.getStringValue(); },
+        "recognitionDeptId": n => { recognitionStatisticsExportRequest.recognitionDeptId = n.getStringValue(); },
+        "recognitionDoctorId": n => { recognitionStatisticsExportRequest.recognitionDoctorId = n.getStringValue(); },
+        "sourceBranchCode": n => { recognitionStatisticsExportRequest.sourceBranchCode = n.getStringValue(); },
+        "sourceHospitalCode": n => { recognitionStatisticsExportRequest.sourceHospitalCode = n.getStringValue(); },
+        "sourceOrganizationCode": n => { recognitionStatisticsExportRequest.sourceOrganizationCode = n.getStringValue(); },
+        "standardProjectCode": n => { recognitionStatisticsExportRequest.standardProjectCode = n.getStringValue(); },
+        "startTime": n => { recognitionStatisticsExportRequest.startTime = n.getDateOnlyValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionStatisticsItemReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionStatisticsItemReadModel(recognitionStatisticsItemReadModel: Partial<RecognitionStatisticsItemReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "categoryName": n => { recognitionStatisticsItemReadModel.categoryName = n.getStringValue(); },
+        "groupName": n => { recognitionStatisticsItemReadModel.groupName = n.getStringValue(); },
+        "itemType": n => { recognitionStatisticsItemReadModel.itemType = n.getNumberValue(); },
+        "itemTypeText": n => { recognitionStatisticsItemReadModel.itemTypeText = n.getStringValue(); },
+        "standardProjectCode": n => { recognitionStatisticsItemReadModel.standardProjectCode = n.getStringValue(); },
+        "standardProjectName": n => { recognitionStatisticsItemReadModel.standardProjectName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionUsageDetailReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionUsageDetailReadModel(recognitionUsageDetailReadModel: Partial<RecognitionUsageDetailReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "businessTime": n => { recognitionUsageDetailReadModel.businessTime = n.getDateValue(); },
+        "identityDocumentNo": n => { recognitionUsageDetailReadModel.identityDocumentNo = n.getStringValue(); },
+        "isUnprocessed": n => { recognitionUsageDetailReadModel.isUnprocessed = n.getBooleanValue(); },
+        "item": n => { recognitionUsageDetailReadModel.item = n.getObjectValue<RecognitionStatisticsItemReadModel>(createRecognitionStatisticsItemReadModelFromDiscriminatorValue); },
+        "matchCreatedTime": n => { recognitionUsageDetailReadModel.matchCreatedTime = n.getDateValue(); },
+        "patientName": n => { recognitionUsageDetailReadModel.patientName = n.getStringValue(); },
+        "processingResult": n => { recognitionUsageDetailReadModel.processingResult = n.getObjectValue<RecognitionProcessingResultDetailReadModel>(createRecognitionProcessingResultDetailReadModelFromDiscriminatorValue); },
+        "receiver": n => { recognitionUsageDetailReadModel.receiver = n.getObjectValue<ReceiverOrganizationReadModel>(createReceiverOrganizationReadModelFromDiscriminatorValue); },
+        "recognitionDeptId": n => { recognitionUsageDetailReadModel.recognitionDeptId = n.getStringValue(); },
+        "recognitionDeptName": n => { recognitionUsageDetailReadModel.recognitionDeptName = n.getStringValue(); },
+        "recognitionDoctorId": n => { recognitionUsageDetailReadModel.recognitionDoctorId = n.getStringValue(); },
+        "recognitionDoctorName": n => { recognitionUsageDetailReadModel.recognitionDoctorName = n.getStringValue(); },
+        "recognitionMatchItemId": n => { recognitionUsageDetailReadModel.recognitionMatchItemId = n.getGuidValue(); },
+        "recognitionMatchRecordId": n => { recognitionUsageDetailReadModel.recognitionMatchRecordId = n.getGuidValue(); },
+        "reference": n => { recognitionUsageDetailReadModel.reference = n.getObjectValue<RecognitionReferenceDetailReadModel>(createRecognitionReferenceDetailReadModelFromDiscriminatorValue); },
+        "source": n => { recognitionUsageDetailReadModel.source = n.getObjectValue<SourceOrganizationReadModel>(createSourceOrganizationReadModelFromDiscriminatorValue); },
+        "visitSerialNo": n => { recognitionUsageDetailReadModel.visitSerialNo = n.getStringValue(); },
+        "visitType": n => { recognitionUsageDetailReadModel.visitType = n.getNumberValue(); },
+        "visitTypeText": n => { recognitionUsageDetailReadModel.visitTypeText = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionUsageDetailsQueryRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionUsageDetailsQueryRequest(recognitionUsageDetailsQueryRequest: Partial<RecognitionUsageDetailsQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branchCode": n => { recognitionUsageDetailsQueryRequest.branchCode = n.getStringValue(); },
+        "categoryName": n => { recognitionUsageDetailsQueryRequest.categoryName = n.getStringValue(); },
+        "detailType": n => { recognitionUsageDetailsQueryRequest.detailType = n.getNumberValue(); },
+        "endTime": n => { recognitionUsageDetailsQueryRequest.endTime = n.getDateOnlyValue(); },
+        "groupName": n => { recognitionUsageDetailsQueryRequest.groupName = n.getStringValue(); },
+        "hospitalCode": n => { recognitionUsageDetailsQueryRequest.hospitalCode = n.getStringValue(); },
+        "itemType": n => { recognitionUsageDetailsQueryRequest.itemType = n.getNumberValue(); },
+        "nonAdoptionReasonCode": n => { recognitionUsageDetailsQueryRequest.nonAdoptionReasonCode = n.getStringValue(); },
+        "organizationCode": n => { recognitionUsageDetailsQueryRequest.organizationCode = n.getStringValue(); },
+        "page": n => { recognitionUsageDetailsQueryRequest.page = n.getObjectValue<PageRequestDto>(createPageRequestDtoFromDiscriminatorValue); },
+        "recognitionDeptId": n => { recognitionUsageDetailsQueryRequest.recognitionDeptId = n.getStringValue(); },
+        "recognitionDoctorId": n => { recognitionUsageDetailsQueryRequest.recognitionDoctorId = n.getStringValue(); },
+        "sourceBranchCode": n => { recognitionUsageDetailsQueryRequest.sourceBranchCode = n.getStringValue(); },
+        "sourceHospitalCode": n => { recognitionUsageDetailsQueryRequest.sourceHospitalCode = n.getStringValue(); },
+        "sourceOrganizationCode": n => { recognitionUsageDetailsQueryRequest.sourceOrganizationCode = n.getStringValue(); },
+        "standardProjectCode": n => { recognitionUsageDetailsQueryRequest.standardProjectCode = n.getStringValue(); },
+        "startTime": n => { recognitionUsageDetailsQueryRequest.startTime = n.getDateOnlyValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionUsageSummaryQueryRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionUsageSummaryQueryRequest(recognitionUsageSummaryQueryRequest: Partial<RecognitionUsageSummaryQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branchCode": n => { recognitionUsageSummaryQueryRequest.branchCode = n.getStringValue(); },
+        "categoryName": n => { recognitionUsageSummaryQueryRequest.categoryName = n.getStringValue(); },
+        "endTime": n => { recognitionUsageSummaryQueryRequest.endTime = n.getDateOnlyValue(); },
+        "groupDimension": n => { recognitionUsageSummaryQueryRequest.groupDimension = n.getNumberValue(); },
+        "groupName": n => { recognitionUsageSummaryQueryRequest.groupName = n.getStringValue(); },
+        "hospitalCode": n => { recognitionUsageSummaryQueryRequest.hospitalCode = n.getStringValue(); },
+        "itemType": n => { recognitionUsageSummaryQueryRequest.itemType = n.getNumberValue(); },
+        "organizationCode": n => { recognitionUsageSummaryQueryRequest.organizationCode = n.getStringValue(); },
+        "page": n => { recognitionUsageSummaryQueryRequest.page = n.getObjectValue<PageRequestDto>(createPageRequestDtoFromDiscriminatorValue); },
+        "recognitionDeptId": n => { recognitionUsageSummaryQueryRequest.recognitionDeptId = n.getStringValue(); },
+        "sourceBranchCode": n => { recognitionUsageSummaryQueryRequest.sourceBranchCode = n.getStringValue(); },
+        "sourceHospitalCode": n => { recognitionUsageSummaryQueryRequest.sourceHospitalCode = n.getStringValue(); },
+        "sourceOrganizationCode": n => { recognitionUsageSummaryQueryRequest.sourceOrganizationCode = n.getStringValue(); },
+        "standardProjectCode": n => { recognitionUsageSummaryQueryRequest.standardProjectCode = n.getStringValue(); },
+        "startTime": n => { recognitionUsageSummaryQueryRequest.startTime = n.getDateOnlyValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionUsageSummaryReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionUsageSummaryReadModel(recognitionUsageSummaryReadModel: Partial<RecognitionUsageSummaryReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "adoptionCount": n => { recognitionUsageSummaryReadModel.adoptionCount = n.getNumberValue(); },
+        "categoryName": n => { recognitionUsageSummaryReadModel.categoryName = n.getStringValue(); },
+        "estimatedSavingAmount": n => { recognitionUsageSummaryReadModel.estimatedSavingAmount = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+        "groupDimension": n => { recognitionUsageSummaryReadModel.groupDimension = n.getNumberValue(); },
+        "groupName": n => { recognitionUsageSummaryReadModel.groupName = n.getStringValue(); },
+        "itemType": n => { recognitionUsageSummaryReadModel.itemType = n.getNumberValue(); },
+        "itemTypeText": n => { recognitionUsageSummaryReadModel.itemTypeText = n.getStringValue(); },
+        "nonAdoptionCount": n => { recognitionUsageSummaryReadModel.nonAdoptionCount = n.getNumberValue(); },
+        "nonAdoptionReasons": n => { recognitionUsageSummaryReadModel.nonAdoptionReasons = n.getCollectionOfObjectValues<NonAdoptionReasonSummaryReadModel>(createNonAdoptionReasonSummaryReadModelFromDiscriminatorValue); },
+        "periodEnd": n => { recognitionUsageSummaryReadModel.periodEnd = n.getDateValue(); },
+        "periodStart": n => { recognitionUsageSummaryReadModel.periodStart = n.getDateValue(); },
+        "receiverBranchCode": n => { recognitionUsageSummaryReadModel.receiverBranchCode = n.getStringValue(); },
+        "receiverBranchName": n => { recognitionUsageSummaryReadModel.receiverBranchName = n.getStringValue(); },
+        "receiverHospitalCode": n => { recognitionUsageSummaryReadModel.receiverHospitalCode = n.getStringValue(); },
+        "receiverHospitalName": n => { recognitionUsageSummaryReadModel.receiverHospitalName = n.getStringValue(); },
+        "receiverOrganizationCode": n => { recognitionUsageSummaryReadModel.receiverOrganizationCode = n.getStringValue(); },
+        "receiverOrganizationName": n => { recognitionUsageSummaryReadModel.receiverOrganizationName = n.getStringValue(); },
+        "recognitionDeptId": n => { recognitionUsageSummaryReadModel.recognitionDeptId = n.getStringValue(); },
+        "recognitionDeptName": n => { recognitionUsageSummaryReadModel.recognitionDeptName = n.getStringValue(); },
+        "referenceCount": n => { recognitionUsageSummaryReadModel.referenceCount = n.getNumberValue(); },
+        "reminderCount": n => { recognitionUsageSummaryReadModel.reminderCount = n.getNumberValue(); },
+        "samePeriodRecognitionRate": n => { recognitionUsageSummaryReadModel.samePeriodRecognitionRate = n.getObjectValue<UntypedNode>(createUntypedNodeFromDiscriminatorValue); },
+        "samePeriodRecognitionRateCalculated": n => { recognitionUsageSummaryReadModel.samePeriodRecognitionRateCalculated = n.getBooleanValue(); },
+        "standardProjectCode": n => { recognitionUsageSummaryReadModel.standardProjectCode = n.getStringValue(); },
+        "standardProjectName": n => { recognitionUsageSummaryReadModel.standardProjectName = n.getStringValue(); },
     }
 }
 /**
@@ -1625,6 +3000,127 @@ export function deserializeIntoSaveOrganizationHospitalBranchRecognitionAmountRe
         "hospitalCode": n => { saveOrganizationHospitalBranchRecognitionAmountRequest.hospitalCode = n.getStringValue(); },
         "organizationCode": n => { saveOrganizationHospitalBranchRecognitionAmountRequest.organizationCode = n.getStringValue(); },
         "standardProjectCode": n => { saveOrganizationHospitalBranchRecognitionAmountRequest.standardProjectCode = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SourceOrganizationReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSourceOrganizationReadModel(sourceOrganizationReadModel: Partial<SourceOrganizationReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branchCode": n => { sourceOrganizationReadModel.branchCode = n.getStringValue(); },
+        "branchName": n => { sourceOrganizationReadModel.branchName = n.getStringValue(); },
+        "hospitalCode": n => { sourceOrganizationReadModel.hospitalCode = n.getStringValue(); },
+        "hospitalName": n => { sourceOrganizationReadModel.hospitalName = n.getStringValue(); },
+        "organizationCode": n => { sourceOrganizationReadModel.organizationCode = n.getStringValue(); },
+        "organizationName": n => { sourceOrganizationReadModel.organizationName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SourceRecognitionDetailReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSourceRecognitionDetailReadModel(sourceRecognitionDetailReadModel: Partial<SourceRecognitionDetailReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "identityDocumentNo": n => { sourceRecognitionDetailReadModel.identityDocumentNo = n.getStringValue(); },
+        "patientName": n => { sourceRecognitionDetailReadModel.patientName = n.getStringValue(); },
+        "receiverBranchCode": n => { sourceRecognitionDetailReadModel.receiverBranchCode = n.getStringValue(); },
+        "receiverBranchName": n => { sourceRecognitionDetailReadModel.receiverBranchName = n.getStringValue(); },
+        "receiverHospitalCode": n => { sourceRecognitionDetailReadModel.receiverHospitalCode = n.getStringValue(); },
+        "receiverHospitalName": n => { sourceRecognitionDetailReadModel.receiverHospitalName = n.getStringValue(); },
+        "receiverOrganizationCode": n => { sourceRecognitionDetailReadModel.receiverOrganizationCode = n.getStringValue(); },
+        "receiverOrganizationName": n => { sourceRecognitionDetailReadModel.receiverOrganizationName = n.getStringValue(); },
+        "recognitionDeptId": n => { sourceRecognitionDetailReadModel.recognitionDeptId = n.getStringValue(); },
+        "recognitionDeptName": n => { sourceRecognitionDetailReadModel.recognitionDeptName = n.getStringValue(); },
+        "recognitionDoctorId": n => { sourceRecognitionDetailReadModel.recognitionDoctorId = n.getStringValue(); },
+        "recognitionDoctorName": n => { sourceRecognitionDetailReadModel.recognitionDoctorName = n.getStringValue(); },
+        "recognitionMatchItemId": n => { sourceRecognitionDetailReadModel.recognitionMatchItemId = n.getGuidValue(); },
+        "recognitionMatchRecordId": n => { sourceRecognitionDetailReadModel.recognitionMatchRecordId = n.getGuidValue(); },
+        "recognitionTime": n => { sourceRecognitionDetailReadModel.recognitionTime = n.getDateValue(); },
+        "sourceBranchCode": n => { sourceRecognitionDetailReadModel.sourceBranchCode = n.getStringValue(); },
+        "sourceBranchName": n => { sourceRecognitionDetailReadModel.sourceBranchName = n.getStringValue(); },
+        "sourceHospitalCode": n => { sourceRecognitionDetailReadModel.sourceHospitalCode = n.getStringValue(); },
+        "sourceHospitalName": n => { sourceRecognitionDetailReadModel.sourceHospitalName = n.getStringValue(); },
+        "sourceOrganizationCode": n => { sourceRecognitionDetailReadModel.sourceOrganizationCode = n.getStringValue(); },
+        "sourceOrganizationName": n => { sourceRecognitionDetailReadModel.sourceOrganizationName = n.getStringValue(); },
+        "standardProjectCode": n => { sourceRecognitionDetailReadModel.standardProjectCode = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SourceRecognitionDetailsQueryRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSourceRecognitionDetailsQueryRequest(sourceRecognitionDetailsQueryRequest: Partial<SourceRecognitionDetailsQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "categoryName": n => { sourceRecognitionDetailsQueryRequest.categoryName = n.getStringValue(); },
+        "endTime": n => { sourceRecognitionDetailsQueryRequest.endTime = n.getDateOnlyValue(); },
+        "groupName": n => { sourceRecognitionDetailsQueryRequest.groupName = n.getStringValue(); },
+        "itemType": n => { sourceRecognitionDetailsQueryRequest.itemType = n.getNumberValue(); },
+        "page": n => { sourceRecognitionDetailsQueryRequest.page = n.getObjectValue<PageRequestDto>(createPageRequestDtoFromDiscriminatorValue); },
+        "receiverBranchCode": n => { sourceRecognitionDetailsQueryRequest.receiverBranchCode = n.getStringValue(); },
+        "receiverHospitalCode": n => { sourceRecognitionDetailsQueryRequest.receiverHospitalCode = n.getStringValue(); },
+        "receiverOrganizationCode": n => { sourceRecognitionDetailsQueryRequest.receiverOrganizationCode = n.getStringValue(); },
+        "sourceBranchCode": n => { sourceRecognitionDetailsQueryRequest.sourceBranchCode = n.getStringValue(); },
+        "sourceHospitalCode": n => { sourceRecognitionDetailsQueryRequest.sourceHospitalCode = n.getStringValue(); },
+        "sourceOrganizationCode": n => { sourceRecognitionDetailsQueryRequest.sourceOrganizationCode = n.getStringValue(); },
+        "standardProjectCode": n => { sourceRecognitionDetailsQueryRequest.standardProjectCode = n.getStringValue(); },
+        "startTime": n => { sourceRecognitionDetailsQueryRequest.startTime = n.getDateOnlyValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SourceRecognitionSummaryQueryRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSourceRecognitionSummaryQueryRequest(sourceRecognitionSummaryQueryRequest: Partial<SourceRecognitionSummaryQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "categoryName": n => { sourceRecognitionSummaryQueryRequest.categoryName = n.getStringValue(); },
+        "endTime": n => { sourceRecognitionSummaryQueryRequest.endTime = n.getDateOnlyValue(); },
+        "groupDimension": n => { sourceRecognitionSummaryQueryRequest.groupDimension = n.getNumberValue(); },
+        "groupName": n => { sourceRecognitionSummaryQueryRequest.groupName = n.getStringValue(); },
+        "itemType": n => { sourceRecognitionSummaryQueryRequest.itemType = n.getNumberValue(); },
+        "page": n => { sourceRecognitionSummaryQueryRequest.page = n.getObjectValue<PageRequestDto>(createPageRequestDtoFromDiscriminatorValue); },
+        "receiverBranchCode": n => { sourceRecognitionSummaryQueryRequest.receiverBranchCode = n.getStringValue(); },
+        "receiverHospitalCode": n => { sourceRecognitionSummaryQueryRequest.receiverHospitalCode = n.getStringValue(); },
+        "receiverOrganizationCode": n => { sourceRecognitionSummaryQueryRequest.receiverOrganizationCode = n.getStringValue(); },
+        "sourceBranchCode": n => { sourceRecognitionSummaryQueryRequest.sourceBranchCode = n.getStringValue(); },
+        "sourceHospitalCode": n => { sourceRecognitionSummaryQueryRequest.sourceHospitalCode = n.getStringValue(); },
+        "sourceOrganizationCode": n => { sourceRecognitionSummaryQueryRequest.sourceOrganizationCode = n.getStringValue(); },
+        "standardProjectCode": n => { sourceRecognitionSummaryQueryRequest.standardProjectCode = n.getStringValue(); },
+        "startTime": n => { sourceRecognitionSummaryQueryRequest.startTime = n.getDateOnlyValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param SourceRecognitionSummaryReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSourceRecognitionSummaryReadModel(sourceRecognitionSummaryReadModel: Partial<SourceRecognitionSummaryReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "categoryName": n => { sourceRecognitionSummaryReadModel.categoryName = n.getStringValue(); },
+        "groupDimension": n => { sourceRecognitionSummaryReadModel.groupDimension = n.getNumberValue(); },
+        "groupName": n => { sourceRecognitionSummaryReadModel.groupName = n.getStringValue(); },
+        "itemType": n => { sourceRecognitionSummaryReadModel.itemType = n.getNumberValue(); },
+        "itemTypeText": n => { sourceRecognitionSummaryReadModel.itemTypeText = n.getStringValue(); },
+        "periodEnd": n => { sourceRecognitionSummaryReadModel.periodEnd = n.getDateValue(); },
+        "periodStart": n => { sourceRecognitionSummaryReadModel.periodStart = n.getDateValue(); },
+        "recognitionCount": n => { sourceRecognitionSummaryReadModel.recognitionCount = n.getNumberValue(); },
+        "sourceBranchCode": n => { sourceRecognitionSummaryReadModel.sourceBranchCode = n.getStringValue(); },
+        "sourceBranchName": n => { sourceRecognitionSummaryReadModel.sourceBranchName = n.getStringValue(); },
+        "sourceHospitalCode": n => { sourceRecognitionSummaryReadModel.sourceHospitalCode = n.getStringValue(); },
+        "sourceHospitalName": n => { sourceRecognitionSummaryReadModel.sourceHospitalName = n.getStringValue(); },
+        "sourceOrganizationCode": n => { sourceRecognitionSummaryReadModel.sourceOrganizationCode = n.getStringValue(); },
+        "sourceOrganizationName": n => { sourceRecognitionSummaryReadModel.sourceOrganizationName = n.getStringValue(); },
+        "standardProjectCode": n => { sourceRecognitionSummaryReadModel.standardProjectCode = n.getStringValue(); },
+        "standardProjectName": n => { sourceRecognitionSummaryReadModel.standardProjectName = n.getStringValue(); },
     }
 }
 /**
@@ -2623,6 +4119,24 @@ export interface MedicalStandardItemListReadModel extends AdditionalDataHolder, 
      */
     remark?: string | null;
 }
+export interface NonAdoptionReasonSummaryReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The count property
+     */
+    count?: number | null;
+    /**
+     * The ratio property
+     */
+    ratio?: UntypedNode | null;
+    /**
+     * The reasonCode property
+     */
+    reasonCode?: string | null;
+    /**
+     * The reasonName property
+     */
+    reasonName?: string | null;
+}
 export interface PageInfoDto extends AdditionalDataHolder, Parsable {
     /**
      * The pageIndex property
@@ -2657,11 +4171,103 @@ export interface PageResultDtoOfMedicalReportListReadModel extends AdditionalDat
      */
     page?: PageInfoDto | null;
 }
+export interface PageResultDtoOfRecognitionUsageDetailReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The items property
+     */
+    items?: RecognitionUsageDetailReadModel[] | null;
+    /**
+     * The page property
+     */
+    page?: PageInfoDto | null;
+}
+export interface PageResultDtoOfRecognitionUsageSummaryReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The items property
+     */
+    items?: RecognitionUsageSummaryReadModel[] | null;
+    /**
+     * The page property
+     */
+    page?: PageInfoDto | null;
+}
+export interface PageResultDtoOfSourceRecognitionDetailReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The items property
+     */
+    items?: SourceRecognitionDetailReadModel[] | null;
+    /**
+     * The page property
+     */
+    page?: PageInfoDto | null;
+}
+export interface PageResultDtoOfSourceRecognitionSummaryReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The items property
+     */
+    items?: SourceRecognitionSummaryReadModel[] | null;
+    /**
+     * The page property
+     */
+    page?: PageInfoDto | null;
+}
+export interface PdfAndImageAccessReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The imageAccessUrl property
+     */
+    imageAccessUrl?: string | null;
+    /**
+     * The pdfDownloadUrl property
+     */
+    pdfDownloadUrl?: string | null;
+    /**
+     * The pdfFileId property
+     */
+    pdfFileId?: string | null;
+    /**
+     * The pdfOriginalFileName property
+     */
+    pdfOriginalFileName?: string | null;
+    /**
+     * The sourceImageStatus property
+     */
+    sourceImageStatus?: number | null;
+    /**
+     * The sourceImageStatusText property
+     */
+    sourceImageStatusText?: string | null;
+}
 export interface QueryEnumMetadataRequest extends AdditionalDataHolder, Parsable {
     /**
      * The enumName property
      */
     enumName?: string | null;
+}
+export interface ReceiverOrganizationReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The branchCode property
+     */
+    branchCode?: string | null;
+    /**
+     * The branchName property
+     */
+    branchName?: string | null;
+    /**
+     * The hospitalCode property
+     */
+    hospitalCode?: string | null;
+    /**
+     * The hospitalName property
+     */
+    hospitalName?: string | null;
+    /**
+     * The organizationCode property
+     */
+    organizationCode?: string | null;
+    /**
+     * The organizationName property
+     */
+    organizationName?: string | null;
 }
 export interface RecognitionAmountListQueryRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -2739,6 +4345,468 @@ export interface RecognitionAmountReadModel extends AdditionalDataHolder, Parsab
      */
     unavailableReason?: string | null;
 }
+export interface RecognitionCitationDetailReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The matchItems property
+     */
+    matchItems?: RecognitionCitationItemReadModel[] | null;
+    /**
+     * The reportContext property
+     */
+    reportContext?: RecognitionReportContextReadModel[] | null;
+}
+export interface RecognitionCitationDetailRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The identityDocumentNo property
+     */
+    identityDocumentNo?: string | null;
+    /**
+     * The identityDocumentTypeCode property
+     */
+    identityDocumentTypeCode?: string | null;
+    /**
+     * The visitSerialNo property
+     */
+    visitSerialNo?: string | null;
+    /**
+     * The visitType property
+     */
+    visitType?: number | null;
+}
+export interface RecognitionCitationItemReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The examinationSites property
+     */
+    examinationSites?: RecognitionExaminationSiteReadModel[] | null;
+    /**
+     * The laboratoryResults property
+     */
+    laboratoryResults?: RecognitionCitationLaboratoryResultReadModel[] | null;
+    /**
+     * The recognitionMatchItemId property
+     */
+    recognitionMatchItemId?: Guid | null;
+    /**
+     * The reportId property
+     */
+    reportId?: Guid | null;
+    /**
+     * The reportVersionId property
+     */
+    reportVersionId?: Guid | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The standardProjectName property
+     */
+    standardProjectName?: string | null;
+}
+export interface RecognitionCitationLaboratoryResultReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The resultItemName property
+     */
+    resultItemName?: string | null;
+    /**
+     * The sourceAbnormalFlag property
+     */
+    sourceAbnormalFlag?: string | null;
+    /**
+     * The sourceCriticalValueFlag property
+     */
+    sourceCriticalValueFlag?: string | null;
+    /**
+     * The sourceReferenceRange property
+     */
+    sourceReferenceRange?: string | null;
+    /**
+     * The sourceResultContent property
+     */
+    sourceResultContent?: string | null;
+    /**
+     * The unit property
+     */
+    unit?: string | null;
+}
+export interface RecognitionExaminationSiteReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The siteName property
+     */
+    siteName?: string | null;
+    /**
+     * The sourceSiteCode property
+     */
+    sourceSiteCode?: string | null;
+}
+export interface RecognitionMatchesResponseReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The hasMatches property
+     */
+    hasMatches?: boolean | null;
+    /**
+     * The matchCreatedTime property
+     */
+    matchCreatedTime?: Date | null;
+    /**
+     * The recognitionMatchRecordId property
+     */
+    recognitionMatchRecordId?: Guid | null;
+    /**
+     * The reports property
+     */
+    reports?: RecognitionMatchReportReadModel[] | null;
+}
+export interface RecognitionMatchItemReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The examinationSites property
+     */
+    examinationSites?: RecognitionExaminationSiteReadModel[] | null;
+    /**
+     * The laboratoryResults property
+     */
+    laboratoryResults?: RecognitionMatchLaboratoryResultReadModel[] | null;
+    /**
+     * The overallAbnormalFlag property
+     */
+    overallAbnormalFlag?: string | null;
+    /**
+     * The recognitionMatchItemId property
+     */
+    recognitionMatchItemId?: Guid | null;
+    /**
+     * The specimenTypeName property
+     */
+    specimenTypeName?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The standardProjectName property
+     */
+    standardProjectName?: string | null;
+}
+export interface RecognitionMatchLaboratoryResultReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The resultItemName property
+     */
+    resultItemName?: string | null;
+    /**
+     * The sourceAbnormalFlag property
+     */
+    sourceAbnormalFlag?: string | null;
+    /**
+     * The sourceCriticalValueFlag property
+     */
+    sourceCriticalValueFlag?: string | null;
+    /**
+     * The sourceReferenceRange property
+     */
+    sourceReferenceRange?: string | null;
+    /**
+     * The sourceResultContent property
+     */
+    sourceResultContent?: string | null;
+    /**
+     * The unit property
+     */
+    unit?: string | null;
+}
+export interface RecognitionMatchProposedItemRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+}
+export interface RecognitionMatchQueryRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The identityDocumentNo property
+     */
+    identityDocumentNo?: string | null;
+    /**
+     * The identityDocumentTypeCode property
+     */
+    identityDocumentTypeCode?: string | null;
+    /**
+     * The proposedItems property
+     */
+    proposedItems?: RecognitionMatchProposedItemRequest[] | null;
+    /**
+     * The visitSerialNo property
+     */
+    visitSerialNo?: string | null;
+    /**
+     * The visitType property
+     */
+    visitType?: number | null;
+}
+export interface RecognitionMatchRecordItemReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The decision property
+     */
+    decision?: number | null;
+    /**
+     * The decisionText property
+     */
+    decisionText?: string | null;
+    /**
+     * The isProcessed property
+     */
+    isProcessed?: boolean | null;
+    /**
+     * The item property
+     */
+    item?: RecognitionStatisticsItemReadModel | null;
+    /**
+     * The nonAdoptionReasonCode property
+     */
+    nonAdoptionReasonCode?: string | null;
+    /**
+     * The nonAdoptionReasonName property
+     */
+    nonAdoptionReasonName?: string | null;
+    /**
+     * The recognitionMatchItemId property
+     */
+    recognitionMatchItemId?: Guid | null;
+    /**
+     * The reportId property
+     */
+    reportId?: Guid | null;
+    /**
+     * The reportVersionId property
+     */
+    reportVersionId?: Guid | null;
+    /**
+     * The source property
+     */
+    source?: SourceOrganizationReadModel | null;
+}
+export interface RecognitionMatchRecordQueryRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The recognitionMatchRecordId property
+     */
+    recognitionMatchRecordId?: Guid | null;
+}
+export interface RecognitionMatchRecordReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The identityDocumentNo property
+     */
+    identityDocumentNo?: string | null;
+    /**
+     * The isProcessed property
+     */
+    isProcessed?: boolean | null;
+    /**
+     * The matchCreatedTime property
+     */
+    matchCreatedTime?: Date | null;
+    /**
+     * The matchItems property
+     */
+    matchItems?: RecognitionMatchRecordItemReadModel[] | null;
+    /**
+     * The patientName property
+     */
+    patientName?: string | null;
+    /**
+     * The receiver property
+     */
+    receiver?: ReceiverOrganizationReadModel | null;
+    /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
+     * The recognitionDeptName property
+     */
+    recognitionDeptName?: string | null;
+    /**
+     * The recognitionDoctorId property
+     */
+    recognitionDoctorId?: string | null;
+    /**
+     * The recognitionDoctorName property
+     */
+    recognitionDoctorName?: string | null;
+    /**
+     * The recognitionMatchRecordId property
+     */
+    recognitionMatchRecordId?: Guid | null;
+    /**
+     * The recognitionTime property
+     */
+    recognitionTime?: Date | null;
+    /**
+     * The visitSerialNo property
+     */
+    visitSerialNo?: string | null;
+    /**
+     * The visitType property
+     */
+    visitType?: number | null;
+    /**
+     * The visitTypeText property
+     */
+    visitTypeText?: string | null;
+}
+export interface RecognitionMatchReportReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The clinicalTime property
+     */
+    clinicalTime?: Date | null;
+    /**
+     * The file property
+     */
+    file?: PdfAndImageAccessReadModel | null;
+    /**
+     * The matchItems property
+     */
+    matchItems?: RecognitionMatchItemReadModel[] | null;
+    /**
+     * The reportId property
+     */
+    reportId?: Guid | null;
+    /**
+     * The reportName property
+     */
+    reportName?: string | null;
+    /**
+     * The reportNo property
+     */
+    reportNo?: string | null;
+    /**
+     * The reportTime property
+     */
+    reportTime?: Date | null;
+    /**
+     * The reportType property
+     */
+    reportType?: number | null;
+    /**
+     * The reportTypeText property
+     */
+    reportTypeText?: string | null;
+    /**
+     * The reportVersionId property
+     */
+    reportVersionId?: Guid | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The sourceBranchName property
+     */
+    sourceBranchName?: string | null;
+    /**
+     * The sourceHospitalCode property
+     */
+    sourceHospitalCode?: string | null;
+    /**
+     * The sourceHospitalName property
+     */
+    sourceHospitalName?: string | null;
+    /**
+     * The sourceOrganizationCode property
+     */
+    sourceOrganizationCode?: string | null;
+    /**
+     * The sourceOrganizationName property
+     */
+    sourceOrganizationName?: string | null;
+}
+export interface RecognitionProcessingResultDetailReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The decision property
+     */
+    decision?: number | null;
+    /**
+     * The decisionText property
+     */
+    decisionText?: string | null;
+    /**
+     * The estimatedSavingAmount property
+     */
+    estimatedSavingAmount?: UntypedNode | null;
+    /**
+     * The isProcessed property
+     */
+    isProcessed?: boolean | null;
+    /**
+     * The nonAdoptionReasonCode property
+     */
+    nonAdoptionReasonCode?: string | null;
+    /**
+     * The nonAdoptionReasonName property
+     */
+    nonAdoptionReasonName?: string | null;
+    /**
+     * The nonAdoptionSupplementDescription property
+     */
+    nonAdoptionSupplementDescription?: string | null;
+    /**
+     * The recognitionTime property
+     */
+    recognitionTime?: Date | null;
+}
+export interface RecognitionProcessingResultItemRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The nonAdoptionDescription property
+     */
+    nonAdoptionDescription?: string | null;
+    /**
+     * The nonAdoptionReason property
+     */
+    nonAdoptionReason?: number | null;
+    /**
+     * The recognitionMatchItemId property
+     */
+    recognitionMatchItemId?: Guid | null;
+    /**
+     * The result property
+     */
+    result?: number | null;
+}
+export interface RecognitionProcessingResultSubmissionRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The changedProperties property
+     */
+    changedProperties?: string[] | null;
+    /**
+     * The processingResults property
+     */
+    processingResults?: RecognitionProcessingResultItemRequest[] | null;
+    /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
+     * The recognitionDeptName property
+     */
+    recognitionDeptName?: string | null;
+    /**
+     * The recognitionDoctorId property
+     */
+    recognitionDoctorId?: string | null;
+    /**
+     * The recognitionDoctorName property
+     */
+    recognitionDoctorName?: string | null;
+    /**
+     * The recognitionMatchRecordId property
+     */
+    recognitionMatchRecordId?: Guid | null;
+    /**
+     * The recognitionTime property
+     */
+    recognitionTime?: Date | null;
+}
 export interface RecognitionProjectConfigurationListQueryRequest extends AdditionalDataHolder, Parsable {
     /**
      * The configurationStatus property
@@ -2798,6 +4866,558 @@ export interface RecognitionProjectConfigurationReadModel extends AdditionalData
      * The unavailableReason property
      */
     unavailableReason?: string | null;
+}
+export interface RecognitionReferenceDetailReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The isReferenced property
+     */
+    isReferenced?: boolean | null;
+    /**
+     * The referenceDeptId property
+     */
+    referenceDeptId?: string | null;
+    /**
+     * The referenceDeptName property
+     */
+    referenceDeptName?: string | null;
+    /**
+     * The referenceDoctorId property
+     */
+    referenceDoctorId?: string | null;
+    /**
+     * The referenceDoctorName property
+     */
+    referenceDoctorName?: string | null;
+    /**
+     * The referenceTime property
+     */
+    referenceTime?: Date | null;
+}
+export interface RecognitionReferenceItemRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The recognitionMatchItemId property
+     */
+    recognitionMatchItemId?: Guid | null;
+    /**
+     * The referenceDeptId property
+     */
+    referenceDeptId?: string | null;
+    /**
+     * The referenceDeptName property
+     */
+    referenceDeptName?: string | null;
+    /**
+     * The referenceDoctorId property
+     */
+    referenceDoctorId?: string | null;
+    /**
+     * The referenceDoctorName property
+     */
+    referenceDoctorName?: string | null;
+    /**
+     * The referencedTime property
+     */
+    referencedTime?: Date | null;
+}
+export interface RecognitionReferenceSubmissionRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The referenceItems property
+     */
+    referenceItems?: RecognitionReferenceItemRequest[] | null;
+}
+export interface RecognitionReportContextReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The clinicalTime property
+     */
+    clinicalTime?: Date | null;
+    /**
+     * The examinationConclusion property
+     */
+    examinationConclusion?: string | null;
+    /**
+     * The examinationFindings property
+     */
+    examinationFindings?: string | null;
+    /**
+     * The file property
+     */
+    file?: PdfAndImageAccessReadModel | null;
+    /**
+     * The reportId property
+     */
+    reportId?: Guid | null;
+    /**
+     * The reportName property
+     */
+    reportName?: string | null;
+    /**
+     * The reportNo property
+     */
+    reportNo?: string | null;
+    /**
+     * The reportTime property
+     */
+    reportTime?: Date | null;
+    /**
+     * The reportType property
+     */
+    reportType?: number | null;
+    /**
+     * The reportTypeText property
+     */
+    reportTypeText?: string | null;
+    /**
+     * The reportVersionId property
+     */
+    reportVersionId?: Guid | null;
+    /**
+     * The sourceApplicantDoctorId property
+     */
+    sourceApplicantDoctorId?: string | null;
+    /**
+     * The sourceApplicantDoctorName property
+     */
+    sourceApplicantDoctorName?: string | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The sourceBranchName property
+     */
+    sourceBranchName?: string | null;
+    /**
+     * The sourceHospitalCode property
+     */
+    sourceHospitalCode?: string | null;
+    /**
+     * The sourceHospitalName property
+     */
+    sourceHospitalName?: string | null;
+    /**
+     * The sourceOrganizationCode property
+     */
+    sourceOrganizationCode?: string | null;
+    /**
+     * The sourceOrganizationName property
+     */
+    sourceOrganizationName?: string | null;
+    /**
+     * The sourceReviewerDoctorId property
+     */
+    sourceReviewerDoctorId?: string | null;
+    /**
+     * The sourceReviewerDoctorName property
+     */
+    sourceReviewerDoctorName?: string | null;
+}
+export interface RecognitionStatisticsExportRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The endTime property
+     */
+    endTime?: DateOnly | null;
+    /**
+     * The exportType property
+     */
+    exportType?: number | null;
+    /**
+     * The groupDimension property
+     */
+    groupDimension?: number | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The nonAdoptionReasonCode property
+     */
+    nonAdoptionReasonCode?: string | null;
+    /**
+     * The receiverBranchCode property
+     */
+    receiverBranchCode?: string | null;
+    /**
+     * The receiverHospitalCode property
+     */
+    receiverHospitalCode?: string | null;
+    /**
+     * The receiverOrganizationCode property
+     */
+    receiverOrganizationCode?: string | null;
+    /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
+     * The recognitionDoctorId property
+     */
+    recognitionDoctorId?: string | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The sourceHospitalCode property
+     */
+    sourceHospitalCode?: string | null;
+    /**
+     * The sourceOrganizationCode property
+     */
+    sourceOrganizationCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The startTime property
+     */
+    startTime?: DateOnly | null;
+}
+export interface RecognitionStatisticsItemReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The itemTypeText property
+     */
+    itemTypeText?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The standardProjectName property
+     */
+    standardProjectName?: string | null;
+}
+export interface RecognitionUsageDetailReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The businessTime property
+     */
+    businessTime?: Date | null;
+    /**
+     * The identityDocumentNo property
+     */
+    identityDocumentNo?: string | null;
+    /**
+     * The isUnprocessed property
+     */
+    isUnprocessed?: boolean | null;
+    /**
+     * The item property
+     */
+    item?: RecognitionStatisticsItemReadModel | null;
+    /**
+     * The matchCreatedTime property
+     */
+    matchCreatedTime?: Date | null;
+    /**
+     * The patientName property
+     */
+    patientName?: string | null;
+    /**
+     * The processingResult property
+     */
+    processingResult?: RecognitionProcessingResultDetailReadModel | null;
+    /**
+     * The receiver property
+     */
+    receiver?: ReceiverOrganizationReadModel | null;
+    /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
+     * The recognitionDeptName property
+     */
+    recognitionDeptName?: string | null;
+    /**
+     * The recognitionDoctorId property
+     */
+    recognitionDoctorId?: string | null;
+    /**
+     * The recognitionDoctorName property
+     */
+    recognitionDoctorName?: string | null;
+    /**
+     * The recognitionMatchItemId property
+     */
+    recognitionMatchItemId?: Guid | null;
+    /**
+     * The recognitionMatchRecordId property
+     */
+    recognitionMatchRecordId?: Guid | null;
+    /**
+     * The reference property
+     */
+    reference?: RecognitionReferenceDetailReadModel | null;
+    /**
+     * The source property
+     */
+    source?: SourceOrganizationReadModel | null;
+    /**
+     * The visitSerialNo property
+     */
+    visitSerialNo?: string | null;
+    /**
+     * The visitType property
+     */
+    visitType?: number | null;
+    /**
+     * The visitTypeText property
+     */
+    visitTypeText?: string | null;
+}
+export interface RecognitionUsageDetailsQueryRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The branchCode property
+     */
+    branchCode?: string | null;
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The detailType property
+     */
+    detailType?: number | null;
+    /**
+     * The endTime property
+     */
+    endTime?: DateOnly | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The hospitalCode property
+     */
+    hospitalCode?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The nonAdoptionReasonCode property
+     */
+    nonAdoptionReasonCode?: string | null;
+    /**
+     * The organizationCode property
+     */
+    organizationCode?: string | null;
+    /**
+     * The page property
+     */
+    page?: PageRequestDto | null;
+    /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
+     * The recognitionDoctorId property
+     */
+    recognitionDoctorId?: string | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The sourceHospitalCode property
+     */
+    sourceHospitalCode?: string | null;
+    /**
+     * The sourceOrganizationCode property
+     */
+    sourceOrganizationCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The startTime property
+     */
+    startTime?: DateOnly | null;
+}
+export interface RecognitionUsageSummaryQueryRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The branchCode property
+     */
+    branchCode?: string | null;
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The endTime property
+     */
+    endTime?: DateOnly | null;
+    /**
+     * The groupDimension property
+     */
+    groupDimension?: number | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The hospitalCode property
+     */
+    hospitalCode?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The organizationCode property
+     */
+    organizationCode?: string | null;
+    /**
+     * The page property
+     */
+    page?: PageRequestDto | null;
+    /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The sourceHospitalCode property
+     */
+    sourceHospitalCode?: string | null;
+    /**
+     * The sourceOrganizationCode property
+     */
+    sourceOrganizationCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The startTime property
+     */
+    startTime?: DateOnly | null;
+}
+export interface RecognitionUsageSummaryReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The adoptionCount property
+     */
+    adoptionCount?: number | null;
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The estimatedSavingAmount property
+     */
+    estimatedSavingAmount?: UntypedNode | null;
+    /**
+     * The groupDimension property
+     */
+    groupDimension?: number | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The itemTypeText property
+     */
+    itemTypeText?: string | null;
+    /**
+     * The nonAdoptionCount property
+     */
+    nonAdoptionCount?: number | null;
+    /**
+     * The nonAdoptionReasons property
+     */
+    nonAdoptionReasons?: NonAdoptionReasonSummaryReadModel[] | null;
+    /**
+     * The periodEnd property
+     */
+    periodEnd?: Date | null;
+    /**
+     * The periodStart property
+     */
+    periodStart?: Date | null;
+    /**
+     * The receiverBranchCode property
+     */
+    receiverBranchCode?: string | null;
+    /**
+     * The receiverBranchName property
+     */
+    receiverBranchName?: string | null;
+    /**
+     * The receiverHospitalCode property
+     */
+    receiverHospitalCode?: string | null;
+    /**
+     * The receiverHospitalName property
+     */
+    receiverHospitalName?: string | null;
+    /**
+     * The receiverOrganizationCode property
+     */
+    receiverOrganizationCode?: string | null;
+    /**
+     * The receiverOrganizationName property
+     */
+    receiverOrganizationName?: string | null;
+    /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
+     * The recognitionDeptName property
+     */
+    recognitionDeptName?: string | null;
+    /**
+     * The referenceCount property
+     */
+    referenceCount?: number | null;
+    /**
+     * The reminderCount property
+     */
+    reminderCount?: number | null;
+    /**
+     * The samePeriodRecognitionRate property
+     */
+    samePeriodRecognitionRate?: UntypedNode | null;
+    /**
+     * The samePeriodRecognitionRateCalculated property
+     */
+    samePeriodRecognitionRateCalculated?: boolean | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The standardProjectName property
+     */
+    standardProjectName?: string | null;
 }
 export interface ReportListQueryRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -3036,6 +5656,81 @@ export function serializeBranchRecognitionAmountListQueryRequest(writer: Seriali
 }
 /**
  * Serializes information the current object
+ * @param BranchRecognitionStatisticsExportRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBranchRecognitionStatisticsExportRequest(writer: SerializationWriter, branchRecognitionStatisticsExportRequest: Partial<BranchRecognitionStatisticsExportRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!branchRecognitionStatisticsExportRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branchCode", branchRecognitionStatisticsExportRequest.branchCode);
+    writer.writeStringValue("categoryName", branchRecognitionStatisticsExportRequest.categoryName);
+    writer.writeDateOnlyValue("endTime", branchRecognitionStatisticsExportRequest.endTime);
+    writer.writeNumberValue("exportType", branchRecognitionStatisticsExportRequest.exportType);
+    writer.writeNumberValue("groupDimension", branchRecognitionStatisticsExportRequest.groupDimension);
+    writer.writeStringValue("groupName", branchRecognitionStatisticsExportRequest.groupName);
+    writer.writeNumberValue("itemType", branchRecognitionStatisticsExportRequest.itemType);
+    writer.writeStringValue("nonAdoptionReasonCode", branchRecognitionStatisticsExportRequest.nonAdoptionReasonCode);
+    writer.writeStringValue("receiverBranchCode", branchRecognitionStatisticsExportRequest.receiverBranchCode);
+    writer.writeStringValue("receiverHospitalCode", branchRecognitionStatisticsExportRequest.receiverHospitalCode);
+    writer.writeStringValue("recognitionDeptId", branchRecognitionStatisticsExportRequest.recognitionDeptId);
+    writer.writeStringValue("recognitionDoctorId", branchRecognitionStatisticsExportRequest.recognitionDoctorId);
+    writer.writeStringValue("sourceBranchCode", branchRecognitionStatisticsExportRequest.sourceBranchCode);
+    writer.writeStringValue("sourceHospitalCode", branchRecognitionStatisticsExportRequest.sourceHospitalCode);
+    writer.writeStringValue("standardProjectCode", branchRecognitionStatisticsExportRequest.standardProjectCode);
+    writer.writeDateOnlyValue("startTime", branchRecognitionStatisticsExportRequest.startTime);
+    writer.writeAdditionalData(branchRecognitionStatisticsExportRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param BranchRecognitionUsageDetailsQueryRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBranchRecognitionUsageDetailsQueryRequest(writer: SerializationWriter, branchRecognitionUsageDetailsQueryRequest: Partial<BranchRecognitionUsageDetailsQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!branchRecognitionUsageDetailsQueryRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branchCode", branchRecognitionUsageDetailsQueryRequest.branchCode);
+    writer.writeStringValue("categoryName", branchRecognitionUsageDetailsQueryRequest.categoryName);
+    writer.writeNumberValue("detailType", branchRecognitionUsageDetailsQueryRequest.detailType);
+    writer.writeDateOnlyValue("endTime", branchRecognitionUsageDetailsQueryRequest.endTime);
+    writer.writeStringValue("groupName", branchRecognitionUsageDetailsQueryRequest.groupName);
+    writer.writeNumberValue("itemType", branchRecognitionUsageDetailsQueryRequest.itemType);
+    writer.writeStringValue("nonAdoptionReasonCode", branchRecognitionUsageDetailsQueryRequest.nonAdoptionReasonCode);
+    writer.writeObjectValue<PageRequestDto>("page", branchRecognitionUsageDetailsQueryRequest.page, serializePageRequestDto);
+    writer.writeStringValue("recognitionDeptId", branchRecognitionUsageDetailsQueryRequest.recognitionDeptId);
+    writer.writeStringValue("recognitionDoctorId", branchRecognitionUsageDetailsQueryRequest.recognitionDoctorId);
+    writer.writeStringValue("sourceBranchCode", branchRecognitionUsageDetailsQueryRequest.sourceBranchCode);
+    writer.writeStringValue("sourceHospitalCode", branchRecognitionUsageDetailsQueryRequest.sourceHospitalCode);
+    writer.writeStringValue("standardProjectCode", branchRecognitionUsageDetailsQueryRequest.standardProjectCode);
+    writer.writeDateOnlyValue("startTime", branchRecognitionUsageDetailsQueryRequest.startTime);
+    writer.writeAdditionalData(branchRecognitionUsageDetailsQueryRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param BranchRecognitionUsageSummaryQueryRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBranchRecognitionUsageSummaryQueryRequest(writer: SerializationWriter, branchRecognitionUsageSummaryQueryRequest: Partial<BranchRecognitionUsageSummaryQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!branchRecognitionUsageSummaryQueryRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branchCode", branchRecognitionUsageSummaryQueryRequest.branchCode);
+    writer.writeStringValue("categoryName", branchRecognitionUsageSummaryQueryRequest.categoryName);
+    writer.writeDateOnlyValue("endTime", branchRecognitionUsageSummaryQueryRequest.endTime);
+    writer.writeNumberValue("groupDimension", branchRecognitionUsageSummaryQueryRequest.groupDimension);
+    writer.writeStringValue("groupName", branchRecognitionUsageSummaryQueryRequest.groupName);
+    writer.writeNumberValue("itemType", branchRecognitionUsageSummaryQueryRequest.itemType);
+    writer.writeObjectValue<PageRequestDto>("page", branchRecognitionUsageSummaryQueryRequest.page, serializePageRequestDto);
+    writer.writeStringValue("recognitionDeptId", branchRecognitionUsageSummaryQueryRequest.recognitionDeptId);
+    writer.writeStringValue("sourceBranchCode", branchRecognitionUsageSummaryQueryRequest.sourceBranchCode);
+    writer.writeStringValue("sourceHospitalCode", branchRecognitionUsageSummaryQueryRequest.sourceHospitalCode);
+    writer.writeStringValue("standardProjectCode", branchRecognitionUsageSummaryQueryRequest.standardProjectCode);
+    writer.writeDateOnlyValue("startTime", branchRecognitionUsageSummaryQueryRequest.startTime);
+    writer.writeAdditionalData(branchRecognitionUsageSummaryQueryRequest.additionalData);
+}
+/**
+ * Serializes information the current object
  * @param BranchReportListQueryRequest The instance to serialize from.
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param writer Serialization writer to use to serialize this model
@@ -3052,6 +5747,49 @@ export function serializeBranchReportListQueryRequest(writer: SerializationWrite
     writer.writeStringValue("reportNo", branchReportListQueryRequest.reportNo);
     writer.writeNumberValue("reportType", branchReportListQueryRequest.reportType);
     writer.writeAdditionalData(branchReportListQueryRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param BranchSourceRecognitionDetailsQueryRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBranchSourceRecognitionDetailsQueryRequest(writer: SerializationWriter, branchSourceRecognitionDetailsQueryRequest: Partial<BranchSourceRecognitionDetailsQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!branchSourceRecognitionDetailsQueryRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("categoryName", branchSourceRecognitionDetailsQueryRequest.categoryName);
+    writer.writeDateOnlyValue("endTime", branchSourceRecognitionDetailsQueryRequest.endTime);
+    writer.writeStringValue("groupName", branchSourceRecognitionDetailsQueryRequest.groupName);
+    writer.writeNumberValue("itemType", branchSourceRecognitionDetailsQueryRequest.itemType);
+    writer.writeObjectValue<PageRequestDto>("page", branchSourceRecognitionDetailsQueryRequest.page, serializePageRequestDto);
+    writer.writeStringValue("receiverBranchCode", branchSourceRecognitionDetailsQueryRequest.receiverBranchCode);
+    writer.writeStringValue("receiverHospitalCode", branchSourceRecognitionDetailsQueryRequest.receiverHospitalCode);
+    writer.writeStringValue("sourceBranchCode", branchSourceRecognitionDetailsQueryRequest.sourceBranchCode);
+    writer.writeStringValue("standardProjectCode", branchSourceRecognitionDetailsQueryRequest.standardProjectCode);
+    writer.writeDateOnlyValue("startTime", branchSourceRecognitionDetailsQueryRequest.startTime);
+    writer.writeAdditionalData(branchSourceRecognitionDetailsQueryRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param BranchSourceRecognitionSummaryQueryRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBranchSourceRecognitionSummaryQueryRequest(writer: SerializationWriter, branchSourceRecognitionSummaryQueryRequest: Partial<BranchSourceRecognitionSummaryQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!branchSourceRecognitionSummaryQueryRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("categoryName", branchSourceRecognitionSummaryQueryRequest.categoryName);
+    writer.writeDateOnlyValue("endTime", branchSourceRecognitionSummaryQueryRequest.endTime);
+    writer.writeNumberValue("groupDimension", branchSourceRecognitionSummaryQueryRequest.groupDimension);
+    writer.writeStringValue("groupName", branchSourceRecognitionSummaryQueryRequest.groupName);
+    writer.writeNumberValue("itemType", branchSourceRecognitionSummaryQueryRequest.itemType);
+    writer.writeObjectValue<PageRequestDto>("page", branchSourceRecognitionSummaryQueryRequest.page, serializePageRequestDto);
+    writer.writeStringValue("receiverBranchCode", branchSourceRecognitionSummaryQueryRequest.receiverBranchCode);
+    writer.writeStringValue("receiverHospitalCode", branchSourceRecognitionSummaryQueryRequest.receiverHospitalCode);
+    writer.writeStringValue("sourceBranchCode", branchSourceRecognitionSummaryQueryRequest.sourceBranchCode);
+    writer.writeStringValue("standardProjectCode", branchSourceRecognitionSummaryQueryRequest.standardProjectCode);
+    writer.writeDateOnlyValue("startTime", branchSourceRecognitionSummaryQueryRequest.startTime);
+    writer.writeAdditionalData(branchSourceRecognitionSummaryQueryRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -3772,6 +6510,21 @@ export function serializeMedicalStandardItemListReadModel(writer: SerializationW
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param NonAdoptionReasonSummaryReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeNonAdoptionReasonSummaryReadModel(writer: SerializationWriter, nonAdoptionReasonSummaryReadModel: Partial<NonAdoptionReasonSummaryReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!nonAdoptionReasonSummaryReadModel || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("count", nonAdoptionReasonSummaryReadModel.count);
+    writer.writeObjectValue("ratio", nonAdoptionReasonSummaryReadModel.ratio);
+    writer.writeStringValue("reasonCode", nonAdoptionReasonSummaryReadModel.reasonCode);
+    writer.writeStringValue("reasonName", nonAdoptionReasonSummaryReadModel.reasonName);
+    writer.writeAdditionalData(nonAdoptionReasonSummaryReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param PageInfoDto The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -3812,6 +6565,75 @@ export function serializePageResultDtoOfMedicalReportListReadModel(writer: Seria
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PageResultDtoOfRecognitionUsageDetailReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePageResultDtoOfRecognitionUsageDetailReadModel(writer: SerializationWriter, pageResultDtoOfRecognitionUsageDetailReadModel: Partial<PageResultDtoOfRecognitionUsageDetailReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pageResultDtoOfRecognitionUsageDetailReadModel || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<RecognitionUsageDetailReadModel>("items", pageResultDtoOfRecognitionUsageDetailReadModel.items, serializeRecognitionUsageDetailReadModel);
+    writer.writeObjectValue<PageInfoDto>("page", pageResultDtoOfRecognitionUsageDetailReadModel.page, serializePageInfoDto);
+    writer.writeAdditionalData(pageResultDtoOfRecognitionUsageDetailReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PageResultDtoOfRecognitionUsageSummaryReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePageResultDtoOfRecognitionUsageSummaryReadModel(writer: SerializationWriter, pageResultDtoOfRecognitionUsageSummaryReadModel: Partial<PageResultDtoOfRecognitionUsageSummaryReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pageResultDtoOfRecognitionUsageSummaryReadModel || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<RecognitionUsageSummaryReadModel>("items", pageResultDtoOfRecognitionUsageSummaryReadModel.items, serializeRecognitionUsageSummaryReadModel);
+    writer.writeObjectValue<PageInfoDto>("page", pageResultDtoOfRecognitionUsageSummaryReadModel.page, serializePageInfoDto);
+    writer.writeAdditionalData(pageResultDtoOfRecognitionUsageSummaryReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PageResultDtoOfSourceRecognitionDetailReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePageResultDtoOfSourceRecognitionDetailReadModel(writer: SerializationWriter, pageResultDtoOfSourceRecognitionDetailReadModel: Partial<PageResultDtoOfSourceRecognitionDetailReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pageResultDtoOfSourceRecognitionDetailReadModel || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<SourceRecognitionDetailReadModel>("items", pageResultDtoOfSourceRecognitionDetailReadModel.items, serializeSourceRecognitionDetailReadModel);
+    writer.writeObjectValue<PageInfoDto>("page", pageResultDtoOfSourceRecognitionDetailReadModel.page, serializePageInfoDto);
+    writer.writeAdditionalData(pageResultDtoOfSourceRecognitionDetailReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PageResultDtoOfSourceRecognitionSummaryReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePageResultDtoOfSourceRecognitionSummaryReadModel(writer: SerializationWriter, pageResultDtoOfSourceRecognitionSummaryReadModel: Partial<PageResultDtoOfSourceRecognitionSummaryReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pageResultDtoOfSourceRecognitionSummaryReadModel || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<SourceRecognitionSummaryReadModel>("items", pageResultDtoOfSourceRecognitionSummaryReadModel.items, serializeSourceRecognitionSummaryReadModel);
+    writer.writeObjectValue<PageInfoDto>("page", pageResultDtoOfSourceRecognitionSummaryReadModel.page, serializePageInfoDto);
+    writer.writeAdditionalData(pageResultDtoOfSourceRecognitionSummaryReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param PdfAndImageAccessReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializePdfAndImageAccessReadModel(writer: SerializationWriter, pdfAndImageAccessReadModel: Partial<PdfAndImageAccessReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!pdfAndImageAccessReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("imageAccessUrl", pdfAndImageAccessReadModel.imageAccessUrl);
+    writer.writeStringValue("pdfDownloadUrl", pdfAndImageAccessReadModel.pdfDownloadUrl);
+    writer.writeStringValue("pdfFileId", pdfAndImageAccessReadModel.pdfFileId);
+    writer.writeStringValue("pdfOriginalFileName", pdfAndImageAccessReadModel.pdfOriginalFileName);
+    writer.writeNumberValue("sourceImageStatus", pdfAndImageAccessReadModel.sourceImageStatus);
+    writer.writeStringValue("sourceImageStatusText", pdfAndImageAccessReadModel.sourceImageStatusText);
+    writer.writeAdditionalData(pdfAndImageAccessReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param QueryEnumMetadataRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -3820,6 +6642,23 @@ export function serializeQueryEnumMetadataRequest(writer: SerializationWriter, q
     if (!queryEnumMetadataRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("enumName", queryEnumMetadataRequest.enumName);
     writer.writeAdditionalData(queryEnumMetadataRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param ReceiverOrganizationReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeReceiverOrganizationReadModel(writer: SerializationWriter, receiverOrganizationReadModel: Partial<ReceiverOrganizationReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!receiverOrganizationReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branchCode", receiverOrganizationReadModel.branchCode);
+    writer.writeStringValue("branchName", receiverOrganizationReadModel.branchName);
+    writer.writeStringValue("hospitalCode", receiverOrganizationReadModel.hospitalCode);
+    writer.writeStringValue("hospitalName", receiverOrganizationReadModel.hospitalName);
+    writer.writeStringValue("organizationCode", receiverOrganizationReadModel.organizationCode);
+    writer.writeStringValue("organizationName", receiverOrganizationReadModel.organizationName);
+    writer.writeAdditionalData(receiverOrganizationReadModel.additionalData);
 }
 /**
  * Serializes information the current object
@@ -3864,6 +6703,300 @@ export function serializeRecognitionAmountReadModel(writer: SerializationWriter,
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionCitationDetailReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionCitationDetailReadModel(writer: SerializationWriter, recognitionCitationDetailReadModel: Partial<RecognitionCitationDetailReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionCitationDetailReadModel || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<RecognitionCitationItemReadModel>("matchItems", recognitionCitationDetailReadModel.matchItems, serializeRecognitionCitationItemReadModel);
+    writer.writeCollectionOfObjectValues<RecognitionReportContextReadModel>("reportContext", recognitionCitationDetailReadModel.reportContext, serializeRecognitionReportContextReadModel);
+    writer.writeAdditionalData(recognitionCitationDetailReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionCitationDetailRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionCitationDetailRequest(writer: SerializationWriter, recognitionCitationDetailRequest: Partial<RecognitionCitationDetailRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionCitationDetailRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("identityDocumentNo", recognitionCitationDetailRequest.identityDocumentNo);
+    writer.writeStringValue("identityDocumentTypeCode", recognitionCitationDetailRequest.identityDocumentTypeCode);
+    writer.writeStringValue("visitSerialNo", recognitionCitationDetailRequest.visitSerialNo);
+    writer.writeNumberValue("visitType", recognitionCitationDetailRequest.visitType);
+    writer.writeAdditionalData(recognitionCitationDetailRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionCitationItemReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionCitationItemReadModel(writer: SerializationWriter, recognitionCitationItemReadModel: Partial<RecognitionCitationItemReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionCitationItemReadModel || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<RecognitionExaminationSiteReadModel>("examinationSites", recognitionCitationItemReadModel.examinationSites, serializeRecognitionExaminationSiteReadModel);
+    writer.writeCollectionOfObjectValues<RecognitionCitationLaboratoryResultReadModel>("laboratoryResults", recognitionCitationItemReadModel.laboratoryResults, serializeRecognitionCitationLaboratoryResultReadModel);
+    writer.writeGuidValue("recognitionMatchItemId", recognitionCitationItemReadModel.recognitionMatchItemId);
+    writer.writeGuidValue("reportId", recognitionCitationItemReadModel.reportId);
+    writer.writeGuidValue("reportVersionId", recognitionCitationItemReadModel.reportVersionId);
+    writer.writeStringValue("standardProjectCode", recognitionCitationItemReadModel.standardProjectCode);
+    writer.writeStringValue("standardProjectName", recognitionCitationItemReadModel.standardProjectName);
+    writer.writeAdditionalData(recognitionCitationItemReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionCitationLaboratoryResultReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionCitationLaboratoryResultReadModel(writer: SerializationWriter, recognitionCitationLaboratoryResultReadModel: Partial<RecognitionCitationLaboratoryResultReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionCitationLaboratoryResultReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("resultItemName", recognitionCitationLaboratoryResultReadModel.resultItemName);
+    writer.writeStringValue("sourceAbnormalFlag", recognitionCitationLaboratoryResultReadModel.sourceAbnormalFlag);
+    writer.writeStringValue("sourceCriticalValueFlag", recognitionCitationLaboratoryResultReadModel.sourceCriticalValueFlag);
+    writer.writeStringValue("sourceReferenceRange", recognitionCitationLaboratoryResultReadModel.sourceReferenceRange);
+    writer.writeStringValue("sourceResultContent", recognitionCitationLaboratoryResultReadModel.sourceResultContent);
+    writer.writeStringValue("unit", recognitionCitationLaboratoryResultReadModel.unit);
+    writer.writeAdditionalData(recognitionCitationLaboratoryResultReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionExaminationSiteReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionExaminationSiteReadModel(writer: SerializationWriter, recognitionExaminationSiteReadModel: Partial<RecognitionExaminationSiteReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionExaminationSiteReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("siteName", recognitionExaminationSiteReadModel.siteName);
+    writer.writeStringValue("sourceSiteCode", recognitionExaminationSiteReadModel.sourceSiteCode);
+    writer.writeAdditionalData(recognitionExaminationSiteReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionMatchesResponseReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionMatchesResponseReadModel(writer: SerializationWriter, recognitionMatchesResponseReadModel: Partial<RecognitionMatchesResponseReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionMatchesResponseReadModel || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("hasMatches", recognitionMatchesResponseReadModel.hasMatches);
+    writer.writeDateValue("matchCreatedTime", recognitionMatchesResponseReadModel.matchCreatedTime);
+    writer.writeGuidValue("recognitionMatchRecordId", recognitionMatchesResponseReadModel.recognitionMatchRecordId);
+    writer.writeCollectionOfObjectValues<RecognitionMatchReportReadModel>("reports", recognitionMatchesResponseReadModel.reports, serializeRecognitionMatchReportReadModel);
+    writer.writeAdditionalData(recognitionMatchesResponseReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionMatchItemReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionMatchItemReadModel(writer: SerializationWriter, recognitionMatchItemReadModel: Partial<RecognitionMatchItemReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionMatchItemReadModel || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<RecognitionExaminationSiteReadModel>("examinationSites", recognitionMatchItemReadModel.examinationSites, serializeRecognitionExaminationSiteReadModel);
+    writer.writeCollectionOfObjectValues<RecognitionMatchLaboratoryResultReadModel>("laboratoryResults", recognitionMatchItemReadModel.laboratoryResults, serializeRecognitionMatchLaboratoryResultReadModel);
+    writer.writeStringValue("overallAbnormalFlag", recognitionMatchItemReadModel.overallAbnormalFlag);
+    writer.writeGuidValue("recognitionMatchItemId", recognitionMatchItemReadModel.recognitionMatchItemId);
+    writer.writeStringValue("specimenTypeName", recognitionMatchItemReadModel.specimenTypeName);
+    writer.writeStringValue("standardProjectCode", recognitionMatchItemReadModel.standardProjectCode);
+    writer.writeStringValue("standardProjectName", recognitionMatchItemReadModel.standardProjectName);
+    writer.writeAdditionalData(recognitionMatchItemReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionMatchLaboratoryResultReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionMatchLaboratoryResultReadModel(writer: SerializationWriter, recognitionMatchLaboratoryResultReadModel: Partial<RecognitionMatchLaboratoryResultReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionMatchLaboratoryResultReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("resultItemName", recognitionMatchLaboratoryResultReadModel.resultItemName);
+    writer.writeStringValue("sourceAbnormalFlag", recognitionMatchLaboratoryResultReadModel.sourceAbnormalFlag);
+    writer.writeStringValue("sourceCriticalValueFlag", recognitionMatchLaboratoryResultReadModel.sourceCriticalValueFlag);
+    writer.writeStringValue("sourceReferenceRange", recognitionMatchLaboratoryResultReadModel.sourceReferenceRange);
+    writer.writeStringValue("sourceResultContent", recognitionMatchLaboratoryResultReadModel.sourceResultContent);
+    writer.writeStringValue("unit", recognitionMatchLaboratoryResultReadModel.unit);
+    writer.writeAdditionalData(recognitionMatchLaboratoryResultReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionMatchProposedItemRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionMatchProposedItemRequest(writer: SerializationWriter, recognitionMatchProposedItemRequest: Partial<RecognitionMatchProposedItemRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionMatchProposedItemRequest || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("itemType", recognitionMatchProposedItemRequest.itemType);
+    writer.writeStringValue("standardProjectCode", recognitionMatchProposedItemRequest.standardProjectCode);
+    writer.writeAdditionalData(recognitionMatchProposedItemRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionMatchQueryRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionMatchQueryRequest(writer: SerializationWriter, recognitionMatchQueryRequest: Partial<RecognitionMatchQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionMatchQueryRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("identityDocumentNo", recognitionMatchQueryRequest.identityDocumentNo);
+    writer.writeStringValue("identityDocumentTypeCode", recognitionMatchQueryRequest.identityDocumentTypeCode);
+    writer.writeCollectionOfObjectValues<RecognitionMatchProposedItemRequest>("proposedItems", recognitionMatchQueryRequest.proposedItems, serializeRecognitionMatchProposedItemRequest);
+    writer.writeStringValue("visitSerialNo", recognitionMatchQueryRequest.visitSerialNo);
+    writer.writeNumberValue("visitType", recognitionMatchQueryRequest.visitType);
+    writer.writeAdditionalData(recognitionMatchQueryRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionMatchRecordItemReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionMatchRecordItemReadModel(writer: SerializationWriter, recognitionMatchRecordItemReadModel: Partial<RecognitionMatchRecordItemReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionMatchRecordItemReadModel || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("decision", recognitionMatchRecordItemReadModel.decision);
+    writer.writeStringValue("decisionText", recognitionMatchRecordItemReadModel.decisionText);
+    writer.writeBooleanValue("isProcessed", recognitionMatchRecordItemReadModel.isProcessed);
+    writer.writeObjectValue<RecognitionStatisticsItemReadModel>("item", recognitionMatchRecordItemReadModel.item, serializeRecognitionStatisticsItemReadModel);
+    writer.writeStringValue("nonAdoptionReasonCode", recognitionMatchRecordItemReadModel.nonAdoptionReasonCode);
+    writer.writeStringValue("nonAdoptionReasonName", recognitionMatchRecordItemReadModel.nonAdoptionReasonName);
+    writer.writeGuidValue("recognitionMatchItemId", recognitionMatchRecordItemReadModel.recognitionMatchItemId);
+    writer.writeGuidValue("reportId", recognitionMatchRecordItemReadModel.reportId);
+    writer.writeGuidValue("reportVersionId", recognitionMatchRecordItemReadModel.reportVersionId);
+    writer.writeObjectValue<SourceOrganizationReadModel>("source", recognitionMatchRecordItemReadModel.source, serializeSourceOrganizationReadModel);
+    writer.writeAdditionalData(recognitionMatchRecordItemReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionMatchRecordQueryRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionMatchRecordQueryRequest(writer: SerializationWriter, recognitionMatchRecordQueryRequest: Partial<RecognitionMatchRecordQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionMatchRecordQueryRequest || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("recognitionMatchRecordId", recognitionMatchRecordQueryRequest.recognitionMatchRecordId);
+    writer.writeAdditionalData(recognitionMatchRecordQueryRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionMatchRecordReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionMatchRecordReadModel(writer: SerializationWriter, recognitionMatchRecordReadModel: Partial<RecognitionMatchRecordReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionMatchRecordReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("identityDocumentNo", recognitionMatchRecordReadModel.identityDocumentNo);
+    writer.writeBooleanValue("isProcessed", recognitionMatchRecordReadModel.isProcessed);
+    writer.writeDateValue("matchCreatedTime", recognitionMatchRecordReadModel.matchCreatedTime);
+    writer.writeCollectionOfObjectValues<RecognitionMatchRecordItemReadModel>("matchItems", recognitionMatchRecordReadModel.matchItems, serializeRecognitionMatchRecordItemReadModel);
+    writer.writeStringValue("patientName", recognitionMatchRecordReadModel.patientName);
+    writer.writeObjectValue<ReceiverOrganizationReadModel>("receiver", recognitionMatchRecordReadModel.receiver, serializeReceiverOrganizationReadModel);
+    writer.writeStringValue("recognitionDeptId", recognitionMatchRecordReadModel.recognitionDeptId);
+    writer.writeStringValue("recognitionDeptName", recognitionMatchRecordReadModel.recognitionDeptName);
+    writer.writeStringValue("recognitionDoctorId", recognitionMatchRecordReadModel.recognitionDoctorId);
+    writer.writeStringValue("recognitionDoctorName", recognitionMatchRecordReadModel.recognitionDoctorName);
+    writer.writeGuidValue("recognitionMatchRecordId", recognitionMatchRecordReadModel.recognitionMatchRecordId);
+    writer.writeDateValue("recognitionTime", recognitionMatchRecordReadModel.recognitionTime);
+    writer.writeStringValue("visitSerialNo", recognitionMatchRecordReadModel.visitSerialNo);
+    writer.writeNumberValue("visitType", recognitionMatchRecordReadModel.visitType);
+    writer.writeStringValue("visitTypeText", recognitionMatchRecordReadModel.visitTypeText);
+    writer.writeAdditionalData(recognitionMatchRecordReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionMatchReportReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionMatchReportReadModel(writer: SerializationWriter, recognitionMatchReportReadModel: Partial<RecognitionMatchReportReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionMatchReportReadModel || isSerializingDerivedType) { return; }
+    writer.writeDateValue("clinicalTime", recognitionMatchReportReadModel.clinicalTime);
+    writer.writeObjectValue<PdfAndImageAccessReadModel>("file", recognitionMatchReportReadModel.file, serializePdfAndImageAccessReadModel);
+    writer.writeCollectionOfObjectValues<RecognitionMatchItemReadModel>("matchItems", recognitionMatchReportReadModel.matchItems, serializeRecognitionMatchItemReadModel);
+    writer.writeGuidValue("reportId", recognitionMatchReportReadModel.reportId);
+    writer.writeStringValue("reportName", recognitionMatchReportReadModel.reportName);
+    writer.writeStringValue("reportNo", recognitionMatchReportReadModel.reportNo);
+    writer.writeDateValue("reportTime", recognitionMatchReportReadModel.reportTime);
+    writer.writeNumberValue("reportType", recognitionMatchReportReadModel.reportType);
+    writer.writeStringValue("reportTypeText", recognitionMatchReportReadModel.reportTypeText);
+    writer.writeGuidValue("reportVersionId", recognitionMatchReportReadModel.reportVersionId);
+    writer.writeStringValue("sourceBranchCode", recognitionMatchReportReadModel.sourceBranchCode);
+    writer.writeStringValue("sourceBranchName", recognitionMatchReportReadModel.sourceBranchName);
+    writer.writeStringValue("sourceHospitalCode", recognitionMatchReportReadModel.sourceHospitalCode);
+    writer.writeStringValue("sourceHospitalName", recognitionMatchReportReadModel.sourceHospitalName);
+    writer.writeStringValue("sourceOrganizationCode", recognitionMatchReportReadModel.sourceOrganizationCode);
+    writer.writeStringValue("sourceOrganizationName", recognitionMatchReportReadModel.sourceOrganizationName);
+    writer.writeAdditionalData(recognitionMatchReportReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionProcessingResultDetailReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionProcessingResultDetailReadModel(writer: SerializationWriter, recognitionProcessingResultDetailReadModel: Partial<RecognitionProcessingResultDetailReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionProcessingResultDetailReadModel || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("decision", recognitionProcessingResultDetailReadModel.decision);
+    writer.writeStringValue("decisionText", recognitionProcessingResultDetailReadModel.decisionText);
+    writer.writeObjectValue("estimatedSavingAmount", recognitionProcessingResultDetailReadModel.estimatedSavingAmount);
+    writer.writeBooleanValue("isProcessed", recognitionProcessingResultDetailReadModel.isProcessed);
+    writer.writeStringValue("nonAdoptionReasonCode", recognitionProcessingResultDetailReadModel.nonAdoptionReasonCode);
+    writer.writeStringValue("nonAdoptionReasonName", recognitionProcessingResultDetailReadModel.nonAdoptionReasonName);
+    writer.writeStringValue("nonAdoptionSupplementDescription", recognitionProcessingResultDetailReadModel.nonAdoptionSupplementDescription);
+    writer.writeDateValue("recognitionTime", recognitionProcessingResultDetailReadModel.recognitionTime);
+    writer.writeAdditionalData(recognitionProcessingResultDetailReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionProcessingResultItemRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionProcessingResultItemRequest(writer: SerializationWriter, recognitionProcessingResultItemRequest: Partial<RecognitionProcessingResultItemRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionProcessingResultItemRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("nonAdoptionDescription", recognitionProcessingResultItemRequest.nonAdoptionDescription);
+    writer.writeNumberValue("nonAdoptionReason", recognitionProcessingResultItemRequest.nonAdoptionReason);
+    writer.writeGuidValue("recognitionMatchItemId", recognitionProcessingResultItemRequest.recognitionMatchItemId);
+    writer.writeNumberValue("result", recognitionProcessingResultItemRequest.result);
+    writer.writeAdditionalData(recognitionProcessingResultItemRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionProcessingResultSubmissionRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionProcessingResultSubmissionRequest(writer: SerializationWriter, recognitionProcessingResultSubmissionRequest: Partial<RecognitionProcessingResultSubmissionRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionProcessingResultSubmissionRequest || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("changedProperties", recognitionProcessingResultSubmissionRequest.changedProperties);
+    writer.writeCollectionOfObjectValues<RecognitionProcessingResultItemRequest>("processingResults", recognitionProcessingResultSubmissionRequest.processingResults, serializeRecognitionProcessingResultItemRequest);
+    writer.writeStringValue("recognitionDeptId", recognitionProcessingResultSubmissionRequest.recognitionDeptId);
+    writer.writeStringValue("recognitionDeptName", recognitionProcessingResultSubmissionRequest.recognitionDeptName);
+    writer.writeStringValue("recognitionDoctorId", recognitionProcessingResultSubmissionRequest.recognitionDoctorId);
+    writer.writeStringValue("recognitionDoctorName", recognitionProcessingResultSubmissionRequest.recognitionDoctorName);
+    writer.writeGuidValue("recognitionMatchRecordId", recognitionProcessingResultSubmissionRequest.recognitionMatchRecordId);
+    writer.writeDateValue("recognitionTime", recognitionProcessingResultSubmissionRequest.recognitionTime);
+    writer.writeAdditionalData(recognitionProcessingResultSubmissionRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param RecognitionProjectConfigurationListQueryRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -3896,6 +7029,249 @@ export function serializeRecognitionProjectConfigurationReadModel(writer: Serial
     writer.writeStringValue("standardProjectCode", recognitionProjectConfigurationReadModel.standardProjectCode);
     writer.writeStringValue("unavailableReason", recognitionProjectConfigurationReadModel.unavailableReason);
     writer.writeAdditionalData(recognitionProjectConfigurationReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionReferenceDetailReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionReferenceDetailReadModel(writer: SerializationWriter, recognitionReferenceDetailReadModel: Partial<RecognitionReferenceDetailReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionReferenceDetailReadModel || isSerializingDerivedType) { return; }
+    writer.writeBooleanValue("isReferenced", recognitionReferenceDetailReadModel.isReferenced);
+    writer.writeStringValue("referenceDeptId", recognitionReferenceDetailReadModel.referenceDeptId);
+    writer.writeStringValue("referenceDeptName", recognitionReferenceDetailReadModel.referenceDeptName);
+    writer.writeStringValue("referenceDoctorId", recognitionReferenceDetailReadModel.referenceDoctorId);
+    writer.writeStringValue("referenceDoctorName", recognitionReferenceDetailReadModel.referenceDoctorName);
+    writer.writeDateValue("referenceTime", recognitionReferenceDetailReadModel.referenceTime);
+    writer.writeAdditionalData(recognitionReferenceDetailReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionReferenceItemRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionReferenceItemRequest(writer: SerializationWriter, recognitionReferenceItemRequest: Partial<RecognitionReferenceItemRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionReferenceItemRequest || isSerializingDerivedType) { return; }
+    writer.writeGuidValue("recognitionMatchItemId", recognitionReferenceItemRequest.recognitionMatchItemId);
+    writer.writeStringValue("referenceDeptId", recognitionReferenceItemRequest.referenceDeptId);
+    writer.writeStringValue("referenceDeptName", recognitionReferenceItemRequest.referenceDeptName);
+    writer.writeStringValue("referenceDoctorId", recognitionReferenceItemRequest.referenceDoctorId);
+    writer.writeStringValue("referenceDoctorName", recognitionReferenceItemRequest.referenceDoctorName);
+    writer.writeDateValue("referencedTime", recognitionReferenceItemRequest.referencedTime);
+    writer.writeAdditionalData(recognitionReferenceItemRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionReferenceSubmissionRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionReferenceSubmissionRequest(writer: SerializationWriter, recognitionReferenceSubmissionRequest: Partial<RecognitionReferenceSubmissionRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionReferenceSubmissionRequest || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfObjectValues<RecognitionReferenceItemRequest>("referenceItems", recognitionReferenceSubmissionRequest.referenceItems, serializeRecognitionReferenceItemRequest);
+    writer.writeAdditionalData(recognitionReferenceSubmissionRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionReportContextReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionReportContextReadModel(writer: SerializationWriter, recognitionReportContextReadModel: Partial<RecognitionReportContextReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionReportContextReadModel || isSerializingDerivedType) { return; }
+    writer.writeDateValue("clinicalTime", recognitionReportContextReadModel.clinicalTime);
+    writer.writeStringValue("examinationConclusion", recognitionReportContextReadModel.examinationConclusion);
+    writer.writeStringValue("examinationFindings", recognitionReportContextReadModel.examinationFindings);
+    writer.writeObjectValue<PdfAndImageAccessReadModel>("file", recognitionReportContextReadModel.file, serializePdfAndImageAccessReadModel);
+    writer.writeGuidValue("reportId", recognitionReportContextReadModel.reportId);
+    writer.writeStringValue("reportName", recognitionReportContextReadModel.reportName);
+    writer.writeStringValue("reportNo", recognitionReportContextReadModel.reportNo);
+    writer.writeDateValue("reportTime", recognitionReportContextReadModel.reportTime);
+    writer.writeNumberValue("reportType", recognitionReportContextReadModel.reportType);
+    writer.writeStringValue("reportTypeText", recognitionReportContextReadModel.reportTypeText);
+    writer.writeGuidValue("reportVersionId", recognitionReportContextReadModel.reportVersionId);
+    writer.writeStringValue("sourceApplicantDoctorId", recognitionReportContextReadModel.sourceApplicantDoctorId);
+    writer.writeStringValue("sourceApplicantDoctorName", recognitionReportContextReadModel.sourceApplicantDoctorName);
+    writer.writeStringValue("sourceBranchCode", recognitionReportContextReadModel.sourceBranchCode);
+    writer.writeStringValue("sourceBranchName", recognitionReportContextReadModel.sourceBranchName);
+    writer.writeStringValue("sourceHospitalCode", recognitionReportContextReadModel.sourceHospitalCode);
+    writer.writeStringValue("sourceHospitalName", recognitionReportContextReadModel.sourceHospitalName);
+    writer.writeStringValue("sourceOrganizationCode", recognitionReportContextReadModel.sourceOrganizationCode);
+    writer.writeStringValue("sourceOrganizationName", recognitionReportContextReadModel.sourceOrganizationName);
+    writer.writeStringValue("sourceReviewerDoctorId", recognitionReportContextReadModel.sourceReviewerDoctorId);
+    writer.writeStringValue("sourceReviewerDoctorName", recognitionReportContextReadModel.sourceReviewerDoctorName);
+    writer.writeAdditionalData(recognitionReportContextReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionStatisticsExportRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionStatisticsExportRequest(writer: SerializationWriter, recognitionStatisticsExportRequest: Partial<RecognitionStatisticsExportRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionStatisticsExportRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("categoryName", recognitionStatisticsExportRequest.categoryName);
+    writer.writeDateOnlyValue("endTime", recognitionStatisticsExportRequest.endTime);
+    writer.writeNumberValue("exportType", recognitionStatisticsExportRequest.exportType);
+    writer.writeNumberValue("groupDimension", recognitionStatisticsExportRequest.groupDimension);
+    writer.writeStringValue("groupName", recognitionStatisticsExportRequest.groupName);
+    writer.writeNumberValue("itemType", recognitionStatisticsExportRequest.itemType);
+    writer.writeStringValue("nonAdoptionReasonCode", recognitionStatisticsExportRequest.nonAdoptionReasonCode);
+    writer.writeStringValue("receiverBranchCode", recognitionStatisticsExportRequest.receiverBranchCode);
+    writer.writeStringValue("receiverHospitalCode", recognitionStatisticsExportRequest.receiverHospitalCode);
+    writer.writeStringValue("receiverOrganizationCode", recognitionStatisticsExportRequest.receiverOrganizationCode);
+    writer.writeStringValue("recognitionDeptId", recognitionStatisticsExportRequest.recognitionDeptId);
+    writer.writeStringValue("recognitionDoctorId", recognitionStatisticsExportRequest.recognitionDoctorId);
+    writer.writeStringValue("sourceBranchCode", recognitionStatisticsExportRequest.sourceBranchCode);
+    writer.writeStringValue("sourceHospitalCode", recognitionStatisticsExportRequest.sourceHospitalCode);
+    writer.writeStringValue("sourceOrganizationCode", recognitionStatisticsExportRequest.sourceOrganizationCode);
+    writer.writeStringValue("standardProjectCode", recognitionStatisticsExportRequest.standardProjectCode);
+    writer.writeDateOnlyValue("startTime", recognitionStatisticsExportRequest.startTime);
+    writer.writeAdditionalData(recognitionStatisticsExportRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionStatisticsItemReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionStatisticsItemReadModel(writer: SerializationWriter, recognitionStatisticsItemReadModel: Partial<RecognitionStatisticsItemReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionStatisticsItemReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("categoryName", recognitionStatisticsItemReadModel.categoryName);
+    writer.writeStringValue("groupName", recognitionStatisticsItemReadModel.groupName);
+    writer.writeNumberValue("itemType", recognitionStatisticsItemReadModel.itemType);
+    writer.writeStringValue("itemTypeText", recognitionStatisticsItemReadModel.itemTypeText);
+    writer.writeStringValue("standardProjectCode", recognitionStatisticsItemReadModel.standardProjectCode);
+    writer.writeStringValue("standardProjectName", recognitionStatisticsItemReadModel.standardProjectName);
+    writer.writeAdditionalData(recognitionStatisticsItemReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionUsageDetailReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionUsageDetailReadModel(writer: SerializationWriter, recognitionUsageDetailReadModel: Partial<RecognitionUsageDetailReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionUsageDetailReadModel || isSerializingDerivedType) { return; }
+    writer.writeDateValue("businessTime", recognitionUsageDetailReadModel.businessTime);
+    writer.writeStringValue("identityDocumentNo", recognitionUsageDetailReadModel.identityDocumentNo);
+    writer.writeBooleanValue("isUnprocessed", recognitionUsageDetailReadModel.isUnprocessed);
+    writer.writeObjectValue<RecognitionStatisticsItemReadModel>("item", recognitionUsageDetailReadModel.item, serializeRecognitionStatisticsItemReadModel);
+    writer.writeDateValue("matchCreatedTime", recognitionUsageDetailReadModel.matchCreatedTime);
+    writer.writeStringValue("patientName", recognitionUsageDetailReadModel.patientName);
+    writer.writeObjectValue<RecognitionProcessingResultDetailReadModel>("processingResult", recognitionUsageDetailReadModel.processingResult, serializeRecognitionProcessingResultDetailReadModel);
+    writer.writeObjectValue<ReceiverOrganizationReadModel>("receiver", recognitionUsageDetailReadModel.receiver, serializeReceiverOrganizationReadModel);
+    writer.writeStringValue("recognitionDeptId", recognitionUsageDetailReadModel.recognitionDeptId);
+    writer.writeStringValue("recognitionDeptName", recognitionUsageDetailReadModel.recognitionDeptName);
+    writer.writeStringValue("recognitionDoctorId", recognitionUsageDetailReadModel.recognitionDoctorId);
+    writer.writeStringValue("recognitionDoctorName", recognitionUsageDetailReadModel.recognitionDoctorName);
+    writer.writeGuidValue("recognitionMatchItemId", recognitionUsageDetailReadModel.recognitionMatchItemId);
+    writer.writeGuidValue("recognitionMatchRecordId", recognitionUsageDetailReadModel.recognitionMatchRecordId);
+    writer.writeObjectValue<RecognitionReferenceDetailReadModel>("reference", recognitionUsageDetailReadModel.reference, serializeRecognitionReferenceDetailReadModel);
+    writer.writeObjectValue<SourceOrganizationReadModel>("source", recognitionUsageDetailReadModel.source, serializeSourceOrganizationReadModel);
+    writer.writeStringValue("visitSerialNo", recognitionUsageDetailReadModel.visitSerialNo);
+    writer.writeNumberValue("visitType", recognitionUsageDetailReadModel.visitType);
+    writer.writeStringValue("visitTypeText", recognitionUsageDetailReadModel.visitTypeText);
+    writer.writeAdditionalData(recognitionUsageDetailReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionUsageDetailsQueryRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionUsageDetailsQueryRequest(writer: SerializationWriter, recognitionUsageDetailsQueryRequest: Partial<RecognitionUsageDetailsQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionUsageDetailsQueryRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branchCode", recognitionUsageDetailsQueryRequest.branchCode);
+    writer.writeStringValue("categoryName", recognitionUsageDetailsQueryRequest.categoryName);
+    writer.writeNumberValue("detailType", recognitionUsageDetailsQueryRequest.detailType);
+    writer.writeDateOnlyValue("endTime", recognitionUsageDetailsQueryRequest.endTime);
+    writer.writeStringValue("groupName", recognitionUsageDetailsQueryRequest.groupName);
+    writer.writeStringValue("hospitalCode", recognitionUsageDetailsQueryRequest.hospitalCode);
+    writer.writeNumberValue("itemType", recognitionUsageDetailsQueryRequest.itemType);
+    writer.writeStringValue("nonAdoptionReasonCode", recognitionUsageDetailsQueryRequest.nonAdoptionReasonCode);
+    writer.writeStringValue("organizationCode", recognitionUsageDetailsQueryRequest.organizationCode);
+    writer.writeObjectValue<PageRequestDto>("page", recognitionUsageDetailsQueryRequest.page, serializePageRequestDto);
+    writer.writeStringValue("recognitionDeptId", recognitionUsageDetailsQueryRequest.recognitionDeptId);
+    writer.writeStringValue("recognitionDoctorId", recognitionUsageDetailsQueryRequest.recognitionDoctorId);
+    writer.writeStringValue("sourceBranchCode", recognitionUsageDetailsQueryRequest.sourceBranchCode);
+    writer.writeStringValue("sourceHospitalCode", recognitionUsageDetailsQueryRequest.sourceHospitalCode);
+    writer.writeStringValue("sourceOrganizationCode", recognitionUsageDetailsQueryRequest.sourceOrganizationCode);
+    writer.writeStringValue("standardProjectCode", recognitionUsageDetailsQueryRequest.standardProjectCode);
+    writer.writeDateOnlyValue("startTime", recognitionUsageDetailsQueryRequest.startTime);
+    writer.writeAdditionalData(recognitionUsageDetailsQueryRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionUsageSummaryQueryRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionUsageSummaryQueryRequest(writer: SerializationWriter, recognitionUsageSummaryQueryRequest: Partial<RecognitionUsageSummaryQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionUsageSummaryQueryRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branchCode", recognitionUsageSummaryQueryRequest.branchCode);
+    writer.writeStringValue("categoryName", recognitionUsageSummaryQueryRequest.categoryName);
+    writer.writeDateOnlyValue("endTime", recognitionUsageSummaryQueryRequest.endTime);
+    writer.writeNumberValue("groupDimension", recognitionUsageSummaryQueryRequest.groupDimension);
+    writer.writeStringValue("groupName", recognitionUsageSummaryQueryRequest.groupName);
+    writer.writeStringValue("hospitalCode", recognitionUsageSummaryQueryRequest.hospitalCode);
+    writer.writeNumberValue("itemType", recognitionUsageSummaryQueryRequest.itemType);
+    writer.writeStringValue("organizationCode", recognitionUsageSummaryQueryRequest.organizationCode);
+    writer.writeObjectValue<PageRequestDto>("page", recognitionUsageSummaryQueryRequest.page, serializePageRequestDto);
+    writer.writeStringValue("recognitionDeptId", recognitionUsageSummaryQueryRequest.recognitionDeptId);
+    writer.writeStringValue("sourceBranchCode", recognitionUsageSummaryQueryRequest.sourceBranchCode);
+    writer.writeStringValue("sourceHospitalCode", recognitionUsageSummaryQueryRequest.sourceHospitalCode);
+    writer.writeStringValue("sourceOrganizationCode", recognitionUsageSummaryQueryRequest.sourceOrganizationCode);
+    writer.writeStringValue("standardProjectCode", recognitionUsageSummaryQueryRequest.standardProjectCode);
+    writer.writeDateOnlyValue("startTime", recognitionUsageSummaryQueryRequest.startTime);
+    writer.writeAdditionalData(recognitionUsageSummaryQueryRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionUsageSummaryReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionUsageSummaryReadModel(writer: SerializationWriter, recognitionUsageSummaryReadModel: Partial<RecognitionUsageSummaryReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionUsageSummaryReadModel || isSerializingDerivedType) { return; }
+    writer.writeNumberValue("adoptionCount", recognitionUsageSummaryReadModel.adoptionCount);
+    writer.writeStringValue("categoryName", recognitionUsageSummaryReadModel.categoryName);
+    writer.writeObjectValue("estimatedSavingAmount", recognitionUsageSummaryReadModel.estimatedSavingAmount);
+    writer.writeNumberValue("groupDimension", recognitionUsageSummaryReadModel.groupDimension);
+    writer.writeStringValue("groupName", recognitionUsageSummaryReadModel.groupName);
+    writer.writeNumberValue("itemType", recognitionUsageSummaryReadModel.itemType);
+    writer.writeStringValue("itemTypeText", recognitionUsageSummaryReadModel.itemTypeText);
+    writer.writeNumberValue("nonAdoptionCount", recognitionUsageSummaryReadModel.nonAdoptionCount);
+    writer.writeCollectionOfObjectValues<NonAdoptionReasonSummaryReadModel>("nonAdoptionReasons", recognitionUsageSummaryReadModel.nonAdoptionReasons, serializeNonAdoptionReasonSummaryReadModel);
+    writer.writeDateValue("periodEnd", recognitionUsageSummaryReadModel.periodEnd);
+    writer.writeDateValue("periodStart", recognitionUsageSummaryReadModel.periodStart);
+    writer.writeStringValue("receiverBranchCode", recognitionUsageSummaryReadModel.receiverBranchCode);
+    writer.writeStringValue("receiverBranchName", recognitionUsageSummaryReadModel.receiverBranchName);
+    writer.writeStringValue("receiverHospitalCode", recognitionUsageSummaryReadModel.receiverHospitalCode);
+    writer.writeStringValue("receiverHospitalName", recognitionUsageSummaryReadModel.receiverHospitalName);
+    writer.writeStringValue("receiverOrganizationCode", recognitionUsageSummaryReadModel.receiverOrganizationCode);
+    writer.writeStringValue("receiverOrganizationName", recognitionUsageSummaryReadModel.receiverOrganizationName);
+    writer.writeStringValue("recognitionDeptId", recognitionUsageSummaryReadModel.recognitionDeptId);
+    writer.writeStringValue("recognitionDeptName", recognitionUsageSummaryReadModel.recognitionDeptName);
+    writer.writeNumberValue("referenceCount", recognitionUsageSummaryReadModel.referenceCount);
+    writer.writeNumberValue("reminderCount", recognitionUsageSummaryReadModel.reminderCount);
+    writer.writeObjectValue("samePeriodRecognitionRate", recognitionUsageSummaryReadModel.samePeriodRecognitionRate);
+    writer.writeBooleanValue("samePeriodRecognitionRateCalculated", recognitionUsageSummaryReadModel.samePeriodRecognitionRateCalculated);
+    writer.writeStringValue("standardProjectCode", recognitionUsageSummaryReadModel.standardProjectCode);
+    writer.writeStringValue("standardProjectName", recognitionUsageSummaryReadModel.standardProjectName);
+    writer.writeAdditionalData(recognitionUsageSummaryReadModel.additionalData);
 }
 /**
  * Serializes information the current object
@@ -4008,6 +7384,132 @@ export function serializeSaveOrganizationHospitalBranchRecognitionAmountRequest(
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SourceOrganizationReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSourceOrganizationReadModel(writer: SerializationWriter, sourceOrganizationReadModel: Partial<SourceOrganizationReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!sourceOrganizationReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branchCode", sourceOrganizationReadModel.branchCode);
+    writer.writeStringValue("branchName", sourceOrganizationReadModel.branchName);
+    writer.writeStringValue("hospitalCode", sourceOrganizationReadModel.hospitalCode);
+    writer.writeStringValue("hospitalName", sourceOrganizationReadModel.hospitalName);
+    writer.writeStringValue("organizationCode", sourceOrganizationReadModel.organizationCode);
+    writer.writeStringValue("organizationName", sourceOrganizationReadModel.organizationName);
+    writer.writeAdditionalData(sourceOrganizationReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SourceRecognitionDetailReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSourceRecognitionDetailReadModel(writer: SerializationWriter, sourceRecognitionDetailReadModel: Partial<SourceRecognitionDetailReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!sourceRecognitionDetailReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("identityDocumentNo", sourceRecognitionDetailReadModel.identityDocumentNo);
+    writer.writeStringValue("patientName", sourceRecognitionDetailReadModel.patientName);
+    writer.writeStringValue("receiverBranchCode", sourceRecognitionDetailReadModel.receiverBranchCode);
+    writer.writeStringValue("receiverBranchName", sourceRecognitionDetailReadModel.receiverBranchName);
+    writer.writeStringValue("receiverHospitalCode", sourceRecognitionDetailReadModel.receiverHospitalCode);
+    writer.writeStringValue("receiverHospitalName", sourceRecognitionDetailReadModel.receiverHospitalName);
+    writer.writeStringValue("receiverOrganizationCode", sourceRecognitionDetailReadModel.receiverOrganizationCode);
+    writer.writeStringValue("receiverOrganizationName", sourceRecognitionDetailReadModel.receiverOrganizationName);
+    writer.writeStringValue("recognitionDeptId", sourceRecognitionDetailReadModel.recognitionDeptId);
+    writer.writeStringValue("recognitionDeptName", sourceRecognitionDetailReadModel.recognitionDeptName);
+    writer.writeStringValue("recognitionDoctorId", sourceRecognitionDetailReadModel.recognitionDoctorId);
+    writer.writeStringValue("recognitionDoctorName", sourceRecognitionDetailReadModel.recognitionDoctorName);
+    writer.writeGuidValue("recognitionMatchItemId", sourceRecognitionDetailReadModel.recognitionMatchItemId);
+    writer.writeGuidValue("recognitionMatchRecordId", sourceRecognitionDetailReadModel.recognitionMatchRecordId);
+    writer.writeDateValue("recognitionTime", sourceRecognitionDetailReadModel.recognitionTime);
+    writer.writeStringValue("sourceBranchCode", sourceRecognitionDetailReadModel.sourceBranchCode);
+    writer.writeStringValue("sourceBranchName", sourceRecognitionDetailReadModel.sourceBranchName);
+    writer.writeStringValue("sourceHospitalCode", sourceRecognitionDetailReadModel.sourceHospitalCode);
+    writer.writeStringValue("sourceHospitalName", sourceRecognitionDetailReadModel.sourceHospitalName);
+    writer.writeStringValue("sourceOrganizationCode", sourceRecognitionDetailReadModel.sourceOrganizationCode);
+    writer.writeStringValue("sourceOrganizationName", sourceRecognitionDetailReadModel.sourceOrganizationName);
+    writer.writeStringValue("standardProjectCode", sourceRecognitionDetailReadModel.standardProjectCode);
+    writer.writeAdditionalData(sourceRecognitionDetailReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SourceRecognitionDetailsQueryRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSourceRecognitionDetailsQueryRequest(writer: SerializationWriter, sourceRecognitionDetailsQueryRequest: Partial<SourceRecognitionDetailsQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!sourceRecognitionDetailsQueryRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("categoryName", sourceRecognitionDetailsQueryRequest.categoryName);
+    writer.writeDateOnlyValue("endTime", sourceRecognitionDetailsQueryRequest.endTime);
+    writer.writeStringValue("groupName", sourceRecognitionDetailsQueryRequest.groupName);
+    writer.writeNumberValue("itemType", sourceRecognitionDetailsQueryRequest.itemType);
+    writer.writeObjectValue<PageRequestDto>("page", sourceRecognitionDetailsQueryRequest.page, serializePageRequestDto);
+    writer.writeStringValue("receiverBranchCode", sourceRecognitionDetailsQueryRequest.receiverBranchCode);
+    writer.writeStringValue("receiverHospitalCode", sourceRecognitionDetailsQueryRequest.receiverHospitalCode);
+    writer.writeStringValue("receiverOrganizationCode", sourceRecognitionDetailsQueryRequest.receiverOrganizationCode);
+    writer.writeStringValue("sourceBranchCode", sourceRecognitionDetailsQueryRequest.sourceBranchCode);
+    writer.writeStringValue("sourceHospitalCode", sourceRecognitionDetailsQueryRequest.sourceHospitalCode);
+    writer.writeStringValue("sourceOrganizationCode", sourceRecognitionDetailsQueryRequest.sourceOrganizationCode);
+    writer.writeStringValue("standardProjectCode", sourceRecognitionDetailsQueryRequest.standardProjectCode);
+    writer.writeDateOnlyValue("startTime", sourceRecognitionDetailsQueryRequest.startTime);
+    writer.writeAdditionalData(sourceRecognitionDetailsQueryRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SourceRecognitionSummaryQueryRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSourceRecognitionSummaryQueryRequest(writer: SerializationWriter, sourceRecognitionSummaryQueryRequest: Partial<SourceRecognitionSummaryQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!sourceRecognitionSummaryQueryRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("categoryName", sourceRecognitionSummaryQueryRequest.categoryName);
+    writer.writeDateOnlyValue("endTime", sourceRecognitionSummaryQueryRequest.endTime);
+    writer.writeNumberValue("groupDimension", sourceRecognitionSummaryQueryRequest.groupDimension);
+    writer.writeStringValue("groupName", sourceRecognitionSummaryQueryRequest.groupName);
+    writer.writeNumberValue("itemType", sourceRecognitionSummaryQueryRequest.itemType);
+    writer.writeObjectValue<PageRequestDto>("page", sourceRecognitionSummaryQueryRequest.page, serializePageRequestDto);
+    writer.writeStringValue("receiverBranchCode", sourceRecognitionSummaryQueryRequest.receiverBranchCode);
+    writer.writeStringValue("receiverHospitalCode", sourceRecognitionSummaryQueryRequest.receiverHospitalCode);
+    writer.writeStringValue("receiverOrganizationCode", sourceRecognitionSummaryQueryRequest.receiverOrganizationCode);
+    writer.writeStringValue("sourceBranchCode", sourceRecognitionSummaryQueryRequest.sourceBranchCode);
+    writer.writeStringValue("sourceHospitalCode", sourceRecognitionSummaryQueryRequest.sourceHospitalCode);
+    writer.writeStringValue("sourceOrganizationCode", sourceRecognitionSummaryQueryRequest.sourceOrganizationCode);
+    writer.writeStringValue("standardProjectCode", sourceRecognitionSummaryQueryRequest.standardProjectCode);
+    writer.writeDateOnlyValue("startTime", sourceRecognitionSummaryQueryRequest.startTime);
+    writer.writeAdditionalData(sourceRecognitionSummaryQueryRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SourceRecognitionSummaryReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSourceRecognitionSummaryReadModel(writer: SerializationWriter, sourceRecognitionSummaryReadModel: Partial<SourceRecognitionSummaryReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!sourceRecognitionSummaryReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("categoryName", sourceRecognitionSummaryReadModel.categoryName);
+    writer.writeNumberValue("groupDimension", sourceRecognitionSummaryReadModel.groupDimension);
+    writer.writeStringValue("groupName", sourceRecognitionSummaryReadModel.groupName);
+    writer.writeNumberValue("itemType", sourceRecognitionSummaryReadModel.itemType);
+    writer.writeStringValue("itemTypeText", sourceRecognitionSummaryReadModel.itemTypeText);
+    writer.writeDateValue("periodEnd", sourceRecognitionSummaryReadModel.periodEnd);
+    writer.writeDateValue("periodStart", sourceRecognitionSummaryReadModel.periodStart);
+    writer.writeNumberValue("recognitionCount", sourceRecognitionSummaryReadModel.recognitionCount);
+    writer.writeStringValue("sourceBranchCode", sourceRecognitionSummaryReadModel.sourceBranchCode);
+    writer.writeStringValue("sourceBranchName", sourceRecognitionSummaryReadModel.sourceBranchName);
+    writer.writeStringValue("sourceHospitalCode", sourceRecognitionSummaryReadModel.sourceHospitalCode);
+    writer.writeStringValue("sourceHospitalName", sourceRecognitionSummaryReadModel.sourceHospitalName);
+    writer.writeStringValue("sourceOrganizationCode", sourceRecognitionSummaryReadModel.sourceOrganizationCode);
+    writer.writeStringValue("sourceOrganizationName", sourceRecognitionSummaryReadModel.sourceOrganizationName);
+    writer.writeStringValue("standardProjectCode", sourceRecognitionSummaryReadModel.standardProjectCode);
+    writer.writeStringValue("standardProjectName", sourceRecognitionSummaryReadModel.standardProjectName);
+    writer.writeAdditionalData(sourceRecognitionSummaryReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param UpdateMedicalStandardCategoryRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -4049,6 +7551,300 @@ export function serializeUpdateMutualRecognitionItemConfigurationRequest(writer:
     writer.writeGuidValue("id", updateMutualRecognitionItemConfigurationRequest.id);
     writer.writeNumberValue("recognitionDurationDays", updateMutualRecognitionItemConfigurationRequest.recognitionDurationDays);
     writer.writeAdditionalData(updateMutualRecognitionItemConfigurationRequest.additionalData);
+}
+export interface SourceOrganizationReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The branchCode property
+     */
+    branchCode?: string | null;
+    /**
+     * The branchName property
+     */
+    branchName?: string | null;
+    /**
+     * The hospitalCode property
+     */
+    hospitalCode?: string | null;
+    /**
+     * The hospitalName property
+     */
+    hospitalName?: string | null;
+    /**
+     * The organizationCode property
+     */
+    organizationCode?: string | null;
+    /**
+     * The organizationName property
+     */
+    organizationName?: string | null;
+}
+export interface SourceRecognitionDetailReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The identityDocumentNo property
+     */
+    identityDocumentNo?: string | null;
+    /**
+     * The patientName property
+     */
+    patientName?: string | null;
+    /**
+     * The receiverBranchCode property
+     */
+    receiverBranchCode?: string | null;
+    /**
+     * The receiverBranchName property
+     */
+    receiverBranchName?: string | null;
+    /**
+     * The receiverHospitalCode property
+     */
+    receiverHospitalCode?: string | null;
+    /**
+     * The receiverHospitalName property
+     */
+    receiverHospitalName?: string | null;
+    /**
+     * The receiverOrganizationCode property
+     */
+    receiverOrganizationCode?: string | null;
+    /**
+     * The receiverOrganizationName property
+     */
+    receiverOrganizationName?: string | null;
+    /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
+     * The recognitionDeptName property
+     */
+    recognitionDeptName?: string | null;
+    /**
+     * The recognitionDoctorId property
+     */
+    recognitionDoctorId?: string | null;
+    /**
+     * The recognitionDoctorName property
+     */
+    recognitionDoctorName?: string | null;
+    /**
+     * The recognitionMatchItemId property
+     */
+    recognitionMatchItemId?: Guid | null;
+    /**
+     * The recognitionMatchRecordId property
+     */
+    recognitionMatchRecordId?: Guid | null;
+    /**
+     * The recognitionTime property
+     */
+    recognitionTime?: Date | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The sourceBranchName property
+     */
+    sourceBranchName?: string | null;
+    /**
+     * The sourceHospitalCode property
+     */
+    sourceHospitalCode?: string | null;
+    /**
+     * The sourceHospitalName property
+     */
+    sourceHospitalName?: string | null;
+    /**
+     * The sourceOrganizationCode property
+     */
+    sourceOrganizationCode?: string | null;
+    /**
+     * The sourceOrganizationName property
+     */
+    sourceOrganizationName?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+}
+export interface SourceRecognitionDetailsQueryRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The endTime property
+     */
+    endTime?: DateOnly | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The page property
+     */
+    page?: PageRequestDto | null;
+    /**
+     * The receiverBranchCode property
+     */
+    receiverBranchCode?: string | null;
+    /**
+     * The receiverHospitalCode property
+     */
+    receiverHospitalCode?: string | null;
+    /**
+     * The receiverOrganizationCode property
+     */
+    receiverOrganizationCode?: string | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The sourceHospitalCode property
+     */
+    sourceHospitalCode?: string | null;
+    /**
+     * The sourceOrganizationCode property
+     */
+    sourceOrganizationCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The startTime property
+     */
+    startTime?: DateOnly | null;
+}
+export interface SourceRecognitionSummaryQueryRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The endTime property
+     */
+    endTime?: DateOnly | null;
+    /**
+     * The groupDimension property
+     */
+    groupDimension?: number | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The page property
+     */
+    page?: PageRequestDto | null;
+    /**
+     * The receiverBranchCode property
+     */
+    receiverBranchCode?: string | null;
+    /**
+     * The receiverHospitalCode property
+     */
+    receiverHospitalCode?: string | null;
+    /**
+     * The receiverOrganizationCode property
+     */
+    receiverOrganizationCode?: string | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The sourceHospitalCode property
+     */
+    sourceHospitalCode?: string | null;
+    /**
+     * The sourceOrganizationCode property
+     */
+    sourceOrganizationCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The startTime property
+     */
+    startTime?: DateOnly | null;
+}
+export interface SourceRecognitionSummaryReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The groupDimension property
+     */
+    groupDimension?: number | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The itemTypeText property
+     */
+    itemTypeText?: string | null;
+    /**
+     * The periodEnd property
+     */
+    periodEnd?: Date | null;
+    /**
+     * The periodStart property
+     */
+    periodStart?: Date | null;
+    /**
+     * The recognitionCount property
+     */
+    recognitionCount?: number | null;
+    /**
+     * The sourceBranchCode property
+     */
+    sourceBranchCode?: string | null;
+    /**
+     * The sourceBranchName property
+     */
+    sourceBranchName?: string | null;
+    /**
+     * The sourceHospitalCode property
+     */
+    sourceHospitalCode?: string | null;
+    /**
+     * The sourceHospitalName property
+     */
+    sourceHospitalName?: string | null;
+    /**
+     * The sourceOrganizationCode property
+     */
+    sourceOrganizationCode?: string | null;
+    /**
+     * The sourceOrganizationName property
+     */
+    sourceOrganizationName?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
+    /**
+     * The standardProjectName property
+     */
+    standardProjectName?: string | null;
 }
 export interface UpdateMedicalStandardCategoryRequest extends AdditionalDataHolder, Parsable {
     /**

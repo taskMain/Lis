@@ -27,3 +27,8 @@ create unique index ux_mrec_recognition_reference_match_item
 on mrec_recognition_reference (recognition_match_item_id);
 
 comment on index ux_mrec_recognition_reference_match_item is '同一互认匹配项至多一条引用事实并兜底并发写入撞键';
+
+create index ix_mrec_recognition_reference_referenced_time
+on mrec_recognition_reference (referenced_time);
+
+comment on index ix_mrec_recognition_reference_referenced_time is '按实际引用时间统计引用次数的时间范围扫描';

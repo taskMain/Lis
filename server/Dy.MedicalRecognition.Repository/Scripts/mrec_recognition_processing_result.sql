@@ -37,3 +37,8 @@ create unique index ux_mrec_recognition_processing_result_match_item
 on mrec_recognition_processing_result (recognition_match_item_id);
 
 comment on index ux_mrec_recognition_processing_result_match_item is '同一互认匹配项至多一条处理结果';
+
+create index ix_mrec_recognition_processing_result_recognition_time
+on mrec_recognition_processing_result (recognition_time);
+
+comment on index ix_mrec_recognition_processing_result_recognition_time is '按互认时间统计采纳次数、不采纳次数与预计节省金额的时间范围扫描';

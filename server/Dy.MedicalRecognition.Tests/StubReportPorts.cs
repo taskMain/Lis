@@ -135,6 +135,59 @@ internal sealed class StubReportQueryRepository : IMedicalRecognitionReportQuery
 
   /// <inheritdoc/>
   public Task<IEnumerable<CitationStandardProjectNameItem>> QueryRecognitionCitationStandardProjectNamesAsync(IReadOnlyList<string> standardProjectCodes) => throw new NotSupportedException(UnusedMember);
+
+  // 阶段 6 互认统计的查询成员：本替身只满足写入口构造，统计路径调用即失败。
+
+  /// <inheritdoc/>
+  public Task<long> CountRecognitionUsageSummaryGroupsAsync(RecognitionUsageSummaryFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionUsageSummaryGroupItem>> QueryRecognitionUsageSummaryPageAsync(RecognitionUsageSummaryFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionUsageReasonItem>> QueryRecognitionUsageSummaryReasonsAsync(RecognitionUsageSummaryFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<long> CountSourceRecognitionSummaryGroupsAsync(SourceRecognitionSummaryFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<SourceRecognitionSummaryGroupItem>> QuerySourceRecognitionSummaryPageAsync(SourceRecognitionSummaryFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<long> CountRecognitionUsageReminderDetailsAsync(RecognitionUsageDetailFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionReminderDetailItem>> QueryRecognitionUsageReminderDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<long> CountRecognitionUsageAdoptionDetailsAsync(RecognitionUsageDetailFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionAdoptionDetailItem>> QueryRecognitionUsageAdoptionDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<long> CountRecognitionUsageNonAdoptionDetailsAsync(RecognitionUsageDetailFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionNonAdoptionDetailItem>> QueryRecognitionUsageNonAdoptionDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<long> CountRecognitionUsageReferenceDetailsAsync(RecognitionUsageDetailFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionReferenceDetailItem>> QueryRecognitionUsageReferenceDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<long> CountSourceRecognitionDetailsAsync(SourceRecognitionDetailFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<SourceRecognitionDetailItem>> QuerySourceRecognitionDetailsAsync(SourceRecognitionDetailFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<RecognitionMatchRecordView?> QueryRecognitionMatchRecordViewAsync(Guid recognitionMatchRecordId) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionMatchRecordViewItem>> QueryRecognitionMatchRecordViewItemsAsync(Guid recognitionMatchRecordId) => throw new NotSupportedException(UnusedMember);
 }
 
 /// <summary>
@@ -259,4 +312,57 @@ internal sealed class SyntheticReportPorts : IMedicalRecognitionReportQueryRepos
 
   /// <inheritdoc/>
   public Task<IEnumerable<CitationStandardProjectNameItem>> QueryRecognitionCitationStandardProjectNamesAsync(IReadOnlyList<string> standardProjectCodes) => throw new NotSupportedException(UnusedMember);
+
+  // 阶段 6 互认统计的查询成员：本替身只承载下载路径的版本文件信息，统计路径调用即失败。
+
+  /// <inheritdoc/>
+  public Task<long> CountRecognitionUsageSummaryGroupsAsync(RecognitionUsageSummaryFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionUsageSummaryGroupItem>> QueryRecognitionUsageSummaryPageAsync(RecognitionUsageSummaryFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionUsageReasonItem>> QueryRecognitionUsageSummaryReasonsAsync(RecognitionUsageSummaryFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<long> CountSourceRecognitionSummaryGroupsAsync(SourceRecognitionSummaryFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<SourceRecognitionSummaryGroupItem>> QuerySourceRecognitionSummaryPageAsync(SourceRecognitionSummaryFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<long> CountRecognitionUsageReminderDetailsAsync(RecognitionUsageDetailFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionReminderDetailItem>> QueryRecognitionUsageReminderDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<long> CountRecognitionUsageAdoptionDetailsAsync(RecognitionUsageDetailFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionAdoptionDetailItem>> QueryRecognitionUsageAdoptionDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<long> CountRecognitionUsageNonAdoptionDetailsAsync(RecognitionUsageDetailFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionNonAdoptionDetailItem>> QueryRecognitionUsageNonAdoptionDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<long> CountRecognitionUsageReferenceDetailsAsync(RecognitionUsageDetailFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionReferenceDetailItem>> QueryRecognitionUsageReferenceDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<long> CountSourceRecognitionDetailsAsync(SourceRecognitionDetailFilter filter) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<SourceRecognitionDetailItem>> QuerySourceRecognitionDetailsAsync(SourceRecognitionDetailFilter filter, int skipCount, int pageSize) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<RecognitionMatchRecordView?> QueryRecognitionMatchRecordViewAsync(Guid recognitionMatchRecordId) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  public Task<IEnumerable<RecognitionMatchRecordViewItem>> QueryRecognitionMatchRecordViewItemsAsync(Guid recognitionMatchRecordId) => throw new NotSupportedException(UnusedMember);
 }

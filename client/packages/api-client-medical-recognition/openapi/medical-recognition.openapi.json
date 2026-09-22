@@ -43,6 +43,106 @@
         ]
       }
     },
+    "/api/v1/statistics-export/platform": {
+      "post": {
+        "tags": [
+          "RecognitionStatisticsExport"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionStatisticsExportRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionStatisticsExportRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionStatisticsExportRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionStatisticsExportRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionStatisticsExportRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionStatisticsExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/api/v1/statistics-export/branch": {
+      "post": {
+        "tags": [
+          "RecognitionStatisticsExport"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionStatisticsExportRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionStatisticsExportRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionStatisticsExportRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionStatisticsExportRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionStatisticsExportRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionStatisticsExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
     "/api/v1/report-pdf/laboratory-report": {
       "post": {
         "tags": [
@@ -191,6 +291,83 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryRecognitionCitationDetail": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionCitationDetailRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionCitationDetailRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionCitationDetailRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionCitationDetailRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionCitationDetailRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionCitationDetailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionCitationDetailReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionCitationDetailReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionCitationDetailReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionCitationDetailReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionCitationDetailReadModel"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1140,6 +1317,699 @@
               "text/xml": {
                 "schema": {
                   "$ref": "#/components/schemas/MedicalReportVersionDetailQueryReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryRecognitionUsageSummary": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionUsageSummaryQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionUsageSummaryQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionUsageSummaryQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionUsageSummaryQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionUsageSummaryQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionUsageSummaryQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageSummaryReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageSummaryReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageSummaryReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageSummaryReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageSummaryReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryRecognitionUsageDetails": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionUsageDetailsQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionUsageDetailsQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionUsageDetailsQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionUsageDetailsQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionUsageDetailsQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionUsageDetailsQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageDetailReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageDetailReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageDetailReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageDetailReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageDetailReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QuerySourceRecognitionSummary": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceRecognitionSummaryQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceRecognitionSummaryQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceRecognitionSummaryQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceRecognitionSummaryQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceRecognitionSummaryQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceRecognitionSummaryQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionSummaryReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionSummaryReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionSummaryReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionSummaryReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionSummaryReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QuerySourceRecognitionDetails": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceRecognitionDetailsQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceRecognitionDetailsQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceRecognitionDetailsQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceRecognitionDetailsQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceRecognitionDetailsQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceRecognitionDetailsQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionDetailReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionDetailReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionDetailReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionDetailReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionDetailReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryBranchRecognitionUsageSummary": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionUsageSummaryQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionUsageSummaryQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionUsageSummaryQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionUsageSummaryQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionUsageSummaryQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionUsageSummaryQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageSummaryReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageSummaryReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageSummaryReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageSummaryReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageSummaryReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryBranchRecognitionUsageDetails": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionUsageDetailsQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionUsageDetailsQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionUsageDetailsQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionUsageDetailsQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionUsageDetailsQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionUsageDetailsQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageDetailReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageDetailReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageDetailReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageDetailReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfRecognitionUsageDetailReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryBranchSourceRecognitionSummary": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSourceRecognitionSummaryQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSourceRecognitionSummaryQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSourceRecognitionSummaryQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSourceRecognitionSummaryQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSourceRecognitionSummaryQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSourceRecognitionSummaryQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionSummaryReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionSummaryReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionSummaryReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionSummaryReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionSummaryReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryBranchSourceRecognitionDetails": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSourceRecognitionDetailsQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSourceRecognitionDetailsQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSourceRecognitionDetailsQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSourceRecognitionDetailsQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSourceRecognitionDetailsQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchSourceRecognitionDetailsQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionDetailReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionDetailReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionDetailReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionDetailReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageResultDtoOfSourceRecognitionDetailReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryRecognitionMatchRecord": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionMatchRecordQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionMatchRecordQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionMatchRecordQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionMatchRecordQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionMatchRecordQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionMatchRecordQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionMatchRecordReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionMatchRecordReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionMatchRecordReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionMatchRecordReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionMatchRecordReadModel"
                 }
               }
             }
@@ -2628,6 +3498,237 @@
         ]
       }
     },
+    "/Api/MedicalRecognitionReport/RequestRecognitionMatches": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionMatchQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionMatchQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionMatchQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionMatchQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionMatchQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionMatchQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionMatchesResponseReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionMatchesResponseReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionMatchesResponseReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionMatchesResponseReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecognitionMatchesResponseReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReport/SubmitRecognitionProcessingResults": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProcessingResultSubmissionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProcessingResultSubmissionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProcessingResultSubmissionRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProcessingResultSubmissionRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProcessingResultSubmissionRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProcessingResultSubmissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReport/SubmitRecognitionReferences": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionReferenceSubmissionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionReferenceSubmissionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionReferenceSubmissionRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionReferenceSubmissionRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionReferenceSubmissionRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionReferenceSubmissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
     "/Api/MedicalRecognitionReport/SubmitCompleteLaboratoryReport": {
       "post": {
         "tags": [
@@ -3033,6 +4134,234 @@
           }
         }
       },
+      "BranchRecognitionStatisticsExportRequest": {
+        "type": "object",
+        "properties": {
+          "exportType": {
+            "$ref": "#/components/schemas/RecognitionStatisticsExportType"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "branchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDoctorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nonAdoptionReasonCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupDimension": {
+            "$ref": "#/components/schemas/RecognitionStatisticsGroupDimension"
+          }
+        }
+      },
+      "BranchRecognitionUsageDetailsQueryRequest": {
+        "type": "object",
+        "properties": {
+          "startTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "branchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDoctorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nonAdoptionReasonCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "detailType": {
+            "$ref": "#/components/schemas/RecognitionUsageDetailType"
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageRequestDto"
+          }
+        }
+      },
+      "BranchRecognitionUsageSummaryQueryRequest": {
+        "type": "object",
+        "properties": {
+          "startTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "branchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupDimension": {
+            "$ref": "#/components/schemas/RecognitionStatisticsGroupDimension"
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageRequestDto"
+          }
+        }
+      },
       "BranchReportListQueryRequest": {
         "required": [
           "branchCode"
@@ -3079,6 +4408,119 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "BranchSourceRecognitionDetailsQueryRequest": {
+        "type": "object",
+        "properties": {
+          "startTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "sourceBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageRequestDto"
+          }
+        }
+      },
+      "BranchSourceRecognitionSummaryQueryRequest": {
+        "type": "object",
+        "properties": {
+          "startTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "sourceBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupDimension": {
+            "$ref": "#/components/schemas/RecognitionStatisticsGroupDimension"
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageRequestDto"
           }
         }
       },
@@ -4691,6 +6133,30 @@
           "已使用"
         ]
       },
+      "NonAdoptionReasonSummaryReadModel": {
+        "type": "object",
+        "properties": {
+          "reasonCode": {
+            "type": "string"
+          },
+          "reasonName": {
+            "type": "string"
+          },
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "ratio": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "PageInfoDto": {
         "type": "object",
         "properties": {
@@ -4744,6 +6210,100 @@
           }
         }
       },
+      "PageResultDtoOfRecognitionUsageDetailReadModel": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionUsageDetailReadModel"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageInfoDto"
+          }
+        }
+      },
+      "PageResultDtoOfRecognitionUsageSummaryReadModel": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionUsageSummaryReadModel"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageInfoDto"
+          }
+        }
+      },
+      "PageResultDtoOfSourceRecognitionDetailReadModel": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRecognitionDetailReadModel"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageInfoDto"
+          }
+        }
+      },
+      "PageResultDtoOfSourceRecognitionSummaryReadModel": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceRecognitionSummaryReadModel"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageInfoDto"
+          }
+        }
+      },
+      "PdfAndImageAccessReadModel": {
+        "type": "object",
+        "properties": {
+          "pdfFileId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pdfDownloadUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "pdfOriginalFileName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceImageStatus": {
+            "$ref": "#/components/schemas/SourceImageStatus"
+          },
+          "sourceImageStatusText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "imageAccessUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "QueryEnumMetadataRequest": {
         "required": [
           "enumName"
@@ -4751,6 +6311,29 @@
         "type": "object",
         "properties": {
           "enumName": {
+            "type": "string"
+          }
+        }
+      },
+      "ReceiverOrganizationReadModel": {
+        "type": "object",
+        "properties": {
+          "organizationCode": {
+            "type": "string"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "hospitalCode": {
+            "type": "string"
+          },
+          "hospitalName": {
+            "type": "string"
+          },
+          "branchCode": {
+            "type": "string"
+          },
+          "branchName": {
             "type": "string"
           }
         }
@@ -4842,6 +6425,616 @@
           }
         }
       },
+      "RecognitionCitationDetailReadModel": {
+        "type": "object",
+        "properties": {
+          "matchItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionCitationItemReadModel"
+            }
+          },
+          "reportContext": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionReportContextReadModel"
+            }
+          }
+        }
+      },
+      "RecognitionCitationDetailRequest": {
+        "required": [
+          "identityDocumentTypeCode",
+          "identityDocumentNo",
+          "visitSerialNo"
+        ],
+        "type": "object",
+        "properties": {
+          "identityDocumentTypeCode": {
+            "type": "string"
+          },
+          "identityDocumentNo": {
+            "type": "string"
+          },
+          "visitType": {
+            "$ref": "#/components/schemas/VisitType"
+          },
+          "visitSerialNo": {
+            "type": "string"
+          }
+        }
+      },
+      "RecognitionCitationItemReadModel": {
+        "type": "object",
+        "properties": {
+          "recognitionMatchItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reportVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "standardProjectCode": {
+            "type": "string"
+          },
+          "standardProjectName": {
+            "type": "string"
+          },
+          "laboratoryResults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionCitationLaboratoryResultReadModel"
+            }
+          },
+          "examinationSites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionExaminationSiteReadModel"
+            }
+          }
+        }
+      },
+      "RecognitionCitationLaboratoryResultReadModel": {
+        "type": "object",
+        "properties": {
+          "resultItemName": {
+            "type": "string"
+          },
+          "sourceResultContent": {
+            "type": "string"
+          },
+          "unit": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceReferenceRange": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceAbnormalFlag": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceCriticalValueFlag": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RecognitionExaminationSiteReadModel": {
+        "type": "object",
+        "properties": {
+          "siteName": {
+            "type": "string"
+          },
+          "sourceSiteCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RecognitionMatchesResponseReadModel": {
+        "type": "object",
+        "properties": {
+          "hasMatches": {
+            "type": "boolean"
+          },
+          "recognitionMatchRecordId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "matchCreatedTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "reports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionMatchReportReadModel"
+            }
+          }
+        }
+      },
+      "RecognitionMatchItemReadModel": {
+        "type": "object",
+        "properties": {
+          "recognitionMatchItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "standardProjectCode": {
+            "type": "string"
+          },
+          "standardProjectName": {
+            "type": "string"
+          },
+          "specimenTypeName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "laboratoryResults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionMatchLaboratoryResultReadModel"
+            }
+          },
+          "examinationSites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionExaminationSiteReadModel"
+            }
+          },
+          "overallAbnormalFlag": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RecognitionMatchLaboratoryResultReadModel": {
+        "type": "object",
+        "properties": {
+          "resultItemName": {
+            "type": "string"
+          },
+          "sourceResultContent": {
+            "type": "string"
+          },
+          "unit": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceReferenceRange": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceAbnormalFlag": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceCriticalValueFlag": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RecognitionMatchProposedItemRequest": {
+        "required": [
+          "standardProjectCode"
+        ],
+        "type": "object",
+        "properties": {
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "standardProjectCode": {
+            "type": "string"
+          }
+        }
+      },
+      "RecognitionMatchQueryRequest": {
+        "required": [
+          "identityDocumentTypeCode",
+          "identityDocumentNo",
+          "visitSerialNo",
+          "proposedItems"
+        ],
+        "type": "object",
+        "properties": {
+          "identityDocumentTypeCode": {
+            "type": "string"
+          },
+          "identityDocumentNo": {
+            "type": "string"
+          },
+          "visitType": {
+            "$ref": "#/components/schemas/VisitType"
+          },
+          "visitSerialNo": {
+            "type": "string"
+          },
+          "proposedItems": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionMatchProposedItemRequest"
+            }
+          }
+        }
+      },
+      "RecognitionMatchRecordItemReadModel": {
+        "type": "object",
+        "properties": {
+          "recognitionMatchItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "item": {
+            "$ref": "#/components/schemas/RecognitionStatisticsItemReadModel"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceOrganizationReadModel"
+          },
+          "reportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reportVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "isProcessed": {
+            "type": "boolean"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/RecognitionResult"
+          },
+          "decisionText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nonAdoptionReasonCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nonAdoptionReasonName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RecognitionMatchRecordQueryRequest": {
+        "type": "object",
+        "properties": {
+          "recognitionMatchRecordId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "RecognitionMatchRecordReadModel": {
+        "type": "object",
+        "properties": {
+          "recognitionMatchRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "matchCreatedTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "receiver": {
+            "$ref": "#/components/schemas/ReceiverOrganizationReadModel"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "identityDocumentNo": {
+            "type": "string"
+          },
+          "visitType": {
+            "$ref": "#/components/schemas/VisitType"
+          },
+          "visitTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "visitSerialNo": {
+            "type": "string"
+          },
+          "isProcessed": {
+            "type": "boolean"
+          },
+          "recognitionTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDoctorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDoctorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "matchItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionMatchRecordItemReadModel"
+            }
+          }
+        }
+      },
+      "RecognitionMatchReportReadModel": {
+        "type": "object",
+        "properties": {
+          "reportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reportVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reportType": {
+            "$ref": "#/components/schemas/MedicalReportType"
+          },
+          "reportTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reportNo": {
+            "type": "string"
+          },
+          "reportName": {
+            "type": "string"
+          },
+          "sourceOrganizationCode": {
+            "type": "string"
+          },
+          "sourceOrganizationName": {
+            "type": "string"
+          },
+          "sourceHospitalCode": {
+            "type": "string"
+          },
+          "sourceHospitalName": {
+            "type": "string"
+          },
+          "sourceBranchCode": {
+            "type": "string"
+          },
+          "sourceBranchName": {
+            "type": "string"
+          },
+          "clinicalTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reportTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "file": {
+            "$ref": "#/components/schemas/PdfAndImageAccessReadModel"
+          },
+          "matchItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionMatchItemReadModel"
+            }
+          }
+        }
+      },
+      "RecognitionNonAdoptionReason": {
+        "enum": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "CurrentConditionMismatch",
+          "RapidDiseaseProgression",
+          "BeforeMajorMedicalMeasure",
+          "EmergencyCare",
+          "ForensicOrDisabilityAssessment",
+          "OtherReviewRequired"
+        ],
+        "x-enumDescriptions": [
+          "病情变化致结果难以满足诊疗需求",
+          "结果在疾病发展演变中变化较快",
+          "手术、输血等重大医疗措施前",
+          "患者处于急诊、急救等紧急状态",
+          "涉及司法、伤残及病退等鉴定",
+          "其他情形确需复查"
+        ]
+      },
+      "RecognitionProcessingResultDetailReadModel": {
+        "type": "object",
+        "properties": {
+          "isProcessed": {
+            "type": "boolean"
+          },
+          "recognitionTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/RecognitionResult"
+          },
+          "decisionText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nonAdoptionReasonCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nonAdoptionReasonName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nonAdoptionSupplementDescription": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "estimatedSavingAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "RecognitionProcessingResultItemRequest": {
+        "type": "object",
+        "properties": {
+          "recognitionMatchItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "$ref": "#/components/schemas/RecognitionResult"
+          },
+          "nonAdoptionReason": {
+            "$ref": "#/components/schemas/RecognitionNonAdoptionReason"
+          },
+          "nonAdoptionDescription": {
+            "maxLength": 600,
+            "minLength": 0,
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RecognitionProcessingResultSubmissionRequest": {
+        "required": [
+          "recognitionDeptId",
+          "recognitionDeptName",
+          "recognitionDoctorId",
+          "recognitionDoctorName",
+          "processingResults"
+        ],
+        "type": "object",
+        "properties": {
+          "recognitionMatchRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recognitionTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recognitionDeptId": {
+            "type": "string"
+          },
+          "recognitionDeptName": {
+            "type": "string"
+          },
+          "recognitionDoctorId": {
+            "type": "string"
+          },
+          "recognitionDoctorName": {
+            "type": "string"
+          },
+          "processingResults": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionProcessingResultItemRequest"
+            }
+          },
+          "changedProperties": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "RecognitionProjectConfigurationListQueryRequest": {
         "required": [
           "organizationCode"
@@ -4909,6 +7102,790 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "RecognitionReferenceDetailReadModel": {
+        "type": "object",
+        "properties": {
+          "isReferenced": {
+            "type": "boolean"
+          },
+          "referenceTime": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "referenceDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "referenceDeptName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "referenceDoctorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "referenceDoctorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RecognitionReferenceItemRequest": {
+        "required": [
+          "referenceDeptId",
+          "referenceDeptName",
+          "referenceDoctorId",
+          "referenceDoctorName"
+        ],
+        "type": "object",
+        "properties": {
+          "recognitionMatchItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "referencedTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "referenceDeptId": {
+            "type": "string"
+          },
+          "referenceDeptName": {
+            "type": "string"
+          },
+          "referenceDoctorId": {
+            "type": "string"
+          },
+          "referenceDoctorName": {
+            "type": "string"
+          }
+        }
+      },
+      "RecognitionReferenceSubmissionRequest": {
+        "required": [
+          "referenceItems"
+        ],
+        "type": "object",
+        "properties": {
+          "referenceItems": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecognitionReferenceItemRequest"
+            }
+          }
+        }
+      },
+      "RecognitionReportContextReadModel": {
+        "type": "object",
+        "properties": {
+          "reportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reportVersionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reportType": {
+            "$ref": "#/components/schemas/MedicalReportType"
+          },
+          "reportTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "reportNo": {
+            "type": "string"
+          },
+          "reportName": {
+            "type": "string"
+          },
+          "sourceOrganizationCode": {
+            "type": "string"
+          },
+          "sourceOrganizationName": {
+            "type": "string"
+          },
+          "sourceHospitalCode": {
+            "type": "string"
+          },
+          "sourceHospitalName": {
+            "type": "string"
+          },
+          "sourceBranchCode": {
+            "type": "string"
+          },
+          "sourceBranchName": {
+            "type": "string"
+          },
+          "clinicalTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reportTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sourceApplicantDoctorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceApplicantDoctorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceReviewerDoctorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceReviewerDoctorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "examinationFindings": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "examinationConclusion": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "file": {
+            "$ref": "#/components/schemas/PdfAndImageAccessReadModel"
+          }
+        }
+      },
+      "RecognitionResult": {
+        "enum": [
+          1,
+          2
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "Adopted",
+          "NotAdopted"
+        ],
+        "x-enumDescriptions": [
+          "采纳",
+          "不采纳"
+        ]
+      },
+      "RecognitionStatisticsExportRequest": {
+        "type": "object",
+        "properties": {
+          "exportType": {
+            "$ref": "#/components/schemas/RecognitionStatisticsExportType"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "receiverOrganizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceOrganizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDoctorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nonAdoptionReasonCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupDimension": {
+            "$ref": "#/components/schemas/RecognitionStatisticsGroupDimension"
+          }
+        }
+      },
+      "RecognitionStatisticsExportType": {
+        "enum": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "RecognitionUsageSummary",
+          "RecognitionReminderDetails",
+          "RecognitionAdoptionDetails",
+          "RecognitionNonAdoptionDetails",
+          "RecognitionReferenceDetails",
+          "SourceRecognitionSummary",
+          "SourceRecognitionDetails"
+        ],
+        "x-enumDescriptions": [
+          "接收侧互认使用汇总",
+          "接收侧提醒明细",
+          "接收侧采纳明细",
+          "接收侧不采纳明细",
+          "接收侧引用明细",
+          "来源医院被互认汇总",
+          "来源医院被互认明细"
+        ]
+      },
+      "RecognitionStatisticsGroupDimension": {
+        "enum": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "Hospital",
+          "Branch",
+          "RecognitionDepartment",
+          "StandardItem"
+        ],
+        "x-enumDescriptions": [
+          "医院",
+          "院区",
+          "互认科室",
+          "标准项目"
+        ]
+      },
+      "RecognitionStatisticsItemReadModel": {
+        "type": "object",
+        "properties": {
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "itemTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "categoryName": {
+            "type": "string"
+          },
+          "groupName": {
+            "type": "string"
+          },
+          "standardProjectCode": {
+            "type": "string"
+          },
+          "standardProjectName": {
+            "type": "string"
+          }
+        }
+      },
+      "RecognitionUsageDetailReadModel": {
+        "type": "object",
+        "properties": {
+          "recognitionMatchRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recognitionMatchItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "matchCreatedTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "visitType": {
+            "$ref": "#/components/schemas/VisitType"
+          },
+          "visitTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "visitSerialNo": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceOrganizationReadModel"
+          },
+          "receiver": {
+            "$ref": "#/components/schemas/ReceiverOrganizationReadModel"
+          },
+          "item": {
+            "$ref": "#/components/schemas/RecognitionStatisticsItemReadModel"
+          },
+          "businessTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isUnprocessed": {
+            "type": "boolean"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "identityDocumentNo": {
+            "type": "string"
+          },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDoctorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDoctorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "processingResult": {
+            "$ref": "#/components/schemas/RecognitionProcessingResultDetailReadModel"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/RecognitionReferenceDetailReadModel"
+          }
+        }
+      },
+      "RecognitionUsageDetailsQueryRequest": {
+        "type": "object",
+        "properties": {
+          "startTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "organizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "branchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceOrganizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDoctorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "nonAdoptionReasonCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "detailType": {
+            "$ref": "#/components/schemas/RecognitionUsageDetailType"
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageRequestDto"
+          }
+        }
+      },
+      "RecognitionUsageDetailType": {
+        "enum": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "type": "integer",
+        "x-enumNames": [
+          "Reminder",
+          "Adopted",
+          "NotAdopted",
+          "Referenced"
+        ],
+        "x-enumDescriptions": [
+          "提醒",
+          "采纳",
+          "不采纳",
+          "引用"
+        ]
+      },
+      "RecognitionUsageSummaryQueryRequest": {
+        "type": "object",
+        "properties": {
+          "startTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "organizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "branchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceOrganizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupDimension": {
+            "$ref": "#/components/schemas/RecognitionStatisticsGroupDimension"
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageRequestDto"
+          }
+        }
+      },
+      "RecognitionUsageSummaryReadModel": {
+        "type": "object",
+        "properties": {
+          "receiverOrganizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverOrganizationName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverHospitalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverBranchName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "itemTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "adoptionCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "nonAdoptionCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "referenceCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "reminderCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "samePeriodRecognitionRate": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "samePeriodRecognitionRateCalculated": {
+            "type": "boolean"
+          },
+          "nonAdoptionReasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NonAdoptionReasonSummaryReadModel"
+            }
+          },
+          "estimatedSavingAmount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "groupDimension": {
+            "$ref": "#/components/schemas/RecognitionStatisticsGroupDimension"
           }
         }
       },
@@ -5207,6 +8184,354 @@
           "未知"
         ]
       },
+      "SourceOrganizationReadModel": {
+        "type": "object",
+        "properties": {
+          "organizationCode": {
+            "type": "string"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "hospitalCode": {
+            "type": "string"
+          },
+          "hospitalName": {
+            "type": "string"
+          },
+          "branchCode": {
+            "type": "string"
+          },
+          "branchName": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceRecognitionDetailReadModel": {
+        "type": "object",
+        "properties": {
+          "recognitionMatchRecordId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "recognitionMatchItemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sourceOrganizationCode": {
+            "type": "string"
+          },
+          "sourceOrganizationName": {
+            "type": "string"
+          },
+          "sourceHospitalCode": {
+            "type": "string"
+          },
+          "sourceHospitalName": {
+            "type": "string"
+          },
+          "sourceBranchCode": {
+            "type": "string"
+          },
+          "sourceBranchName": {
+            "type": "string"
+          },
+          "receiverOrganizationCode": {
+            "type": "string"
+          },
+          "receiverOrganizationName": {
+            "type": "string"
+          },
+          "receiverHospitalCode": {
+            "type": "string"
+          },
+          "receiverHospitalName": {
+            "type": "string"
+          },
+          "receiverBranchCode": {
+            "type": "string"
+          },
+          "receiverBranchName": {
+            "type": "string"
+          },
+          "standardProjectCode": {
+            "type": "string"
+          },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDoctorId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDoctorName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "patientName": {
+            "type": "string"
+          },
+          "identityDocumentNo": {
+            "type": "string"
+          }
+        }
+      },
+      "SourceRecognitionDetailsQueryRequest": {
+        "type": "object",
+        "properties": {
+          "startTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "sourceOrganizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverOrganizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageRequestDto"
+          }
+        }
+      },
+      "SourceRecognitionSummaryQueryRequest": {
+        "type": "object",
+        "properties": {
+          "startTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date"
+          },
+          "sourceOrganizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverOrganizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiverBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupDimension": {
+            "$ref": "#/components/schemas/RecognitionStatisticsGroupDimension"
+          },
+          "page": {
+            "$ref": "#/components/schemas/PageRequestDto"
+          }
+        }
+      },
+      "SourceRecognitionSummaryReadModel": {
+        "type": "object",
+        "properties": {
+          "sourceOrganizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceOrganizationName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceHospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceHospitalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceBranchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "sourceBranchName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "itemTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "periodStart": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "periodEnd": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recognitionCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "groupDimension": {
+            "$ref": "#/components/schemas/RecognitionStatisticsGroupDimension"
+          }
+        }
+      },
       "Stream": {
         "type": "string",
         "format": "binary"
@@ -5364,6 +8689,9 @@
   "tags": [
     {
       "name": "Authentication"
+    },
+    {
+      "name": "RecognitionStatisticsExport"
     },
     {
       "name": "ReportPdfFile"

@@ -6,6 +6,14 @@ import { QueryBranchMedicalReportListRequestBuilderRequestsMetadata, type QueryB
 // @ts-ignore
 import { QueryBranchRecognitionAmountListRequestBuilderRequestsMetadata, type QueryBranchRecognitionAmountListRequestBuilder } from './queryBranchRecognitionAmountList/index.js';
 // @ts-ignore
+import { QueryBranchRecognitionUsageDetailsRequestBuilderRequestsMetadata, type QueryBranchRecognitionUsageDetailsRequestBuilder } from './queryBranchRecognitionUsageDetails/index.js';
+// @ts-ignore
+import { QueryBranchRecognitionUsageSummaryRequestBuilderRequestsMetadata, type QueryBranchRecognitionUsageSummaryRequestBuilder } from './queryBranchRecognitionUsageSummary/index.js';
+// @ts-ignore
+import { QueryBranchSourceRecognitionDetailsRequestBuilderRequestsMetadata, type QueryBranchSourceRecognitionDetailsRequestBuilder } from './queryBranchSourceRecognitionDetails/index.js';
+// @ts-ignore
+import { QueryBranchSourceRecognitionSummaryRequestBuilderRequestsMetadata, type QueryBranchSourceRecognitionSummaryRequestBuilder } from './queryBranchSourceRecognitionSummary/index.js';
+// @ts-ignore
 import { QueryEffectiveMedicalStandardCatalogRequestBuilderRequestsMetadata, type QueryEffectiveMedicalStandardCatalogRequestBuilder } from './queryEffectiveMedicalStandardCatalog/index.js';
 // @ts-ignore
 import { QueryMedicalReportListRequestBuilderRequestsMetadata, type QueryMedicalReportListRequestBuilder } from './queryMedicalReportList/index.js';
@@ -22,7 +30,19 @@ import { QueryMedicalStandardItemListRequestBuilderRequestsMetadata, type QueryM
 // @ts-ignore
 import { QueryRecognitionAmountListRequestBuilderRequestsMetadata, type QueryRecognitionAmountListRequestBuilder } from './queryRecognitionAmountList/index.js';
 // @ts-ignore
+import { QueryRecognitionCitationDetailRequestBuilderRequestsMetadata, type QueryRecognitionCitationDetailRequestBuilder } from './queryRecognitionCitationDetail/index.js';
+// @ts-ignore
+import { QueryRecognitionMatchRecordRequestBuilderRequestsMetadata, type QueryRecognitionMatchRecordRequestBuilder } from './queryRecognitionMatchRecord/index.js';
+// @ts-ignore
 import { QueryRecognitionProjectConfigurationListRequestBuilderRequestsMetadata, type QueryRecognitionProjectConfigurationListRequestBuilder } from './queryRecognitionProjectConfigurationList/index.js';
+// @ts-ignore
+import { QueryRecognitionUsageDetailsRequestBuilderRequestsMetadata, type QueryRecognitionUsageDetailsRequestBuilder } from './queryRecognitionUsageDetails/index.js';
+// @ts-ignore
+import { QueryRecognitionUsageSummaryRequestBuilderRequestsMetadata, type QueryRecognitionUsageSummaryRequestBuilder } from './queryRecognitionUsageSummary/index.js';
+// @ts-ignore
+import { QuerySourceRecognitionDetailsRequestBuilderRequestsMetadata, type QuerySourceRecognitionDetailsRequestBuilder } from './querySourceRecognitionDetails/index.js';
+// @ts-ignore
+import { QuerySourceRecognitionSummaryRequestBuilderRequestsMetadata, type QuerySourceRecognitionSummaryRequestBuilder } from './querySourceRecognitionSummary/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
@@ -38,6 +58,22 @@ export interface MedicalRecognitionReportQueryRequestBuilder extends BaseRequest
      * The QueryBranchRecognitionAmountList property
      */
     get queryBranchRecognitionAmountList(): QueryBranchRecognitionAmountListRequestBuilder;
+    /**
+     * The QueryBranchRecognitionUsageDetails property
+     */
+    get queryBranchRecognitionUsageDetails(): QueryBranchRecognitionUsageDetailsRequestBuilder;
+    /**
+     * The QueryBranchRecognitionUsageSummary property
+     */
+    get queryBranchRecognitionUsageSummary(): QueryBranchRecognitionUsageSummaryRequestBuilder;
+    /**
+     * The QueryBranchSourceRecognitionDetails property
+     */
+    get queryBranchSourceRecognitionDetails(): QueryBranchSourceRecognitionDetailsRequestBuilder;
+    /**
+     * The QueryBranchSourceRecognitionSummary property
+     */
+    get queryBranchSourceRecognitionSummary(): QueryBranchSourceRecognitionSummaryRequestBuilder;
     /**
      * The QueryEffectiveMedicalStandardCatalog property
      */
@@ -71,9 +107,33 @@ export interface MedicalRecognitionReportQueryRequestBuilder extends BaseRequest
      */
     get queryRecognitionAmountList(): QueryRecognitionAmountListRequestBuilder;
     /**
+     * The QueryRecognitionCitationDetail property
+     */
+    get queryRecognitionCitationDetail(): QueryRecognitionCitationDetailRequestBuilder;
+    /**
+     * The QueryRecognitionMatchRecord property
+     */
+    get queryRecognitionMatchRecord(): QueryRecognitionMatchRecordRequestBuilder;
+    /**
      * The QueryRecognitionProjectConfigurationList property
      */
     get queryRecognitionProjectConfigurationList(): QueryRecognitionProjectConfigurationListRequestBuilder;
+    /**
+     * The QueryRecognitionUsageDetails property
+     */
+    get queryRecognitionUsageDetails(): QueryRecognitionUsageDetailsRequestBuilder;
+    /**
+     * The QueryRecognitionUsageSummary property
+     */
+    get queryRecognitionUsageSummary(): QueryRecognitionUsageSummaryRequestBuilder;
+    /**
+     * The QuerySourceRecognitionDetails property
+     */
+    get querySourceRecognitionDetails(): QuerySourceRecognitionDetailsRequestBuilder;
+    /**
+     * The QuerySourceRecognitionSummary property
+     */
+    get querySourceRecognitionSummary(): QuerySourceRecognitionSummaryRequestBuilder;
 }
 /**
  * Uri template for the request builder.
@@ -88,6 +148,18 @@ export const MedicalRecognitionReportQueryRequestBuilderNavigationMetadata: Reco
     },
     queryBranchRecognitionAmountList: {
         requestsMetadata: QueryBranchRecognitionAmountListRequestBuilderRequestsMetadata,
+    },
+    queryBranchRecognitionUsageDetails: {
+        requestsMetadata: QueryBranchRecognitionUsageDetailsRequestBuilderRequestsMetadata,
+    },
+    queryBranchRecognitionUsageSummary: {
+        requestsMetadata: QueryBranchRecognitionUsageSummaryRequestBuilderRequestsMetadata,
+    },
+    queryBranchSourceRecognitionDetails: {
+        requestsMetadata: QueryBranchSourceRecognitionDetailsRequestBuilderRequestsMetadata,
+    },
+    queryBranchSourceRecognitionSummary: {
+        requestsMetadata: QueryBranchSourceRecognitionSummaryRequestBuilderRequestsMetadata,
     },
     queryEffectiveMedicalStandardCatalog: {
         requestsMetadata: QueryEffectiveMedicalStandardCatalogRequestBuilderRequestsMetadata,
@@ -113,8 +185,26 @@ export const MedicalRecognitionReportQueryRequestBuilderNavigationMetadata: Reco
     queryRecognitionAmountList: {
         requestsMetadata: QueryRecognitionAmountListRequestBuilderRequestsMetadata,
     },
+    queryRecognitionCitationDetail: {
+        requestsMetadata: QueryRecognitionCitationDetailRequestBuilderRequestsMetadata,
+    },
+    queryRecognitionMatchRecord: {
+        requestsMetadata: QueryRecognitionMatchRecordRequestBuilderRequestsMetadata,
+    },
     queryRecognitionProjectConfigurationList: {
         requestsMetadata: QueryRecognitionProjectConfigurationListRequestBuilderRequestsMetadata,
+    },
+    queryRecognitionUsageDetails: {
+        requestsMetadata: QueryRecognitionUsageDetailsRequestBuilderRequestsMetadata,
+    },
+    queryRecognitionUsageSummary: {
+        requestsMetadata: QueryRecognitionUsageSummaryRequestBuilderRequestsMetadata,
+    },
+    querySourceRecognitionDetails: {
+        requestsMetadata: QuerySourceRecognitionDetailsRequestBuilderRequestsMetadata,
+    },
+    querySourceRecognitionSummary: {
+        requestsMetadata: QuerySourceRecognitionSummaryRequestBuilderRequestsMetadata,
     },
 };
 /* tslint:enable */

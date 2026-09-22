@@ -30,7 +30,10 @@ public sealed class Stage2EnumContractTests
     nameof(ConfigurationStatus), nameof(MedicalItemType), nameof(MedicalStandardUsageStatus),
     nameof(MedicalReportType), nameof(MedicalReportLifecycleStatus), nameof(VisitType),
     nameof(LaboratoryResultType), nameof(LaboratoryAbnormalFlag), nameof(SourceImageStatus),
-    nameof(RecognitionResult), nameof(RecognitionNonAdoptionReason)
+    nameof(RecognitionResult), nameof(RecognitionNonAdoptionReason),
+    // 阶段 6 的统计契约把下列三个枚举带入对外契约，因此在本阶段登记；
+    // 未登记时 OpenAPI 只声明 integer，生成端把可空枚举写成空对象，枚举元数据查询也查不到中文说明。
+    nameof(RecognitionStatisticsGroupDimension), nameof(RecognitionUsageDetailType), nameof(RecognitionStatisticsExportType)
   ];
 
   /// <summary>
@@ -44,6 +47,9 @@ public sealed class Stage2EnumContractTests
   [InlineData("ConfigurationStatus.cs", nameof(ConfigurationStatus), "[Description(\"启用\")]", "[Description(\"停用\")]")]
   [InlineData("MedicalItemType.cs", nameof(MedicalItemType), "[Description(\"检验\")]", "[Description(\"检查\")]")]
   [InlineData("MedicalStandardUsageStatus.cs", nameof(MedicalStandardUsageStatus), "[Description(\"未使用\")]", "[Description(\"已使用\")]")]
+  [InlineData("RecognitionStatisticsGroupDimension.cs", nameof(RecognitionStatisticsGroupDimension), "[Description(\"医院\")]", "[Description(\"标准项目\")]")]
+  [InlineData("RecognitionUsageDetailType.cs", nameof(RecognitionUsageDetailType), "[Description(\"提醒\")]", "[Description(\"引用\")]")]
+  [InlineData("RecognitionStatisticsExportType.cs", nameof(RecognitionStatisticsExportType), "[Description(\"接收侧互认使用汇总\")]", "[Description(\"来源医院被互认明细\")]")]
   public void Public_enums_opt_into_enum_descriptor_generation(string fileName, string enumName, string enabledDescription, string disabledDescription)
   {
     string source = File.ReadAllText(Path.Combine(
@@ -64,6 +70,9 @@ public sealed class Stage2EnumContractTests
   [InlineData(nameof(ConfigurationStatus))]
   [InlineData(nameof(MedicalItemType))]
   [InlineData(nameof(MedicalStandardUsageStatus))]
+  [InlineData(nameof(RecognitionStatisticsGroupDimension))]
+  [InlineData(nameof(RecognitionUsageDetailType))]
+  [InlineData(nameof(RecognitionStatisticsExportType))]
   public void Enum_assembly_contains_generated_descriptor_list(string enumName)
   {
     byte[] assemblyBytes = File.ReadAllBytes(typeof(ConfigurationStatus).Assembly.Location);
@@ -157,6 +166,33 @@ public sealed class Stage2EnumContractTests
         "患者处于急诊、急救等紧急状态", "涉及司法、伤残及病退等鉴定", "其他情形确需复查"
       ],
       nonAdoptionReason.Select(descriptor => descriptor.Description).ToArray());
+
+    // 阶段 6 把统计契约上的三个枚举带入对外契约并登记：取值、成员名与中文说明逐项冻结，
+    // 缺少这些断言时，新登记的枚举取值被改动、说明被改写或成员顺序被调整都不会让任何用例失败。
+    IReadOnlyList<IEnumDescriptor> groupDimension = MedicalRecognitionEnumDescriptorRegistry.Descriptors[nameof(RecognitionStatisticsGroupDimension)];
+    Assert.Equal([1, 2, 3, 4], groupDimension.Select(descriptor => descriptor.Value).ToArray());
+    Assert.Equal(["Hospital", "Branch", "RecognitionDepartment", "StandardItem"], groupDimension.Select(descriptor => descriptor.Name).ToArray());
+    Assert.Equal(["医院", "院区", "互认科室", "标准项目"], groupDimension.Select(descriptor => descriptor.Description).ToArray());
+
+    IReadOnlyList<IEnumDescriptor> usageDetailType = MedicalRecognitionEnumDescriptorRegistry.Descriptors[nameof(RecognitionUsageDetailType)];
+    Assert.Equal([1, 2, 3, 4], usageDetailType.Select(descriptor => descriptor.Value).ToArray());
+    Assert.Equal(["Reminder", "Adopted", "NotAdopted", "Referenced"], usageDetailType.Select(descriptor => descriptor.Name).ToArray());
+    Assert.Equal(["提醒", "采纳", "不采纳", "引用"], usageDetailType.Select(descriptor => descriptor.Description).ToArray());
+
+    IReadOnlyList<IEnumDescriptor> statisticsExportType = MedicalRecognitionEnumDescriptorRegistry.Descriptors[nameof(RecognitionStatisticsExportType)];
+    Assert.Equal([1, 2, 3, 4, 5, 6, 7], statisticsExportType.Select(descriptor => descriptor.Value).ToArray());
+    Assert.Equal(
+      [
+        "RecognitionUsageSummary", "RecognitionReminderDetails", "RecognitionAdoptionDetails",
+        "RecognitionNonAdoptionDetails", "RecognitionReferenceDetails", "SourceRecognitionSummary", "SourceRecognitionDetails"
+      ],
+      statisticsExportType.Select(descriptor => descriptor.Name).ToArray());
+    Assert.Equal(
+      [
+        "接收侧互认使用汇总", "接收侧提醒明细", "接收侧采纳明细",
+        "接收侧不采纳明细", "接收侧引用明细", "来源医院被互认汇总", "来源医院被互认明细"
+      ],
+      statisticsExportType.Select(descriptor => descriptor.Description).ToArray());
   }
 
   /// <summary>
@@ -527,7 +563,7 @@ public sealed class Stage2EnumContractTests
   /// </summary>
   /// <remarks>
   /// 路径按**完整集合相等**断言（不是计数 + 几个 Contains），失败信息自带差异；
-  /// 下面的清单是**阶段 4 交付后**真实后端输出 + 归一的快照，**新增或删除端点时必须同步本清单与生成入口**。
+  /// 下面的清单是**阶段 6 交付后**真实后端输出 + 归一的快照，**新增或删除端点时必须同步本清单与生成入口**。
   /// </remarks>
   [Fact]
   public void Frozen_openapi_keeps_the_expected_path_set_and_no_unnormalized_shapes()
@@ -554,10 +590,13 @@ public sealed class Stage2EnumContractTests
       "/Api/MedicalRecognitionReport/EnableMedicalStandardItem",
       "/Api/MedicalRecognitionReport/EnableMutualRecognitionItem",
       "/Api/MedicalRecognitionReport/OpenReportVersionPdf",
+      "/Api/MedicalRecognitionReport/RequestRecognitionMatches",
       "/Api/MedicalRecognitionReport/SaveBranchRecognitionAmount",
       "/Api/MedicalRecognitionReport/SaveOrganizationHospitalBranchRecognitionAmount",
       "/Api/MedicalRecognitionReport/SubmitCompleteExaminationReport",
       "/Api/MedicalRecognitionReport/SubmitCompleteLaboratoryReport",
+      "/Api/MedicalRecognitionReport/SubmitRecognitionProcessingResults",
+      "/Api/MedicalRecognitionReport/SubmitRecognitionReferences",
       "/Api/MedicalRecognitionReport/UpdateMedicalStandardCategory",
       "/Api/MedicalRecognitionReport/UpdateMedicalStandardGroup",
       "/Api/MedicalRecognitionReport/UpdateMutualRecognitionItemConfiguration",
@@ -565,6 +604,10 @@ public sealed class Stage2EnumContractTests
       "/Api/MedicalRecognitionReport/VoidLaboratoryReport",
       "/Api/MedicalRecognitionReportQuery/QueryBranchMedicalReportList",
       "/Api/MedicalRecognitionReportQuery/QueryBranchRecognitionAmountList",
+      "/Api/MedicalRecognitionReportQuery/QueryBranchRecognitionUsageDetails",
+      "/Api/MedicalRecognitionReportQuery/QueryBranchRecognitionUsageSummary",
+      "/Api/MedicalRecognitionReportQuery/QueryBranchSourceRecognitionDetails",
+      "/Api/MedicalRecognitionReportQuery/QueryBranchSourceRecognitionSummary",
       "/Api/MedicalRecognitionReportQuery/QueryEffectiveMedicalStandardCatalog",
       "/Api/MedicalRecognitionReportQuery/QueryMedicalReportList",
       "/Api/MedicalRecognitionReportQuery/QueryMedicalReportVersionDetail",
@@ -573,10 +616,18 @@ public sealed class Stage2EnumContractTests
       "/Api/MedicalRecognitionReportQuery/QueryMedicalStandardGroupList",
       "/Api/MedicalRecognitionReportQuery/QueryMedicalStandardItemList",
       "/Api/MedicalRecognitionReportQuery/QueryRecognitionAmountList",
+      "/Api/MedicalRecognitionReportQuery/QueryRecognitionCitationDetail",
+      "/Api/MedicalRecognitionReportQuery/QueryRecognitionMatchRecord",
       "/Api/MedicalRecognitionReportQuery/QueryRecognitionProjectConfigurationList",
+      "/Api/MedicalRecognitionReportQuery/QueryRecognitionUsageDetails",
+      "/Api/MedicalRecognitionReportQuery/QueryRecognitionUsageSummary",
+      "/Api/MedicalRecognitionReportQuery/QuerySourceRecognitionDetails",
+      "/Api/MedicalRecognitionReportQuery/QuerySourceRecognitionSummary",
       "/api/v1/report-pdf/examination-report",
       "/api/v1/report-pdf/laboratory-report",
       "/api/v1/report-pdf/{reportId}/versions/{reportVersionId}/pdf",
+      "/api/v1/statistics-export/branch",
+      "/api/v1/statistics-export/platform",
       "/auth/login"
     ];
     string[] paths = document["paths"]!.AsObject().Select(property => property.Key).Order(StringComparer.Ordinal).ToArray();

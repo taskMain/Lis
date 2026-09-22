@@ -162,6 +162,13 @@ public sealed class Stage1SqlMapProbeTests
     Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionCitationReportContexts", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionCitationStandardProjectNames", registeredKeys);
 
+    // 阶段 6 追加核对：互认统计的十七条语句全部注册在同一查询作用域下；
+    // 缺少这些断言时，统计语句的标识被改名或作用域被另立，只在运行期表现为"找不到语句"。
+    foreach (string statementId in Stage6QueryScopeStatementIds)
+    {
+      Assert.Contains($"MedicalRecognitionReportQuery.{statementId}", registeredKeys);
+    }
+
     // 阶段 4 追加核对：报告采集与生命周期十张表的映射语句必须注册在各自的实体名作用域下，
     // 报告实体的实体名与聚合名恰好相同，因此这里逐键断言而不只看作用域名称；缺少这些断言时，
     // 作用域被改回聚合级或语句标识被改名只在运行时表现为"找不到语句"，静态检查不会失败。
@@ -240,6 +247,22 @@ public sealed class Stage1SqlMapProbeTests
       Assert.Equal(2, $"{relative}.Extra".Count(character => character == '.'));
     }
   }
+
+  /// <summary>
+  /// 阶段 6 互认统计的十七条语句标识；全部注册在查询作用域 <c>MedicalRecognitionReportQuery</c> 下，
+  /// 标识与查询端口方法名去掉 <c>Async</c> 后缀逐字相同。
+  /// </summary>
+  private static readonly string[] Stage6QueryScopeStatementIds =
+  [
+    "CountRecognitionUsageSummaryGroups", "QueryRecognitionUsageSummaryPage", "QueryRecognitionUsageSummaryReasons",
+    "CountSourceRecognitionSummaryGroups", "QuerySourceRecognitionSummaryPage",
+    "CountRecognitionUsageReminderDetails", "QueryRecognitionUsageReminderDetails",
+    "CountRecognitionUsageAdoptionDetails", "QueryRecognitionUsageAdoptionDetails",
+    "CountRecognitionUsageNonAdoptionDetails", "QueryRecognitionUsageNonAdoptionDetails",
+    "CountRecognitionUsageReferenceDetails", "QueryRecognitionUsageReferenceDetails",
+    "CountSourceRecognitionDetails", "QuerySourceRecognitionDetails",
+    "QueryRecognitionMatchRecordView", "QueryRecognitionMatchRecordViewItems"
+  ];
 
   /// <summary>
   /// 阶段 4 十张报告表的实体名作用域与语句标识清单；与各映射文件的 <c>SqlMap Scope</c> 与 <c>Statement Id</c> 逐字一致。

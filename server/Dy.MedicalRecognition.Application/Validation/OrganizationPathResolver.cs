@@ -105,6 +105,108 @@ internal sealed class OrganizationPathResolver
   }
 
   /// <summary>
+  /// 解析一批只到组织与医院两层的目标路径，校验组织与医院存在、启用与父子归属，并按输入顺序返回两层业务编码与名称。
+  /// </summary>
+  /// <remarks>
+  /// 供"院区可选、为空按可信医院全院范围"的统计入口使用：院区层不参与解析，也不读取院区数据，
+  /// 返回路径的院区编码与名称为空串。三层目标路径的校验仍走 <see cref="ResolveOrThrow"/>。
+  /// 外部读取按目标路径去重后进行：组织全量读取一次，每个不同组织读取一次医院，
+  /// 读取次数只随目标涉及的组织与医院数量增长，不随目标条数增长。
+  /// </remarks>
+  /// <param name="targets">本批待校验的两层目标路径，至少一条；同一路径重复出现时按同一结果返回。</param>
+  /// <param name="missingOrganizationMessage">组织不存在或已停用时对外抛出的业务拒绝文案。</param>
+  /// <param name="missingHospitalMessage">医院不存在或已停用，或不属于该组织时对外抛出的业务拒绝文案。</param>
+  /// <returns>与 <paramref name="targets"/> 等长且同序的已校验路径集合，路径院区编码与名称为空串。</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="targets"/> 为 null 时抛出，此时无法确定校验范围。</exception>
+  /// <exception cref="ArgumentException"><paramref name="targets"/> 为空集合时抛出，空批次不代表“无需校验”。</exception>
+  /// <exception cref="InvalidOperationException">任一条目标路径的组织或医院不存在、已停用或父子归属不匹配时抛出。</exception>
+  public async Task<IReadOnlyList<OrganizationPath>> ResolveOrganizationHospitalOrThrow(
+    IReadOnlyList<OrganizationPathTarget> targets,
+    string missingOrganizationMessage,
+    string missingHospitalMessage)
+  {
+    ArgumentNullException.ThrowIfNull(targets);
+    if (targets.Count == 0) throw new ArgumentException("至少需要一条待校验的组织路径。", nameof(targets));
+
+    // 去重后的目标组织：本批所有目标路径共用同一份组织全量快照。
+    List<TargetOrganization> targetOrganizations = BuildTargetOrganizations(targets);
+
+    // 组织全量只读一次，供本批全部目标路径共用。
+    IEnumerable<OrganizationDto> organizations = await organizationAppService.QueryAllOrganizationAsync();
+
+    Dictionary<(string OrganizationCode, string HospitalCode), OrganizationPath> resolvedPaths = [];
+    foreach (TargetOrganization targetOrganization in targetOrganizations)
+    {
+      OrganizationDto organization = FindOrganization(organizations, targetOrganization.OrganizationCode)
+        ?? throw new InvalidOperationException(missingOrganizationMessage);
+
+      // 同一目标组织的医院只读一次，供该组织下的全部目标路径共用；院区层不在本方法职责内。
+      IEnumerable<HospitalDto> hospitals = await organizationAppService.QueryAllValidHospitalByOrgIdAsync(new QueryAllValidHospitalByOrgIdRequest { OrgId = targetOrganization.OrganizationCode });
+      foreach (string hospitalCode in targetOrganization.HospitalCodes)
+      {
+        HospitalDto hospital = FindHospital(hospitals, targetOrganization.OrganizationCode, hospitalCode)
+          ?? throw new InvalidOperationException(missingHospitalMessage);
+
+        resolvedPaths[(targetOrganization.OrganizationCode, hospitalCode)] =
+          new OrganizationPath(
+            TrimCode(organization.Id), organization.Name,
+            TrimCode(hospital.Id), hospital.Name,
+            string.Empty, string.Empty);
+      }
+    }
+
+    // 结果按输入顺序返回，同一路径重复出现时复用同一份已校验结果；查找键与登记键同用去空白后的值。
+    return
+    [
+      .. targets.Select(target => resolvedPaths[(
+        TrimCode(target.OrganizationCode),
+        TrimCode(target.HospitalCode))])
+    ];
+  }
+
+  /// <summary>
+  /// 解析一批只到组织一层的目标路径，校验组织存在与启用，并按输入顺序返回组织业务编码与名称。
+  /// </summary>
+  /// <remarks>
+  /// 供"任一范围条件为空不附加该层过滤"的统计范围入口使用：医院与院区层未提供取值时只有组织层需要校验，
+  /// 医院与院区层不读取也不校验，返回路径的医院、院区编码与名称为空串。
+  /// 只提交医院或院区取值的目标路径分别走 <see cref="ResolveOrganizationHospitalOrThrow"/> 与 <see cref="ResolveOrThrow"/>，
+  /// 由上级链路逐层完成存在、启用与父子归属校验。
+  /// 组织全量只读取一次，读取次数不随目标条数增长。
+  /// </remarks>
+  /// <param name="targets">本批待校验的组织目标路径，至少一条；同一路径重复出现时按同一结果返回。</param>
+  /// <param name="missingOrganizationMessage">组织不存在或已停用时对外抛出的业务拒绝文案。</param>
+  /// <returns>与 <paramref name="targets"/> 等长且同序的已校验路径集合，路径医院与院区编码、名称为空串。</returns>
+  /// <exception cref="ArgumentNullException"><paramref name="targets"/> 为 null 时抛出，此时无法确定校验范围。</exception>
+  /// <exception cref="ArgumentException"><paramref name="targets"/> 为空集合时抛出，空批次不代表“无需校验”。</exception>
+  /// <exception cref="InvalidOperationException">任一条目标路径的组织不存在或已停用时抛出。</exception>
+  public async Task<IReadOnlyList<OrganizationPath>> ResolveOrganizationOrThrow(
+    IReadOnlyList<OrganizationPathTarget> targets,
+    string missingOrganizationMessage)
+  {
+    ArgumentNullException.ThrowIfNull(targets);
+    if (targets.Count == 0) throw new ArgumentException("至少需要一条待校验的组织路径。", nameof(targets));
+
+    // 组织全量只读一次，供本批全部目标路径共用。
+    IEnumerable<OrganizationDto> organizations = await organizationAppService.QueryAllOrganizationAsync();
+
+    Dictionary<string, OrganizationPath> resolvedPaths = [];
+    foreach (string organizationCode in targets.Select(target => TrimCode(target.OrganizationCode)).Distinct())
+    {
+      OrganizationDto organization = FindOrganization(organizations, organizationCode)
+        ?? throw new InvalidOperationException(missingOrganizationMessage);
+
+      resolvedPaths[organizationCode] = new OrganizationPath(
+        TrimCode(organization.Id), organization.Name,
+        string.Empty, string.Empty,
+        string.Empty, string.Empty);
+    }
+
+    // 结果按输入顺序返回，同一路径重复出现时复用同一份已校验结果；查找键与登记键同用去空白后的值。
+    return [.. targets.Select(target => resolvedPaths[TrimCode(target.OrganizationCode)])];
+  }
+
+  /// <summary>
   /// 一个目标组织及其下已去重的医院、院区，用于把本批目标路径折叠成最少的对外读取次数。
   /// </summary>
   private sealed class TargetOrganization

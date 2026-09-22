@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using Dy.MedicalRecognition.Tests.Architecture;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
@@ -620,11 +621,11 @@ public sealed class Stage5ConstraintTests
   }
 
   /// <summary>
-  /// 实现约束核对：宿主工程的手写控制器集合与阶段 4 一致，未新增手写控制器。
+  /// 实现约束核对：宿主工程的手写控制器集合与已交付清单一致，导出控制器随阶段 6 登记。
   /// </summary>
   /// <remarks>
-  /// 本阶段四个接口全部由框架按应用服务接口自动暴露为端点，无 multipart 或文件流需要，因此不需要手写控制器。
-  /// 手写控制器集合按目录清单逐文件冻结，新增第二个控制器文件即失败。
+  /// 阶段 6 的统计导出为文件流响应新增手写导出控制器（设计「外部调用、失败语义与静态守卫」节登记的允许位置）；
+  /// 手写控制器集合按目录清单逐文件冻结，新增清单之外的第 4 个控制器文件即失败。
   /// </remarks>
   [Fact]
   public void Host_keeps_the_frozen_handwritten_controller_set()
@@ -638,9 +639,11 @@ public sealed class Stage5ConstraintTests
         .Select(path => Path.GetFileName(path)!)
         .OrderBy(name => name, StringComparer.Ordinal)
     ];
-    Assert.Equal(["ReportPdfFileController.cs", "ReportSubmissionForm.cs"], controllerFiles);
+    Assert.Equal(
+      ["RecognitionStatisticsExportController.cs", "ReportPdfFileController.cs", "ReportSubmissionForm.cs"],
+      controllerFiles);
 
-    // 两个文件声明的全部类型都是阶段 4 已交付的类型：控制器一个、提交表单一个。
+    // 三个文件声明的全部类型都是已交付的类型：两个控制器与一个提交表单。
     string[] declaredTypes =
     [
       .. controllerFiles.SelectMany(name => SourceSyntaxGuard
@@ -648,7 +651,9 @@ public sealed class Stage5ConstraintTests
         .DescendantNodes().OfType<BaseTypeDeclarationSyntax>()
         .Select(declaration => declaration.Identifier.ValueText))
     ];
-    Assert.Equal(["ReportPdfFileController", "ReportSubmissionForm"], declaredTypes.OrderBy(name => name, StringComparer.Ordinal));
+    Assert.Equal(
+      ["RecognitionStatisticsExportController", "ReportPdfFileController", "ReportSubmissionForm"],
+      declaredTypes.OrderBy(name => name, StringComparer.Ordinal));
 
     // 变异证据：加入一个不存在的控制器文件名后，同一清单等值判定必须不相等。
     Assert.NotEqual(controllerFiles, [.. controllerFiles, "RecognitionMatchController.cs"]);
@@ -668,8 +673,9 @@ public sealed class Stage5ConstraintTests
     Assert.Equal(6, SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Domain", "MedicalRecognitionReportManager").Count);
     Assert.Equal(8, SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Domain", "IMedicalRecognitionReportRepository").Count);
     Assert.Equal(8, SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Repository", "MedicalRecognitionReportRepository").Count);
-    Assert.Equal(4, SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Domain", "IMedicalRecognitionReportQueryRepository").Count);
-    Assert.Equal(4, SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Repository", "MedicalRecognitionReportQueryRepository").Count);
+    // 阶段 6 的互认统计为查询侧端口与实现各新增一个 Statistics 分片，分部文件数量随同批交付从四增加到五。
+    Assert.Equal(5, SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Domain", "IMedicalRecognitionReportQueryRepository").Count);
+    Assert.Equal(5, SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Repository", "MedicalRecognitionReportQueryRepository").Count);
 
     // 每套类型只有一个声明文件不带能力后缀：主声明之外的分片都按能力命名，以此确认分部拆分口径未被改成多类型。
     foreach ((string directory, string typeName) in new[]
@@ -731,13 +737,17 @@ public sealed class Stage5ConstraintTests
   }
 
   /// <summary>
-  /// 实现约束核对：不重生成 API Client、不重跑后端代码生成器、不覆盖再生成保护清单中的配置与启动文件。
+  /// 实现约束核对：不重跑后端代码生成器、不覆盖再生成保护清单中的配置与启动文件；
+  /// API Client 包的人工维护面由内容判据另行冻结。
   /// </summary>
   /// <remarks>
-  /// 判据是工作区差异：受保护清单的文件、前端工程与生成物在本轮没有任何新增、修改或删除。
+  /// 判据是工作区差异：受保护清单的文件在本轮没有任何新增、修改或删除。
   /// 差异文本的解析与判定分开：<see cref="FindProtectedPathViolations"/> 接收差异文本，
   /// 判定只接受固定样本差异文本与真实差异文本两种输入，因此工作区变干净时判据的判别力不受影响。
   /// 不以"文件内容看起来没变"代替差异判定，因为生成器覆盖会同时改动多个受保护文件。
+  /// 集中包管理文件与 client 前端工程不在本清单内：两者承载设计内的依赖与生成包交付，
+  /// 人工维护面分别由 <see cref="Central_package_management_keeps_the_human_maintained_packages"/>
+  /// 与 <see cref="Api_client_package_keeps_the_human_maintained_surfaces"/> 的内容判据承接。
   /// </remarks>
   [Fact]
   public void Protected_configuration_and_client_sources_are_untouched()
@@ -746,30 +756,100 @@ public sealed class Stage5ConstraintTests
     string[] sampleViolations = [.. FindProtectedPathViolations(
       """
        M server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Citation.cs
-       M client/packages/api-client-medical-recognition/openapi/medical-recognition.openapi.json
       MM server/Dy.MedicalRecognition/appsettings.json
       ?? server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.Citation.cs
       """)];
     Assert.Equal(
-      [
-        "受保护路径出现在工作区差异中：client/packages/api-client-medical-recognition/openapi/medical-recognition.openapi.json",
-        "受保护路径出现在工作区差异中：server/Dy.MedicalRecognition/appsettings.json"
-      ],
+      ["受保护路径出现在工作区差异中：server/Dy.MedicalRecognition/appsettings.json"],
       [.. sampleViolations.Order(StringComparer.Ordinal)]);
 
-    // 变异证据的另一侧：样本里去掉受保护路径后同一判定必须不报，证明判定不是对所有差异文本都成立。
+    // 变异证据的另一侧：样本里去掉受保护路径后同一判定必须不报，证明判定不是对所有差异文本都成立；
+    // client 路径与生产路径同场出现也不报，其人工维护面由内容判据承接，不再进入差异判定。
     Assert.Empty(FindProtectedPathViolations(
       """
        M server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Citation.cs
+       M client/packages/api-client-medical-recognition/openapi/medical-recognition.openapi.json
       ?? server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.Citation.cs
       """));
 
-    // 真实差异文本只用于负向判定：本轮工作区差异里不含受保护配置、启动文件、前端工程与生成物。
+    // 真实差异文本只用于负向判定：本轮工作区差异里不含受保护配置与启动文件。
     string[] realViolations = [.. FindProtectedPathViolations(ChangedPathsText())];
     Assert.True(
       realViolations.Length == 0,
       $"本轮工作区差异触及受保护路径：{string.Join("、", realViolations)}。");
   }
+
+  /// <summary>
+  /// 再生成保护核对：集中包管理文件的人工维护内容以内容判据冻结，集中管理开关与框架包名集合不得消失。
+  /// </summary>
+  /// <remarks>
+  /// 该文件经阶段 6 设计确认承载设计内的依赖增项，差异判定不再适用于它；
+  /// 判据改为文件内容：再生成覆盖会把文件重置为生成器基准值，人工维护的框架包名集合随之消失，在这里命中。
+  /// 版本号按负责人决策维护，不进入判据；新增包名属设计内变更，登记时同步扩展受保护包名清单。
+  /// </remarks>
+  [Fact]
+  public void Central_package_management_keeps_the_human_maintained_packages()
+  {
+    string centralPackages = File.ReadAllText(ResolveFullPath("server/Directory.Packages.props"));
+
+    // 集中包管理开关：生成器基准值不含该开关，覆盖后在这里失败。
+    Assert.Contains(
+      "<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>",
+      centralPackages,
+      StringComparison.Ordinal);
+
+    foreach (string packageName in HumanMaintainedPackageNames)
+    {
+      Assert.Contains($"Include=\"{packageName}\"", centralPackages, StringComparison.Ordinal);
+    }
+
+    // 正向合规样本：真实文件在同一判定下不报缺失，与上方守卫断言同向。
+    Assert.Empty(FindMissingProtectedContent(centralPackages));
+
+    // 变异证据：从真实文件内容构造缺失受保护内容的变异文本，同一判定必须逐项报出缺失项，证明判定锚定在开关与包名集合上。
+    string withoutSwitch = RemoveLinesContaining(centralPackages, CentralManageSwitch);
+    Assert.Equal(
+      [$"集中包管理开关缺失：{CentralManageSwitch}"],
+      [.. FindMissingProtectedContent(withoutSwitch)]);
+
+    string probe = $"Include=\"{HumanMaintainedPackageNames[0]}\"";
+    string withoutProbe = RemoveLinesContaining(centralPackages, probe);
+    Assert.Equal(
+      [$"人工维护包名缺失：{HumanMaintainedPackageNames[0]}"],
+      [.. FindMissingProtectedContent(withoutProbe)]);
+  }
+
+  /// <summary>
+  /// 从集中包管理文件内容中找出缺失的人工维护内容：集中管理开关与受保护包名清单。
+  /// </summary>
+  /// <param name="centralPackages">集中包管理文件的完整文本。</param>
+  /// <returns>缺失项描述，按守卫判据的顺序排列；全部存在时为空。</returns>
+  /// <remarks>
+  /// 判定只接收文本并返回缺失清单，固定变异样本与真实文件走同一条判定，
+  /// 因此变异证据能够证明判据锚定在开关与包名集合上。
+  /// </remarks>
+  private static IReadOnlyList<string> FindMissingProtectedContent(string centralPackages)
+  {
+    List<string> missing = [];
+    if (!centralPackages.Contains(CentralManageSwitch, StringComparison.Ordinal))
+      missing.Add($"集中包管理开关缺失：{CentralManageSwitch}");
+    foreach (string packageName in HumanMaintainedPackageNames)
+    {
+      if (!centralPackages.Contains($"Include=\"{packageName}\"", StringComparison.Ordinal))
+        missing.Add($"人工维护包名缺失：{packageName}");
+    }
+    return missing;
+  }
+
+  /// <summary>
+  /// 按行移除包含指定文本的行，用于从真实文件内容构造变异样本。
+  /// </summary>
+  private static string RemoveLinesContaining(string content, string needle) => string.Join(
+    "\n",
+    content
+      .Replace("\r\n", "\n", StringComparison.Ordinal)
+      .Split('\n')
+      .Where(line => !line.Contains(needle, StringComparison.Ordinal)));
 
   /// <summary>
   /// 从 Git 工作区差异文本中找出受保护路径的命中项。
@@ -791,16 +871,206 @@ public sealed class Stage5ConstraintTests
   /// <summary>
   /// 再生成保护清单：这些路径出现在工作区差异中即说明生成器覆盖了人工维护的内容。
   /// </summary>
+  /// <remarks>
+  /// 集中包管理文件承载设计内依赖增项，改由内容判据保护，见
+  /// <see cref="Central_package_management_keeps_the_human_maintained_packages"/>。
+  /// client 前端工程不在本清单内：API Client 生成包与统计页面属设计内交付，
+  /// 其人工维护面由 <see cref="Api_client_package_keeps_the_human_maintained_surfaces"/> 的内容判据承接。
+  /// </remarks>
   private static readonly string[] ProtectedDiffPaths =
   [
     "server/global.json",
-    "server/Directory.Packages.props",
     "server/Dy.MedicalRecognition/appsettings.json",
     "server/Dy.MedicalRecognition/appsettings.Development.json",
     "server/Dy.MedicalRecognition/EarthraceConfig.json",
-    "server/Dy.MedicalRecognition/Properties/launchSettings.json",
-    "client"
+    "server/Dy.MedicalRecognition/Properties/launchSettings.json"
   ];
+
+  /// <summary>
+  /// 集中包管理文件中人工维护的包名集合：再生成覆盖会把文件重置为生成器基准值，包名随之消失。
+  /// 版本号不进入判据；包名集合的扩展属设计内变更，随对应设计登记同步维护。
+  /// </summary>
+  private static readonly string[] HumanMaintainedPackageNames =
+  [
+    "Dy.Base.Application.Contracts",
+    "Dy.Core.Abstractions",
+    "Dy.Core.Extensions",
+    "Dy.Core.SourceGen",
+    "Dy.CompileToolkit.Version",
+    "Dy.Apron.Abstractions",
+    "Dy.Apron.Bridge",
+    "Dy.Apron.QuickStart",
+    "Dy.Apron.Security",
+    "Dy.Earthrace.Abstractions",
+    "Dy.Earthrace",
+    "Npgsql",
+    "Dy.Plugin.AspNet.Scalar",
+    "Microsoft.AspNetCore.OpenApi",
+    "Microsoft.CodeAnalysis.CSharp",
+    "Microsoft.NET.Test.Sdk",
+    "xunit",
+    "xunit.runner.visualstudio"
+  ];
+
+  /// <summary>
+  /// 集中包管理开关的判据文本：生成器基准值不含该开关，再生成覆盖后在这里命中。
+  /// </summary>
+  private const string CentralManageSwitch = "<ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>";
+
+  /// <summary>
+  /// 再生成保护核对：API Client 包的人工维护面以内容判据冻结，再生成整体覆盖锚点所在文件
+  /// 或登录接口排除口径被改变时在这里命中。
+  /// </summary>
+  /// <remarks>
+  /// client 路径不在 <see cref="ProtectedDiffPaths"/> 的差异判定内，其人工维护面由本判据承接。
+  /// 锚点全部取结构稳定的标记：包入口对 Kiota 生成内容的再导出与手写便捷创建入口、
+  /// 客户端便捷构造符号、OpenAPI 归一化的检测条件与计数器、锁定文件的登录接口排除清单；
+  /// 措辞性注释不进入判据，锚点语义不随正常实现演进而漂移。
+  /// </remarks>
+  [Fact]
+  public void Api_client_package_keeps_the_human_maintained_surfaces()
+  {
+    Dictionary<string, string> realSources = new();
+    foreach (string sourcePath in ApiClientProtectedSourcePaths)
+    {
+      realSources[sourcePath] = File.ReadAllText(ResolveFullPath(sourcePath));
+    }
+
+    // 正向合规样本：真实文件在同一判定下不报缺失，与守卫断言同向。
+    Assert.Empty(FindMissingApiClientProtectedContent(realSources));
+
+    // 变异证据：从真实文件内容构造锚点缺失与口径覆盖的变异文本，同一判定必须逐项报出缺失项，
+    // 证明判据锚定在上述标记上而不是对所有源码恒真。
+    Dictionary<string, string> withoutConvenienceCreation = new(realSources);
+    withoutConvenienceCreation[ApiClientIndexPath] =
+      RemoveLinesContaining(realSources[ApiClientIndexPath], ApiClientConvenienceCreation);
+    Assert.Equal(
+      ["API Client 人工维护锚点缺失：包入口的手写便捷创建入口"],
+      [.. FindMissingApiClientProtectedContent(withoutConvenienceCreation)]);
+
+    Dictionary<string, string> withoutClientConstruction = new(realSources);
+    withoutClientConstruction[ApiClientClientSourcePath] =
+      RemoveLinesContaining(realSources[ApiClientClientSourcePath], ApiClientClientConstruction);
+    Assert.Equal(
+      ["API Client 人工维护锚点缺失：客户端便捷构造函数"],
+      [.. FindMissingApiClientProtectedContent(withoutClientConstruction)]);
+
+    Dictionary<string, string> withoutUnionNormalization = new(realSources);
+    withoutUnionNormalization[ApiClientPrepareScriptPath] =
+      RemoveLinesContaining(realSources[ApiClientPrepareScriptPath], ApiClientIntegerUnionCounter);
+    Assert.Equal(
+      ["API Client 人工维护锚点缺失：整数联合类型的归一化计数"],
+      [.. FindMissingApiClientProtectedContent(withoutUnionNormalization)]);
+
+    Dictionary<string, string> withLoosenedExclusion = new(realSources);
+    withLoosenedExclusion[ApiClientKiotaLockPath] =
+      RemoveLinesContaining(realSources[ApiClientKiotaLockPath], $"\"{ApiClientLoginExclusion}\"");
+    Assert.Equal(
+      [$"Kiota 锁定文件的 excludePatterns 不是恰好排除 {ApiClientLoginExclusion}"],
+      [.. FindMissingApiClientProtectedContent(withLoosenedExclusion)]);
+  }
+
+  /// <summary>API Client 包入口的仓库内相对路径。</summary>
+  private const string ApiClientIndexPath = "client/packages/api-client-medical-recognition/src/index.ts";
+
+  /// <summary>客户端便捷构造文件的仓库内相对路径。</summary>
+  private const string ApiClientClientSourcePath = "client/packages/api-client-medical-recognition/src/medicalRecognitionClient.ts";
+
+  /// <summary>OpenAPI 归一化脚本的仓库内相对路径。</summary>
+  private const string ApiClientPrepareScriptPath = "client/packages/api-client-medical-recognition/scripts/prepare-openapi.mjs";
+
+  /// <summary>Kiota 锁定文件的仓库内相对路径。</summary>
+  private const string ApiClientKiotaLockPath = "client/packages/api-client-medical-recognition/src/kiota-lock.json";
+
+  /// <summary>API Client 包的受保护源文件路径集合。</summary>
+  private static readonly string[] ApiClientProtectedSourcePaths =
+  [
+    ApiClientIndexPath,
+    ApiClientClientSourcePath,
+    ApiClientPrepareScriptPath,
+    ApiClientKiotaLockPath
+  ];
+
+  /// <summary>包入口的手写便捷创建入口签名：Kiota 再生成整体覆盖包入口时随之消失。</summary>
+  private const string ApiClientConvenienceCreation = "export function createMedicalRecognitionApiClient(baseUrl: string): MedicalRecognitionClient";
+
+  /// <summary>客户端便捷构造函数签名：整包被清空重建时随之消失。</summary>
+  private const string ApiClientClientConstruction = "export function createMedicalRecognitionClient(requestAdapter: RequestAdapter)";
+
+  /// <summary>整数联合类型归一化的计数语句：归一化逻辑被移除时随之消失。</summary>
+  private const string ApiClientIntegerUnionCounter = "counter.integerUnions += 1";
+
+  /// <summary>
+  /// Kiota 锁定文件中登录接口的排除项：排除清单被清空、替换或追加其他排除项都说明排除口径被改变。
+  /// </summary>
+  private const string ApiClientLoginExclusion = "/auth/login";
+
+  /// <summary>
+  /// API Client 人工维护面的内容锚点：再生成整体覆盖锚点所在文件或归一化被移除时，锚点文本随之消失。
+  /// 锚点取函数签名、再导出语句与归一化计数器等结构稳定标记，措辞性注释不进入判据。
+  /// </summary>
+  private static readonly (string SourcePath, string Anchor, string Description)[] ApiClientProtectedAnchors =
+  [
+    (ApiClientIndexPath, "export * from './api/index.js';", "包入口对 Kiota 生成内容的再导出"),
+    (ApiClientIndexPath, ApiClientConvenienceCreation, "包入口的手写便捷创建入口"),
+    (ApiClientClientSourcePath, ApiClientClientConstruction, "客户端便捷构造函数"),
+    (ApiClientClientSourcePath, "export interface MedicalRecognitionClient extends BaseRequestBuilder<MedicalRecognitionClient>", "客户端主接口声明"),
+    (ApiClientPrepareScriptPath, "value.includes('integer') && value.includes('string')", "整数联合类型的归一化检测条件"),
+    (ApiClientPrepareScriptPath, ApiClientIntegerUnionCounter, "整数联合类型的归一化计数"),
+    (ApiClientPrepareScriptPath, "counter.nullableReferences += 1", "可空引用的归一化计数")
+  ];
+
+  /// <summary>
+  /// 从 API Client 包的人工维护面文本中找出缺失的受保护内容：内容锚点与锁定文件的登录接口排除口径。
+  /// </summary>
+  /// <param name="sources">受保护源文件相对路径到文件完整文本的映射。</param>
+  /// <returns>缺失项描述，按判据顺序排列；全部在位时为空。</returns>
+  /// <remarks>
+  /// 判定只接收文本映射并返回缺失清单，真实文件与变异样本走同一条判定。
+  /// 三个源码文件按锚点文本存在性判定；锁定文件按 JSON 结构判定排除清单的精确取值，
+  /// 排除清单被清空、替换或追加其他排除项时同样命中。
+  /// </remarks>
+  private static IReadOnlyList<string> FindMissingApiClientProtectedContent(IReadOnlyDictionary<string, string> sources)
+  {
+    List<string> missing = [];
+
+    foreach ((string sourcePath, string anchor, string description) in ApiClientProtectedAnchors)
+    {
+      if (!sources.TryGetValue(sourcePath, out string? source) || !source.Contains(anchor, StringComparison.Ordinal))
+        missing.Add($"API Client 人工维护锚点缺失：{description}");
+    }
+
+    string[]? exclusionPatterns = ApiClientExclusionPatterns(sources);
+    if (exclusionPatterns is null)
+      missing.Add("Kiota 锁定文件的 excludePatterns 缺失或不可解析");
+    else if (!exclusionPatterns.SequenceEqual([ApiClientLoginExclusion], StringComparer.Ordinal))
+      missing.Add($"Kiota 锁定文件的 excludePatterns 不是恰好排除 {ApiClientLoginExclusion}");
+
+    return missing;
+  }
+
+  /// <summary>
+  /// 按 JSON 结构解析 Kiota 锁定文件的排除清单取值。
+  /// </summary>
+  /// <param name="sources">受保护源文件相对路径到文件完整文本的映射。</param>
+  /// <returns>排除项集合；文件文本缺失、字段缺失或无法按 JSON 解析时为 <see langword="null"/>。</returns>
+  private static string[]? ApiClientExclusionPatterns(IReadOnlyDictionary<string, string> sources)
+  {
+    if (!sources.TryGetValue(ApiClientKiotaLockPath, out string? lockFileText)) return null;
+
+    try
+    {
+      using JsonDocument document = JsonDocument.Parse(lockFileText);
+      return document.RootElement.TryGetProperty("excludePatterns", out JsonElement patterns) &&
+          patterns.ValueKind == JsonValueKind.Array
+        ? [.. patterns.EnumerateArray().Select(item => item.GetString() ?? string.Empty)]
+        : null;
+    }
+    catch (JsonException)
+    {
+      return null;
+    }
+  }
 
   /// <summary>
   /// 校验固定样本差异文本的解析结果：只取路径，剔除状态码，重命名项取目标路径。

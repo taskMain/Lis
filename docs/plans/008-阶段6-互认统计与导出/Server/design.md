@@ -37,7 +37,7 @@
 | `RecognitionStatisticsExportTypeEnum` | Enum | Domain.Share/Enums（已存在） | 请求 | 导出类型七值 | 修改（仅补描述器登记） |
 | `IMedicalRecognitionReportQueryAppService.Statistics.cs` | 查询契约分片 | Contracts/Queries | Host 自动端点 | 四个查询、导出、匹配记录视图共 10 个方法声明（宿主 11 个端点，导出由控制器平台/本院两个 POST 动作承载） | 写操作 |
 | `MedicalRecognitionReportQueryAppService.Statistics.cs` | QueryAppService 分片 | Application/Queries | 自动端点、导出控制器 | 范围解析、窗口校验、语句编排、读模型组装、率与占比计算、导出生成编排 | SQL、DataMapper |
-| `IMedicalRecognitionReportQueryRepository`（Statistics 分片） | 查询端口分片 | Application/Queries | QueryAppService | 统计语句的端口声明 | 语句实现 |
+| `IMedicalRecognitionReportQueryRepository`（Statistics 分片） | 查询端口分片 | Domain/Queries/Ports | QueryAppService | 统计语句的端口声明 | 语句实现 |
 | `MedicalRecognitionReportQueryRepository.Statistics.cs` | QueryRepository 分片 | Repository/Queries | 查询端口 | DataMapper 调用、集合参数与分页窗口传参 | 领域规则、聚合计算 |
 | `MedicalRecognitionReportQuery.xml`（追加统计语句） | SqlMap | Repository/Queries | QueryRepository | 统计 SQL 语句（同一查询作用域 `MedicalRecognitionReportQuery`） | 方言分页、写语句 |
 | `RecognitionStatisticsExportController` | Controller | Host/Controllers | 浏览器 | 两个导出动作的 POST 端点，返回 `File` 流 | 业务规则、SQL |

@@ -236,7 +236,28 @@ public sealed class Stage1ArchitectureTests
     (nameof(IMedicalRecognitionReportQueryAppService.QueryMedicalReportVersionDetailAsync),
       "Task<MedicalReportVersionDetailQueryReadModel>", ["MedicalReportVersionDetailQueryRequest request"]),
     (nameof(IMedicalRecognitionReportQueryAppService.QueryRecognitionCitationDetailAsync),
-      "Task<RecognitionCitationDetailReadModel>", ["RecognitionCitationDetailRequest request"])
+      "Task<RecognitionCitationDetailReadModel>", ["RecognitionCitationDetailRequest request"]),
+    // 阶段 6 的统计与导出：四个查询能力各设平台/本院两个入口，加一个导出入口与一个匹配记录视图。
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryRecognitionUsageSummaryAsync),
+      "Task<PageResultDto<RecognitionUsageSummaryReadModel>>", ["RecognitionUsageSummaryQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryRecognitionUsageDetailsAsync),
+      "Task<PageResultDto<RecognitionUsageDetailReadModel>>", ["RecognitionUsageDetailsQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QuerySourceRecognitionSummaryAsync),
+      "Task<PageResultDto<SourceRecognitionSummaryReadModel>>", ["SourceRecognitionSummaryQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QuerySourceRecognitionDetailsAsync),
+      "Task<PageResultDto<SourceRecognitionDetailReadModel>>", ["SourceRecognitionDetailsQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryBranchRecognitionUsageSummaryAsync),
+      "Task<PageResultDto<RecognitionUsageSummaryReadModel>>", ["BranchRecognitionUsageSummaryQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryBranchRecognitionUsageDetailsAsync),
+      "Task<PageResultDto<RecognitionUsageDetailReadModel>>", ["BranchRecognitionUsageDetailsQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryBranchSourceRecognitionSummaryAsync),
+      "Task<PageResultDto<SourceRecognitionSummaryReadModel>>", ["BranchSourceRecognitionSummaryQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryBranchSourceRecognitionDetailsAsync),
+      "Task<PageResultDto<SourceRecognitionDetailReadModel>>", ["BranchSourceRecognitionDetailsQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.GetStatisticsExportAsync),
+      "Task<StatisticsExportFileReadModel>", ["RecognitionStatisticsExportRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryRecognitionMatchRecordAsync),
+      "Task<RecognitionMatchRecordReadModel>", ["RecognitionMatchRecordQueryRequest request"])
   ];
 
   /// <summary>
@@ -504,7 +525,7 @@ public sealed class Stage1ArchitectureTests
   /// <summary>
   /// 校验读写契约分离：查询契约只继承应用服务标记而不含写方法，查询契约与查询仓储实现可相互赋值，
   /// 查询契约的方法集合固定为阶段 1 的四个目录查询、阶段 2 的互认配置列表查询、阶段 3 的两个金额列表查询、
-  /// 阶段 4 的报告列表与版本查询，以及阶段 5 的引用详情查询，
+  /// 阶段 4 的报告列表与版本查询、阶段 5 的引用详情查询，以及阶段 6 的八个统计查询、统计导出入口与匹配记录视图，
   /// 且写入口契约中不得出现只读查询方法。
   /// </summary>
   [Fact]
@@ -516,10 +537,15 @@ public sealed class Stage1ArchitectureTests
 
     string[] expectedQueryMethods =
     [
-      "QueryBranchMedicalReportListAsync", "QueryBranchRecognitionAmountListAsync", "QueryEffectiveMedicalStandardCatalogAsync",
-      "QueryMedicalReportListAsync", "QueryMedicalReportVersionDetailAsync", "QueryMedicalReportVersionListAsync",
-      "QueryMedicalStandardCategoryListAsync", "QueryMedicalStandardGroupListAsync", "QueryMedicalStandardItemListAsync",
-      "QueryRecognitionAmountListAsync", "QueryRecognitionCitationDetailAsync", "QueryRecognitionProjectConfigurationListAsync"
+      "GetStatisticsExportAsync", "QueryBranchMedicalReportListAsync", "QueryBranchRecognitionAmountListAsync",
+      "QueryBranchRecognitionUsageDetailsAsync", "QueryBranchRecognitionUsageSummaryAsync",
+      "QueryBranchSourceRecognitionDetailsAsync", "QueryBranchSourceRecognitionSummaryAsync",
+      "QueryEffectiveMedicalStandardCatalogAsync", "QueryMedicalReportListAsync", "QueryMedicalReportVersionDetailAsync",
+      "QueryMedicalReportVersionListAsync", "QueryMedicalStandardCategoryListAsync", "QueryMedicalStandardGroupListAsync",
+      "QueryMedicalStandardItemListAsync", "QueryRecognitionAmountListAsync", "QueryRecognitionCitationDetailAsync",
+      "QueryRecognitionMatchRecordAsync", "QueryRecognitionProjectConfigurationListAsync",
+      "QueryRecognitionUsageDetailsAsync", "QueryRecognitionUsageSummaryAsync",
+      "QuerySourceRecognitionDetailsAsync", "QuerySourceRecognitionSummaryAsync"
     ];
     string[] actualQueryMethods = [.. typeof(IMedicalRecognitionReportQueryAppService).GetMethods().Select(method => method.Name).OrderBy(name => name, StringComparer.Ordinal)];
     Assert.Equal(expectedQueryMethods, actualQueryMethods);

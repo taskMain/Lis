@@ -4,6 +4,8 @@
 // @ts-ignore
 import { ReportPdfRequestBuilderNavigationMetadata, type ReportPdfRequestBuilder } from './reportPdf/index.js';
 // @ts-ignore
+import { StatisticsExportRequestBuilderNavigationMetadata, type StatisticsExportRequestBuilder } from './statisticsExport/index.js';
+// @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
 /**
@@ -14,6 +16,10 @@ export interface V1RequestBuilder extends BaseRequestBuilder<V1RequestBuilder> {
      * The reportPdf property
      */
     get reportPdf(): ReportPdfRequestBuilder;
+    /**
+     * The statisticsExport property
+     */
+    get statisticsExport(): StatisticsExportRequestBuilder;
 }
 /**
  * Uri template for the request builder.
@@ -25,6 +31,9 @@ export const V1RequestBuilderUriTemplate = "{+baseurl}/api/v1";
 export const V1RequestBuilderNavigationMetadata: Record<Exclude<keyof V1RequestBuilder, KeysToExcludeForNavigationMetadata>, NavigationMetadata> = {
     reportPdf: {
         navigationMetadata: ReportPdfRequestBuilderNavigationMetadata,
+    },
+    statisticsExport: {
+        navigationMetadata: StatisticsExportRequestBuilderNavigationMetadata,
     },
 };
 /* tslint:enable */

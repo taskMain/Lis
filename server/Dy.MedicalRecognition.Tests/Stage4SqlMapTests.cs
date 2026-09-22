@@ -319,9 +319,9 @@ public sealed class Stage4SqlMapTests
 
   /// <summary>
   /// 查询侧映射文件的完整语句标识清单，按文件内声明顺序：阶段 1 至阶段 3 已交付的六条在前，阶段 4 新增的十四条居中，
-  /// 阶段 5 新增的九条在后——按报告版本集合一次读回普通检验结果与检查项目、候选报告查询、匹配响应报告事实查询，
-  /// 处理结果提交在未命中幂等时校验绑定报告版本有效性所读的有效版本标识查询，
-  /// 以及获取引用详情的候选采纳记录、报告公共上下文与标准项目名称三条。
+  /// 阶段 5 新增的九条随后，阶段 6 新增的互认统计十七条最后——接收侧汇总的分组行计数、当页分组与原因汇总三条，
+  /// 来源侧汇总的分组行计数与当页分组两条，接收侧提醒、采纳、不采纳与引用明细的计数与取页各一对，
+  /// 来源侧明细的计数与取页一对，以及匹配记录集合视图的组级信息与全部匹配项两条。
   /// </summary>
   /// <remarks>
   /// 阶段 4 新增的七条读语句标识由方法名推导：调用方不再显式传 <c>sqlId</c>，框架按调用方法名去掉
@@ -329,6 +329,7 @@ public sealed class Stage4SqlMapTests
   /// 阶段 5 新增的九条同样由方法名推导，由查询仓储调用；两条按报告版本集合读取的语句使互认匹配查询的内容读取次数不随返回的报告数增长；
   /// 有效版本标识查询只返回仍为当前版本且所属报告有效的版本，调用方按"未出现在返回集合中"判定绑定版本已失效；
   /// 引用详情三条分别承载本次就诊的候选采纳记录、报告公共上下文与标准项目名称，各按集合一次读回。
+  /// 阶段 6 新增的十七条同样由查询端口方法名去掉 <c>Async</c> 后缀推导，全部注册在同一查询作用域下。
   /// 检查部位的按检查项目集合读取注册在检查部位实体作用域下，不由本清单覆盖。
   /// </remarks>
   private static readonly string[] ExpectedQueryStatementIds =
@@ -341,7 +342,16 @@ public sealed class Stage4SqlMapTests
     "QueryLaboratorySusceptibilities", "GetExaminationReportContent", "QueryExaminationItems",
     "QueryExaminationSites", "QueryLaboratoryResultItemsByVersions", "QueryExaminationItemsByVersions",
     "QueryRecognitionMatchCandidateReports", "QueryRecognitionMatchReportFacts", "QueryValidRecognitionReportVersionIds",
-    "QueryRecognitionCitationCandidates", "QueryRecognitionCitationReportContexts", "QueryRecognitionCitationStandardProjectNames"
+    "QueryRecognitionCitationCandidates", "QueryRecognitionCitationReportContexts", "QueryRecognitionCitationStandardProjectNames",
+    // 阶段 6 同批登记：互认统计的十七条语句，清单等值扩展、未放宽为包含断言。
+    "CountRecognitionUsageSummaryGroups", "QueryRecognitionUsageSummaryPage", "QueryRecognitionUsageSummaryReasons",
+    "CountSourceRecognitionSummaryGroups", "QuerySourceRecognitionSummaryPage",
+    "CountRecognitionUsageReminderDetails", "QueryRecognitionUsageReminderDetails",
+    "CountRecognitionUsageAdoptionDetails", "QueryRecognitionUsageAdoptionDetails",
+    "CountRecognitionUsageNonAdoptionDetails", "QueryRecognitionUsageNonAdoptionDetails",
+    "CountRecognitionUsageReferenceDetails", "QueryRecognitionUsageReferenceDetails",
+    "CountSourceRecognitionDetails", "QuerySourceRecognitionDetails",
+    "QueryRecognitionMatchRecordView", "QueryRecognitionMatchRecordViewItems"
   ];
   /// <summary>
   /// 共享 SQL 的方言特征：出现即视为违反数据库 Provider 中立约定。

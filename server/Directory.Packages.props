@@ -14,6 +14,7 @@
     <PackageVersion Include="Dy.Apron.Security" Version="1.1.0.48" />
     <PackageVersion Include="Dy.Earthrace.Abstractions" Version="1.0.0.60" />
     <PackageVersion Include="Dy.Earthrace" Version="1.0.0.60" />
+    <PackageVersion Include="ClosedXML" Version="0.105.0" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Dy.Plugin.AspNet.Scalar" Version="0.2.0.16" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />

@@ -60,8 +60,9 @@ public sealed class Stage5SqlMapTests
         ("oper_time", "操作时间"),
         ("oper_id", "操作人")
       ],
-      ["on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, identity_document_type_code, identity_document_no, match_created_time);"],
-      ["ix_mrec_recognition_match_record_business_key"]
+      ["on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, identity_document_type_code, identity_document_no, match_created_time);",
+        "on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, match_created_time);"],
+      ["ix_mrec_recognition_match_record_business_key", "ix_mrec_recognition_match_record_receiver_time"]
     ),
     (
       "mrec_recognition_match_item.sql", "mrec_recognition_match_item", "互认匹配项",
@@ -125,8 +126,9 @@ public sealed class Stage5SqlMapTests
         ("oper_time", "操作时间"),
         ("oper_id", "操作人")
       ],
-      ["on mrec_recognition_processing_result (recognition_match_item_id);"],
-      ["ux_mrec_recognition_processing_result_match_item"]
+      ["on mrec_recognition_processing_result (recognition_match_item_id);",
+        "on mrec_recognition_processing_result (recognition_time);"],
+      ["ux_mrec_recognition_processing_result_match_item", "ix_mrec_recognition_processing_result_recognition_time"]
     ),
     (
       "mrec_recognition_reference.sql", "mrec_recognition_reference", "互认引用事实",
@@ -152,27 +154,35 @@ public sealed class Stage5SqlMapTests
         ("oper_time", "操作时间"),
         ("oper_id", "操作人")
       ],
-      ["on mrec_recognition_reference (recognition_match_item_id);"],
-      ["ux_mrec_recognition_reference_match_item"]
+      ["on mrec_recognition_reference (recognition_match_item_id);",
+        "on mrec_recognition_reference (referenced_time);"],
+      ["ux_mrec_recognition_reference_match_item", "ix_mrec_recognition_reference_referenced_time"]
     )
   ];
 
   /// <summary>
-  /// 四条索引的完整声明与索引名、是否唯一：匹配记录表按接收三值与患者证件、匹配生成时间；
-  /// 匹配项表按所属匹配记录、按标准项目编码；处理结果表与引用事实表各按互认匹配项标识唯一。
+  /// 八条索引的完整声明与索引名、是否唯一：匹配记录表按接收三值与患者证件、匹配生成时间，
+  /// 匹配项表按所属匹配记录、按标准项目编码，处理结果表与引用事实表各按互认匹配项标识唯一，
+  /// 以及阶段 6 统计索引的三条时间维度普通索引（接收三值加匹配生成时间、互认时间、实际引用时间）。
   /// </summary>
   private static readonly (string IndexName, bool IsUnique, string Definition)[] ExpectedIndexes =
   [
     ("ix_mrec_recognition_match_record_business_key", false,
       "on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, identity_document_type_code, identity_document_no, match_created_time);"),
+    ("ix_mrec_recognition_match_record_receiver_time", false,
+      "on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, match_created_time);"),
     ("ix_mrec_recognition_match_item_record", false,
       "on mrec_recognition_match_item (recognition_match_record_id);"),
     ("ix_mrec_recognition_match_item_project", false,
       "on mrec_recognition_match_item (standard_project_code);"),
     ("ux_mrec_recognition_processing_result_match_item", true,
       "on mrec_recognition_processing_result (recognition_match_item_id);"),
+    ("ix_mrec_recognition_processing_result_recognition_time", false,
+      "on mrec_recognition_processing_result (recognition_time);"),
     ("ux_mrec_recognition_reference_match_item", true,
-      "on mrec_recognition_reference (recognition_match_item_id);")
+      "on mrec_recognition_reference (recognition_match_item_id);"),
+    ("ix_mrec_recognition_reference_referenced_time", false,
+      "on mrec_recognition_reference (referenced_time);")
   ];
 
   /// <summary>
@@ -288,7 +298,25 @@ public sealed class Stage5SqlMapTests
     ("QueryValidRecognitionReportVersionIds", null),
     ("QueryRecognitionCitationCandidates", null),
     ("QueryRecognitionCitationReportContexts", null),
-    ("QueryRecognitionCitationStandardProjectNames", null)
+    ("QueryRecognitionCitationStandardProjectNames", null),
+    // 阶段 6 同批登记：互认统计的十七条语句全部落在查询侧映射，语句改别名、改列名或把列写到另一张表上时逐项判定发现。
+    ("CountRecognitionUsageSummaryGroups", null),
+    ("QueryRecognitionUsageSummaryPage", null),
+    ("QueryRecognitionUsageSummaryReasons", null),
+    ("CountSourceRecognitionSummaryGroups", null),
+    ("QuerySourceRecognitionSummaryPage", null),
+    ("CountRecognitionUsageReminderDetails", null),
+    ("QueryRecognitionUsageReminderDetails", null),
+    ("CountRecognitionUsageAdoptionDetails", null),
+    ("QueryRecognitionUsageAdoptionDetails", null),
+    ("CountRecognitionUsageNonAdoptionDetails", null),
+    ("QueryRecognitionUsageNonAdoptionDetails", null),
+    ("CountRecognitionUsageReferenceDetails", null),
+    ("QueryRecognitionUsageReferenceDetails", null),
+    ("CountSourceRecognitionDetails", null),
+    ("QuerySourceRecognitionDetails", null),
+    ("QueryRecognitionMatchRecordView", null),
+    ("QueryRecognitionMatchRecordViewItems", null)
   ];
 
   /// <summary>

@@ -83,6 +83,21 @@ public sealed class Stage4EndpointTests
   ];
 
   /// <summary>
+  /// 报告查询入口在阶段 6 新增的方法名；四个统计查询各设平台/本院两个入口、统计导出入口与匹配记录集合视图。
+  /// </summary>
+  /// <remarks>
+  /// 八个查询与匹配记录视图由框架自动暴露为端点；统计导出由导出控制器的平台/本院两个 POST 动作承载，
+  /// 接口上的导出方法是两个动作共同调用的应用层入口。
+  /// </remarks>
+  private static readonly string[] Stage6QueryMethods =
+  [
+    "GetStatisticsExportAsync", "QueryBranchRecognitionUsageDetailsAsync", "QueryBranchRecognitionUsageSummaryAsync",
+    "QueryBranchSourceRecognitionDetailsAsync", "QueryBranchSourceRecognitionSummaryAsync", "QueryRecognitionMatchRecordAsync",
+    "QueryRecognitionUsageDetailsAsync", "QueryRecognitionUsageSummaryAsync",
+    "QuerySourceRecognitionDetailsAsync", "QuerySourceRecognitionSummaryAsync"
+  ];
+
+  /// <summary>
   /// 两个提交入口方法：它们同时是医院接入的提交入口与事务边界。
   /// </summary>
   private static readonly string[] SubmissionMethods =
@@ -157,12 +172,12 @@ public sealed class Stage4EndpointTests
   }
 
   /// <summary>
-  /// V83：报告查询入口的公开方法集合与阶段 4 新增后的完整清单逐项相等。
+  /// V83：报告查询入口的公开方法集合与阶段 4 至阶段 6 新增后的完整清单逐项相等。
   /// </summary>
   [Fact]
   public void Query_contract_method_set_matches_the_published_endpoint_inventory()
   {
-    string[] expected = [.. ExistingQueryMethods.Concat(Stage4QueryMethods).Concat(Stage5QueryMethods).OrderBy(name => name, StringComparer.Ordinal)];
+    string[] expected = [.. ExistingQueryMethods.Concat(Stage4QueryMethods).Concat(Stage5QueryMethods).Concat(Stage6QueryMethods).OrderBy(name => name, StringComparer.Ordinal)];
     string[] actual = MethodNamesAscending(typeof(IMedicalRecognitionReportQueryAppService));
 
     Assert.Equal(expected, actual);
@@ -171,6 +186,8 @@ public sealed class Stage4EndpointTests
     Assert.NotEqual(expected, mutated);
     string[] withoutCitationEntry = [.. actual.Where(name => name != "QueryRecognitionCitationDetailAsync")];
     Assert.NotEqual(expected, withoutCitationEntry);
+    string[] withoutStatisticsEntries = [.. actual.Where(name => !Stage6QueryMethods.Contains(name, StringComparer.Ordinal))];
+    Assert.NotEqual(expected, withoutStatisticsEntries);
   }
 
   /// <summary>

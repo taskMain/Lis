@@ -33,3 +33,8 @@ create index ix_mrec_recognition_match_record_business_key
 on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, identity_document_type_code, identity_document_no, match_created_time);
 
 comment on index ix_mrec_recognition_match_record_business_key is '主要接收三值与患者证件筛选并按互认匹配生成时间排序';
+
+create index ix_mrec_recognition_match_record_receiver_time
+on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, match_created_time);
+
+comment on index ix_mrec_recognition_match_record_receiver_time is '接收组织、接收医院与接收院区三值等值筛选并按互认匹配生成时间做范围扫描，与业务键索引互补';

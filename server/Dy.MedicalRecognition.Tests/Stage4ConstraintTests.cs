@@ -322,13 +322,13 @@ public sealed class Stage4ConstraintTests
         .Single(item => item.Identifier.ValueText == "MedicalRecognitionReportRepository").Modifiers,
       modifier => modifier.ValueText == "partial"));
 
-    // 查询侧端口按职责分为四个部分文件，报告查询、引用详情与其余查询与既有目录查询共用一个实现类型；
-    // 阶段 5 的互认匹配与引用详情只读投影各新增一个分片，数量随之增加。
+    // 查询侧端口按职责分为部分文件，报告查询、引用详情与其余查询与既有目录查询共用一个实现类型；
+    // 阶段 5 的互认匹配与引用详情只读投影、阶段 6 的互认统计各新增一个分片，数量随之增加。
     Assert.Equal(
-      4,
+      5,
       SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Domain", "IMedicalRecognitionReportQueryRepository").Count);
     Assert.Equal(
-      4,
+      5,
       SourceSyntaxGuard.ReadTypeDeclarations("server/Dy.MedicalRecognition.Repository", "MedicalRecognitionReportQueryRepository").Count);
 
     // 聚合根只有一个：领域工程内声明 MedicalRecognitionReport 的文件数量为一。

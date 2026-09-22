@@ -877,6 +877,76 @@ public sealed class Stage3QueryTests
     /// <inheritdoc/>
     public Task<IEnumerable<CitationStandardProjectNameItem>> QueryRecognitionCitationStandardProjectNamesAsync(IReadOnlyList<string> standardProjectCodes) =>
       throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    // 阶段 6 互认统计的查询成员：本替身不覆盖统计路径，调用即失败。
+
+    /// <inheritdoc/>
+    public Task<long> CountRecognitionUsageSummaryGroupsAsync(RecognitionUsageSummaryFilter filter) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionUsageSummaryGroupItem>> QueryRecognitionUsageSummaryPageAsync(RecognitionUsageSummaryFilter filter, int skipCount, int pageSize) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionUsageReasonItem>> QueryRecognitionUsageSummaryReasonsAsync(RecognitionUsageSummaryFilter filter) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<long> CountSourceRecognitionSummaryGroupsAsync(SourceRecognitionSummaryFilter filter) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<SourceRecognitionSummaryGroupItem>> QuerySourceRecognitionSummaryPageAsync(SourceRecognitionSummaryFilter filter, int skipCount, int pageSize) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<long> CountRecognitionUsageReminderDetailsAsync(RecognitionUsageDetailFilter filter) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionReminderDetailItem>> QueryRecognitionUsageReminderDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<long> CountRecognitionUsageAdoptionDetailsAsync(RecognitionUsageDetailFilter filter) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionAdoptionDetailItem>> QueryRecognitionUsageAdoptionDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<long> CountRecognitionUsageNonAdoptionDetailsAsync(RecognitionUsageDetailFilter filter) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionNonAdoptionDetailItem>> QueryRecognitionUsageNonAdoptionDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<long> CountRecognitionUsageReferenceDetailsAsync(RecognitionUsageDetailFilter filter) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionReferenceDetailItem>> QueryRecognitionUsageReferenceDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<long> CountSourceRecognitionDetailsAsync(SourceRecognitionDetailFilter filter) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<SourceRecognitionDetailItem>> QuerySourceRecognitionDetailsAsync(SourceRecognitionDetailFilter filter, int skipCount, int pageSize) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<RecognitionMatchRecordView?> QueryRecognitionMatchRecordViewAsync(Guid recognitionMatchRecordId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<RecognitionMatchRecordViewItem>> QueryRecognitionMatchRecordViewItemsAsync(Guid recognitionMatchRecordId) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
   }
 
   /// <summary>

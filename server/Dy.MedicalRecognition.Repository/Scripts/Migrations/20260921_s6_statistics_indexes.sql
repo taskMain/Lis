@@ -1,0 +1,18 @@
+-- postgresql schema
+-- 阶段 6 互认统计与导出的统计索引迁移，由负责人在目标库执行；
+-- 与 mrec_recognition_match_record、mrec_recognition_processing_result、mrec_recognition_reference 三份建表脚本双写维护，两处声明保持逐字一致。
+
+create index ix_mrec_recognition_match_record_receiver_time
+on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, match_created_time);
+
+comment on index ix_mrec_recognition_match_record_receiver_time is '接收组织、接收医院与接收院区三值等值筛选并按互认匹配生成时间做范围扫描，与业务键索引互补';
+
+create index ix_mrec_recognition_processing_result_recognition_time
+on mrec_recognition_processing_result (recognition_time);
+
+comment on index ix_mrec_recognition_processing_result_recognition_time is '按互认时间统计采纳次数、不采纳次数与预计节省金额的时间范围扫描';
+
+create index ix_mrec_recognition_reference_referenced_time
+on mrec_recognition_reference (referenced_time);
+
+comment on index ix_mrec_recognition_reference_referenced_time is '按实际引用时间统计引用次数的时间范围扫描';
