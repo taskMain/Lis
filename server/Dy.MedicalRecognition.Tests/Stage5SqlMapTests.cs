@@ -15,7 +15,7 @@ namespace Dy.MedicalRecognition.Tests;
 /// 四个实体映射补齐后的作用域、语句标识与列清单顺序，以及候选报告查询的集合参数写法、分支可达性、列引用与枚举取值、数据库中立性。
 /// </summary>
 /// <remarks>
-/// 覆盖矩阵 V73、V73b、V74、V74b、V75、V76、V77、V78、V79、V80 的静态面。
+/// 覆盖矩阵 V73、V73b、V74、V74b、V75、V76、V77、V78、V79、V79b、V80 的静态面。
 /// 这些内容改名、漏写、换序或换成方言写法既不会编译失败，也不会让阶段 1 至阶段 4 的用例失败，因此必须在这里独立冻结；
 /// 目标库中的实际结构、注释与索引属于建表完成后的验收面，不在本文件内验证。
 /// 内容敏感性由两类证据分别承担：可复用的私有判定函数接受注入负向特征的文本并报出违规，脚本与语句的逐条负向断言复用同一函数；
@@ -1795,6 +1795,36 @@ public sealed class Stage5SqlMapTests
     string statusRemoved = statement.Replace("r.status = 1", "r.status = 2", StringComparison.Ordinal);
     Assert.NotEqual(statement, statusRemoved);
     Assert.Equal(0, PredicateOccurrences(statusRemoved, "r.status", "1"));
+  }
+
+  /// <summary>
+  /// V79b：候选报告查询只按来源组织限定来源范围（票 09）：两个报告类型分支各只保留
+  /// <c>r.organization_code = $OrganizationCode</c> 一条来源范围谓词，来源医院与来源院区不作为过滤条件。
+  /// </summary>
+  /// <remarks>
+  /// 本院报告判定在域层完成，候选语句若保留来源医院或来源院区的等值谓词，同组织跨医院报告与本院跨院区报告
+  /// 会在 SQL 层被过滤，域层的本院判定与跨院直通分支空转，而语句仍可执行、编译与既有用例都不失败。
+  /// 判据按语句文本中的谓词片段逐项计数，并带变异证据：重新引入任一过滤谓词后对应计数必须翻转。
+  /// </remarks>
+  [Fact]
+  public void Candidate_query_limits_source_scope_to_organization_only()
+  {
+    string statement = NormaliseStatement(QueryStatement("QueryRecognitionMatchCandidateReports"));
+
+    // 来源组织谓词两个分支各一条，V16 的 MVP 组织边界不变。
+    Assert.Equal(2, PredicateOccurrences(statement, "r.organization_code", "$OrganizationCode"));
+    // 来源医院与来源院区不作为过滤条件出现。
+    Assert.Equal(0, Regex.Matches(statement, @"r\.hospital_code\s*=", RegexOptions.CultureInvariant).Count);
+    Assert.Equal(0, Regex.Matches(statement, @"r\.branch_code\s*=", RegexOptions.CultureInvariant).Count);
+    // 来源医院列仍投影给域层完成本院报告判定。
+    Assert.Equal(2, Regex.Matches(statement, @"r\.hospital_code\s+as\s+source_hospital_code", RegexOptions.CultureInvariant).Count);
+
+    // 变异证据：重新引入来源院区过滤后，「院区不作为过滤条件」判据必须报为不再满足。
+    Assert.Equal(2, PredicateOccurrences(statement, "r.patient_id", "$PatientId"));
+    string branchFilterReintroduced = statement.Replace(
+      "and r.patient_id = $PatientId", "and r.branch_code = $BranchCode and r.patient_id = $PatientId", StringComparison.Ordinal);
+    Assert.NotEqual(statement, branchFilterReintroduced);
+    Assert.Equal(2, Regex.Matches(branchFilterReintroduced, @"r\.branch_code\s*=", RegexOptions.CultureInvariant).Count);
   }
 
   /// <summary>
