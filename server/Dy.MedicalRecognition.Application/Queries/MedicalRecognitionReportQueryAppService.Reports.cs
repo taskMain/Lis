@@ -12,16 +12,11 @@ namespace Dy.MedicalRecognition.Application.Queries;
 /// <remarks>
 /// 全部查询只筛选与投影，不修改数据，也不判断业务状态。
 /// 分页窗口在第一次仓储访问之前完成校验；名称回填按当页涉及的组织与医院批量读取，调用次数不随返回行数增长；
-/// 患者联系电话在返回前按业务口径脱敏，姓名与证件号码完整返回。
+/// 患者姓名、证件号码与联系电话都按来源原值返回。
 /// 范围校验只确认可信业务归属与记录归属一致性，不构成操作权限判断。
 /// </remarks>
 public sealed partial class MedicalRecognitionReportQueryAppService
 {
-  /// <summary>
-  /// 患者联系电话脱敏后保留的末位字符数。
-  /// </summary>
-  private const int MaskedPhoneVisibleDigits = 4;
-
   /// <summary>
   /// 查询报告列表（平台管理员入口）。
   /// </summary>
@@ -346,8 +341,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       PatientName = common.PatientName,
       PatientGenderCode = common.PatientGenderCode,
       PatientBirthDate = common.PatientBirthDate,
-      // 患者联系电话在返回前脱敏：只保留末位若干位，其余以星号替代。
-      PatientPhoneNumber = MaskPhoneNumber(common.PatientPhoneNumber),
+      // 患者联系电话按来源原值返回：只把「来源未提供」与「提供空串」归一为空值。
+      PatientPhoneNumber = NullIfBlank(common.PatientPhoneNumber),
       AgeAtReport = common.AgeAtReport,
       IdentityDocumentTypeCode = common.IdentityDocumentTypeCode,
       IdentityDocumentNo = common.IdentityDocumentNo,
@@ -628,19 +623,5 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   {
     string normalized = value?.Trim() ?? string.Empty;
     return normalized.Length == 0 ? null : normalized;
-  }
-
-  /// <summary>
-  /// 按业务口径脱敏患者联系电话：只保留末位若干位，其余以星号替代。
-  /// </summary>
-  /// <param name="phoneNumber">来源联系电话。</param>
-  /// <returns>脱敏后的联系电话；来源未提供时返回 <see langword="null"/>。</returns>
-  private static string? MaskPhoneNumber(string? phoneNumber)
-  {
-    string normalized = phoneNumber?.Trim() ?? string.Empty;
-    if (normalized.Length == 0) return null;
-    if (normalized.Length <= MaskedPhoneVisibleDigits) return new string('*', normalized.Length);
-
-    return string.Concat(new string('*', normalized.Length - MaskedPhoneVisibleDigits), normalized[^MaskedPhoneVisibleDigits..]);
   }
 }

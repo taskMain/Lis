@@ -42,7 +42,7 @@ public partial record MedicalReportVersionDto : Dto
   /// </summary>
   public partial DateTime PatientBirthDate { get; set; }
   /// <summary>
-  /// 患者联系电话，仅用于授权展示与人工核对；展示时默认脱敏，不参与患者匹配。
+  /// 患者联系电话，仅用于授权展示与人工核对；按来源原值保存，不参与患者匹配。
   /// </summary>
   public partial string? PatientPhoneNumber { get; set; }
   /// <summary>

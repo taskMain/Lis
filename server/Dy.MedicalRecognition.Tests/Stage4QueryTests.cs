@@ -488,12 +488,12 @@ public sealed class Stage4QueryTests
   }
 
   /// <summary>
-  /// V72、V73、V74：版本详情按报告类型返回检验或检查内容之一，枚举文本由服务端派生，联系电话脱敏。
+  /// V72、V73、V74：版本详情按报告类型返回检验或检查内容之一，枚举文本由服务端派生，联系电话按来源原值返回。
   /// </summary>
   [Theory]
   [InlineData(MedicalReportType.Laboratory)]
   [InlineData(MedicalReportType.Examination)]
-  public async Task Version_detail_returns_content_for_the_report_type_with_masked_phone(MedicalReportType reportType)
+  public async Task Version_detail_returns_content_for_the_report_type_with_original_phone(MedicalReportType reportType)
   {
     (Guid reportId, Guid versionId, FakeQueryRepository repository) = BuildDetailRepository(reportType);
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService());
@@ -511,10 +511,10 @@ public sealed class Stage4QueryTests
     Assert.Equal("孙医生", detail.ReviewDoctorName);
     Assert.Equal("v1.pdf", detail.File.FileName);
 
-    // 公共信息：姓名与证件号码完整返回，联系电话脱敏。
+    // 公共信息：姓名、证件号码与联系电话都按来源原值返回。
     Assert.Equal("张三", detail.Content.Common.PatientName);
     Assert.Equal("110101199001011234", detail.Content.Common.IdentityDocumentNo);
-    Assert.Equal("*******1234", detail.Content.Common.PatientPhoneNumber);
+    Assert.Equal("13800001234", detail.Content.Common.PatientPhoneNumber);
     Assert.Equal(VisitType.Outpatient, detail.Content.Common.VisitType);
     Assert.Equal("门诊", detail.Content.Common.VisitTypeText);
 
@@ -564,7 +564,7 @@ public sealed class Stage4QueryTests
   }
 
   /// <summary>
-  /// V74：来源未提供联系电话时返回空值，不补造脱敏串。
+  /// V74：来源未提供联系电话时返回空值，不补造字符串。
   /// </summary>
   [Fact]
   public async Task Missing_phone_number_stays_null()

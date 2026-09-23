@@ -347,7 +347,7 @@
         v.patient_name,                     <!-- 患者姓名 -->
         v.patient_gender_code,              <!-- 患者性别代码 -->
         v.patient_birth_date,               <!-- 患者出生日期 -->
-        v.patient_phone_number,             <!-- 患者联系电话，由应用层返回前脱敏 -->
+        v.patient_phone_number,             <!-- 患者联系电话 -->
         v.age_at_report,                    <!-- 报告时年龄 -->
         v.identity_document_type_code,      <!-- 证件类型代码 -->
         v.identity_document_no,             <!-- 证件号码 -->

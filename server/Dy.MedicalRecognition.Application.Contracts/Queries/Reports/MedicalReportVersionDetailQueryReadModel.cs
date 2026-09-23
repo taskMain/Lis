@@ -6,7 +6,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
 /// 报告版本详情；按报告类型返回检验或检查内容读模型之一。
 /// </summary>
 /// <remarks>
-/// 责任人员字段口径与版本列表项一致；患者姓名与证件号码完整返回；患者联系电话按服务端脱敏后的值返回。
+/// 责任人员字段口径与版本列表项一致；患者姓名、证件号码与联系电话都按来源原值返回。
 /// </remarks>
 public sealed record MedicalReportVersionDetailQueryReadModel
 {

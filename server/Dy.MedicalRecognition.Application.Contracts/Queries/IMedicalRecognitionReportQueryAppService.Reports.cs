@@ -63,7 +63,7 @@ public partial interface IMedicalRecognitionReportQueryAppService
   /// </summary>
   /// <remarks>
   /// 按报告类型返回检验内容或检查内容读模型之一，另一支为空引用；枚举文本由服务端按枚举描述派生；
-  /// 患者姓名与证件号码完整返回，患者联系电话按来源字段脱敏后返回。
+  /// 患者姓名、证件号码与联系电话都按来源原值返回。
   /// </remarks>
   /// <param name="request">报告标识与报告版本标识。</param>
   /// <returns>版本详情读模型。</returns>

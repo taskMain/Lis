@@ -3,7 +3,7 @@ namespace Dy.MedicalRecognition.Domain.Queries;
 /// <summary>
 /// 报告版本的公共信息查询投影行。
 /// </summary>
-/// <remarks>公共信息按来源原值保存；患者联系电话在应用层返回前脱敏。</remarks>
+/// <remarks>公共信息全部按来源原值保存，应用层按原值投影。</remarks>
 public sealed record MedicalRecognitionReportDetailCommon
 {
   /// <summary>患者姓名。</summary>

@@ -341,7 +341,7 @@ describe('C6 读模型映射与文本兜底', () => {
       platformReceivedTime: new Date(2026, 8, 20, 9, 6),
       reportDoctorName: '报告医生甲',
       content: {
-        common: { patientName: '张三', identityDocumentNo: '110101199001011234', patientPhoneNumber: '*******1234' },
+        common: { patientName: '张三', identityDocumentNo: '110101199001011234', patientPhoneNumber: '13800001234' },
         laboratoryContent: { sourceSpecimenNo: 'SP-1' },
         examinationContent: null,
       },
@@ -352,8 +352,8 @@ describe('C6 读模型映射与文本兜底', () => {
     expect(detail.laboratoryContent?.sourceSpecimenNo).toBe('SP-1')
     expect(detail.examinationContent).toBeNull()
     expect(detail.pdfFileName).toBe('R-1-v1.pdf')
-    // 患者联系电话按服务端脱敏后的返回值原样承载，页面不做二次处理。
-    expect(detail.common?.patientPhoneNumber).toBe('*******1234')
+    // 患者联系电话按服务端返回的来源原值承载，页面不做二次处理。
+    expect(detail.common?.patientPhoneNumber).toBe('13800001234')
     expect(detail.common?.patientName).toBe('张三')
     expect(toDisplayDateTime(detail.platformReceivedTime)).toBe('2026-09-20 09:06')
   })

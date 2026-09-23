@@ -309,7 +309,7 @@ public sealed class Stage4ContractTests
 
     Assert.Equal(typeof(VisitType), type.GetProperty("VisitType")!.PropertyType);
     Assert.Equal(typeof(string), type.GetProperty("VisitTypeText")!.PropertyType);
-    // 联系电话返回时已由服务端脱敏，来源未提供时为空。
+    // 联系电话按来源原值返回，来源未提供时为空。
     Assert.Equal(NullabilityState.Nullable, ReadNullability(type, "PatientPhoneNumber"));
     Assert.Equal(NullabilityState.Nullable, ReadNullability(type, "ReviewTime"));
   }

@@ -13,7 +13,7 @@ public sealed record ReportVersionCommonReadModel
   public string PatientGenderCode { get; init; } = string.Empty;
   /// <summary>患者出生日期。</summary>
   public DateTime PatientBirthDate { get; init; }
-  /// <summary>患者联系电话；服务端已脱敏，页面不二次处理。</summary>
+  /// <summary>患者联系电话；按来源原值返回，来源未提供时为 <see langword="null"/>。</summary>
   public string? PatientPhoneNumber { get; init; }
   /// <summary>报告时年龄，以来源文本承载。</summary>
   public string? AgeAtReport { get; init; }

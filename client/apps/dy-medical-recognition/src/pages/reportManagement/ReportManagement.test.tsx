@@ -258,7 +258,7 @@ const laboratoryDetail = (overrides: Record<string, unknown> = {}): ReportVersio
       patientName: '张三',
       patientGenderCode: '1',
       patientBirthDate: new Date(1990, 0, 1),
-      patientPhoneNumber: '*******1234',
+      patientPhoneNumber: '13800001234',
       ageAtReport: '36岁',
       identityDocumentTypeCode: '01',
       identityDocumentNo: '110101199001011234',
@@ -897,8 +897,8 @@ describe('C21 患者信息展示', () => {
 
     expect(screen.getAllByText('110101199001011234').length).toBeGreaterThan(0)
     expect(screen.getAllByText('张三').length).toBeGreaterThan(0)
-    // 服务端已脱敏的值原样展示，页面不还原也不再次脱敏。
-    expect(screen.getByText('*******1234')).toBeInTheDocument()
+    // 服务端返回的患者联系电话原值原样展示，页面不做二次处理。
+    expect(screen.getByText('13800001234')).toBeInTheDocument()
   })
 })
 
