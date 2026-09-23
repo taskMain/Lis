@@ -1,6 +1,6 @@
 # 总体计划设计
 
-本文确定本项目的阶段划分、计划原则、阶段边界与前后端协作口径。业务事实以 SRS、UML 和 `CONTEXT.md` 为准，本文不复制业务规则；环境值引用 [Test Environment](../../../.agents/instructions/test-environment.md)，不在本文重复维护。
+本文确定本项目的阶段划分、计划原则、阶段边界与前后端协作口径。业务事实以 SRS、UML 为准，本文不复制业务规则；环境值引用 [Test Environment](../../../.agents/instructions/test-environment.md)，不在本文重复维护。
 
 阶段入口见 [阶段计划](../README.md)。本文配套的实施任务与执行顺序见 [总体计划实施方案](impl.md)。
 

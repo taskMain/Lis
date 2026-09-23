@@ -213,7 +213,7 @@ public sealed class Stage7ExclusionGuardTests
   /// 历史 PDF 入口 OpenReportVersionPdf 声明在写侧应用服务上，经框架自动端点暴露在
   /// `/Api/MedicalRecognitionReport/OpenReportVersionPdf`（与管理端历史版本查看页面共用同一宿主认证体系，
   /// 属管理端历史版本查看能力的既有承载路由，医院接入九项能力清单不含它——
-  /// CONTEXT.md 报告历史版本段：医院 HIS 在线业务接口只提供当前有效版本，不对外开放历史版本查询或下载）。
+  /// SRS F03.1 业务规则 31：医院 HIS 在线业务接口只提供当前有效版本，不对外开放历史版本查询或下载）。
   /// </remarks>
   [Fact]
   public void V2_hospital_interface_routes_freeze_nine_capabilities_without_history_versions()

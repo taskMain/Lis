@@ -11,7 +11,7 @@
   - 前端：微前端入口、运行时配置与 basename；认证与 API Client 上下文；当前路由、页面与布局；构建与静态检查状态。
   - 工作区状态：已有未提交变更的说明，避免后续阶段误覆盖。
 - **排除范围**：不实现任何业务功能；不修 SqlMap 与仓储；不创建数据库表；不重新生成 API Client；不新增前端业务页面；不调整数据库脚本内容。
-- **需求与领域模型依据**：`docs/需求规约SRS.md`、`docs/uml/`、`CONTEXT.md`；生成物来源见 [Project Context](../../../.agents/instructions/project-context.md)。
+- **需求与领域模型依据**：`docs/需求规约SRS.md`、`docs/uml/`；生成物来源见 [Project Context](../../../.agents/instructions/project-context.md)。
 - **前置依赖及当前确认状态**：总体计划已确认（阶段划分与计划原则已定）；后端与前端工具链可用；数据库、宿主与外部系统地址已在环境规范中确认；两个已知阻断的状态已知但修法未定。
 
 ## 设计

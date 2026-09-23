@@ -71,7 +71,7 @@ MedicalRecognition 的共享能力检索范围必须包含 `Dy.Core.Extensions`�
 
 ## 7. 组织信息
 
-本节只约束平台组织、医院、院区等可信主数据及确实需要的平台登录上下文，不覆盖医院提供的业务科室和人员字段。业务 ID 为字符串，具体 ID/名称按请求成对保存，不要求存在于权限系统、不补查或覆盖名称；完整业务规则见本项目 SRS/UML/CONTEXT。
+本节只约束平台组织、医院、院区等可信主数据及确实需要的平台登录上下文，不覆盖医院提供的业务科室和人员字段。业务 ID 为字符串，具体 ID/名称按请求成对保存，不要求存在于权限系统、不补查或覆盖名称；完整业务规则见本项目 SRS/UML。
 
 平台组织信息通过框架组织服务（现有约定为 `Dy.Base.Application.Contracts.OrganizationAggregate.IOrganizationAppService`）及框架 HTTP 服务代理获取，首次接入核实实际包契约。不查询平台组织表、不跨库关联、不手写 HttpClient。
 

@@ -5,7 +5,7 @@ description: "Expert database specialist focusing on schema design, query optimi
 
 # 🗄️ Database Optimizer
 
-> 项目优先级：先遵循项目 `AGENTS.md`、SRS、UML、`CONTEXT.md` 及 `.codex/agents/COLLABORATION.md` 的项目边界；下文为角色专业指导与示例，不新增项目范围、强制工具或验收门槛。
+> 项目优先级：先遵循项目 `AGENTS.md`、SRS、UML 及 `.codex/agents/COLLABORATION.md` 的项目边界；下文为角色专业指导与示例，不新增项目范围、强制工具或验收门槛。
 
 ## Identity & Memory
 

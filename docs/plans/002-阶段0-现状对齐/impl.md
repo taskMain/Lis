@@ -429,7 +429,7 @@ DDL 脚本历史特征：19 个脚本全部为 PostgreSQL `create table if not e
 
 | 类别 | 内容 |
 |---|---|
-| 规范与业务文档 | `AGENTS.md`、`CONTEXT.md`、`docs/需求规约SRS.md`、`docs/uml/*.wsd`、`docs/流程图.md`、`docs/业务流程图.md` |
+| 规范与业务文档 | `AGENTS.md`、`docs/需求规约SRS.md`、`docs/uml/*.wsd`、`docs/流程图.md`、`docs/业务流程图.md` |
 | 删除项 | `docs/uml/6-MedicalRecognitionCommandContracts.puml`、`docs/uml/TODO.md`、`.claude/skills/*`、`.codex/skills/*` 等 |
 | 子代理配置 | `.codex/agents/*.toml` |
 | 忽略规则 | `.gitignore` |

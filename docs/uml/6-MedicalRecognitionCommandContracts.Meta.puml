@@ -1,7 +1,7 @@
 @startuml MedicalRecognitionCommandContracts
 ' 命令入参 DTO 与领域事件事实契约；这些结构不是聚合 Entity。
 ' 本图为参考草稿，不是当前正式业务契约，不参与 Dy.DevToolkit 代码生成。
-' 正式业务语义以 CONTEXT.md、docs/需求规约SRS.md 和 docs/uml/1-5 为准；实现前需重新核对本图。
+' 正式业务语义以 docs/需求规约SRS.md 和 docs/uml/1-5 为准；实现前需重新核对本图。
 ' 已知滞后项：RecognitionMatchRecordCreateRequest 与 RecognitionMatchItemCreateRequest 两个内部创建请求已并入 RequestRecognitionMatchesCommand 的内部步骤，不作为独立请求 DTO；本图保留其类用于对照。
 hide methods
 skinparam classAttributeIconSize 0

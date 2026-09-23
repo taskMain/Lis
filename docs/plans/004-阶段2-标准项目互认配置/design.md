@@ -7,7 +7,7 @@
 - 目标：平台管理员可在授权组织范围内维护配置（组织切换由宿主重新签发 token 完成，见 S2-D12），医院管理员限可信上下文允许的所属组织；两者在已获得外部菜单和接口授权后维护互认项目配置，不在本系统重复实现角色授权。
 - 纳入：互认项目配置新增、可互认时间修改、独立启用/停用、互认配置查询、`mrec_mutual_recognition_item` 新建表、API Client 和管理端“互认项目”页面。
 - 排除：标准项目本体维护、医院院内项目及项目对照、金额维护、报告采集、在线互认匹配、真实删除、配置版本恢复。
-- 依据：SRS F02、F02 页面要求、UML `1-MedicalRecognitionReport.wsd` 和 `2-MedicalRecognitionConfigurationUiQuery.wsd`、`CONTEXT.md`。
+- 依据：SRS F02、F02 页面要求、UML `1-MedicalRecognitionReport.wsd` 和 `2-MedicalRecognitionConfigurationUiQuery.wsd`。
 - 前置：阶段1已于 2026-09-15 完成规定收口（阶段状态 `Complete`，结论见阶段1 `testReport.md`）；依赖标准目录和目标表的真实集成测试按本阶段批次推进。
 
 ## 已确认设计
