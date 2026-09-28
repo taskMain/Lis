@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  EMPTY_ITEM_FILTER,
   ITEM_TYPES,
   ITEM_TYPE_METADATA_FALLBACK,
   ITEM_TYPE_TEXTS,
@@ -86,7 +87,8 @@ describe('standardCatalogApi', () => {
 
     const addedData = { ...data, items: [...data.items, { ...data.items[0], id: 'i3', code: 'A03', name: '血新增项目' }] }
     const scope = { itemType: 0 as const, categoryId: 'c1', groupId: 'g1' }
-    const filter = { code: 'A', name: '血', status: 'enabled' as const }
+    // 关键字同时匹配编码与名称，显示停用默认勾选（S1-D36）：'血' 命中名称，停用项目也在列。
+    const filter = { keyword: '血', showDisabled: true }
     expect(resolveTreeScope(addedData, scope, true)).toEqual(scope)
     expect(filterItems(addedData, scope, filter).map((item) => item.id)).toEqual(['i1', 'i3'])
   })
@@ -147,9 +149,16 @@ describe('standardCatalogApi', () => {
     expect(visibleCatalogCategories(enabledData, true, '').map(({ groups }) => groups.map((group) => group.id))).toEqual([['g1', 'g2']])
   })
 
-  it('filters locally by scope, text and own status', () => {
-    expect(filterItems(data, { itemType: 0, categoryId: 'c1', groupId: 'g1' }, { code: 'a0', name: '血', status: 'enabled' }).map((item) => item.id)).toEqual(['i1'])
-    expect(filterItems(data, { itemType: 0, categoryId: 'c1', groupId: 'g1' }, { code: '', name: '', status: 'disabled' }).map((item) => item.id)).toEqual(['i2'])
+  it('filters locally by scope, keyword and own status', () => {
+    const scope = { itemType: 0, categoryId: 'c1', groupId: 'g1' } as const
+    // 关键字按编码与名称字面包含（大小写不敏感），两个字段任一命中即保留（S1-D36）。
+    expect(filterItems(data, scope, { keyword: 'a0', showDisabled: true }).map((item) => item.id)).toEqual(['i1', 'i2'])
+    expect(filterItems(data, scope, { keyword: '尿', showDisabled: true }).map((item) => item.id)).toEqual(['i2'])
+    // 不勾「显示停用」：仅按项目自身 IsValid 保留启用项目。
+    expect(filterItems(data, scope, { keyword: '', showDisabled: false }).map((item) => item.id)).toEqual(['i1'])
+    expect(filterItems(data, scope, { keyword: 'a0', showDisabled: false }).map((item) => item.id)).toEqual(['i1'])
+    // 默认形状：空关键字 + 勾选显示停用 = 全量。
+    expect(filterItems(data, scope, EMPTY_ITEM_FILTER).map((item) => item.id)).toEqual(['i1', 'i2'])
   })
 
   it('derives current effective state from all three enabled records', () => {

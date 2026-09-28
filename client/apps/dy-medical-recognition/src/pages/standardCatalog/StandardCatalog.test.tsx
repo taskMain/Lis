@@ -1,5 +1,6 @@
 /**
- * 阶段 1 前端 Component 层用例（测试矩阵 C57 / C58 / C62 / C63 / C64 / C65 / C68 / C69 / C75）。
+ * 阶段 1 前端 Component 层用例（测试矩阵 C57 / C58 / C62 / C63 / C64 / C65 / C68 / C69 / C75，
+ * 以及 C76～C84 的组件层可自动化部分）。
  *
  * 装配边界（遵循 Frontend Testing 第 2 节「mock 位于 Client/适配层边界，并保持真实契约形态」）：
  * 1. `./standardCatalogApi` 只替换 12 个 I/O 函数（读取与写入），其余纯函数
@@ -8,10 +9,15 @@
  * 2. `../../contexts/ApiClientContext` 只提供占位 client —— 页面把 client 原样传给上面的
  *    适配层函数，故不构造真实鉴权适配器；被测对象仍是页面真实调用链。
  *
- * 仍属 Host 层、不在本文件覆盖：C66 / C67 / C31 多视口，以及 C62 与 C64 的 Host 分支。
+ * 仍属 Host 层、不在本文件覆盖：C66 / C67 / C31 多视口，以及 C62 与 C64 的 Host 分支；
+ * C76～C84 的多视口核对（1440×960、768×1024、390×844）、像素级宽度截断与横向滚动核对、
+ * 卡片撑满视口与 0.5 秒延迟的实机观感同样属于 Host 层，本文件只覆盖节点槽位结构、筛选条
+ * 结构与本地语义、Tooltip 条件挂载与延迟、合并状态列、列头结构与汇总条等组件层断言。
  * 两处 `it.skip` 记录的是**已知且未获裁定不改代码**的缺口，原因写在各自用例内。
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -47,6 +53,35 @@ vi.mock('../../contexts/ApiClientContext', () => ({
   // 每次返回新对象会让 effect 反复重跑并耗尽一次性 mock 队列。
   useApiClientContext: () => stubClient,
 }))
+
+/*
+ * jsdom 没有布局引擎：`scrollWidth` / `clientWidth` 恒为 0，S1-D38 的截断量宽
+ * （scrollWidth > clientWidth）在测试环境里无法区分长短文本。这里只对量宽关心的两类元素
+ * （树节点名称、表格省略单元格）提供宽度替身：按文本长度给 scrollWidth、给固定 clientWidth；
+ * 其余元素仍走 jsdom 原始取值（0），不改变任何其他组件的观测结果。
+ * 这是环境替身而非断言放宽——真实量宽、截断观感与 0.5 秒延迟的实机行为由宿主验收核对。
+ */
+const originalScrollWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollWidth')
+  ?? Object.getOwnPropertyDescriptor(Element.prototype, 'scrollWidth')
+const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth')
+  ?? Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth')
+Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+  configurable: true,
+  get(this: HTMLElement) {
+    if (this.classList.contains('standard-catalog-node-name')) return 216
+    if (this.classList.contains('standard-catalog-cell-text')) return 160
+    return originalClientWidth?.get?.call(this) ?? 0
+  },
+})
+Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+  configurable: true,
+  get(this: HTMLElement) {
+    if (this.classList.contains('standard-catalog-node-name') || this.classList.contains('standard-catalog-cell-text')) {
+      return (this.textContent ?? '').length * 10
+    }
+    return originalScrollWidth?.get?.call(this) ?? 0
+  },
+})
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -122,7 +157,8 @@ const itm = (
   groupId: string,
   code: string,
   name: string,
-  isValid = true,
+  /** 允许 null：用于装配「状态数据不完整」起点（矩阵 C83 的「未知」分支）。 */
+  isValid: boolean | null = true,
   /** 服务端随行项目类型文案；不传即模拟契约字段缺失。 */
   itemTypeText: string | null = null,
 ): StandardItem => ({ id, categoryId, groupId, itemType: 0, code, name, remark: null, isValid, itemTypeText })
@@ -258,7 +294,7 @@ describe('C58 组件加载与重载的乱序响应', () => {
     click(screen.getByRole('button', { name: /重\s*试/ }))
     await waitFor(() => expect(api.queryCategories).toHaveBeenCalledTimes(3))
 
-    await change(screen.getByLabelText('标准项目编码'), 'AB')
+    await change(screen.getByLabelText('编码或名称'), 'AB')
     expect(api.queryCategories).toHaveBeenCalledTimes(3)
     expect(api.queryGroups).toHaveBeenCalledTimes(3)
     expect(api.queryItems).toHaveBeenCalledTimes(3)
@@ -521,7 +557,8 @@ describe('C68 状态过滤隐藏唯一停用下级时的类型冻结', () => {
     })
     expect(screen.getByText('唯一停用分组')).toBeInTheDocument()
 
-    click(screen.getByRole('checkbox', { name: '显示停用' }))
+    // 左右两侧各有一个「显示停用」复选框（S1-D36），本用例操作左树那一个，按目录区域消歧。
+    click(within(screen.getByRole('region', { name: '标准目录' })).getByRole('checkbox', { name: '显示停用' }))
     await waitFor(() => expect(screen.queryByText('唯一停用分组')).not.toBeInTheDocument())
     expect(screen.getByText('甲分类')).toBeInTheDocument()
 
@@ -542,8 +579,8 @@ describe('C75 枚举文案来源：服务端随行文案 → 枚举元数据 →
       items: [itm('i1', 'c1', 'g1', 'A-1', '甲项目', true, '检验（随行）')],
     })
 
-    // 列表「类型」列取项目自身的随行文案。
-    expect(screen.getByText('检验（随行）')).toBeInTheDocument()
+    // 列表已按 S1-D40 移除「类型」列：项目随行文案不再进入列表呈现（表头与列内容由 C84 断言）。
+    expect(screen.queryByText('检验（随行）')).not.toBeInTheDocument()
 
     // 分组编辑弹窗的使用情况取分组自身的随行文案。
     click(screen.getByLabelText('编辑分组：甲分组'))
@@ -708,5 +745,564 @@ describe('C57 新增空备注与编辑原值/清空的表单转换（Component �
     const itemInput = api.updateItemRemark.mock.calls[0][1] as Record<string, unknown>
     expect(itemInput).toEqual({ id: 'i1', remark: null })
     expect(Object.keys(itemInput)).toEqual(['id', 'remark'])
+  })
+})
+
+/** 悬停触发元素后断言某条 Tooltip 展开了指定全文（被截断文本按 S1-D38 延迟 0.5 秒出现）。 */
+async function expectTooltipShows(trigger: HTMLElement, fullText: string) {
+  fireEvent.mouseOver(trigger)
+  await waitFor(() => {
+    // antd 6 的弹层结构：title 直接位于 role="tooltip" 的容器内，不再有 .ant-tooltip-inner。
+    const overlays = document.querySelectorAll('[role="tooltip"]')
+    expect(Array.from(overlays).some((node) => node.textContent === fullText)).toBe(true)
+  }, { timeout: 3000 })
+}
+
+describe('C76 目录树节点固定槽位与超长截断（Component 层可覆盖部分）', () => {
+  const LONG_CATEGORY = '超长分类名称'.repeat(24)
+  const LONG_GROUP = '超长分组名称'.repeat(24)
+  const LONG_TREE: CatalogData = {
+    categories: [cat('c1', LONG_CATEGORY)],
+    groups: [grp('g1', 'c1', LONG_GROUP)],
+    items: [],
+  }
+
+  it('名称按宽度截断的元素悬停经 Tooltip 展示全名', async () => {
+    await renderLoaded(LONG_TREE)
+    const tree = screen.getByLabelText('分类分组目录树')
+    for (const fullName of [LONG_CATEGORY, LONG_GROUP]) {
+      const nameEl = within(tree).getByText(fullName)
+      expect(nameEl.className).toContain('standard-catalog-node-name')
+      await expectTooltipShows(nameEl, fullName)
+    }
+  })
+
+  it('状态标记与操作图标位于最右固定槽位，名称元素不携带它们', async () => {
+    await renderLoaded(LONG_TREE)
+    const tree = screen.getByLabelText('分类分组目录树')
+    for (const fullName of [LONG_CATEGORY, LONG_GROUP]) {
+      const nameEl = within(tree).getByText(fullName)
+      const row = nameEl.closest('.standard-catalog-node')
+      expect(row).not.toBeNull()
+      const side = row!.querySelector('.standard-catalog-node-side')
+      expect(side).not.toBeNull()
+      expect(side!.querySelector('.ant-tag')).not.toBeNull()
+      expect(side!.querySelector('.standard-catalog-node-actions')).not.toBeNull()
+      expect(nameEl.querySelector('.ant-tag')).toBeNull()
+      expect(nameEl.querySelector('.standard-catalog-node-actions')).toBeNull()
+    }
+    // 树滚动区挂点存在：行内不换行、无横向滚动与高度齐平由 StandardCatalog.css 承担，宿主验收核对。
+    expect(document.querySelector('.standard-catalog-tree-scroll')).not.toBeNull()
+  })
+
+  it('样式静态断言：槽位操作按钮尺寸规则叠加 antd 图标按钮类，特异性高于 antd 自身规则', () => {
+    // CSS 在 jsdom 中不参与计算，按静态证据断言规则本身（Testing Baseline §1.4）。
+    // 宿主实测：`.standard-catalog-node-side .ant-btn` 与 antd 的 `:where(.css-…).ant-btn-sm.ant-btn-icon-only`
+    // 在 micro-app 作用域前缀下特异性相同，antd 运行时注入的样式在 source order 上取胜，
+    // 只赢下 height、width 落回 24px；故尺寸规则必须同时带上 .ant-btn 与 .ant-btn-icon-only 两个类。
+    const css = readFileSync(resolve(process.cwd(), 'src/pages/standardCatalog/StandardCatalog.css'), 'utf8')
+    const buttonRule = css.match(/\.standard-catalog-node-side\s+\.ant-btn\.ant-btn-icon-only\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(buttonRule).toContain('width: 28px')
+    expect(buttonRule).toContain('height: 28px')
+  })
+})
+
+describe('C77 树节点状态标记全显示', () => {
+  it('启用与停用节点均显示状态标记，标记与操作图标同在最右槽位，使用情况不上树', async () => {
+    await renderLoaded({
+      categories: [cat('c-on', '启用分类', 0, true, 1), cat('c-off', '停用分类', 0, false, 1)],
+      groups: [grp('g-on', 'c-on', '启用分组', true, 1), grp('g-off', 'c-on', '停用分组', false, 1)],
+      items: [],
+    })
+    const tree = screen.getByLabelText('分类分组目录树')
+
+    const enabledTexts = within(tree).getAllByText('启用')
+    const disabledTexts = within(tree).getAllByText('停用')
+    expect(enabledTexts.length).toBeGreaterThanOrEqual(1)
+    expect(disabledTexts.length).toBeGreaterThanOrEqual(1)
+    for (const text of [...enabledTexts, ...disabledTexts]) {
+      expect(text.closest('.ant-tag')).not.toBeNull()
+      const side = text.closest('.standard-catalog-node-side')
+      expect(side).not.toBeNull()
+      expect(side!.querySelector('.standard-catalog-node-actions')).not.toBeNull()
+    }
+    for (const text of enabledTexts) {
+      expect((text.closest('.ant-tag') as HTMLElement).className).toContain('ant-tag-success')
+    }
+    // 使用情况仍在编辑弹窗口径（S1-D21），不在节点展示。
+    expect(within(tree).queryByText('已使用')).not.toBeInTheDocument()
+    expect(within(tree).queryByText('未使用')).not.toBeInTheDocument()
+  })
+})
+
+describe('C78 列表超长列统一单行省略（Component 层可覆盖部分）', () => {
+  const LONG_CODE = 'CODE'.repeat(40)
+  const LONG_NAME = '项目名称'.repeat(40)
+  const LONG_CATEGORY = '分类名称'.repeat(40)
+  const LONG_GROUP = '分组名称'.repeat(40)
+  const LONG_REMARK = '备注内容'.repeat(40)
+  const LONG_ITEMS: CatalogData = {
+    categories: [cat('c1', LONG_CATEGORY)],
+    groups: [grp('g1', 'c1', LONG_GROUP)],
+    items: [{ ...itm('i1', 'c1', 'g1', LONG_CODE, LONG_NAME), remark: LONG_REMARK }],
+  }
+  const FIVE_COLUMNS = [LONG_CODE, LONG_NAME, LONG_CATEGORY, LONG_GROUP, LONG_REMARK]
+
+  /** 分类名与分组名同时出现在树里：定位取该文本且落在表格单元格内的元素。 */
+  function cellText(text: string): HTMLElement {
+    const cell = screen.getAllByText(text).map((el) => el.closest('td')).find((td) => td !== null)
+    expect(cell).not.toBeNull()
+    return cell as HTMLElement
+  }
+
+  it('编码、名称、分类、分组、备注五列单元格挂单行省略样式类', async () => {
+    await renderLoaded(LONG_ITEMS)
+    for (const text of FIVE_COLUMNS) {
+      const cell = cellText(text)
+      expect(cell.className).toContain('standard-catalog-cell-ellipsis')
+      const span = cell.querySelector('.standard-catalog-cell-text')
+      expect(span).not.toBeNull()
+      expect(span!.textContent).toBe(text)
+    }
+  })
+
+  it('五列悬停经 Tooltip 展示完整值', async () => {
+    await renderLoaded(LONG_ITEMS)
+    for (const text of FIVE_COLUMNS) {
+      const span = cellText(text).querySelector('.standard-catalog-cell-text')
+      expect(span).not.toBeNull()
+      await expectTooltipShows(span as HTMLElement, text)
+    }
+  })
+})
+
+describe('C79 结果汇总条位置', () => {
+  const DATA: CatalogData = {
+    categories: [cat('c1', '甲分类')],
+    groups: [grp('g1', 'c1', '甲分组')],
+    items: [itm('i1', 'c1', 'g1', 'A-1', '血常规'), itm('i2', 'c1', 'g1', 'A-2', '尿常规')],
+  }
+
+  it('范围与计数在列表区域底部汇总条，标题行只保留标题', async () => {
+    await renderLoaded(DATA)
+
+    const header = document.querySelector('.standard-catalog-list-header')
+    expect(header).not.toBeNull()
+    expect(header!.textContent).toContain('标准项目列表')
+    expect(header!.textContent).not.toContain('范围：')
+
+    const card = document.querySelector('.standard-catalog-list-card')
+    expect(card).not.toBeNull()
+    const summary = card!.querySelector('.standard-catalog-list-summary')
+    expect(summary).not.toBeNull()
+    expect(summary!.className).toContain('standard-catalog-list-summary')
+    expect(summary!.textContent).toContain('范围：')
+    expect(summary!.textContent).toContain('共 2 项')
+    // 汇总条固定在列表卡片底部（右下角样式由 StandardCatalog.css 承担）。
+    expect(card!.lastElementChild).toBe(summary)
+  })
+
+  it('行数变化与空态时汇总条位置不变、计数为 0', async () => {
+    await renderLoaded(DATA)
+    const card = document.querySelector('.standard-catalog-list-card')
+    expect(card).not.toBeNull()
+
+    await change(screen.getByLabelText('编码或名称'), 'A-1')
+    const one = card!.querySelector('.standard-catalog-list-summary')
+    expect(one).not.toBeNull()
+    expect(one!.textContent).toContain('共 1 项')
+    expect(card!.lastElementChild).toBe(one)
+
+    await change(screen.getByLabelText('编码或名称'), 'ZZZ-NO-MATCH')
+    const zero = card!.querySelector('.standard-catalog-list-summary')
+    expect(zero).not.toBeNull()
+    expect(zero!.textContent).toContain('共 0 项')
+    expect(card!.lastElementChild).toBe(zero)
+    expect(screen.getByText('没有符合条件的标准项目')).toBeInTheDocument()
+  })
+})
+
+/** 列表区域与目录区域的作用域查询：两侧各有一个「显示停用」复选框，按 region 消歧。 */
+const listRegion = () => screen.getByRole('region', { name: '标准项目列表' })
+const directoryRegion = () => screen.getByRole('region', { name: '标准目录' })
+const listShowDisabled = () => within(listRegion()).getByRole('checkbox', { name: '显示停用' })
+const directoryShowDisabled = () => within(directoryRegion()).getByRole('checkbox', { name: '显示停用' })
+const keywordInput = () => within(listRegion()).getByLabelText('编码或名称')
+
+describe('C80 列表筛选条整改（Component 层可覆盖部分）', () => {
+  const DATA: CatalogData = {
+    categories: [cat('c1', '甲分类'), cat('c2', '停用分类', 0, false)],
+    groups: [grp('g1', 'c1', '甲分组'), grp('g2', 'c2', '停用分类下分组')],
+    items: [
+      itm('i1', 'c1', 'g1', 'A01', '血常规', true),
+      itm('i2', 'c1', 'g1', 'B02', '尿常规', false),
+      itm('i3', 'c2', 'g2', 'C03', '父停用项目', true),
+    ],
+  }
+
+  it('单一关键字框「编码或名称」同时按编码与名称字面匹配，且不发筛选请求', async () => {
+    await renderLoaded(DATA)
+    const reads = api.queryItems.mock.calls.length
+
+    expect(within(listRegion()).getByLabelText('编码或名称')).toBeInTheDocument()
+    // 旧的编码、名称双输入与状态 Segmented 不复存在（S1-D36）。
+    expect(within(listRegion()).queryByLabelText('标准项目名称')).not.toBeInTheDocument()
+    expect(within(listRegion()).queryByLabelText('标准项目自身状态')).not.toBeInTheDocument()
+
+    // 编码命中：大小写不敏感的字面包含。
+    await change(keywordInput(), 'b02')
+    expect(screen.getByText('尿常规')).toBeInTheDocument()
+    expect(screen.queryByText('血常规')).not.toBeInTheDocument()
+    expect(screen.queryByText('父停用项目')).not.toBeInTheDocument()
+
+    // 名称命中：同一个关键字框按 Name 再匹配。
+    await change(keywordInput(), '血')
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    expect(screen.queryByText('尿常规')).not.toBeInTheDocument()
+
+    // 全程本地过滤，不发起任何读取。
+    expect(api.queryItems.mock.calls.length).toBe(reads)
+    expect(api.queryCategories.mock.calls.length).toBe(1)
+    expect(api.queryGroups.mock.calls.length).toBe(1)
+  })
+
+  it('「显示停用」默认勾选；不勾仅显示自身启用项目，并与左树复选框相互独立', async () => {
+    await renderLoaded(DATA)
+    expect(listShowDisabled()).toBeChecked()
+    // 默认显示全部：停用项目与父级停用但自身启用的项目都在列。
+    expect(screen.getByText('尿常规')).toBeInTheDocument()
+    expect(screen.getByText('父停用项目')).toBeInTheDocument()
+    const reads = api.queryItems.mock.calls.length
+
+    await act(async () => { fireEvent.click(listShowDisabled()) })
+    expect(listShowDisabled()).not.toBeChecked()
+    // 仅按项目自身 IsValid：自身停用隐藏，自身启用即使父级停用仍显示（S1-D36）。
+    expect(screen.queryByText('尿常规')).not.toBeInTheDocument()
+    expect(screen.getByText('父停用项目')).toBeInTheDocument()
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    expect(api.queryItems.mock.calls.length).toBe(reads)
+
+    // 左树「显示停用」不受右侧复选框影响。
+    expect(directoryShowDisabled()).toBeChecked()
+
+    await act(async () => { fireEvent.click(listShowDisabled()) })
+    expect(listShowDisabled()).toBeChecked()
+    expect(screen.getByText('尿常规')).toBeInTheDocument()
+  })
+
+  it('重置为 text 小号文字按钮：清空关键字、恢复勾选，不动左侧任何状态', async () => {
+    await renderLoaded(DATA)
+    const reads = api.queryItems.mock.calls.length
+
+    // 左侧先改变一个状态，验证重置不触碰它。
+    await act(async () => { fireEvent.click(directoryShowDisabled()) })
+    expect(directoryShowDisabled()).not.toBeChecked()
+
+    await change(keywordInput(), '尿')
+    await act(async () => { fireEvent.click(listShowDisabled()) })
+    expect(keywordInput()).toHaveValue('尿')
+
+    const reset = within(listRegion()).getByRole('button', { name: '重置列表筛选' })
+    // text 类型小号文字按钮，且紧跟条件组（同一 filters 容器内）。
+    expect(reset).toHaveClass('ant-btn-variant-text')
+    expect(reset).toHaveClass('ant-btn-sm')
+    expect(reset.closest('.standard-catalog-filters')).not.toBeNull()
+    expect(keywordInput().closest('.standard-catalog-filters')).not.toBeNull()
+    // 条件组内元素顺序：关键字在前、显示停用居中、重置紧跟其后。
+    const filters = reset.closest('.standard-catalog-filters') as HTMLElement
+    expect(Array.from(filters.children).indexOf(keywordInput().closest('.ant-input-affix-wrapper') as HTMLElement)).toBeLessThan(Array.from(filters.children).indexOf(reset))
+
+    await click(reset)
+    expect(keywordInput()).toHaveValue('')
+    expect(listShowDisabled()).toBeChecked()
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    expect(screen.getByText('尿常规')).toBeInTheDocument()
+    // 左侧状态保持重置前的样子，且重置不发任何请求。
+    expect(directoryShowDisabled()).not.toBeChecked()
+    expect(api.queryItems.mock.calls.length).toBe(reads)
+    expect(api.queryCategories.mock.calls.length).toBe(1)
+  })
+})
+
+describe('C81 列表固定高度与边框（Component 层结构 + 样式静态断言）', () => {
+  const DATA: CatalogData = {
+    categories: [cat('c1', '甲分类')],
+    groups: [grp('g1', 'c1', '甲分组')],
+    items: [itm('i1', 'c1', 'g1', 'A-1', '血常规')],
+  }
+
+  it('列表卡片包住表格与汇总条，表体为带 maxHeight 的内部滚动容器', async () => {
+    await renderLoaded(DATA)
+    const card = document.querySelector('.standard-catalog-list-card')
+    expect(card).not.toBeNull()
+    // 固定表头形态下 rc-table 会渲染表头、表体两张 table，这里按「卡片内存在表格」断言。
+    expect(within(card as HTMLElement).getAllByRole('table').length).toBeGreaterThan(0)
+    expect(card!.querySelector('.standard-catalog-list-summary')).not.toBeNull()
+    expect(card!.lastElementChild).toHaveClass('standard-catalog-list-summary')
+
+    // scroll.y 生效后 rc-table 才会渲染独立的 .ant-table-body 滚动容器（S1-D37）。
+    const body = card!.querySelector('.ant-table-body')
+    expect(body).not.toBeNull()
+    const style = body!.getAttribute('style') ?? ''
+    expect(style).toContain('max-height')
+    expect(style).toContain('var(--standard-catalog-table-body-y)')
+  })
+
+  it('样式静态断言：卡片固定高度 + 外边框、树滚动区同一高度表达式、筛选组左对齐、表体滚动条溢出才显示', () => {
+    // CSS 在 jsdom 中不参与计算，按静态证据断言规则本身（Testing Baseline §1.4）。
+    // vitest 以子应用根目录为工作目录，源码路径相对它解析。
+    const css = readFileSync(resolve(process.cwd(), 'src/pages/standardCatalog/StandardCatalog.css'), 'utf8')
+    const cardRule = css.match(/\.standard-catalog-list-card\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(cardRule).toContain('border: 1px solid')
+    expect(cardRule).toContain('height: var(--standard-catalog-panel-height)')
+    const treeRule = css.match(/\.standard-catalog-tree-scroll\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(treeRule).toContain('height: var(--standard-catalog-panel-height)')
+    const filtersRule = css.match(/\.standard-catalog-filters\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(filtersRule).toContain('justify-content: flex-start')
+    // S1-D41：antd 表体在 scroll.y 下内联 overflow-y: scroll 恒显滚动条，须覆盖为 auto（仅溢出显示）。
+    const bodyRule = css.match(/\.standard-catalog-list\s+\.ant-table-body\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(bodyRule).toContain('overflow-y: auto')
+  })
+})
+
+describe('C82 树悬停气泡条件显示（Component 层可覆盖部分）', () => {
+  const LONG_NAME = '超长悬停名称'.repeat(30)
+
+  it('完整可见的名称悬停不出现气泡', async () => {
+    await renderLoaded({ categories: [cat('c1', '短名')], groups: [grp('g1', 'c1', '短分组')], items: [] })
+    const nameEl = within(screen.getByLabelText('分类分组目录树')).getByText('短名')
+    fireEvent.mouseOver(nameEl)
+    // 等待窗口覆盖 mouseEnterDelay（0.5s）之后仍不得出现气泡；负向断言需要一个有界等待。
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+  })
+
+  it('被截断的名称悬停约 0.5 秒后才出现气泡并展示全文', async () => {
+    await renderLoaded({ categories: [cat('c1', LONG_NAME)], groups: [], items: [] })
+    const nameEl = within(screen.getByLabelText('分类分组目录树')).getByText(LONG_NAME)
+    fireEvent.mouseOver(nameEl)
+    // 延迟未到（0.5 秒）时气泡尚未出现：默认 0.1 秒延迟的实现在此刻已弹出，判红。
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+    await waitFor(() => {
+      const overlays = Array.from(document.querySelectorAll('[role="tooltip"]'))
+      expect(overlays.some((node) => node.textContent === LONG_NAME)).toBe(true)
+    }, { timeout: 3000 })
+  })
+})
+
+describe('C83 状态合并列（Component 层可覆盖部分）', () => {
+  const DATA: CatalogData = {
+    categories: [cat('c-ok', '启用分类'), cat('c-off', '停用分类', 0, false)],
+    groups: [grp('g-ok', 'c-ok', '启用分组'), grp('g-off', 'c-off', '停用分类下分组')],
+    items: [
+      itm('i-ok', 'c-ok', 'g-ok', 'E01', '全链路启用项目', true),
+      itm('i-bad', 'c-off', 'g-off', 'E02', '上级停用项目', true),
+      itm('i-off', 'c-ok', 'g-ok', 'E03', '自身停用项目', false),
+      itm('i-unknown', 'c-ok', 'g-ok', 'E04', '状态未知项目', null),
+    ],
+  }
+
+  it('列头为编码、名称、分类、分组、状态、备注、操作，不再有「当前有效」列', async () => {
+    await renderLoaded(DATA)
+    // 固定表头形态下表头与表体是两张 table，统一在列表区域作用域内断言；
+    // 表头另有 antd 的隐藏无障碍副本，按 selector: 'th' 只取真实表头单元格。
+    const scope = within(listRegion())
+    for (const header of ['编码', '名称', '分类', '分组', '状态', '备注', '操作']) {
+      expect(scope.getByText(header, { selector: 'th' })).toBeInTheDocument()
+    }
+    expect(scope.queryByText('当前有效')).not.toBeInTheDocument()
+    expect(scope.queryByText('类型')).not.toBeInTheDocument()
+  })
+
+  it('全链路启用显示绿色「有效」；上级停用显示「无效」并悬停给原因；状态不完整显示「未知」', async () => {
+    await renderLoaded(DATA)
+    // 合并列以链路派生呈现：表体不再出现项目自身启停标签（S1-D39）。
+    const scope = within(listRegion())
+    expect(scope.queryByText('启用')).not.toBeInTheDocument()
+    expect(scope.queryByText('停用')).not.toBeInTheDocument()
+
+    const okRow = screen.getByText('全链路启用项目').closest('tr') as HTMLElement
+    const okTag = within(okRow).getByText('有效')
+    expect(okTag).toHaveClass('ant-tag-success')
+
+    const badRow = screen.getByText('上级停用项目').closest('tr') as HTMLElement
+    expect(within(badRow).getByText('无效')).toBeInTheDocument()
+    const reason = within(badRow).getByLabelText('所属分类已停用')
+    fireEvent.mouseOver(reason)
+    await waitFor(() => {
+      const overlays = Array.from(document.querySelectorAll('[role="tooltip"]'))
+      expect(overlays.some((node) => node.textContent === '所属分类已停用')).toBe(true)
+    }, { timeout: 3000 })
+
+    const selfOffRow = screen.getByText('自身停用项目').closest('tr') as HTMLElement
+    expect(within(selfOffRow).getByText('无效')).toBeInTheDocument()
+    expect(within(selfOffRow).getByLabelText('标准项目自身已停用')).toBeInTheDocument()
+
+    const unknownRow = screen.getByText('状态未知项目').closest('tr') as HTMLElement
+    expect(within(unknownRow).getByText('未知')).toBeInTheDocument()
+  })
+})
+
+describe('C84 类型列移除（Component 层可覆盖部分）', () => {
+  it('列表无「类型」列，类型信息由树范围与分类列表达', async () => {
+    await renderLoaded({
+      categories: [cat('c1', '甲分类', 0, true, 1, { itemTypeText: '检验（随行）' })],
+      groups: [grp('g1', 'c1', '甲分组')],
+      items: [itm('i1', 'c1', 'g1', 'A-1', '甲项目', true, '检验（随行）')],
+    })
+
+    const table = within(listRegion())
+    expect(table.queryByText('类型')).not.toBeInTheDocument()
+    expect(table.queryByText('检验（随行）')).not.toBeInTheDocument()
+
+    // 类型能力不受影响：树类型根、类型单选与范围文案仍在表达类型。
+    expect(within(screen.getByLabelText('分类分组目录树')).getByText('检验')).toBeInTheDocument()
+    expect(screen.getByRole('radiogroup', { name: '目录项目类型' })).toBeInTheDocument()
+    expect(screen.getByText(/^范围：/).textContent).toContain('检验')
+  })
+})
+
+/**
+ * 新增项目弹窗的预选口径（缺陷修复）：
+ * 1. 左侧选到分组时，弹窗同时预选该分组及其分类（此前只预选分类、分组留空）；
+ * 2. 从类型根打开时，预选分类取**当前类型**下第一个启用分类（此前取全局第一个启用分类，
+ *    检查范围下会预选到检验分类）；「全部」范围仍取全局第一个启用分类。
+ * 切换分类清空分组、停用分类/分组禁选的既有口径不变（Client/design.md「上级有效性提示」行）。
+ */
+describe('新增项目弹窗按左侧范围与类型预选', () => {
+  const DATA: CatalogData = {
+    categories: [
+      // 全局第一个启用分类刻意放在检验类型下：类型根预选若不按类型过滤会落到它身上。
+      cat('c-first0', '甲类型分类', 0, true),
+      cat('c-first1', '乙类型分类', 1, true),
+      cat('c-scope', '范围分类', 0, true),
+    ],
+    groups: [grp('g-scope', 'c-scope', '范围分组'), grp('g1', 'c-first1', '乙类型分组')],
+    items: [],
+  }
+
+  /** 读弹窗内某个下拉的已选标题（antd 6 选中值挂在 .ant-select-content 的 title 上）。 */
+  function selectTitle(label: string): string | null {
+    const input = modal().getByLabelText(label) as HTMLInputElement
+    return input.closest('.ant-select')?.querySelector('.ant-select-content')?.getAttribute('title') ?? null
+  }
+
+  async function openCreateItem() {
+    click(screen.getByRole('button', { name: /新增项目/ }))
+    await screen.findByLabelText('所属分类')
+  }
+
+  async function closeCreateItem() {
+    click(modal().getByRole('button', { name: /取\s*消/ }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  }
+
+  it('左侧选到分组时，弹窗预选该分组及其分类', async () => {
+    await renderLoaded(DATA)
+    click(within(screen.getByLabelText('分类分组目录树')).getByText('范围分组'))
+    await waitFor(() => expect(screen.getByText(/^范围：/).textContent).toContain('范围分类'))
+
+    await openCreateItem()
+    expect(selectTitle('所属分类')).toBe('检验 · 范围分类')
+    expect(selectTitle('所属分组')).toBe('范围分组')
+    await closeCreateItem()
+  })
+
+  it('类型根打开时预选当前类型下第一个启用分类；全部范围退回全局第一个', async () => {
+    await renderLoaded(DATA)
+    click(screen.getByRole('radio', { name: '检查' }))
+    await waitFor(() => expect(screen.getByText(/^范围：/).textContent).toContain('检查'))
+
+    await openCreateItem()
+    // 检查范围：应预选检查类型的启用分类，而不是全局第一个（检验的甲类型分类）。
+    expect(selectTitle('所属分类')).toBe('检查 · 乙类型分类')
+    expect(selectTitle('所属分组')).toBe('')
+    await closeCreateItem()
+
+    click(screen.getByRole('radio', { name: '全部' }))
+    await waitFor(() => expect(screen.getByText(/^范围：/).textContent).toContain('全部'))
+    await openCreateItem()
+    expect(selectTitle('所属分类')).toBe('检验 · 甲类型分类')
+    await closeCreateItem()
+  })
+})
+
+/**
+ * 可选提示的补充口径：所选分类存在分组但全部停用时，「所属分组」给出明确提示，
+ * 区分「该分类下暂无分组」与「有分组但没有启用的」两种阻塞原因；
+ * 有启用分组时不出现该提示（不改变停用分组禁选的既定行为）。
+ */
+describe('新增项目弹窗分组可用性提示', () => {
+  const DATA: CatalogData = {
+    categories: [cat('c-off-only', '仅停用分组分类', 0, true), cat('c-ok', '有启用分组分类', 0, true)],
+    groups: [grp('g-off', 'c-off-only', '唯一停用分组', false), grp('g-on', 'c-ok', '启用分组', true)],
+    items: [],
+  }
+
+  it('所选分类只有停用分组时给出提示；切到有启用分组的分类后提示消失', async () => {
+    await renderLoaded(DATA)
+    click(screen.getByRole('button', { name: /新增项目/ }))
+    await screen.findByLabelText('所属分类')
+    // 默认范围下预选全局第一个启用分类（仅停用分组分类）：提示应出现。
+    expect(modal().getByText(/该分类下没有启用状态的分组/)).toBeInTheDocument()
+
+    // 切换到有启用分组的分类：提示消失，且分组可选（既有「切换分类清空分组」口径不变）。
+    const combo = modal().getByLabelText('所属分类')
+    await act(async () => { fireEvent.mouseDown(combo) })
+    const option = await waitFor(() => {
+      const found = Array.from(document.querySelectorAll('.ant-select-item-option')).find((node) => (node.textContent ?? '').includes('有启用分组分类'))
+      if (!found) throw new Error('分类选项未展开')
+      return found as HTMLElement
+    })
+    click(option)
+    await waitFor(() => expect(modal().queryByText(/该分类下没有启用状态的分组/)).not.toBeInTheDocument())
+    expect(modal().queryByText(/该分类下暂无分组/)).not.toBeInTheDocument()
+
+    click(modal().getByRole('button', { name: /取\s*消/ }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+})
+
+/**
+ * 审查问题 R2-01：截断状态必须随文本复测。量宽只在元素挂接与 ResizeObserver 通知时执行，
+ * 同一挂载实例内把分类改名变长时容器宽度不变、RO 不触发——若 text 变化不复测，
+ * 状态停留在旧文本的结果，新文本真截断却不挂 Tooltip（悬停全文缺失）。
+ */
+describe('审查 R2-01：TruncatedText 随文本复测', () => {
+  it('同一挂载实例内分类改长名后重新量宽并挂 Tooltip', async () => {
+    const LONG = '改名后超长分类名称'.repeat(20)
+    await renderLoaded({ categories: [cat('c1', '短名')], groups: [], items: [] })
+
+    // 模拟「编辑分类改名 + 写后重载」：同一组件实例、同一 DOM 节点上文本变长、容器宽度不变。
+    api.queryCategories.mockResolvedValueOnce([cat('c1', LONG)])
+    api.queryGroups.mockResolvedValueOnce([])
+    api.queryItems.mockResolvedValueOnce([])
+    click(screen.getByLabelText('重新读取目录'))
+    const tree = screen.getByLabelText('分类分组目录树')
+    await waitFor(() => expect(within(tree).getByText(LONG)).toBeInTheDocument())
+
+    const nameEl = within(tree).getByText(LONG)
+    expect(nameEl.className).toContain('standard-catalog-node-name')
+    await expectTooltipShows(nameEl, LONG)
+  })
+})
+
+/**
+ * 审查问题 R2-18 的守卫（即时通过，非 RED）：jsdom 无布局引擎，宽度替身按类名识别元素；
+ * 类名若被改动，替身会静默失效（量宽恒为 0 → 永不截断，Tooltip 用例全体空转）。
+ * 这条断言让失效在第一时间报错，而不是悄悄退化。
+ */
+describe('审查 R2-18：宽度替身生效守卫', () => {
+  it('截断类元素能量得非零宽度', () => {
+    for (const className of ['standard-catalog-node-name', 'standard-catalog-cell-text']) {
+      const el = document.createElement('span')
+      el.className = className
+      el.textContent = '守卫'
+      document.body.append(el)
+      expect(el.clientWidth).toBeGreaterThan(0)
+      expect(el.scrollWidth).toBeGreaterThan(0)
+      el.remove()
+    }
   })
 })

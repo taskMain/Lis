@@ -107,18 +107,20 @@ describe('C75 枚举元数据驱动的表单与筛选文案', () => {
   it('表单项目类型下拉、目录树与列表「类型」列的文案取枚举元数据，而非页面本地常量', async () => {
     renderPage()
 
-    // 树节点、筛选分段器与列表「类型」列都只拿得到枚举数值（该行随行文案缺失，契约允许），
-    // 三处都应换成元数据文案；本地兜底文案「检验」不得再出现在页面上。
+    // 树节点、筛选分段器与范围文案都只拿得到枚举数值，三处应换成元数据文案；
+    // 本地兜底文案「检验」不得再出现在页面上。列表已按 S1-D40 移除「类型」列，
+    // 枚举文案来源规则不再涉及列表列（C84）。
     await waitFor(() => {
-      expect(screen.getAllByText('检验（元数据）')).toHaveLength(3)
+      expect(screen.getAllByText('检验（元数据）')).toHaveLength(2)
     })
     expect(screen.queryByText('检验')).not.toBeInTheDocument()
     expect(screen.getByLabelText('分类分组目录树').textContent).toContain('检验（元数据）')
     expect(screen.getByText(/^范围：/).textContent).toContain('检验（元数据）')
-    // 列表「类型」列单独再判一次：该行随行文案缺失，回退到本地兜底常量时这里会渲染成整串「检验」。
-    const table = within(screen.getByRole('table'))
-    expect(table.getByText('检验（元数据）')).toBeInTheDocument()
-    expect(table.queryByText('检验')).not.toBeInTheDocument()
+    // 列表「类型」列已移除：该行随行文案缺失时也不得回退成整串「检验」。
+    // 固定表头形态下表头与表体是两张 table，统一在列表区域作用域内断言。
+    const list = screen.getByRole('region', { name: '标准项目列表' })
+    expect(within(list).queryByText('检验（元数据）')).not.toBeInTheDocument()
+    expect(within(list).queryByText('检验')).not.toBeInTheDocument()
 
     // 表单下拉的选项同样来自元数据：编辑分类弹窗的已选项文案即为元数据文案。
     await within(screen.getByLabelText('分类分组目录树')).findByText('甲分类')

@@ -11,5 +11,3 @@ export function AppRoutes() {
 
   return useRoutes(routes)
 }
-
-export { routes }

@@ -115,13 +115,18 @@ export interface TreeScope {
 }
 
 export interface ItemFilter {
-  code: string
-  name: string
-  status: 'all' | 'enabled' | 'disabled'
+  /** 关键字：同时按编码与名称字面包含匹配（大小写不敏感，复用 matchesText 语义，S1-D36）。 */
+  keyword: string
+  /**
+   * 是否显示停用项目：false 时仅保留项目自身启用的记录（按自身 IsValid，不按「当前有效」）。
+   * 与树侧 showDisabledNodes 正交——树侧控制节点可见性与选中范围，本字段只过滤右表；
+   * 两侧 UI 文案同为「显示停用」但作用面不同（S1-D36，审查 R2-03）。
+   */
+  showDisabled: boolean
 }
 
 export const DEFAULT_SCOPE: TreeScope = { itemType: 0, categoryId: null, groupId: null }
-export const EMPTY_ITEM_FILTER: ItemFilter = { code: '', name: '', status: 'all' }
+export const EMPTY_ITEM_FILTER: ItemFilter = { keyword: '', showDisabled: true }
 
 export interface VisibleCatalogCategory {
   category: StandardCategory
@@ -334,14 +339,20 @@ export function ineffectiveReasons(data: CatalogData, item: StandardItem): strin
 }
 
 export function filterItems(data: CatalogData, scope: TreeScope, filter: ItemFilter): StandardItem[] {
+  // 分类索引在循环外建一次，保持原 find 的「数组顺序首个命中」语义（审查 R2-13）。
+  const categoryById = new Map<string | null, StandardCategory>()
+  for (const category of data.categories) {
+    if (!categoryById.has(category.id)) categoryById.set(category.id, category)
+  }
   return data.items.filter((item) => {
-    const category = data.categories.find((value) => value.id === item.categoryId)
+    const category = categoryById.get(item.categoryId)
     if (scope.groupId !== null && item.groupId !== scope.groupId) return false
     if (scope.categoryId !== null && item.categoryId !== scope.categoryId) return false
     if (scope.categoryId === null && scope.groupId === null && scope.itemType !== null && category?.itemType !== scope.itemType) return false
-    if (!matchesText(item.code, filter.code) || !matchesText(item.name, filter.name)) return false
-    if (filter.status === 'enabled' && item.isValid !== true) return false
-    if (filter.status === 'disabled' && item.isValid !== false) return false
+    // 关键字命中编码或名称任一即保留；空与纯空白撤销条件（matchesText 语义，S1-D36）。
+    if (!matchesText(item.code, filter.keyword) && !matchesText(item.name, filter.keyword)) return false
+    // 「显示停用」只按项目自身 IsValid 过滤（S1-D36）。
+    if (!filter.showDisabled && item.isValid !== true) return false
     return true
   })
 }

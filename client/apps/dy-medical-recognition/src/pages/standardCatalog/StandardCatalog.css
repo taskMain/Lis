@@ -1,18 +1,48 @@
+/* 超长展示与版面口径见 S1-D33～S1-D37：左栏 400px、树节点固定槽位、五列单行省略、底部汇总条、卡片固定高度与外边框。 */
 .standard-catalog-page { min-width: 0; max-width: 100%; }
 .standard-catalog-header, .standard-catalog-section-header, .standard-catalog-list-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .standard-catalog-header { margin-bottom: 20px; }
 .standard-catalog-header h2.ant-typography, .standard-catalog-list-header h5.ant-typography, .standard-catalog-section-header h5.ant-typography { margin: 0; }
-.standard-catalog-layout { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 20px; align-items: start; margin-top: 20px; }
+/*
+ * 面板高度（S1-D33、S1-D37）：树滚动区与列表卡片取同一个高度表达式——高度彼此齐平，
+ * 且按视口撑满剩余空间；表体可用高度 = 面板高度减去表头、汇总条与内边距的近似值。
+ * 组件侧 Table 的 scroll.y 引用同一个 --standard-catalog-table-body-y，改这里必须同步核对宿主呈现。
+ */
+.standard-catalog-layout { display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: 20px; align-items: start; margin-top: 20px; --standard-catalog-panel-height: max(560px, calc(100vh - 280px)); --standard-catalog-table-body-y: calc(var(--standard-catalog-panel-height) - 120px); }
 .standard-catalog-directory { min-width: 0; display: grid; gap: 12px; padding-right: 16px; border-right: 1px solid #e5e7eb; }
-.standard-catalog-list { min-width: 0; }
-.standard-catalog-tree-scroll { max-height: 560px; min-height: 160px; overflow: auto; }
-.standard-catalog-node { display: flex; align-items: center; gap: 4px; min-width: 0; min-height: 32px; }
-.standard-catalog-node-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.standard-catalog-node-actions { display: flex; flex: 0 0 56px; justify-content: flex-end; }
-.standard-catalog-node-actions .ant-btn { width: 28px; height: 28px; flex: none; }
+.standard-catalog-list { min-width: 0; display: flex; flex-direction: column; }
+/* 树滚动区与列表卡片同高（S1-D33、S1-D37）；树内不产生横向滚动。 */
+.standard-catalog-tree-scroll { height: var(--standard-catalog-panel-height); overflow-x: hidden; overflow-y: auto; }
+/* 根因约束：Tree 节点标题容器默认无宽度上限，长名称会把节点行撑宽导致横向滚动并让省略失效。 */
+.standard-catalog-tree-scroll .ant-tree { max-width: 100%; }
+.standard-catalog-tree-scroll .ant-tree-treenode { max-width: 100%; }
+.standard-catalog-tree-scroll .ant-tree-node-content-wrapper { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.standard-catalog-tree-scroll .ant-tree-title { display: block; min-width: 0; max-width: 100%; overflow: hidden; }
+/* 节点行固定槽位：名称在左按宽度截断省略，状态标记与操作图标钉最右、不随名称推移。 */
+.standard-catalog-node { display: flex; align-items: center; gap: 4px; width: 100%; min-width: 0; min-height: 32px; overflow: hidden; }
+.standard-catalog-node-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.standard-catalog-node-side { display: flex; align-items: center; gap: 4px; flex: none; margin-left: auto; padding-left: 4px; }
+.standard-catalog-node-actions { display: flex; flex: none; justify-content: flex-end; }
+/* 按钮尺寸统一挂在槽位上：类型根节点不再有内层 actions 包裹（审查 R2-09）。
+   尺寸规则必须叠加 `.ant-btn-icon-only`：antd 的 `:where(.css-…).ant-btn-sm.ant-btn-icon-only`
+   在 micro-app 作用域前缀下与「槽位类 + 单个 .ant-btn」特异性相同，antd 运行时注入的样式
+   在 source order 上取胜，只按单个 `.ant-btn` 声明尺寸时宽度会落回 24px（宿主实测 24×28）。 */
+.standard-catalog-node-side .ant-btn { flex: none; }
+.standard-catalog-node-side .ant-btn.ant-btn-icon-only { width: 28px; height: 28px; }
 .standard-catalog-node .ant-tag { flex: none; margin-inline-end: 0; }
-.standard-catalog-filters { display: grid; grid-template-columns: minmax(120px, 190px) minmax(120px, 220px) minmax(180px, 220px) auto; gap: 8px; margin: 12px 0; }
+/* 筛选条件组（S1-D36）：关键字、「显示停用」与重置组成一行，整体左对齐。 */
+.standard-catalog-filters { display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+.standard-catalog-filters .ant-input-affix-wrapper { width: 240px; }
+/* 列表卡片（S1-D37）：固定高度与树区域齐平、外边框；数据不足时留白，汇总条钉右下角不随行数移动。 */
+.standard-catalog-list-card { height: var(--standard-catalog-panel-height); display: flex; flex-direction: column; min-height: 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+.standard-catalog-list-summary { margin-top: auto; display: flex; justify-content: flex-end; padding-top: 12px; color: #6b7280; font-size: 12px; white-space: nowrap; }
+/* 编码、名称、分类、分组、备注五列单行展示：列内不换行，超长按列宽截断省略（条件 Tooltip 见组件 TruncatedText）。 */
+.standard-catalog-list .ant-table-tbody > tr > td { white-space: nowrap; }
+/* S1-D41：antd 表体在 scroll.y 下以内联 overflow-y: scroll 恒显滚动条，项数不足也显示；
+   这里覆盖为 auto，仅内容溢出时才出现滚动条。项少时占位释放导致的列宽轻微变化属已接受取舍。 */
+.standard-catalog-list .ant-table-body { overflow-y: auto !important; }
+.standard-catalog-cell-ellipsis { overflow: hidden; }
+.standard-catalog-cell-text { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .standard-catalog-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 1100px) { .standard-catalog-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 960px) { .standard-catalog-layout { grid-template-columns: minmax(0, 1fr); } .standard-catalog-directory { padding: 0 0 16px; border-right: 0; border-bottom: 1px solid #e5e7eb; } .standard-catalog-tree-scroll { max-height: 320px; } }
-@media (max-width: 600px) { .standard-catalog-filters { grid-template-columns: minmax(0, 1fr) auto; } .standard-catalog-filters > .ant-input-affix-wrapper { grid-column: 1 / -1; } .standard-catalog-form-grid { grid-template-columns: 1fr; gap: 0; } }
+@media (max-width: 960px) { .standard-catalog-layout { grid-template-columns: minmax(0, 1fr); --standard-catalog-panel-height: max(320px, calc(100vh - 520px)); } .standard-catalog-directory { padding: 0 0 16px; border-right: 0; border-bottom: 1px solid #e5e7eb; } }
+@media (max-width: 600px) { .standard-catalog-form-grid { grid-template-columns: 1fr; gap: 0; } }

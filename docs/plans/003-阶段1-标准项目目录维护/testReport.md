@@ -2,7 +2,7 @@
 
 **阶段 1 已完成并于 2026-09-15 收口（负责人裁定，阶段状态 `Complete`）：S1-D29 五项真实宿主验收已于 2026-09-15 完成，验收中发现的停用过滤缺陷已按测试基线修复并复测。** 后端领域、仓储、SqlMap、四个查询与静态契约测试已实现并通过；三张 `mrec_` 表已由负责人建表执行，真实宿主链路已取得业务读写证据。后端 V 矩阵与前端 C 矩阵均已完成逐条核对与补测（第 25–39 轮），**两张矩阵均无 `PendingRetest`**（V 矩阵 `Passed` 54 / `AcceptedRisk` 1 / `N/A` 1；前端 `C64` 宿主分支记 `N/A` 环境边界）。第 40 轮完成后端输入校验归位与过度封装清理，后端测试更新为 21/21（第 42 轮后为 **257 passed / 0 failed**，以「当前执行结果」表为准）。仍未闭合的移交项见 [impl.md](impl.md) 的待办与交接表，均为非阻塞既存项。
 
-**当前状态入口**：本报告顶部的「当前执行结果」表、「结论」章节与第 42 轮章节是当前执行依据；第 42 轮为最近一轮（枚举协作契约落地，2026-09-17），其余历史章节仅作带日期的历史快照，不代表当前计数、决策状态或验收结果。顶部表格未逐条复核的后端 V 用例仍按历史状态记录。
+**当前状态入口**：本报告顶部的「当前执行结果」表、「结论」章节与第 42、43、44 轮章节是当前执行依据；第 44 轮为最近一轮（审查整改与 S1-D42 收口，2026-09-28），其余历史章节仅作带日期的历史快照，不代表当前计数、决策状态或验收结果。顶部表格未逐条复核的后端 V 用例仍按历史状态记录。
 
 **数据库基线更正（2026-09-11）**：负责人明确本平台尚未建表，并确认独立 `mrec_` 表、实体不带前缀。下方历史记录中的“三张共享表”“类型迁移”“既有索引例外”是此前错误推断，现已撤销，不再作为执行依据；历史查询观察本身不等于平台拥有这些表。
 
@@ -16,11 +16,13 @@
 
 | 验证面 | 状态 | 实际命令或操作 | 证据边界 |
 |---|---|---|---|
-| 前端测试（10 个文件：阶段 1 目录页适配层/纯逻辑 `standardCatalogApi.test.ts` 19 项、组件级 `StandardCatalog.test.tsx` 24 项（含 2 项 skip，即 22 项执行）与 `StandardCatalog.enumMetadata.test.tsx` 1 项，其余为阶段 2/3 页面与公共 hook） | `Passed` | `pnpm -F dy-medical-recognition exec vitest run`（**214 passed / 2 skipped**，10 个文件，0 未处理拒绝；第 42 轮更新，未处理拒绝的判据边界见第 42 轮后的证据边界补记） | 纯逻辑覆盖名称搜索裁剪与 scope 保持、状态树回退、必要祖先、停用过滤、备注原值语义、写请求契约与枚举随行文案映射；组件级覆盖 `C57`/`C58`/`C62`/`C63`/`C64`/`C65`/`C68`/`C69`/`C75` 的渲染与交互分支；**均不替代宿主验收**，见第 31、39 与 42 轮 |
-| 前端类型检查、构建与静态检查 | `Passed` | `pnpm -F dy-medical-recognition build`（`tsc -b && vite build`）、`pnpm -F dy-medical-recognition lint` | 构建通过；lint 0 error、3 条既有 react-refresh warning；不证明业务行为 |
+| 前端测试（21 个文件：阶段 1 目录页适配层/纯逻辑 `standardCatalogApi.test.ts` 19 项、组件级 `StandardCatalog.test.tsx` 与 `StandardCatalog.enumMetadata.test.tsx`，其余为阶段 2/3 页面与公共 hook） | `Passed` | `pnpm -F dy-medical-recognition exec vitest run`（**375 passed / 2 skipped**，21 个文件，0 未处理拒绝；第 42 轮为 214/10 文件，第 43 轮为 359/21 文件，第 44 轮审查整改后为 375/21 文件并经审查方独立复跑一致，未处理拒绝的判据边界见第 42 轮后的证据边界补记） | 纯逻辑覆盖名称搜索裁剪与 scope 保持、状态树回退、必要祖先、停用过滤、备注原值语义、写请求契约与枚举随行文案映射；组件级覆盖 `C57`/`C58`/`C62`/`C63`/`C64`/`C65`/`C68`/`C69`/`C75` 与交互整改断言（C76～C87，含 S1-D42 预选与提示）的渲染与交互分支；**均不替代宿主验收**，见第 31、39、42、43 与 44 轮 |
+| 前端类型检查、构建与静态检查 | `Passed` | `pnpm -F dy-medical-recognition build`（`tsc -b && vite build`）、`pnpm -F dy-medical-recognition lint` | 构建通过；lint 0 problems（第 44 轮顺带消除 3 条既有 react-refresh warning，Provider 拆分，见 44.5）；不证明业务行为 |
 | S1-D29 五项真实宿主验收 | `Passed` | 宿主登录 → 「检验检查结果互认平台」→「检验检查结果互认」→「标准项目目录维护」，见第二十四轮 | 第 24 轮交互经 React 事件属性驱动；第 25 轮已以 trusted 输入在全新浏览器作用域复现页面可操作性 |
 | 前端 C 缺口补测（C30/C33/C44/C47/C48/C49/C50/C72/C73/C74） | `Passed` | 第 25 轮真实宿主 trusted 输入 + 静态核对 | 见第二十五轮 |
 | 前端宿主层补测（`C67` 使用情况正反分支、`C66` 类型冻结与备注清空回读、`C62` 宿主分支） | `Passed` | 第 32 轮真实宿主，12 次真实写入，逐条取实际请求体与后端回读响应 | 见第三十二轮；`C62` 两个适用层级均已取证；`C64` 宿主分支记环境边界（`N/A`），见 32.5 |
+| 前端交互整改轮（S1-D33～S1-D35，C76～C79） | `Passed` | 组件层 RED→GREEN 7 条 + 真实宿主 DOM 度量与截屏（第四十三轮） | 768 档未单跑、390 像素级截屏未取到，按证据边界登记，见 43.5 |
+| 前端审查整改轮（R2/R3 审查整改，S1-D42、R3-01） | `Passed` | 组件层 RED→GREEN（含 R2-01 守卫用例、R3-01 静态断言）+ 真实宿主复验（第四十四轮） | R2-12/14/19/20/21/22 接受不修复或残余登记，见 44.5 |
 | 后端 V 矩阵逐条核对与补测（终态） | `Passed` **54** / `AcceptedRisk` 1 / `N/A` 1（共 56 条，**无 `PendingRetest`**） | 第 25 轮逐条核对 → 第 26 轮 D1–D7 裁定 → 第 27/28 轮 C/D 类补测 → 第 30 轮 V22 补测 → 第 31 轮 V57 关闭 → 按各轮实测重排终态，见 [Server/V矩阵核对-20260915.md](Server/V矩阵核对-20260915.md) 第 11 节 | V54 记 `AcceptedRisk`（框架事务回滚不做故障注入）、V56 记 `N/A`（事件队列语义留待后续阶段）；**V 矩阵已无待补测项** |
 | V57 新建脚本列序/注释/物理映射静态核对 | `Passed`（第 31 轮关闭） | 静态核对三份 DDL、三条唯一索引、4 个 SqlMap/29 条 Statement 的物理映射与 Scope 与调用点一致性 | DDL/SqlMap/索引/Scope **全部一致**，见 [Server/V矩阵核对-20260915.md](Server/V矩阵核对-20260915.md) 第 11.3 节 |
 | 后端单元/静态/契约测试 | `Passed` | `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj`（**257 passed / 0 failed**，全项目，第 42 轮更新） | 覆盖事务声明分布、请求校验先于映射、无手工事务 API、查询契约分层与 SqlMap 注册，以及阶段 1 只读模型随行枚举文案与声明可空性（`Stage1ReadModelEnumTextTests`）；不证明数据库可用 |
@@ -1988,3 +1990,90 @@ value=[probe-nocat]  Required=True ; RegularExpression("\\S")=False ; StringLeng
 - **项目类型与配置状态的取值域、兜底文案与判定合并**：新增跨页面共享模块 `src/shared/medicalItemType.ts`（`MEDICAL_ITEM_TYPES`、`MedicalItemTypeValue`、`MEDICAL_ITEM_TYPE_TEXTS`、`UNKNOWN_MEDICAL_ITEM_TYPE_TEXT`、`medicalItemTypeText`、`isMedicalItemTypeValue`）与 `src/shared/configurationStatus.ts`（`CONFIGURATION_STATUSES`、`ConfigurationStatusValue`、具名启用/停用常量、`CONFIGURATION_STATUS_TEXTS`、`UNKNOWN_CONFIGURATION_STATUS_TEXT`、`configurationStatusText`、`isConfigurationStatusValue`）；阶段 1 的 `standardCatalogApi.ts`、阶段 2 的 `recognitionProjectsApi.ts`、阶段 3 的 `recognitionAmountsApi.ts` 改为按各自既有名字转发，调用方与用例导入位置不变（阶段 2 的三条本页选项管线仍留在该模块）。等价性：数值与中文逐项一致（0 检验/1 检查/未知类型；1 启用/2 停用/未知），阶段 3 目录用例与阶段 2 适配层用例在转发后原样通过；判定单点化后原散在 10 处的字面量判定改调共享守卫，文本表与取值集合并运行时冻结。收编后生产代码中的项目类型/配置状态中文只剩这两处表（由 grep 全仓核对），阶段 1 的 `USAGE_STATUS_TEXTS` 属只服务本页的使用情况兜底（见 42.7），目录页自身「启用 / 停用」的启停动作文案不属该枚举，保持原样。
 - **`git diff --check` 的覆盖边界**：该命令只检查已跟踪差异，本轮新增文件（`src/shared/`、两个新测试文件等）在未跟踪集合中，故另行对未跟踪文本文件做了行尾空白与文件末换行检查（0 处异常）；报告中凡用 `git diff --check` 作为检查项时按此边界理解。
 - **转发面清理**：阶段 2、阶段 3 适配层只转发被消费的符号（`isMedicalItemTypeValue`、`medicalItemTypeText`、`configurationStatusText`、`isConfigurationStatusValue`、`CONFIGURATION_STATUSES` 与具名状态常量），移除了零消费者的 `MEDICAL_ITEM_TYPES`、`MEDICAL_ITEM_TYPE_TEXTS`、`UNKNOWN_CONFIGURATION_STATUS_TEXT` 三处转发；共享模块仍对外提供这些符号，阶段 1 的使用情况兜底表 `USAGE_STATUS_TEXTS` 依其单页属性保留在阶段 1 适配层。
+
+
+## 第四十三轮 交互整改（S1-D33～S1-D35，2026-09-24）
+
+### 43.1 范围与设计依据
+
+阶段 1 重开交互整改轮。负责人目验真实宿主页面后提出四条整改口径，设计先行并提交（`S1-D33`～`S1-D35`、C 矩阵 `C76`～`C79` 已入档），随后由实施方按设计改代码、审查方按本报告复核：
+
+- **S1-D33（C76）**：左侧分类树节点改为固定槽位布局——名称按可用宽度截断并加悬停 Tooltip 展示全文，「启用/停用」状态标记与「修改 / 更多」操作钉在节点最右，节点不出现横向滚动；左栏宽度由 320px 加宽到 400px，≤960 媒体查询同步；状态标记启用与停用都显示（原仅停用显示）。负责人裁定的「树节点展示编码」因分类/分组契约无业务 `Code` 字段（S1-D26）、前端无数据可展示而**放弃**。
+- **S1-D34（C77、C78）**：右侧项目列表五列（编码/名称/分类/分组/备注）统一单行省略 + 悬停 Tooltip 全文，表格改 `tableLayout='fixed'`，消除「编码名称换行、备注省略」不一致导致的行高不齐。
+- **S1-D35（C79）**：「范围·共 N 项」标识从范围名称行尾移到列表底部右下角汇总条，空态（共 0 项）也归位到同一汇总条。
+
+### 43.2 失败测试先于实现
+
+实施方先按目标口径写组件层断言并取得 **7 条失败**（树节点截断+Tooltip、标记钉右、五列单行省略+Tooltip、汇总条位置等），再改实现转绿。夹具修正如实披露：antd 6 的 Tooltip 弹层是 `role="tooltip"`，无 `.ant-tooltip-inner` 类名，原断言选择器修正后生效；该修正不改变被测行为。
+
+### 43.3 通过结果与命令
+
+| 验证面 | 命令或操作 | 结果 |
+|---|---|---|
+| 前端全量测试 | `pnpm -F dy-medical-recognition exec vitest run` | **359 passed / 2 skipped**（21 个文件）；2 skip 为既有 `C64`/`C65` 登记缺口，非本轮引入 |
+| 前端类型检查与构建 | `pnpm -F dy-medical-recognition exec tsc -b`、`pnpm -F dy-medical-recognition build` | exit 0，构建通过 |
+| 前端静态检查 | `pnpm -F dy-medical-recognition lint` | exit 0 |
+| 差异空白检查 | `git diff --check` | 通过（覆盖边界同 42.6：`server/`、`client/` 未纳入 git 跟踪） |
+| GitNexus 变更检测 | 重建索引后 impact / detect-changes | impact `LOW`；detect-changes 聚合 `high` 但全部归属本页（`standardCatalog`）改动范围，未命中停止条件 |
+
+审查方独立复核：改动仅 3 个文件（`client/apps/dy-medical-recognition/src/pages/standardCatalog/` 下 `StandardCatalog.tsx`、`StandardCatalog.css`、`StandardCatalog.test.tsx`，无 commit/push）；逐行 diff 与 `S1-D33`～`S1-D35` 逐条吻合，未发现偏离设计的实现；并独立复跑前端全量测试，结果 **359 passed / 2 skipped** 与实施方一致。
+
+### 43.4 宿主验收证据（C76～C79 判 `Passed`）
+
+实施方在真实宿主（`http://183.224.180.166:35000`，账号 `yangkj`，页面 `standard-catalog`，后端 `localhost:15014`、前端 `localhost:3008`）以 Chrome DevTools MCP 取证，审查方核对证据链完整：
+
+- **1440×960 DOM 度量**：左栏 400px；树容器 `scrollWidth == clientWidth`（无横向滚动）；200 字超长名称按宽度截断且悬停 Tooltip 展示全文；列表各行高一致（全 41px）；汇总条位于列表底部右下角（间距 0）；空态「共 0 项」在汇总条原位。
+- **390 设备仿真**：DOM 度量 + 502px 窗口截屏。
+- **截屏**：5 张（`var/host-check-standardCatalog/`，01–05）存证，含超长名称、停用标记、悬停 Tooltip、汇总条等场景。
+
+本轮宿主验收只读与查看，未创建、修改、启停任何数据，未使用直接写库。
+
+### 43.5 残余与登记
+
+- **768×1024 档位未单独跑**：390 与 1440 两端已取证，中间档按断点连续性推断，未单独度量。
+- **390 像素级截屏未取到**：MCP 截图缓存问题，该档仅有 DOM 度量与文字证据。
+- **分组/备注两列未单独截屏悬停**：五列同一渲染管线（`ellipsisCell`），编码/名称已取证，按同构覆盖登记。
+- **阶段收口待负责人裁定**：本轮验收证据由实施方取得，建议负责人亲自在宿主页面目验四条效果后，裁定是否恢复阶段 1 `Complete` 收口。
+
+## 第四十四轮 审查整改与 S1-D42 收口（2026-09-28）
+
+### 44.1 范围与设计依据
+
+阶段 1 重开审查整改轮，由审查方按 [阶段1-审查问题追踪.md](阶段1-审查问题追踪.md) 登记、实施方整改、审查方复验：
+
+- **R2 审查整改**：第二轮审查 22 项（R2-01～R2-22），修复 16 项、接受不修复或残余登记 6 项（R2-12/14/19/20/21/22），翻转结论已全部回写审查追踪文件。
+- **S1-D42 补登**：新增弹窗按 scope 预选所属分组与分类（分组只读展示、分类隐藏输入），补登 C 矩阵 `C85`～`C87`（组件层），根 [design.md](design.md) 台账 S1-D42 关联验证栏已回写。
+- **R3-01**：槽位操作按钮尺寸 28×28——原样式规则特异性低于 antd 图标按钮类而输给 source order，拆分两条规则并叠加 `.ant-btn-icon-only` 提升特异性修复。
+- **R3-02**：Provider 拆分消除 3 条既有 react-refresh warning（纯移动、行为等价）。
+
+### 44.2 RED 证据
+
+- **R2-01 守卫用例**：行为 RED 先跑出，改码后 GREEN。
+- **R3-01 静态断言**：「槽位操作按钮尺寸规则特异性高于 antd 自身规则」先跑出 RED（`expected '' to contain 'width: 28px'`），改 CSS 后 GREEN。此处用静态证据而非行为 RED：jsdom 不做级联计算，antd 运行时注入样式在测试环境不存在，行为断言无法复现该缺陷，已如实披露。
+
+### 44.3 通过结果
+
+| 检查 | 结果 |
+|---|---|
+| `pnpm -F dy-medical-recognition exec vitest run` | **375 passed / 2 skipped（377，21 个文件）**，exit 0；审查方独立复跑一致；2 skip 为既有 C64/C65 缺口 |
+| `pnpm -F dy-medical-recognition lint` | exit 0，0 problems（react-refresh warning 由 3 降为 0） |
+| `pnpm -F dy-medical-recognition build`（tsc -b + vite） | exit 0 |
+| `git diff --check` | exit 0 |
+| GitNexus `analyze` → `detect-changes --scope unstaged` | 11 文件 / 74 符号 / 17 流程，critical；符号与流程全部落在本模块页面与其测试内 |
+
+### 44.4 宿主证据
+
+实施方在真实宿主复验并留证（`var/host-check-standardCatalog/17`～`21` 截屏与度量）：
+
+- 短名节点完整展示（216 = 216）且悬停不出气泡；200 字符长名截断（2095 > 216）且悬停气泡展示全文 200 字。
+- 槽位操作按钮 31 个全部 28×28（计算值 28px/28px）；树滚动区 `clientWidth 383 = scrollWidth 383`，无横向滚动。
+- 窄屏 900px 档位布局堆叠正常；双显示停用正交过滤 16 → 6。
+- S1-D42 两类预选（类型根预选当前类型首个启用分类、按 scope 预选分组）与「该分类下没有启用状态的分组」提示均取证；全程零写请求（7 个读 XHR）。
+
+### 44.5 残余与登记
+
+- **R2-12/19/21 接受不修复、R2-14/22 残余登记**：结论与理由已逐条写入 [阶段1-审查问题追踪.md](阶段1-审查问题追踪.md)，本轮不重复展开。
+- **120px 魔数**：宿主实测对齐通过，登记知悉。
+- **`scroll.y` CSS 变量**：antd 升级时需回归，登记知悉。
+- **Provider 拆分**：行为等价已由 375 项全量通过登记知悉。
+- **第 43 轮 43.5 的「阶段收口待负责人裁定」**：负责人已在 2026-09-24 本轮重开审查整改流程，随本轮整改与复验完成而闭环。

@@ -8,7 +8,7 @@ import { SubAppThemeProvider, setupSubAppDateLocale } from '@dy/micro-sdk/react'
 import { AuthProvider } from '@dy/auth-react'
 import { configureBaseComponents } from '@dy/components-base'
 import { AppRoutes } from './router'
-import { ApiClientProvider } from './contexts/ApiClientContext'
+import { ApiClientProvider } from './contexts/ApiClientProvider'
 import { loadRuntimeConfig, subAppBase } from './runtimeConfig'
 import './index.css'
 

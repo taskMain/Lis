@@ -1,20 +1,8 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react'
-import { createAuthenticatedAdapter } from '@dy/auth'
-import {
-  createMedicalRecognitionClient,
-  type MedicalRecognitionClient,
-} from '@dy/api-client-medical-recognition'
+import { createContext, useContext } from 'react'
+import type { MedicalRecognitionClient } from '@dy/api-client-medical-recognition'
 
-const ApiClientContext = createContext<MedicalRecognitionClient | null>(null)
-
-export function ApiClientProvider({ baseUrl, children }: { baseUrl: string; children: ReactNode }) {
-  const client = useMemo(() => {
-    const adapter = createAuthenticatedAdapter(baseUrl)
-    return createMedicalRecognitionClient(adapter)
-  }, [baseUrl])
-
-  return <ApiClientContext.Provider value={client}>{children}</ApiClientContext.Provider>
-}
+/** 供 Provider 文件注入 Client 的 Context；消费方使用 `useApiClientContext`。 */
+export const ApiClientContext = createContext<MedicalRecognitionClient | null>(null)
 
 export function useApiClientContext(): MedicalRecognitionClient {
   const client = useContext(ApiClientContext)

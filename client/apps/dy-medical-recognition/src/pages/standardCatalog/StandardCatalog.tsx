@@ -78,7 +78,7 @@ type ModalState =
   | { kind: 'editCategory'; category: StandardCategory }
   | { kind: 'createGroup'; categoryId: string }
   | { kind: 'editGroup'; group: StandardGroup }
-  | { kind: 'createItem'; categoryId: string | null }
+  | { kind: 'createItem'; scope: TreeScope }
   | { kind: 'editItemRemark'; item: StandardItem }
   | { kind: 'toggle'; kindName: '分类' | '分组' | '标准项目'; id: string; name: string; isValid: boolean }
 
@@ -128,6 +128,84 @@ function validTag(value: boolean | null) {
   if (value === true) return <Tag color='success'>启用</Tag>
   if (value === false) return <Tag>停用</Tag>
   return <Tag color='warning'>未知</Tag>
+}
+
+/**
+ * 按宽度截断判断的悬停全文（S1-D33、S1-D38）：量宽（scrollWidth > clientWidth）决定是否挂
+ * Tooltip，仅被截断的文本才挂气泡，完整可见的文本不产生气泡；气泡延迟 0.5 秒出现，
+ * 避免扫过即弹与遮挡邻行。截断只是展示层行为，文本原值仍完整参与本地过滤、搜索命中、
+ * 选择、写操作与派生判断。
+ *
+ * `title` 只收非空字符串；空占位（「—」等）不出气泡的判断只在 `ellipsisCell` 表达（审查 R2-07）。
+ * 量宽时机：元素挂接时执行一次、ResizeObserver 在容器尺寸变化时复测、`text` 变化时经
+ * measureRef 补测一次——同一挂载实例内改名变长时容器宽度不变、RO 不触发，必须随文本复测
+ * （审查 R2-01）。包裹状态切换会重建子树，回调 ref 在每次挂接时重建观测，解挂依赖 React 19
+ * 的 ref cleanup 语义断开（react 19.2 已核对，审查 R2-17）。`clientWidth` 为 0 表示元素瞬时
+ * 不可见（重排、缩放进行中），该次量宽作废，等待 ResizeObserver 的下一次通知。
+ * jsdom 无布局引擎，测试环境用宽度替身（见测试文件头；类名改动由 R2-18 守卫用例兜底）。
+ */
+function TruncatedText({ text, title, className }: { text: string; title: string; className: string }) {
+  const [truncated, setTruncated] = useState(false)
+  const measureRef = useRef<() => void>(() => {})
+  const attach = useCallback((element: HTMLSpanElement | null) => {
+    if (!element) return undefined
+    const measure = () => {
+      if (element.clientWidth === 0) return
+      setTruncated(element.scrollWidth > element.clientWidth)
+    }
+    measureRef.current = measure
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  // 文本变化但元素复用时容器宽度往往不变（RO 不触发），这里随 text 补一次复测（审查 R2-01）。
+  useEffect(() => { measureRef.current() }, [text])
+  const span = <span ref={attach} className={className}>{text}</span>
+  if (!truncated) return span
+  return <Tooltip title={title} mouseEnterDelay={0.5}>{span}</Tooltip>
+}
+
+/**
+ * 超长列的单行省略单元格（S1-D33）：文本按列宽截断省略；
+ * 被截断时悬停经 Tooltip 展示完整值、延迟 0.5 秒（S1-D38）。
+ * 空值渲染占位「—」且不挂气泡——占位判断只在这一处表达（审查 R2-07）。
+ */
+function ellipsisCell(value: string | null | undefined) {
+  if (value === null || value === undefined || value === '') {
+    return <span className='standard-catalog-cell-text'>{value ?? '—'}</span>
+  }
+  return <TruncatedText text={value} title={value} className='standard-catalog-cell-text' />
+}
+
+/**
+ * 树节点标题骨架（S1-D33）：名称在左按宽度截断省略（被截断时悬停全文，S1-D38），
+ * 状态标记与操作图标作为 `side` 放进最右固定槽位，常显且不随名称长度推移（审查 R2-05）。
+ */
+function catalogNodeTitle(name: string, side: ReactNode) {
+  return (
+    <span className='standard-catalog-node'>
+      <TruncatedText className='standard-catalog-node-name' text={name} title={name} />
+      <span className='standard-catalog-node-side'>{side}</span>
+    </span>
+  )
+}
+
+/**
+ * 列表「状态」合并列（S1-D39）：全链路启用为绿色「有效」；否则「无效」并悬停给出原因；
+ * 状态数据不完整为「未知」。派生仍走 isItemEffective，口径不变（审查 R2-06）。
+ */
+function renderItemStatus(data: CatalogData, item: StandardItem) {
+  const effective = isItemEffective(data, item)
+  if (effective === true) return <Tag color='success'>有效</Tag>
+  const hint = ineffectiveReasons(data, item).join('；') || '当前有效性未知'
+  return (
+    <Tooltip title={hint}>
+      <span tabIndex={0} aria-label={hint}>
+        <Tag color={effective === null ? 'warning' : undefined}>{effective === null ? '未知' : '无效'} <InfoCircleOutlined /></Tag>
+      </span>
+    </Tooltip>
+  )
 }
 
 function validateForm<Values extends object>(form: FormInstance<Values>): Promise<boolean> {
@@ -251,10 +329,11 @@ function GroupModal({ modal, data, open, onCancel, onSaved }: { modal: Extract<M
   </CatalogFormModal>
 }
 
-function CreateItemModal({ open, categoryId, data, onCancel, onSaved }: { open: boolean; categoryId: string | null; data: CatalogData; onCancel: () => void; onSaved: (request: () => Promise<void>) => Promise<void> }) {
+function CreateItemModal({ open, scope, data, onCancel, onSaved }: { open: boolean; scope: TreeScope; data: CatalogData; onCancel: () => void; onSaved: (request: () => Promise<void>) => Promise<void> }) {
   const client = useApiClientContext()
   const [form] = Form.useForm<ItemFormValues>()
   const [submitting, setSubmitting] = useState(false)
+  const { categoryId, groupId, itemType } = scope
   const selectedCategoryId = Form.useWatch('categoryId', form)
   // 分类选项文案与目录树同源：随行文案缺失时取枚举元数据，而不是本地兜底，避免同屏两种中文。
   const itemTypeOptions = useItemTypeOptions()
@@ -262,9 +341,18 @@ function CreateItemModal({ open, categoryId, data, onCancel, onSaved }: { open: 
   useEffect(() => {
     if (!open) return
     form.resetFields()
-    const firstCategory = data.categories.find((value) => value.id === categoryId && value.isValid === true) ?? data.categories.find((value) => value.isValid === true)
-    form.setFieldsValue({ categoryId: firstCategory?.id ?? '', groupId: '', code: '', name: '', remark: '' })
-  }, [categoryId, data.categories, form, open])
+    /*
+     * 预选口径：优先取左侧范围传入的分类；分类为空（类型根/全部范围打开）或该分类已停用时，
+     * 退回「当前类型下第一个启用分类」——只有类型也为空（全部范围）才取全局第一个启用分类，
+     * 避免在检查范围打开时把项目默认落到检验分类下。
+     */
+    const firstCategory =
+      data.categories.find((value) => value.id === categoryId && value.isValid === true) ??
+      data.categories.find((value) => value.isValid === true && (itemType === null || value.itemType === itemType))
+    // 左侧选到分组时把该分组一并预选；分组停用或不属于预选分类时不预选（停用分组在下拉中禁选）。
+    const initialGroup = data.groups.find((value) => value.id === groupId && value.categoryId === firstCategory?.id && value.isValid === true)
+    form.setFieldsValue({ categoryId: firstCategory?.id ?? '', groupId: initialGroup?.id ?? '', code: '', name: '', remark: '' })
+  }, [categoryId, data.categories, data.groups, form, groupId, itemType, open])
 
   const submit = async () => {
     if (!(await validateForm(form))) return
@@ -279,11 +367,15 @@ function CreateItemModal({ open, categoryId, data, onCancel, onSaved }: { open: 
 
   const categoryOptions = data.categories.map((value) => ({ value: value.id ?? '', label: `${itemTypeLabel(value.itemType, value.itemTypeText, itemTypeOptions)} · ${value.name ?? '未知名称'}${value.isValid === false ? '（已停用）' : ''}`, disabled: value.id === null || value.isValid !== true }))
   const groupOptions = data.groups.filter((value) => value.categoryId === selectedCategoryId).map((value) => ({ value: value.id ?? '', label: `${value.name ?? '未知名称'}${value.isValid === false ? '（已停用）' : ''}`, disabled: value.id === null || value.isValid !== true }))
+  // 所选分类有分组但全部停用时给出提示，区分「暂无分组」与「有分组但没有启用的」两种阻塞原因。
+  const categoryGroups = selectedCategoryId ? data.groups.filter((value) => value.categoryId === selectedCategoryId) : []
+  const hintNoEnabledGroup = categoryGroups.length > 0 && categoryGroups.every((value) => value.isValid !== true)
+  const groupExtra = '只列出所选分类下的分组；切换分类会清空已选分组。'
 
   return <CatalogFormModal title='新增标准项目' open={open} onCancel={onCancel} onSubmit={submit} submitting={submitting}>
     <Form form={form} layout='vertical'>
       <Form.Item label='所属分类' name='categoryId' rules={[{ required: true, message: '所属分类必填' }]}><Select options={categoryOptions} placeholder='选择启用状态的分类' onChange={() => form.setFieldsValue({ groupId: '' })} /></Form.Item>
-      <Form.Item label='所属分组' name='groupId' rules={[{ required: true, message: '所属分组必填' }]} extra='只列出所选分类下的分组；切换分类会清空已选分组。'><Select options={groupOptions} placeholder='选择启用状态的分组' notFoundContent='该分类下暂无分组' /></Form.Item>
+      <Form.Item label='所属分组' name='groupId' rules={[{ required: true, message: '所属分组必填' }]} extra={hintNoEnabledGroup ? `${groupExtra}该分类下没有启用状态的分组，暂无法新增项目。` : groupExtra}><Select options={groupOptions} placeholder='选择启用状态的分组' notFoundContent='该分类下暂无分组' /></Form.Item>
       <div className='standard-catalog-form-grid'>
         <Form.Item label='标准项目编码' name='code' rules={[{ required: true, whitespace: true, message: '编码必填' }]}><Input placeholder='全平台唯一' /></Form.Item>
         <Form.Item label='标准项目名称' name='name' rules={[{ required: true, whitespace: true, message: '名称必填' }]}><Input /></Form.Item>
@@ -368,7 +460,9 @@ export function StandardCatalog() {
   const { data, loading, failedSources, reload } = useCatalogData(client)
   const [scope, setScope] = useState<TreeScope>(DEFAULT_SCOPE)
   const [treeKeyword, setTreeKeyword] = useState('')
-  const [showDisabled, setShowDisabled] = useState(true)
+  // 树侧显示停用：控制节点可见性与选中回退；与列表侧 ItemFilter.showDisabled 正交——
+  // 后者只按项目自身 IsValid 过滤右表。两侧 UI 文案同为「显示停用」（S1-D36），代码层以名字区分（审查 R2-03）。
+  const [showDisabledNodes, setShowDisabledNodes] = useState(true)
   const [collapsedKeys, setCollapsedKeys] = useState<Key[]>([])
   const [filter, setFilter] = useState<ItemFilter>(EMPTY_ITEM_FILTER)
   const [modal, setModal] = useState<ModalState>({ kind: 'none' })
@@ -376,71 +470,98 @@ export function StandardCatalog() {
   const categoryById = useMemo(() => new Map(data.categories.map((value) => [value.id, value])), [data.categories])
   const groupById = useMemo(() => new Map(data.groups.map((value) => [value.id, value])), [data.groups])
   /*
-   * 目录树节点、范围文案与「类型」列只拿得到枚举数值，没有随行文案，因此中文取枚举元数据
-   * （服务端枚举声明）；元数据不可用或尚未到达时用兜底选项，列表行则优先用行内的 `itemTypeText`。
+   * 目录树节点与范围文案只拿得到枚举数值，没有随行文案，因此中文取枚举元数据
+   * （服务端枚举声明）；元数据不可用或尚未到达时用兜底选项。列表「类型」列已按 S1-D40 移除，
+   * 枚举文案来源规则不再涉及列表列。
    */
   const itemTypeOptions = useItemTypeOptions()
-  const activeScope = useMemo(() => resolveTreeScope(data, scope, showDisabled), [data, scope, showDisabled])
+  // 与 itemTypeOptions 组合的 options 每次渲染新建会让 Segmented 全量子树重渲染
+  // （见 useItemTypeOptions 返回值注释，审查 R2-15）。
+  const typeSegmentedOptions = useMemo<{ value: string | ItemTypeValue; label: string }[]>(() => [{ value: 'all', label: '全部' }, ...itemTypeOptions], [itemTypeOptions])
+  const activeScope = useMemo(() => resolveTreeScope(data, scope, showDisabledNodes), [data, scope, showDisabledNodes])
   const selectedCategory = activeScope.categoryId === null ? null : categoryById.get(activeScope.categoryId) ?? null
   const selectedGroup = activeScope.groupId === null ? null : groupById.get(activeScope.groupId) ?? null
   const visibleItems = useMemo(() => filterItems(data, activeScope, filter), [activeScope, data, filter])
-  const visibleCategories = useMemo(() => visibleCatalogCategories(data, showDisabled, treeKeyword), [data, showDisabled, treeKeyword])
+  const visibleCategories = useMemo(() => visibleCatalogCategories(data, showDisabledNodes, treeKeyword), [data, showDisabledNodes, treeKeyword])
 
   const treeData = useMemo<TreeDataNode[]>(() => {
     const types = activeScope.itemType === null ? ITEM_TYPES : [activeScope.itemType]
-    return types.map((itemType) => ({
-      key: `t:${itemType}`,
-      title: <span className='standard-catalog-node'><span className='standard-catalog-node-name'>{itemTypeLabel(itemType, null, itemTypeOptions)}</span><span className='standard-catalog-node-actions'><Tooltip title={`新增${itemTypeLabel(itemType, null, itemTypeOptions)}分类`}><Button type='text' size='small' icon={<PlusOutlined />} aria-label={`新增${itemTypeLabel(itemType, null, itemTypeOptions)}分类`} onClick={(event) => { event.stopPropagation(); setModal({ kind: 'createCategory', itemType }) }} /></Tooltip></span></span>,
-      children: visibleCategories.filter(({ category }) => category.itemType === itemType).map(({ category, groups }) => ({
-        key: `c:${category.id ?? `unknown-${category.name ?? 'category'}`}`,
-        title: <span className='standard-catalog-node'><span className='standard-catalog-node-name' title={category.name ?? undefined}>{category.name ?? '未知名称'}</span>{validTag(category.isValid)}{nodeActions(category, '分类', setModal)}</span>,
-        children: groups.map((group) => ({ key: `g:${group.id ?? `unknown-${group.name ?? 'group'}`}`, title: <span className='standard-catalog-node'><span className='standard-catalog-node-name' title={group.name ?? undefined}>{group.name ?? '未知名称'}</span>{validTag(group.isValid)}{nodeActions(group, '分组', setModal)}</span> })),
-      })),
-    }))
+    /*
+     * 节点标题为固定槽位单行（S1-D33）：名称在左按宽度截断省略、被截断时悬停 Tooltip 全名
+     * 且延迟 0.5 秒（S1-D38）；状态标记与操作图标放进最右 `.standard-catalog-node-side`
+     * 槽位，常显且不随名称长度推移。
+     */
+    return types.map((itemType) => {
+      const typeLabel = itemTypeLabel(itemType, null, itemTypeOptions)
+      return {
+        key: `t:${itemType}`,
+        title: catalogNodeTitle(typeLabel, <Tooltip title={`新增${typeLabel}分类`}><Button type='text' size='small' icon={<PlusOutlined />} aria-label={`新增${typeLabel}分类`} onClick={(event) => { event.stopPropagation(); setModal({ kind: 'createCategory', itemType }) }} /></Tooltip>),
+        children: visibleCategories.filter(({ category }) => category.itemType === itemType).map(({ category, groups }) => ({
+          key: `c:${category.id ?? `unknown-${category.name ?? 'category'}`}`,
+          title: catalogNodeTitle(category.name ?? '未知名称', <>{validTag(category.isValid)}{nodeActions(category, '分类', setModal)}</>),
+          children: groups.map((group) => ({ key: `g:${group.id ?? `unknown-${group.name ?? 'group'}`}`, title: catalogNodeTitle(group.name ?? '未知名称', <>{validTag(group.isValid)}{nodeActions(group, '分组', setModal)}</>) })),
+        })),
+      }
+    })
   }, [activeScope.itemType, itemTypeOptions, visibleCategories])
 
+  // 展开键保留全部类型根（含当前范围未渲染的另一类型根）：键集与 rc-tree 展开动画的对比行为耦合，
+  // 收窄键集会使其产生空的 motion 节点组、子节点在 jsdom 测试环境挂载为空（审查 R2-16 经实测不采纳）。
   const expandedKeys = useMemo(() => [...ITEM_TYPES.map((itemType) => `t:${itemType}`), ...data.categories.map((category) => `c:${category.id ?? `unknown-${category.name ?? 'category'}`}`)].filter((key) => !collapsedKeys.includes(key)), [collapsedKeys, data.categories])
   const reloadAndResolve = useCallback(async () => {
     const nextData = await reload()
-    setScope((current) => resolveTreeScope(nextData, current, showDisabled))
-  }, [reload, showDisabled])
+    setScope((current) => resolveTreeScope(nextData, current, showDisabledNodes))
+  }, [reload, showDisabledNodes])
   const saveAndReload = async (request: () => Promise<void>) => { await request(); setModal({ kind: 'none' }); await reloadAndResolve() }
   const dependencyReady = failedSources.size === 0 && !loading
 
-  const columns: TableColumnsType<StandardItem> = [
-    { title: '编码', dataIndex: 'code', width: 180, render: (value: string | null) => value ?? '—' },
-    { title: '名称', dataIndex: 'name', width: 180, render: (value: string | null) => value ?? '—' },
-    { title: '类型', width: 80, render: (_, item) => itemTypeLabel(item.itemType, item.itemTypeText, itemTypeOptions) },
-    { title: '分类', width: 150, render: (_, item) => categoryById.get(item.categoryId)?.name ?? '—' },
-    { title: '分组', width: 150, render: (_, item) => groupById.get(item.groupId)?.name ?? '—' },
-    { title: '状态', width: 80, render: (_, item) => validTag(item.isValid) },
-    { title: '当前有效', width: 105, render: (_, item) => { const effective = isItemEffective(data, item); if (effective === true) return <Tag color='success'>有效</Tag>; const reasons = ineffectiveReasons(data, item); return <Tooltip title={reasons.join('；') || '当前有效性未知'}><span tabIndex={0} aria-label={reasons.join('；') || '当前有效性未知'}><Tag color={effective === null ? 'warning' : undefined}>{effective === null ? '未知' : '无效'} <InfoCircleOutlined /></Tag></span></Tooltip> } },
-    { title: '备注', dataIndex: 'remark', width: 180, ellipsis: true, render: (value: string | null) => value ?? '—' },
+  const columns = useMemo<TableColumnsType<StandardItem>>(() => [
+    // 编码、名称、分类、分组、备注五列统一单行省略 + 被截断时悬停 Tooltip 完整值（S1-D33、S1-D38）。
+    { title: '编码', dataIndex: 'code', width: 180, className: 'standard-catalog-cell-ellipsis', render: ellipsisCell },
+    { title: '名称', dataIndex: 'name', width: 180, className: 'standard-catalog-cell-ellipsis', render: ellipsisCell },
+    { title: '分类', width: 150, className: 'standard-catalog-cell-ellipsis', render: (_, item) => ellipsisCell(categoryById.get(item.categoryId)?.name) },
+    { title: '分组', width: 150, className: 'standard-catalog-cell-ellipsis', render: (_, item) => ellipsisCell(groupById.get(item.groupId)?.name) },
+    // 状态合并列（S1-D39）。
+    { title: '状态', width: 105, render: (_, item) => renderItemStatus(data, item) },
+    { title: '备注', dataIndex: 'remark', width: 180, className: 'standard-catalog-cell-ellipsis', render: ellipsisCell },
     { title: '操作', width: 92, fixed: 'right', render: (_, item) => <Space size={2}><Tooltip title='修改备注'><Button type='text' size='small' icon={<EditOutlined />} aria-label={`修改备注：${item.name ?? '未知名称'}`} disabled={item.id === null} onClick={() => setModal({ kind: 'editItemRemark', item })} /></Tooltip><Tooltip title={item.isValid === true ? '停用项目' : item.isValid === false ? '启用项目' : '状态未知'}><Button type='text' size='small' danger={item.isValid === true} icon={item.isValid === true ? <StopOutlined /> : <CheckCircleOutlined />} aria-label={`${item.isValid === true ? '停用' : '启用'}项目：${item.name ?? '未知名称'}`} disabled={item.id === null || item.isValid === null} onClick={() => item.id !== null && item.isValid !== null && setModal({ kind: 'toggle', kindName: '标准项目', id: item.id, name: item.name ?? '未知名称', isValid: item.isValid })} /></Tooltip></Space> },
-  ]
+  ], [categoryById, data, groupById])
+
+  // 横向滚动宽度取列宽之和：加列只改列定义一处（审查 R2-10）。
+  const tableScrollX = useMemo(() => columns.reduce((total, column) => total + (typeof column.width === 'number' ? column.width : 0), 0), [columns])
 
   const scopeText = [activeScope.itemType === null ? null : itemTypeLabel(activeScope.itemType, null, itemTypeOptions), selectedCategory?.name, selectedGroup?.name].filter((value): value is string => Boolean(value)).join(' / ') || '全部'
   const selectedKeys = activeScope.groupId !== null ? [`g:${activeScope.groupId}`] : activeScope.categoryId !== null ? [`c:${activeScope.categoryId}`] : activeScope.itemType !== null ? [`t:${activeScope.itemType}`] : []
 
   return <div className='standard-catalog-page'>
-    <div className='standard-catalog-header'><div><Typography.Title level={2}>标准项目目录维护</Typography.Title><Typography.Text type='secondary'>分类、分组与标准项目</Typography.Text></div><Space><Tooltip title='重新读取目录'><Button icon={<ReloadOutlined />} aria-label='重新读取目录' loading={loading} onClick={() => void reloadAndResolve()} /></Tooltip><Button type='primary' icon={<PlusOutlined />} disabled={!dependencyReady || (selectedCategory !== null && selectedCategory.isValid !== true)} onClick={() => setModal({ kind: 'createItem', categoryId: activeScope.categoryId })}>新增项目</Button></Space></div>
+    <div className='standard-catalog-header'><div><Typography.Title level={2}>标准项目目录维护</Typography.Title><Typography.Text type='secondary'>分类、分组与标准项目</Typography.Text></div><Space><Tooltip title='重新读取目录'><Button icon={<ReloadOutlined />} aria-label='重新读取目录' loading={loading} onClick={() => void reloadAndResolve()} /></Tooltip><Button type='primary' icon={<PlusOutlined />} disabled={!dependencyReady || (selectedCategory !== null && selectedCategory.isValid !== true)} onClick={() => setModal({ kind: 'createItem', scope: activeScope })}>新增项目</Button></Space></div>
     {failedSources.size > 0 && <Alert type='warning' showIcon message='目录数据待刷新' description='部分目录读取失败，已有数据保留；依赖未就绪的维护操作暂不可用。' action={<Button size='small' onClick={() => void reloadAndResolve()}>重试</Button>} />}
     <div className='standard-catalog-layout'>
       <section className='standard-catalog-directory' aria-label='标准目录'>
-        <div className='standard-catalog-section-header'><Typography.Title level={5}>目录</Typography.Title><Checkbox checked={showDisabled} onChange={(event) => { const checked = event.target.checked; setShowDisabled(checked); setScope((current) => resolveTreeScope(data, current, checked)) }}>显示停用</Checkbox></div>
+        <div className='standard-catalog-section-header'><Typography.Title level={5}>目录</Typography.Title><Checkbox checked={showDisabledNodes} onChange={(event) => { const checked = event.target.checked; setShowDisabledNodes(checked); setScope((current) => resolveTreeScope(data, current, checked)) }}>显示停用</Checkbox></div>
         <Input prefix={<SearchOutlined />} placeholder='分类或分组名称' aria-label='搜索分类或分组名称' allowClear value={treeKeyword} onChange={(event) => setTreeKeyword(event.target.value)} />
-        <Segmented<string | ItemTypeValue> block aria-label='目录项目类型' value={activeScope.itemType ?? 'all'} options={[{ value: 'all', label: '全部' }, ...itemTypeOptions]} onChange={(value) => setScope({ itemType: value === 'all' ? null : isMedicalItemTypeValue(value) ? value : null, categoryId: null, groupId: null })} />
+        <Segmented<string | ItemTypeValue> block aria-label='目录项目类型' value={activeScope.itemType ?? 'all'} options={typeSegmentedOptions} onChange={(value) => setScope({ itemType: value === 'all' ? null : isMedicalItemTypeValue(value) ? value : null, categoryId: null, groupId: null })} />
         <div className='standard-catalog-tree-scroll'><Spin spinning={loading && data.categories.length === 0}><Tree aria-label='分类分组目录树' blockNode treeData={treeData} expandedKeys={expandedKeys} selectedKeys={selectedKeys} autoExpandParent={false} onExpand={(_, info) => setCollapsedKeys((keys) => info.expanded ? keys.filter((key) => key !== info.node.key) : [...keys, info.node.key])} onSelect={(keys) => { const key = String(keys[0] ?? ''); if (key.startsWith('t:')) setScope({ itemType: Number(key.slice(2)) === 0 ? 0 : 1, categoryId: null, groupId: null }); if (key.startsWith('c:')) { const category = data.categories.find((value) => value.id === key.slice(2)); if (category?.id !== null && category?.id !== undefined && category?.itemType !== null) setScope({ itemType: category.itemType, categoryId: category.id, groupId: null }) } if (key.startsWith('g:')) { const group = data.groups.find((value) => value.id === key.slice(2)); const category = group ? categoryById.get(group.categoryId) : null; if (group?.id !== null && group?.id !== undefined && category?.id !== null && category?.id !== undefined && category?.itemType !== null) setScope({ itemType: category.itemType, categoryId: category.id, groupId: group.id }) } }} /></Spin>{treeData.every((node) => !node.children || node.children.length === 0) && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description='没有符合条件的分类或分组' />}</div>
       </section>
       <section className='standard-catalog-list' aria-label='标准项目列表'>
-        <div className='standard-catalog-list-header'><div><Typography.Title level={5}>标准项目列表</Typography.Title><Typography.Text type='secondary'>范围：{scopeText} · {visibleItems.length} 项</Typography.Text></div></div>
-        <div className='standard-catalog-filters'><Input placeholder='编码' aria-label='标准项目编码' allowClear value={filter.code} onChange={(event) => setFilter({ ...filter, code: event.target.value })} /><Input placeholder='名称' aria-label='标准项目名称' allowClear value={filter.name} onChange={(event) => setFilter({ ...filter, name: event.target.value })} /><Segmented<ItemFilter['status']> aria-label='标准项目自身状态' value={filter.status} options={[{ value: 'all', label: '全部' }, { value: 'enabled', label: '启用' }, { value: 'disabled', label: '停用' }]} onChange={(status) => setFilter({ ...filter, status })} /><Button icon={<ReloadOutlined />} aria-label='重置列表筛选' onClick={() => setFilter(EMPTY_ITEM_FILTER)}>重置</Button></div>
-        <Table rowKey={(item) => item.id ?? `${item.code ?? 'item'}-${item.name ?? 'unknown'}`} size='small' columns={columns} dataSource={visibleItems} loading={loading && data.items.length === 0} scroll={{ x: 1320 }} pagination={false} locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description='没有符合条件的标准项目' /> }} />
+        {/* 标题行只保留标题；范围与计数移到列表区域底部右下角汇总条（S1-D35）。 */}
+        <div className='standard-catalog-list-header'><Typography.Title level={5}>标准项目列表</Typography.Title></div>
+        {/* 筛选条（S1-D36）：单一关键字框 + 「显示停用」+ 紧跟条件组的 text 小号重置，一行左对齐。 */}
+        <div className='standard-catalog-filters'>
+          <Input placeholder='编码或名称' aria-label='编码或名称' allowClear value={filter.keyword} onChange={(event) => setFilter({ ...filter, keyword: event.target.value })} />
+          <Checkbox checked={filter.showDisabled} onChange={(event) => setFilter({ ...filter, showDisabled: event.target.checked })}>显示停用</Checkbox>
+          <Button type='text' size='small' aria-label='重置列表筛选' onClick={() => setFilter(EMPTY_ITEM_FILTER)}>重置</Button>
+        </div>
+        {/* 列表卡片（S1-D37）：高度与树区域齐平并撑满剩余视口、有外边框，表体内部滚动；汇总条钉右下角。 */}
+        <div className='standard-catalog-list-card'>
+          <Table rowKey={(item) => item.id ?? `${item.code ?? 'item'}-${item.name ?? 'unknown'}`} size='small' columns={columns} dataSource={visibleItems} loading={loading && data.items.length === 0} scroll={{ x: tableScrollX, y: 'var(--standard-catalog-table-body-y)' }} tableLayout='fixed' pagination={false} locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description='没有符合条件的标准项目' /> }} />
+          <div className='standard-catalog-list-summary'>范围：{scopeText} · 共 {visibleItems.length} 项</div>
+        </div>
       </section>
     </div>
     {modal.kind === 'createCategory' || modal.kind === 'editCategory' ? <CategoryModal modal={modal} data={data} open onCancel={() => setModal({ kind: 'none' })} onSaved={saveAndReload} /> : null}
     {modal.kind === 'createGroup' || modal.kind === 'editGroup' ? <GroupModal modal={modal} data={data} open onCancel={() => setModal({ kind: 'none' })} onSaved={saveAndReload} /> : null}
-    {modal.kind === 'createItem' ? <CreateItemModal open categoryId={modal.categoryId} data={data} onCancel={() => setModal({ kind: 'none' })} onSaved={saveAndReload} /> : null}
+    {modal.kind === 'createItem' ? <CreateItemModal open scope={modal.scope} data={data} onCancel={() => setModal({ kind: 'none' })} onSaved={saveAndReload} /> : null}
     {modal.kind === 'editItemRemark' ? <ItemRemarkModal open item={modal.item} onCancel={() => setModal({ kind: 'none' })} onSaved={saveAndReload} /> : null}
     {modal.kind === 'toggle' ? <ToggleModal open modal={modal} onCancel={() => setModal({ kind: 'none' })} onSaved={saveAndReload} /> : null}
   </div>
