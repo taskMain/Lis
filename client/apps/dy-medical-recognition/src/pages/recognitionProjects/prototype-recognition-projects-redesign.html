@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型v3·互认项目页面改版（横向列视图全平铺 + 弹窗多选新增）</title>
+<style>
+  :root{
+    --primary:#7c3aed; --primary-weak:#f3eefe;
+    --ink:#1f2430; --ink-2:#5b6170; --ink-3:#9aa0ae;
+    --line:#e8e9ee; --bg:#f6f7f9; --card:#ffffff;
+    --ok:#16a34a; --ok-bg:#eaf7ee; --off:#b45309; --off-bg:#fdf1e3;
+    --none:#64748b; --none-bg:#f1f3f6; --danger:#dc2626;
+    --grid:#d9dbe1; --grid-soft:#e9eaef;
+    --radius:10px; --shadow:0 1px 2px rgba(20,24,40,.05),0 4px 16px rgba(20,24,40,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-tap-highlight-color:transparent}
+  body{font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);font-size:13px;touch-action:manipulation}
+  button{font-family:inherit;cursor:pointer}
+  button:focus-visible,a:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:6px}
+  .num{font-variant-numeric:tabular-nums}
+  .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+  header{position:sticky;top:0;z-index:30;background:var(--card);border-bottom:1px solid var(--line);padding:10px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header .title{font-size:17px;font-weight:700}
+  header .subtitle{color:var(--ink-3);font-size:12px}
+  header .badge-proto{font-size:11px;color:var(--danger);border:1px dashed var(--danger);border-radius:6px;padding:2px 8px;font-weight:600}
+  .org{margin-left:auto;color:var(--ink-2);font-size:12px;display:flex;align-items:center;gap:6px}
+  .org code{background:var(--none-bg);border-radius:4px;padding:1px 6px}
+
+  main{padding:16px 20px 60px;max-width:1680px;margin:0 auto}
+  .proto-note{background:#fffbeb;border:1px solid #fde68a;border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;color:#92400e;font-size:12px;line-height:1.7}
+
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;box-shadow:var(--shadow)}
+  .toolbar input[type="search"]{height:32px;border:1px solid var(--line);border-radius:8px;padding:0 10px;font-size:13px;background:#fff;color:var(--ink);width:220px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{border:none;background:#fff;padding:0 12px;height:32px;font-size:13px;color:var(--ink-2)}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--primary-weak);color:var(--primary);font-weight:600}
+  .spacer{flex:1}
+  .btn{height:32px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:13px;color:var(--ink)}
+  .btn:hover{border-color:var(--primary);color:var(--primary)}
+  .btn-primary{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+  .btn-primary:hover{background:#6d28d9;color:#fff}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-sm{height:28px;padding:0 10px;font-size:12px;border-radius:6px}
+  .btn-link{border:none;background:none;color:var(--primary);padding:2px 4px;font-size:12px}
+  .btn-link.warn{color:var(--danger)}
+  .btn-link:disabled{color:var(--ink-3);cursor:not-allowed}
+
+  .tag{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;line-height:1;white-space:nowrap;flex:none}
+  .tag.ok{color:var(--ok);background:var(--ok-bg)}
+  .tag.off{color:var(--off);background:var(--off-bg)}
+  .tag.none{color:var(--none);background:var(--none-bg)}
+  .tag.cat-off{color:var(--danger);background:#fdecec}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+  /* ===== 横向列视图（四栏全平铺，无折叠） ===== */
+  .cascade-wrap{overflow-x:auto;margin-top:14px;border-radius:var(--radius);box-shadow:var(--shadow)}
+  .cascade{display:grid;grid-template-columns:88px 186px 208px minmax(560px,1fr);min-width:1060px;background:var(--card);border:1px solid var(--grid)}
+  .cell{border-right:1px solid var(--grid);border-bottom:1px solid var(--grid-soft);padding:10px 12px;min-width:0}
+  .cell-type{background:#e8ebf4;color:#2b3350;font-weight:700;font-size:14px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:6px;padding-top:16px;cursor:pointer;user-select:none}
+  .cell-type .cnt{font-size:11px;font-weight:400;color:var(--ink-3);background:#fff;border-radius:999px;padding:1px 8px}
+  .cell-cat{background:#f3f4fa;font-weight:600;color:#3c4356;cursor:pointer;user-select:none;display:flex;flex-direction:column;gap:4px}
+  .cell-cat .c-code{font-size:11px;color:var(--ink-3);font-weight:400}
+  .cell-cat .c-cnt{font-size:11px;color:var(--ink-3);font-weight:400}
+  .cell-grp{font-weight:600;display:flex;flex-direction:column;gap:4px;cursor:pointer;user-select:none}
+  .cell-grp .g-code{font-size:11px;color:var(--ink-3);font-weight:400}
+  .cell-items{padding:4px 8px;display:flex;flex-direction:column;gap:2px}
+  .cell.hl{background:var(--primary-weak)}
+  .cell-type.hl{background:#e2d9fb}
+  .i-line{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;min-width:0}
+  .i-line:hover{background:#faf9ff}
+  .i-name{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .i-name .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .i-name .c{font-size:11px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .days-val{cursor:text;border:1px solid transparent;border-radius:4px;padding:2px 6px;display:inline-flex;gap:3px;align-items:baseline;flex:none}
+  .days-val:hover{border-color:#c9bcf5;background:var(--primary-weak)}
+  .days-val .unit{color:var(--ink-3);font-size:12px}
+  .days-input{width:72px;height:26px;border:2px solid var(--primary);border-radius:4px;padding:0 6px;font-size:13px;flex:none}
+  .reason{color:var(--danger);font-size:12px;flex:none;max-width:180px}
+  .empty-cell{color:var(--ink-3)}
+  .ops{flex:none;white-space:nowrap}
+
+  /* ===== 弹窗 ===== */
+  .overlay{position:fixed;inset:0;background:rgba(15,23,42,.48);z-index:80;display:flex;align-items:center;justify-content:center;padding:24px}
+  .overlay[hidden]{display:none}
+  .modal{background:#fff;border-radius:14px;width:min(1180px,96vw);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3);overscroll-behavior:contain}
+  .modal>header{position:static;border-bottom:1px solid var(--line);border-radius:14px 14px 0 0}
+  .modal .m-close{border:none;background:none;font-size:18px;color:var(--ink-3);margin-left:auto}
+  .modal .m-body{overflow:auto;padding:12px 16px;flex:1}
+  .modal .m-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .modal .m-toolbar input[type="search"]{height:30px;border:1px solid var(--line);border-radius:8px;padding:0 10px;width:200px}
+  .modal footer{position:static;border-top:1px solid var(--line);border-radius:0 0 14px 14px;display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card)}
+  .modal footer .days-field{display:flex;align-items:center;gap:8px;color:var(--ink-2)}
+  .modal footer input{width:90px;height:32px;border:1px solid var(--line);border-radius:8px;padding:0 10px;font-size:13px}
+  .check{width:15px;height:15px;accent-color:var(--primary);cursor:pointer;flex:none}
+  .gchk-row{display:flex;align-items:center;gap:6px}
+  .m-cat-hint{font-size:11px;color:var(--ink-3)}
+
+  .state-panel{margin-top:16px;background:#0f172a;color:#a5f3fc;border-radius:var(--radius);padding:12px 14px;font-family:Consolas,Menlo,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;max-height:200px;overflow:auto}
+  .state-panel .cap{color:#67e8f9;font-weight:700;margin-bottom:6px}
+  .toast{position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:100;background:var(--ink);color:#fff;padding:9px 18px;border-radius:10px;font-size:13px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .2s}
+  .toast.show{opacity:1}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <span class="title">互认项目</span>
+  <span class="subtitle">标准项目互认配置</span>
+  <span class="badge-proto">原型 v3 · 非生产代码</span>
+  <span class="org">组织编码：<code>01</code>（可信上下文）</span>
+</header>
+
+<main>
+  <div class="proto-note">
+    一次性原型（用完即弃），双击即可打开，数据全为虚构。本版对齐确认的原则：<strong>横向列视图全平铺、零折叠控件</strong>——类型｜分类｜分组｜项目四栏同时摊开，纵向位置表达从属关系，项目多时整页滚动；点击左侧任意层级会高亮它的下级。<strong>新增配置走弹窗</strong>，弹窗内是同一套平铺列视图加复选框（可整组勾选）。
+  </div>
+
+  <div class="toolbar">
+    <input type="search" id="q" placeholder="搜索编码或名称…" autocomplete="off">
+    <div class="seg" id="statusSeg" role="tablist" aria-label="状态筛选">
+      <button data-s="all" class="on">全部</button>
+      <button data-s="enabled">已启用</button>
+      <button data-s="disabled">已停用</button>
+      <button data-s="none">未配置</button>
+    </div>
+    <div class="spacer"></div>
+    <span id="summary" style="color:var(--ink-3);font-size:12px"></span>
+    <button class="btn btn-primary" id="addBtn">＋ 新增配置</button>
+  </div>
+
+  <div class="cascade-wrap" id="cascadeWrap"><div class="cascade" id="cascade"></div></div>
+
+  <div class="state-panel"><div class="cap">// 当前状态（每次操作后回显）</div><div id="stateDump"></div></div>
+</main>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle" tabindex="-1">
+    <header>
+      <span class="title" id="mTitle" style="font-size:15px">新增互认配置</span>
+      <span class="subtitle">仅列出当前未配置且目录有效的标准项目</span>
+      <button class="m-close" id="mClose" aria-label="关闭">✕</button>
+    </header>
+    <div class="m-body">
+      <div class="m-toolbar">
+        <input type="search" id="mq" placeholder="在可选项目中搜索…" autocomplete="off">
+        <button class="btn btn-sm" id="mSelAll">全选</button>
+        <button class="btn btn-sm" id="mClear">清空选择</button>
+        <span style="color:var(--ink-3);font-size:12px">勾选项目，或在分组栏整组勾选</span>
+      </div>
+      <div class="cascade-wrap"><div class="cascade" id="mCascade"></div></div>
+    </div>
+    <footer>
+      <span>已选 <strong class="num" id="mSelCount">0</strong> 项</span>
+      <span style="flex:1"></span>
+      <label class="days-field" for="mDays">统一可互认时间（天）<input id="mDays" type="number" min="1" step="1" value="30" class="num"></label>
+      <button class="btn" id="mCancel">取消</button>
+      <button class="btn btn-primary" id="mOk">确定新增</button>
+    </footer>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= 虚构数据 ================= */
+const TYPES=[{id:'lab',name:'检验'},{id:'exam',name:'检查'}];
+const CATEGORIES=[
+  {id:'c1',type:'lab', name:'血液学检验', code:'S1-C35'},
+  {id:'c2',type:'lab', name:'临床生化检验', code:'S1-RETRY-CAT-20260914-001111'},
+  {id:'c3',type:'exam',name:'放射影像检查', code:'S1-EX-C3'},
+  {id:'c4',type:'exam',name:'超声检查',     code:'S1-EX-C4'},
+];
+const GROUPS=[
+  {id:'g1',cat:'c1',name:'血常规组合', code:'c34_100%_GRP'},
+  {id:'g2',cat:'c1',name:'贫血筛查组合', code:'S1-ANEMIA-GRP'},
+  {id:'g3',cat:'c2',name:'肝功能组合', code:'S1-RETRY-GRP-20260914-001'},
+  {id:'g4',cat:'c2',name:'肾功能组合', code:'S1-KIDNEY-GRP'},
+  {id:'g5',cat:'c3',name:'胸部摄影组合', code:'S1-CHEST-GRP'},
+  {id:'g6',cat:'c3',name:'CT 平扫组合', code:'S1-CT-GRP'},
+  {id:'g7',cat:'c4',name:'腹部超声组合', code:'S1-US-GRP'},
+];
+const ITEMS=[
+  {code:'S1-D35-ITEM-20260915-001', name:'全血细胞计数+五分类', type:'lab', cat:'c1', grp:'g1', status:'enabled',  days:70, reason:null},
+  {code:'S1-D35-ITEM-20260915-002', name:'血红蛋白测定',        type:'lab', cat:'c1', grp:'g1', status:'enabled',  days:30, reason:null},
+  {code:'S1-D35-ITEM-20260915-003', name:'网织红细胞计数',      type:'lab', cat:'c1', grp:'g1', status:'disabled', days:30, reason:null},
+  {code:'S1-ANEMIA-ITEM-001',       name:'叶酸测定',            type:'lab', cat:'c1', grp:'g2', status:null, days:null, reason:null},
+  {code:'S1-ANEMIA-ITEM-002',       name:'维生素 B12 测定',     type:'lab', cat:'c1', grp:'g2', status:null, days:null, reason:null},
+  {code:'S1-RETRY-ITEM-001',        name:'丙氨酸氨基转移酶',    type:'lab', cat:'c2', grp:'g3', status:'enabled',  days:30, reason:null},
+  {code:'S1-RETRY-ITEM-002',        name:'天门冬氨酸氨基转移酶',type:'lab', cat:'c2', grp:'g3', status:'enabled',  days:30, reason:'所属分组「肾功能组合」已停用'},
+  {code:'S1-RETRY-ITEM-003',        name:'总胆红素测定',        type:'lab', cat:'c2', grp:'g3', status:'disabled', days:30, reason:null},
+  {code:'S1-KIDNEY-ITEM-001',       name:'肌酐测定',            type:'lab', cat:'c2', grp:'g4', status:null, days:null, reason:null},
+  {code:'S1-KIDNEY-ITEM-002',       name:'尿素测定',            type:'lab', cat:'c2', grp:'g4', status:null, days:null, reason:null},
+  {code:'S1-CHEST-ITEM-001',        name:'胸部正位 DR',         type:'exam',cat:'c3', grp:'g5', status:'enabled',  days:90, reason:null},
+  {code:'S1-CT-ITEM-001',           name:'头颅 CT 平扫',        type:'exam',cat:'c3', grp:'g6', status:null, days:null, reason:null},
+  {code:'S1-CT-ITEM-002',           name:'胸部 CT 平扫',        type:'exam',cat:'c3', grp:'g6', status:null, days:null, reason:null},
+  {code:'S1-US-ITEM-001',           name:'腹部彩超（肝胆胰脾）',type:'exam',cat:'c4', grp:'g7', status:'enabled',  days:15, reason:null},
+  {code:'S1-US-ITEM-002',           name:'甲状腺及颈部淋巴结彩超', type:'exam',cat:'c4', grp:'g7', status:'disabled', days:15, reason:null},
+];
+const TYPE_NAME=Object.fromEntries(TYPES.map(t=>[t.id,t.name]));
+
+/* ================= 页面状态 ================= */
+const state={
+  query:'', statusFilter:'all', editing:null,
+  modal:false, mQuery:'', mSel:new Set(),
+  items:ITEMS.map(i=>({...i})),
+};
+const $=id=>document.getElementById(id);
+const cascade=$('cascade'), mCascade=$('mCascade'), overlay=$('overlay');
+
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2400)}
+function dumpState(){
+  $('stateDump').textContent=JSON.stringify({
+    搜索:state.query||null, 状态筛选:state.statusFilter, 行内编辑中:state.editing,
+    弹窗打开:state.modal, 弹窗搜索:state.mQuery||null, 弹窗已选:[...state.mSel],
+    列表:state.items.map(i=>[i.code,i.status??'未配置',i.days===null?'—':i.days+'天'].join(' / ')),
+  },null,2);
+}
+function filtered(list){
+  const q=state.query.trim().toLowerCase();
+  return list.filter(i=>{
+    if(state.statusFilter!=='all'&&((i.status??'none')!==state.statusFilter))return false;
+    if(q&&!(i.code.toLowerCase().includes(q)||i.name.toLowerCase().includes(q)))return false;
+    return true;
+  });
+}
+function statusTag(i){
+  if(i.reason)return `<span class="tag cat-off"><span class="dot"></span>目录已停用</span>`;
+  if(i.status==='enabled')return `<span class="tag ok"><span class="dot"></span>启用</span>`;
+  if(i.status==='disabled')return `<span class="tag off"><span class="dot"></span>停用</span>`;
+  return `<span class="tag none">未配置</span>`;
+}
+function daysHtml(i){
+  if(state.editing===i.code)
+    return `<input class="days-input num" id="daysInput" type="number" min="1" step="1" value="${i.days??''}" aria-label="可互认时间（天）">`;
+  if(i.days==null)return `<span class="empty-cell">—</span>`;
+  return `<span class="days-val num" data-act="edit" data-code="${i.code}" title="点击修改">${i.days}<span class="unit">天</span></span>`;
+}
+function opsHtml(i){
+  const edit=`<button class="btn-link" data-act="edit" data-code="${i.code}" ${i.status===null?'disabled':''}>修改时间</button>`;
+  const toggle=i.status==='enabled'
+    ?`<button class="btn-link warn" data-act="disable" data-code="${i.code}">停用</button>`
+    :`<button class="btn-link" data-act="enable" data-code="${i.code}" ${i.reason?'disabled':''}>启用</button>`;
+  return `<span class="ops">${edit}${toggle}</span>`;
+}
+function summaryText(){
+  const all=state.items;
+  const en=all.filter(i=>i.status==='enabled').length;
+  const dis=all.filter(i=>i.status==='disabled').length;
+  $('summary').textContent=`本组织共 ${all.length} 个标准项目 · 已启用 ${en} · 已停用 ${dis} · 未配置 ${all.length-en-dis}`;
+}
+
+/* ================= 横向列视图渲染（主表与弹窗共用） =================
+   四栏 grid：类型格纵向跨其全部分组行；分类格跨其全部分组行；
+   每分组一行：分组格 + 项目格。无任何折叠控件。 */
+function renderCascade(el,list,modal){
+  const byGrp={};
+  list.forEach(i=>{(byGrp[i.grp]??=[]).push(i)});
+  const groups=GROUPS.filter(g=>byGrp[g.id]);
+  const cats=CATEGORIES.filter(c=>groups.some(g=>g.cat===c.id));
+  const types=TYPES.filter(t=>cats.some(c=>c.type===t.id));
+  let html='';
+  for(const t of types){
+    const tGroups=groups.filter(g=>cats.some(c=>c.id===g.cat&&c.type===t.id));
+    const tItems=tGroups.reduce((n,g)=>n+byGrp[g.id].length,0);
+    html+=`<div class="cell cell-type" data-hl-t="${t.id}" style="grid-row:span ${tGroups.length}">${t.name}<span class="cnt num">${tItems} 项</span></div>`;
+    for(const c of cats.filter(c=>c.type===t.id)){
+      const cGroups=groups.filter(g=>g.cat===c.id);
+      html+=`<div class="cell cell-cat" data-hl-c="${c.id}" style="grid-row:span ${cGroups.length}">${c.name}<span class="c-code">${c.code}</span><span class="c-cnt num">${cGroups.reduce((n,g)=>n+byGrp[g.id].length,0)} 项</span></div>`;
+      for(const g of cGroups){
+        const gi=byGrp[g.id];
+        const selN=modal?gi.filter(i=>state.mSel.has(i.code)).length:0;
+        html+=`<div class="cell cell-grp" data-hl-g="${g.id}">${modal?`<label class="gchk-row"><input type="checkbox" class="check" data-gchk="${g.id}" ${selN===gi.length&&gi.length>0?'checked':''} aria-label="整组勾选 ${g.name}"></label>`:''}${g.name}<span class="g-code">${g.code}</span></div>`;
+        html+=`<div class="cell cell-items" data-hl-g="${g.id}">${gi.map(i=>{
+          if(modal){
+            return `<div class="i-line"><input type="checkbox" class="check" data-mcode="${i.code}" ${state.mSel.has(i.code)?'checked':''} aria-label="选择 ${i.name}">
+              <span class="i-name"><span class="n">${i.name}</span><span class="c">${i.code}</span></span>
+              <span style="color:var(--ink-3);font-size:12px;flex:none">${TYPE_NAME[i.type]}</span></div>`;
+          }
+          return `<div class="i-line" data-code="${i.code}">
+            <span class="i-name"><span class="n" title="${i.name}">${i.name}</span><span class="c" title="${i.code}">${i.code}</span></span>
+            ${statusTag(i)}
+            <span class="num" style="flex:none;width:86px;text-align:right">${daysHtml(i)}</span>
+            ${i.reason?`<span class="reason truncate" title="${i.reason}">${i.reason}</span>`:''}
+            ${opsHtml(i)}</div>`;
+        }).join('')}</div>`;
+      }
+    }
+  }
+  el.innerHTML=html||`<div class="cell empty-cell" style="grid-column:1/-1;text-align:center;padding:44px">没有符合条件的标准项目</div>`;
+}
+function renderMain(){
+  summaryText();
+  renderCascade(cascade,filtered(state.items),false);
+  const inp=$('daysInput');
+  if(inp){inp.focus();inp.select();
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter')commitEdit(inp.value);
+      else if(e.key==='Escape'){state.editing=null;renderMain()}
+      e.stopPropagation();
+    });
+    inp.addEventListener('blur',()=>commitEdit(inp.value));
+  }
+  dumpState();
+}
+function commitEdit(v){
+  const item=state.items.find(i=>i.code===state.editing);state.editing=null;
+  if(!item){renderMain();return}
+  const n=Number(v);
+  if(!Number.isInteger(n)||n<1){toast('拒绝保存：可互认时间必须是正整数（最小 1 天）');renderMain();return}
+  item.days=n;toast('已保存（原型模拟）');renderMain();
+}
+
+/* ================= 弹窗 ================= */
+function addable(){return state.items.filter(i=>i.status===null&&!i.reason)}
+function renderModal(){
+  const q=state.mQuery.trim().toLowerCase();
+  const list=addable().filter(i=>!q||i.code.toLowerCase().includes(q)||i.name.toLowerCase().includes(q));
+  renderCascade(mCascade,list,true);
+  $('mSelCount').textContent=state.mSel.size;
+  dumpState();
+}
+function openModal(){state.modal=true;state.mSel=new Set();state.mQuery='';$('mq').value='';overlay.hidden=false;renderModal();
+  document.querySelector('.modal').focus();toast('弹窗内勾选项目，设置统一可互认时间后确定')}
+function closeModal(){state.modal=false;overlay.hidden=true;renderMain()}
+
+/* ================= 事件 ================= */
+cascade.addEventListener('click',e=>{
+  const act=e.target.closest('[data-act]'); if(act){
+    const item=state.items.find(i=>i.code===act.dataset.code); if(!item)return;
+    if(act.dataset.act==='edit'){if(item.status===null)return;state.editing=item.code;renderMain()}
+    else if(act.dataset.act==='disable'){item.status='disabled';toast('已停用（原型模拟）');renderMain()}
+    else if(act.dataset.act==='enable'){if(item.reason)return;item.status='enabled';toast('已启用（原型模拟）');renderMain()}
+    return;
+  }
+  // 点击层级格 → 高亮其下级（类型→其分类+分组+项目；分类→其分组+项目；分组→本项目）
+  const t=e.target.closest('[data-hl-t]'), c=e.target.closest('[data-hl-c]'), g=e.target.closest('[data-hl-g]');
+  document.querySelectorAll('#cascade .hl').forEach(x=>x.classList.remove('hl'));
+  const hl=sels=>sels.filter(Boolean).forEach(s=>cascade.querySelectorAll(s).forEach(x=>x.classList.add('hl')));
+  if(t){const tid=t.dataset.hlT;
+    hl([`[data-hl-t="${tid}"]`,
+        ...CATEGORIES.filter(x=>x.type===tid).map(x=>`[data-hl-c="${x.id}"]`),
+        ...GROUPS.filter(x=>CATEGORIES.find(cc=>cc.id===x.cat).type===tid).map(x=>`[data-hl-g="${x.id}"]`)])}
+  else if(c){const id=c.dataset.hlC;
+    hl([`[data-hl-c="${id}"]`,...GROUPS.filter(x=>x.cat===id).map(x=>`[data-hl-g="${x.id}"]`)])}
+  else if(g)hl([`[data-hl-g="${g.dataset.hlG}"]`]);
+});
+$('q').addEventListener('input',e=>{state.query=e.target.value;renderMain()});
+$('statusSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  state.statusFilter=b.dataset.s;
+  document.querySelectorAll('#statusSeg button').forEach(x=>x.classList.toggle('on',x===b));
+  renderMain();
+});
+$('addBtn').onclick=openModal;
+$('mClose').onclick=closeModal;
+$('mCancel').onclick=closeModal;
+overlay.addEventListener('mousedown',e=>{if(e.target===overlay)closeModal()});
+$('mq').addEventListener('input',e=>{state.mQuery=e.target.value;renderModal()});
+mCascade.addEventListener('click',e=>{
+  const gchk=e.target.closest('[data-gchk]');
+  if(gchk){const gid=gchk.dataset.gchk;
+    const codes=addable().filter(i=>i.grp===gid).map(i=>i.code);
+    const allIn=codes.every(cd=>state.mSel.has(cd));
+    codes.forEach(cd=>allIn?state.mSel.delete(cd):state.mSel.add(cd));
+    renderModal();return}
+  const t=e.target.closest('[data-hl-t]'), c=e.target.closest('[data-hl-c]'), g=e.target.closest('[data-hl-g]');
+  if((t||c||g)&&!e.target.closest('input')){ // 点层级格空白处 = 整组/整类选择
+    const gid=g&&g.dataset.hlG, cid=c&&c.dataset.hlC, tid=t&&t.dataset.hlT;
+    let codes;
+    if(gid)codes=addable().filter(i=>i.grp===gid).map(i=>i.code);
+    else if(cid)codes=addable().filter(i=>i.cat===cid).map(i=>i.code);
+    else codes=addable().filter(i=>i.type===tid).map(i=>i.code);
+    const allIn=codes.length>0&&codes.every(cd=>state.mSel.has(cd));
+    codes.forEach(cd=>allIn?state.mSel.delete(cd):state.mSel.add(cd));
+    renderModal();
+  }
+});
+mCascade.addEventListener('change',e=>{
+  const cb=e.target.closest('[data-mcode]'); if(!cb)return;
+  cb.checked?state.mSel.add(cb.dataset.mcode):state.mSel.delete(cb.dataset.mcode);
+  renderModal();
+});
+$('mSelAll').onclick=()=>{addable().forEach(i=>state.mSel.add(i.code));renderModal()};
+$('mClear').onclick=()=>{state.mSel.clear();renderModal()};
+$('mOk').onclick=()=>{
+  const days=Number($('mDays').value);
+  if(!Number.isInteger(days)||days<1){toast('拒绝提交：可互认时间必须是正整数（最小 1 天）');return}
+  if(state.mSel.size===0){toast('请先勾选至少一个项目');return}
+  let n=0;
+  for(const code of state.mSel){const it=state.items.find(i=>i.code===code);
+    if(it&&it.status===null&&!it.reason){it.status='enabled';it.days=days;n++}}
+  toast(`已新增 ${n} 条配置（默认启用，原型模拟）`);
+  closeModal();
+};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.modal)closeModal()});
+
+renderMain();
+</script>
+</body>
+</html>
