@@ -85,6 +85,14 @@ public partial class MedicalRecognitionReportRepository
   /// <inheritdoc/>
   public async Task<MedicalStandardItem?> GetMedicalStandardItemByCodeAsync(string code) => await dataMapper.QuerySingleAsync<MedicalStandardItem>(new { Code = code }, scope: MedicalStandardItemScope);
 
+  /// <summary>
+  /// 按标准项目编码集合一次读取标准项目及其所属分类、所属分组的当前状态。
+  /// </summary>
+  /// <param name="codes">待读取的标准项目编码集合。</param>
+  /// <returns>集合内命中的标准项目目录状态。</returns>
+  public async Task<IReadOnlyList<MedicalStandardItemCatalogState>> GetMedicalStandardItemsByCodesAsync(IReadOnlyList<string> codes) =>
+    [.. await dataMapper.QueryAsync<MedicalStandardItemCatalogState>(new { Codes = codes }, scope: MedicalStandardItemScope)];
+
   /// <inheritdoc/>
   public async Task<bool> MedicalStandardItemCodeExistsAsync(string code) => await dataMapper.QuerySingleAsync<long>(new { Code = code }, scope: MedicalStandardItemScope) > 0;
 }

@@ -13,13 +13,13 @@ public sealed class SmokeTests
 {
   /// <summary>
   /// 断言 <see cref="IMedicalRecognitionReportAppService"/> 由契约程序集声明，
-  /// 并冻结四个互认写入口的名称与返回类型。
+  /// 并冻结五个互认写入口的名称与返回类型。
   /// </summary>
   /// <remarks>
   /// 原判据是 <c>Assert.True(typeof(...) != null)</c>，恒为真而没有判别力：<see cref="Type"/> 实例永远不等于 <see langword="null"/>，
   /// 契约类型被删除、被搬到别的程序集或换成本地同名替身时该断言都不会失败。
   /// 这里改为三条可判别判据：类型来自契约程序集（不是测试程序集里的同名替身），
-  /// 且四个互认写入口各自恰好一处声明、返回 <see cref="Task{TResult}"/> 且泛型实参为 <see cref="bool"/>，
+  /// 且五个互认写入口各自恰好一处声明、返回 <see cref="Task{TResult}"/> 且泛型实参为 <see cref="bool"/>，
   /// 使"契约程序集未被引用""类型被搬移""入口被删除或返回类型漂移"都能让本用例失败。
   /// </remarks>
   [Fact]
@@ -33,6 +33,7 @@ public sealed class SmokeTests
     (string Name, Type ReturnType)[] mutualWriteEntrypoints =
     [
       (nameof(IMedicalRecognitionReportAppService.CreateMutualRecognitionItemAsync), typeof(Task<bool>)),
+      (nameof(IMedicalRecognitionReportAppService.CreateMutualRecognitionItemsAsync), typeof(Task<bool>)),
       (nameof(IMedicalRecognitionReportAppService.UpdateMutualRecognitionItemConfigurationAsync), typeof(Task<bool>)),
       (nameof(IMedicalRecognitionReportAppService.EnableMutualRecognitionItemAsync), typeof(Task<bool>)),
       (nameof(IMedicalRecognitionReportAppService.DisableMutualRecognitionItemAsync), typeof(Task<bool>))

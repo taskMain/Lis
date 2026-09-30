@@ -8,7 +8,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAg
 /// <summary>
 /// 标准项目目录与互认项目配置的写入口契约。
 /// </summary>
-/// <remarks>主键、初始启用状态与操作信息由服务端写入。</remarks>
+/// <remarks>主键、初始启用状态与操作信息由服务端写入；互认项目配置的五个写入口成功时都返回 <see langword="true"/>，失败一律以异常结束。</remarks>
 public partial interface IMedicalRecognitionReportAppService : IApplicationService
 {
   /// <summary>
@@ -136,6 +136,28 @@ public partial interface IMedicalRecognitionReportAppService : IApplicationServi
   /// 并发下两个请求可能同时通过查重，此时由唯一索引拒绝，数据库异常不翻译为业务拒绝。
   /// </exception>
   Task<bool> CreateMutualRecognitionItemAsync(CreateMutualRecognitionItemRequest request);
+
+  /// <summary>
+  /// 批量新建互认项目配置，为同一可信组织一次建立同一可互认时间的多条配置。
+  /// </summary>
+  /// <remarks>
+  /// 本次提交的全部配置整批建立：任一编码不合规、目录三层不满足或该组织已配置对应标准项目时整批拒绝，不写入任何配置；
+  /// 可互认时间在批次上只提供一份，本次建立的全部配置共用该取值，调用方不能逐项指定；
+  /// 逐条写入中的任一条失败时整批回滚，因此调用方要么得到整批成功，要么得不到任何新增配置。
+  /// </remarks>
+  /// <param name="request">批量新建互认项目配置请求。</param>
+  /// <returns>整批创建成功返回 <see langword="true"/>；本方法不返回 <see langword="false"/>，入参不合法、可信组织或操作人不可解析、业务拒绝与写入失败都以异常结束。</returns>
+  /// <exception cref="ArgumentNullException">请求为 null 时抛出（请求校验先于一切判定，此时不进入领域调用、不写入任何数据）。</exception>
+  /// <exception cref="ValidationException">标准项目编码集合未提交，或可互认时间天数不是正整数。</exception>
+  /// <exception cref="InvalidOperationException">
+  /// 登录令牌的组织声明取不到组织编码、用户标识不能解析为非空 Guid 时抛出；
+  /// 编码集合为空、单批超过 1000 条、含空白编码或批次内编码重复时同样抛出，异常消息携带对应的违规编码；
+  /// 编码不存在，或标准项目、所属分类、所属分组已停用时同样抛出，异常消息按原因分组携带全部违规编码；
+  /// 该组织已配置集合中的标准项目（含已停用配置占用的配置）时同样抛出，异常消息携带这些编码；
+  /// 逐条写入影响的行数合计不等于提交条数时同样抛出。以上预校验命中时都没有写入任何配置，都没有登记批量创建事件。
+  /// 并发下两个请求可能同时通过查重，此时由唯一索引拒绝，数据库异常按原样向外传播、不翻译为业务拒绝，已写入的配置由本入口声明的事务回滚。
+  /// </exception>
+  Task<bool> CreateMutualRecognitionItemsAsync(CreateMutualRecognitionItemsRequest request);
 
   /// <summary>
   /// 修改互认项目配置的可互认时间天数。

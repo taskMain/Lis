@@ -122,25 +122,16 @@ export function configurationStatusTagColor(value: ConfigurationStatusValue | nu
 /**
  * 行内可识别的业务名称；未知时退回编码，再退回占位文案。
  * 表格、弹窗与操作按钮的可访问名称共用同一出口，不各自重复 `??` 链。
+ *
+ * 入参只要求承载名称与编码：配置行与列视图行都满足这一结构子集，因此两种行都能直接传入。
  */
-export function rowDisplayName(row: RecognitionProjectConfigurationRow): string {
-  return row.standardItemName ?? row.standardProjectCode ?? '未知项目'
+export interface RecognitionProjectRowIdentityFields {
+  standardProjectCode: string | null
+  standardItemName: string | null
 }
 
-/**
- * 只读资料里的编码、分类与分组文案；缺失时统一在这里给出兜底表述。
- * 表格用 `—` 表示缺失，弹窗需要可读文案，两处措辞集中在适配层，组件不再各写一份中文。
- */
-export function rowScopeTexts(row: RecognitionProjectConfigurationRow): {
-  standardProjectCode: string
-  categoryName: string
-  groupName: string
-} {
-  return {
-    standardProjectCode: row.standardProjectCode ?? '未知编码',
-    categoryName: row.categoryName ?? '未知分类',
-    groupName: row.groupName ?? '未知分组',
-  }
+export function rowDisplayName(row: RecognitionProjectRowIdentityFields): string {
+  return row.standardItemName ?? row.standardProjectCode ?? '未知项目'
 }
 
 /** 互认配置行视图模型；只承载查询契约交付的字段。 */
@@ -181,12 +172,6 @@ export interface ConfigurationListQuery {
   standardProjectCode?: string
 }
 
-/** 创建请求载荷：只含标准项目编码与正整数天数，不含组织编码与内部标准项目 ID。 */
-export interface CreateConfigurationPayload {
-  standardProjectCode: string
-  recognitionDurationDays: number
-}
-
 export interface DurationUpdatePayload {
   id: string
   recognitionDurationDays: number
@@ -203,13 +188,19 @@ export interface SelectableStandardItem {
   code: string
   name: string
   itemType: MedicalItemTypeValue | null
+  /** 服务端交付的项目类型中文；契约字段缺失时为 `null`，展示兜底由调用方决定。 */
+  itemTypeText: string | null
   categoryName: string
   groupName: string
 }
 
-export interface SelectableOptionGroup {
-  label: string
-  options: { value: string; label: string }[]
+/**
+ * 批量创建请求载荷：只含标准项目编码集合与批次上统一的一份可互认时间。
+ * 不含组织编码（由服务端可信组织上下文注入）、不含内部标准项目 ID、也不含启用状态（创建后即为启用）。
+ */
+export interface BatchCreateConfigurationPayload {
+  standardProjectCodes: string[]
+  recognitionDurationDays: number
 }
 
 /**
@@ -227,14 +218,17 @@ export function parseRecognitionDurationDays(input: string): number | null {
 }
 
 /**
- * 构造新增请求；编码空白或天数非法时返回 `null`，调用方必须据此**零写请求**。
- * 组织编码由服务端可信组织上下文补入，这里不提交。
+ * 构造批量创建请求；编码集合为空或天数非法时返回 `null`，调用方必须据此**零写请求**。
+ * 组织编码由服务端可信组织上下文补入，这里不提交；单条与批量走同一条形状，不存在逐元素天数。
  */
-export function buildCreateConfigurationRequest(standardProjectCode: string, durationInput: string): CreateConfigurationPayload | null {
-  const code = standardProjectCode.trim()
+export function buildBatchCreateConfigurationRequest(
+  standardProjectCodes: ReadonlySet<string>,
+  durationInput: string,
+): BatchCreateConfigurationPayload | null {
+  const codes = [...standardProjectCodes]
   const days = parseRecognitionDurationDays(durationInput)
-  if (code.length === 0 || days === null) return null
-  return { standardProjectCode: code, recognitionDurationDays: days }
+  if (codes.length === 0 || days === null) return null
+  return { standardProjectCodes: codes, recognitionDurationDays: days }
 }
 
 /** 构造修改请求；只提交目标标识与可互认时间，同值也照常提交（不做同值短路）。 */
@@ -331,13 +325,15 @@ export function toSelectableStandardItems(catalog: EffectiveMedicalStandardCatal
   const items: SelectableStandardItem[] = []
   for (const type of catalog?.itemTypes ?? []) {
     const itemType = toMedicalItemType(type.itemType)
+    // 类型中文只承载契约交付的文本：这里补本地兜底会让类型列优先取到兜底文案，服务端文案永远显示不出来。
+    const itemTypeText = type.itemTypeText ?? null
     for (const category of type.categories ?? []) {
       const categoryName = category.categoryName ?? ''
       for (const group of category.groups ?? []) {
         const groupName = group.groupName ?? ''
         for (const item of group.items ?? []) {
           if (!item.code) continue
-          items.push({ code: item.code, name: item.name ?? '', itemType, categoryName, groupName })
+          items.push({ code: item.code, name: item.name ?? '', itemType, itemTypeText, categoryName, groupName })
         }
       }
     }
@@ -349,7 +345,7 @@ export function toSelectableStandardItems(catalog: EffectiveMedicalStandardCatal
  * 从摊平结果中剔除**当前组织已配置**的标准项目（含停用配置）。
  *
  * 与摊平分开：摊平结果由目录读取交付、进页面状态；剔除依赖配置读取交付的编码集合，
- * 两者在页面按行集变化重新组合，因此新增选择器始终隐藏全部已配置项目。
+ * 两者在页面按行集变化重新组合，因此新增弹窗始终隐藏全部已配置项目。
  */
 export function excludeConfiguredStandardItems(
   items: readonly SelectableStandardItem[],
@@ -358,33 +354,276 @@ export function excludeConfiguredStandardItems(
   return items.filter((item) => !configuredCodes.has(item.code))
 }
 
-/** 新增选择器的分组选项：分类 / 分组，空分组不下发。 */
-export function toSelectableOptionGroups(items: readonly SelectableStandardItem[]): SelectableOptionGroup[] {
-  const groups = new Map<string, { value: string; label: string }[]>()
-  for (const item of items) {
-    const key = `${item.categoryName} / ${item.groupName}`
-    const options = groups.get(key)
-    const option = { value: item.code, label: `${item.name}（${item.code}）` }
-    if (options) options.push(option)
-    else groups.set(key, [option])
-  }
-  return [...groups].map(([label, options]) => ({ label, options }))
+/**
+ * 本地展示筛选的最小字段集：配置行与列视图行都满足。
+ * 两种行共用同一条判定，页面列表与列视图不会出现两套筛选语义。
+ */
+interface FilterableConfigurationRow {
+  standardProjectCode: string | null
+  configurationStatus: ConfigurationStatusValue | null
 }
 
 /**
- * 本地展示筛选。编码按不区分大小写的包含匹配，与服务端查询条件的"字面包含（区分大小写，`%`/`_` 按普通字符转义）"语义不同：
+ * 本地展示筛选的判定体。编码按不区分大小写的包含匹配，与服务端查询条件的"字面包含（区分大小写，`%`/`_` 按普通字符转义）"语义不同：
  * 服务端筛选会缩小读取范围，从而破坏新增排除集合的完整性，因此筛选只在本地生效、不下推为读取范围。
+ *
+ * 列视图裁剪是它唯一的调用方：页面展示的行集来自列视图，配置行的筛选不再单独暴露出口，
+ * 因此页面上只有一条筛选路径，不存在两处语义漂移的可能。
  */
-export function filterConfigurationRows(
-  rows: readonly RecognitionProjectConfigurationRow[],
-  filter: RecognitionProjectFilter,
-): RecognitionProjectConfigurationRow[] {
+function matchesRecognitionProjectFilter(row: FilterableConfigurationRow, filter: RecognitionProjectFilter): boolean {
   const keyword = filter.code.trim().toLocaleLowerCase()
-  return rows.filter((row) => {
-    if (keyword.length > 0 && !(row.standardProjectCode ?? '').toLocaleLowerCase().includes(keyword)) return false
-    if (filter.status !== 'all' && row.configurationStatus !== filter.status) return false
-    return true
+  if (keyword.length > 0 && !(row.standardProjectCode ?? '').toLocaleLowerCase().includes(keyword)) return false
+  if (filter.status !== 'all' && row.configurationStatus !== filter.status) return false
+  return true
+}
+
+/** 可互认时间输入提示语：与解析上界同源，弹窗与行内编辑器共用同一份文案。 */
+export const RECOGNITION_DURATION_RANGE_TEXT = `可互认时间为 1 到 ${MAX_RECOGNITION_DURATION_DAYS} 之间的整数天数`
+
+/**
+ * 列视图中的项目行：由当前组织的配置行与当前有效标准目录合并而成。
+ */
+export interface RecognitionProjectColumnRow {
+  /** 行标识；在本次行集内唯一，只用于渲染定位与行内操作目标，不参与业务判定也不作为字段提交。 */
+  rowIdentity: string
+  standardProjectCode: string | null
+  standardItemName: string | null
+  /** 该行在当前组织是否已建立互认配置；未配置行没有配置标识、可互认时间与配置状态。 */
+  configured: boolean
+  configurationId: string | null
+  recognitionDurationDays: number | null
+  configurationStatus: ConfigurationStatusValue | null
+  /** 配置状态中文；未配置行取 `null`。 */
+  configurationStatusText: string | null
+  /** 目录停用原因；`null` 表示标准目录三层全部启用。 */
+  unavailableReason: string | null
+}
+
+export interface RecognitionProjectColumnGroup { groupName: string; rows: RecognitionProjectColumnRow[] }
+export interface RecognitionProjectColumnCategory { categoryName: string; groups: RecognitionProjectColumnGroup[] }
+export interface RecognitionProjectColumnItemType {
+  itemType: MedicalItemTypeValue | null
+  /** 类型中文：优先取契约交付的文本，取不到时用本地兜底。 */
+  itemTypeText: string
+  categories: RecognitionProjectColumnCategory[]
+}
+export type RecognitionProjectColumnView = RecognitionProjectColumnItemType[]
+
+/** 项目行的状态徽标：文案、颜色与目录停用原因。 */
+export interface RecognitionProjectRowBadge {
+  text: string
+  color: 'success' | 'warning' | 'error' | 'default' | undefined
+  /** 目录停用原因；仅目录停用时非 `null`。 */
+  reason: string | null
+}
+
+/** 类型节点的中间结构：文案候选与下级分类。候选按到达顺序收集，取第一个非空值。 */
+interface ItemTypeNode {
+  itemType: MedicalItemTypeValue | null
+  itemTypeTextCandidates: string[]
+  categories: CategoryNode[]
+}
+
+interface CategoryNode {
+  categoryName: string
+  groups: GroupNode[]
+}
+
+/** 尚未分配行标识的项目行：标识在整份合并结果上统一分配，中途不持占位值。 */
+type UnidentifiedColumnRow = Omit<RecognitionProjectColumnRow, 'rowIdentity'>
+
+interface GroupNode {
+  groupName: string
+  rows: UnidentifiedColumnRow[]
+}
+
+/** 按类型／分类／分组逐级查找节点，找不到时就地建立并追加在该层末尾（保持插入顺序）。 */
+function findOrCreateItemType(nodes: ItemTypeNode[], itemType: MedicalItemTypeValue | null): ItemTypeNode {
+  const existing = nodes.find((node) => node.itemType === itemType)
+  if (existing) return existing
+  const created: ItemTypeNode = { itemType, itemTypeTextCandidates: [], categories: [] }
+  nodes.push(created)
+  return created
+}
+
+function findOrCreateCategory(node: ItemTypeNode, categoryName: string): CategoryNode {
+  const existing = node.categories.find((category) => category.categoryName === categoryName)
+  if (existing) return existing
+  const created: CategoryNode = { categoryName, groups: [] }
+  node.categories.push(created)
+  return created
+}
+
+function findOrCreateGroup(node: CategoryNode, groupName: string): GroupNode {
+  const existing = node.groups.find((group) => group.groupName === groupName)
+  if (existing) return existing
+  const created: GroupNode = { groupName, rows: [] }
+  node.groups.push(created)
+  return created
+}
+
+/**
+ * 把当前组织的配置行与当前有效标准目录合并为四层列视图（类型 → 分类 → 分组 → 项目行）。
+ *
+ * 两遍合并，顺序决定结果稳定：
+ * 1. 先按**目录顺序**建立层级并取出同编码的配置行，因此有配置的项目保持目录顺序、未配置项目照常出现；
+ * 2. 再按**配置行顺序**补齐目录读不到的配置行（目录停用），追加在各层末尾——这些行只存在于配置读取里，
+ *    不补进来就会在页面上凭空消失，其目录停用原因也失去展示位置。
+ *
+ * 同一编码有多行配置时按队列依次取用：多出来的行进入第二遍，不会覆盖已匹配的行。
+ *
+ * 类型节点的文案候选按到达顺序收集，来源有三处：目录交付的 `itemTypeText`、第一遍匹配成功的配置行、
+ * 第二遍补齐的配置行，取第一个非空值。项目类型中文的唯一来源是服务端枚举声明，目录与配置行交付的是同一份声明，
+ * 任一来源有值就应当采用；只有三处都没有时才用本地兜底，否则服务端文案永远显示不出来。
+ */
+export function toRecognitionProjectColumnView(
+  rows: readonly RecognitionProjectConfigurationRow[],
+  catalogItems: readonly SelectableStandardItem[],
+): RecognitionProjectColumnView {
+  // 按标准项目编码排队，并记住每行在 `rows` 里的位置；编码缺失的行在目录里没有对应项目，直接留给第二遍。
+  const queues = new Map<string, { index: number; row: RecognitionProjectConfigurationRow }[]>()
+  for (const [index, row] of rows.entries()) {
+    const code = row.standardProjectCode
+    if (code === null || code.length === 0) continue
+    const queue = queues.get(code)
+    if (queue) queue.push({ index, row })
+    else queues.set(code, [{ index, row }])
+  }
+
+  const itemTypes: ItemTypeNode[] = []
+  /** 第一遍已取用的配置行位置；第二遍据此跳过，保证每行只出现一次，重复的行同样只算一次。 */
+  const matched = new Set<number>()
+
+  // 第一遍：按目录顺序建立层级，同时取用同编码的配置行。
+  for (const item of catalogItems) {
+    const itemTypeNode = findOrCreateItemType(itemTypes, item.itemType)
+    if (item.itemTypeText !== null && item.itemTypeText.length > 0) itemTypeNode.itemTypeTextCandidates.push(item.itemTypeText)
+    const groupNode = findOrCreateGroup(findOrCreateCategory(itemTypeNode, item.categoryName), item.groupName)
+    const taken = queues.get(item.code)?.shift()
+    if (taken === undefined) {
+      groupNode.rows.push({
+        standardProjectCode: item.code,
+        standardItemName: item.name,
+        configured: false,
+        configurationId: null,
+        recognitionDurationDays: null,
+        configurationStatus: null,
+        configurationStatusText: null,
+        unavailableReason: null,
+      })
+      continue
+    }
+    matched.add(taken.index)
+    // 已匹配的配置行同样补充文案候选：目录这一遍没有交付文本时，这里的候选是类型格取到服务端文案的唯一机会。
+    if (taken.row.itemTypeText.length > 0) itemTypeNode.itemTypeTextCandidates.push(taken.row.itemTypeText)
+    groupNode.rows.push(toUnidentifiedConfiguredRow(taken.row))
+  }
+
+  // 第二遍：按配置行顺序补齐目录读不到的行（目录停用），层级按行内字段建立。
+  for (const [index, row] of rows.entries()) {
+    if (matched.has(index)) continue
+    const itemTypeNode = findOrCreateItemType(itemTypes, row.itemType)
+    if (row.itemTypeText.length > 0) itemTypeNode.itemTypeTextCandidates.push(row.itemTypeText)
+    const groupNode = findOrCreateGroup(findOrCreateCategory(itemTypeNode, row.categoryName ?? ''), row.groupName ?? '')
+    groupNode.rows.push(toUnidentifiedConfiguredRow(row))
+  }
+
+  // 类型按取值升序、`null` 排最后：同一组织的重复读取因此得到相同顺序。
+  const ordered = [...itemTypes].sort((left, right) => {
+    if (left.itemType === right.itemType) return 0
+    if (left.itemType === null) return 1
+    if (right.itemType === null) return -1
+    return left.itemType - right.itemType
   })
+
+  /**
+   * 行标识在最后一遍按「类型 → 分类 → 分组 → 行」统一分配。业务键取配置标识，缺失时用编码与名称组成；
+   * 同一业务键在整份合并结果内重复出现时只追加出现序号（首次不加后缀），保证行标识唯一、
+   * 行内操作控件不串位。不使用数组下标：行在列表中移动位置时标识保持不变，本序号也不参与业务判定。
+   */
+  const occurrences = new Map<string, number>()
+  return ordered.map((node) => ({
+    itemType: node.itemType,
+    itemTypeText: node.itemTypeTextCandidates[0] ?? medicalItemTypeText(node.itemType),
+    categories: node.categories.map((category) => ({
+      categoryName: category.categoryName,
+      groups: category.groups.map((group) => ({
+        groupName: group.groupName,
+        rows: group.rows.map((row) => {
+          const businessIdentity = row.configurationId
+            ?? [row.standardProjectCode, row.standardItemName].map((value) => value ?? '').join('|')
+          const occurrence = occurrences.get(businessIdentity) ?? 0
+          occurrences.set(businessIdentity, occurrence + 1)
+          return { ...row, rowIdentity: occurrence === 0 ? businessIdentity : `${businessIdentity}#${occurrence}` }
+        }),
+      })),
+    })),
+  }))
+}
+
+/** 配置行 → 列视图行（行标识随后统一分配）；未配置行不经过这里，两者的字段差异因此集中在一处。 */
+function toUnidentifiedConfiguredRow(row: RecognitionProjectConfigurationRow): UnidentifiedColumnRow {
+  return {
+    standardProjectCode: row.standardProjectCode,
+    standardItemName: row.standardItemName,
+    configured: true,
+    configurationId: row.configurationId,
+    recognitionDurationDays: row.recognitionDurationDays,
+    configurationStatus: row.configurationStatus,
+    configurationStatusText: row.configurationStatusText,
+    unavailableReason: row.unavailableReason,
+  }
+}
+
+/**
+ * 按本地展示筛选裁剪列视图：先筛项目行，再丢弃没有可见项目的分组、分类与类型，
+ * 使裁剪后的每一层都只承载有内容的节点，不留下空壳。判定与配置行筛选共用同一条出口。
+ */
+export function filterRecognitionProjectColumnView(
+  view: RecognitionProjectColumnView,
+  filter: RecognitionProjectFilter,
+): RecognitionProjectColumnView {
+  return view.flatMap((itemType) => {
+    const categories = itemType.categories.flatMap((category) => {
+      const groups = category.groups.flatMap((group) => {
+        const rows = group.rows.filter((row) => matchesRecognitionProjectFilter(row, filter))
+        return rows.length === 0 ? [] : [{ groupName: group.groupName, rows }]
+      })
+      return groups.length === 0 ? [] : [{ categoryName: category.categoryName, groups }]
+    })
+    return categories.length === 0 ? [] : [{ ...itemType, categories }]
+  })
+}
+
+/** 列视图中的项目行总数，用于列表计数展示。 */
+export function countColumnRows(view: RecognitionProjectColumnView): number {
+  let count = 0
+  for (const itemType of view) {
+    for (const category of itemType.categories) {
+      for (const group of category.groups) count += group.rows.length
+    }
+  }
+  return count
+}
+
+/**
+ * 可选集合的列视图：供新增弹窗按目录层级展示可勾选的标准项目。
+ *
+ * 配置行为空，因此每一行都是「未配置」行，没有配置标识、可互认时间与配置状态；
+ * 目录停用项目不会出现在这里——可选集合来自当前有效目录，停用项目本就不在其中。
+ */
+export function toSelectableColumnView(items: readonly SelectableStandardItem[]): RecognitionProjectColumnView {
+  return toRecognitionProjectColumnView([], items)
+}
+
+/**
+ * 状态徽标口径：目录停用优先于配置自身状态，未配置行单独表达，配置自身状态取服务端交付的中文。
+ * 目录停用只表达标准目录的当前状态，不代表配置自身停用。
+ */
+export function recognitionProjectRowBadge(row: RecognitionProjectColumnRow): RecognitionProjectRowBadge {
+  if (row.unavailableReason !== null) return { text: '目录已停用', color: 'error', reason: row.unavailableReason }
+  if (!row.configured) return { text: '未配置', color: 'default', reason: null }
+  return { text: row.configurationStatusText ?? '未知', color: configurationStatusTagColor(row.configurationStatus), reason: null }
 }
 
 /**
@@ -403,7 +642,7 @@ export async function queryRecognitionProjectConfigurations(
   return toConfigurationRows(values ?? [])
 }
 
-/** 读取当前有效标准目录，用于新增选择器；目录是平台级资料，不随组织变化。 */
+/** 读取当前有效标准目录，用于新增弹窗；目录是平台级资料，不随组织变化。 */
 export async function querySelectableStandardItems(
   client: MedicalRecognitionClient,
 ): Promise<EffectiveMedicalStandardCatalogReadModel | null> {
@@ -411,13 +650,13 @@ export async function querySelectableStandardItems(
   return catalog ?? null
 }
 
-/** 新增互认配置；载荷不含组织编码，也不含内部标准项目 ID。 */
-export async function createRecognitionProjectConfiguration(
+/** 批量新增互认配置：一次请求建立全部所选项目，全部默认启用；载荷不含组织编码与内部标准项目 ID。 */
+export async function createRecognitionProjectConfigurations(
   client: MedicalRecognitionClient,
-  request: CreateConfigurationPayload,
+  request: BatchCreateConfigurationPayload,
 ): Promise<void> {
-  await client.api.medicalRecognitionReport.createMutualRecognitionItem.post({
-    standardProjectCode: request.standardProjectCode,
+  await client.api.medicalRecognitionReport.createMutualRecognitionItems.post({
+    standardProjectCodes: request.standardProjectCodes,
     recognitionDurationDays: request.recognitionDurationDays,
   })
 }

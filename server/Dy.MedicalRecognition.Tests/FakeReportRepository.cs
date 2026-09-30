@@ -348,6 +348,12 @@ internal sealed class FakeReportRepository : IMedicalRecognitionReportRepository
   /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
   public Task<MedicalStandardItem?> GetMedicalStandardItemByCodeAsync(string code) => throw new NotSupportedException(UnusedMember);
 
+  /// <summary>本替身不覆盖：按编码集合读取标准项目及其所属分类与分组的当前状态。</summary>
+  /// <param name="codes">标准项目编码集合。</param>
+  /// <returns>不返回结果。</returns>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IReadOnlyList<MedicalStandardItemCatalogState>> GetMedicalStandardItemsByCodesAsync(IReadOnlyList<string> codes) => throw new NotSupportedException(UnusedMember);
+
   /// <summary>本替身不覆盖：标准项目编码查重。</summary>
   /// <param name="code">标准项目编码。</param>
   /// <returns>不返回结果。</returns>
@@ -391,6 +397,13 @@ internal sealed class FakeReportRepository : IMedicalRecognitionReportRepository
   /// <returns>不返回结果。</returns>
   /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
   public Task<MutualRecognitionItem?> GetMutualRecognitionItemByOrganizationAndProjectAsync(string organizationCode, string standardProjectCode) => throw new NotSupportedException(UnusedMember);
+
+  /// <summary>本替身不覆盖：按组织与编码集合读取互认配置。</summary>
+  /// <param name="organizationCode">组织编码。</param>
+  /// <param name="standardProjectCodes">标准项目编码集合。</param>
+  /// <returns>不返回结果。</returns>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IReadOnlyList<MutualRecognitionItem>> GetMutualRecognitionItemsByCodesAsync(string organizationCode, IReadOnlyList<string> standardProjectCodes) => throw new NotSupportedException(UnusedMember);
 
   /// <summary>本替身不覆盖：新增组织医院院区互认项目金额。</summary>
   /// <param name="organizationHospitalBranchRecognitionAmount">金额实体。</param>

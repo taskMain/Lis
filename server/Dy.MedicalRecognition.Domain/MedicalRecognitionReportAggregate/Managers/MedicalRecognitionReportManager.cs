@@ -1,16 +1,17 @@
 using Dy.Core.Abstractions.Domain;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Ports;
+using Dy.MedicalRecognition.Domain.Share.MedicalRecognitionReportAggregate.Events;
 
 namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Managers;
 
 /// <summary>
-/// 维护标准目录的分类、分组与标准项目及其启停与归属规则，维护标准项目的互认项目配置，并维护组织医院院区互认项目金额。
+/// 维护标准目录的分类、分组与标准项目及其启停与归属规则，维护标准项目的互认项目配置（含批量建立），并维护组织医院院区互认项目金额。
 /// </summary>
 /// <remarks>
 /// 名称唯一性、下级归属、目录有效性与互认配置归属等业务拒绝由方法判断，成功变化由本类登记事件；
-/// 互认配置按可信组织范围读取与更新，金额按四个业务键定位并按记录标识条件更新，影响行数决定是否登记事件；
-/// 金额只执行一条写语句，因此不控制事务。
+/// 互认配置按可信组织范围读取与更新，批量建立时按编码集合一次读取目录与既有配置、再按提交顺序逐条写入，金额按四个业务键定位并按记录标识条件更新，影响行数决定是否登记事件；
+/// 批量建立声明显式事务，事务边界定义在公开应用服务入口的方法上，本类不控制事务生命周期。
 /// </remarks>
 public partial class MedicalRecognitionReportManager : DomainService
 {
@@ -18,6 +19,11 @@ public partial class MedicalRecognitionReportManager : DomainService
   /// 金额允许的最大小数位数；与物理列 <c>numeric(18,2)</c> 的精度一致，禁止依赖数据库静默四舍五入。
   /// </summary>
   private const int AmountScale = 2;
+
+  /// <summary>
+  /// 单批可建立互认项目配置的最大条数；超过上限说明调用方提交了不可能由页面选择产生的批次。
+  /// </summary>
+  private const int MaxBatchItemCount = 1000;
 
   /// <summary>
   /// 读取与保存标准目录数据所需的仓储抽象。
@@ -263,6 +269,164 @@ public partial class MedicalRecognitionReportManager : DomainService
     AddEvent(command.CreateMutualRecognitionItemCreatedEvent(configuration.Id));
     return true;
   }
+
+  /// <summary>
+  /// 批量新建互认项目配置。
+  /// </summary>
+  /// <remarks>
+  /// 步骤顺序固定：集合口径校验 → 按编码集合一次读取标准项目目录并逐编码判定三层有效性 → 按组织与编码集合一次查重
+  /// → 构造实体集合 → 按提交顺序逐条写入并逐条校验影响行数为 1 → 全部写入成功才登记一次批量创建事件。
+  /// 集合口径校验先于一切目录读取与写入，任一口径违规都不读取目录、不查重、不写入；
+  /// 目录判定收集全部违规编码并按编码不存在、所属分类已停用、所属分组已停用、标准项目已停用四类原因分组一次报告，
+  /// 编码不存在按请求编码与读取返回编码的差集判定，不为缺失编码额外发起单条读取；
+  /// 查重不筛选配置启用状态，已停用配置同样占用"组织编码 + 标准项目编码"唯一键；
+  /// 以上任一预校验命中都整批拒绝、零行写入、零事件。
+  /// 写入按提交顺序逐条执行：某一条失败时数据库异常按原样向外传播，本方法不捕获、不翻译，
+  /// 前面已写入的配置由调用入口声明的事务回滚，因此本方法不返回部分成功。
+  /// </remarks>
+  /// <param name="command">批量新建配置命令，携带可信组织、标准项目编码集合、统一可互认时间与操作字段。</param>
+  /// <returns>整批创建成功返回 <see langword="true"/>。</returns>
+  /// <exception cref="InvalidOperationException">
+  /// 编码集合为空、超过单批上限、含空白编码或批次内编码重复时抛出，文案携带对应的违规编码；
+  /// 编码不存在，或标准项目、所属分类、所属分组已停用时抛出，文案按原因分组携带全部违规编码；
+  /// 该组织已配置集合中的标准项目（含已停用配置占用的配置）时抛出，文案携带这些编码；
+  /// 逐条写入中任一条影响的行数不为 1 时同样抛出。以上情况都不登记事件，已写入的行由入口事务回滚。
+  /// </exception>
+  public async Task<bool> CreateMutualRecognitionItemsAsync(CreateMutualRecognitionItemsCommand command)
+  {
+    ValidateBatchItemCollection(command.StandardProjectCodes);
+
+    IReadOnlyList<MedicalStandardItemCatalogState> catalogStates = await repository.GetMedicalStandardItemsByCodesAsync(command.StandardProjectCodes);
+    Dictionary<string, MedicalStandardItemCatalogState> statesByCode = catalogStates.ToDictionary(state => state.StandardProjectCode, StringComparer.Ordinal);
+    ValidateStandardCatalogForBatch(command.StandardProjectCodes, statesByCode);
+
+    // 停用配置同样占用"组织编码 + 标准项目编码"唯一键，因此查重不筛选启用状态。
+    IReadOnlyList<MutualRecognitionItem> existingConfigurations =
+      await repository.GetMutualRecognitionItemsByCodesAsync(command.OrganizationCode, command.StandardProjectCodes);
+    if (existingConfigurations.Count > 0)
+      throw new InvalidOperationException(
+        $"业务拒绝：该组织已配置以下标准项目：{string.Join('、', existingConfigurations.Select(configuration => configuration.StandardProjectCode).Distinct().Order(StringComparer.Ordinal))}。");
+
+    IReadOnlyList<MutualRecognitionItem> configurations = BuildBatchMutualRecognitionItems(command, statesByCode);
+    foreach (MutualRecognitionItem configuration in configurations)
+    {
+      // 逐条写入：每条都必须恰好写入一行，任一条不满足即整批失败；抛出的数据库异常按原样向外传播，
+      // 已写入的行由调用入口声明的事务回滚。
+      if (await repository.CreateMutualRecognitionItemAsync(configuration) != 1)
+        throw new InvalidOperationException("业务拒绝：互认项目配置批量保存影响的行数异常，未完成保存。");
+    }
+
+    AddEvent(command.CreateMutualRecognitionItemsCreatedEvent(
+      [.. configurations.Select(configuration => new MutualRecognitionItemCreatedSnapshot
+      {
+        Id = configuration.Id,
+        StandardProjectCode = configuration.StandardProjectCode,
+        RecognitionDurationDays = configuration.RecognitionDurationDays,
+        IsValid = configuration.IsValid
+      })]));
+
+    return true;
+  }
+
+  /// <summary>
+  /// 校验批量新建配置的编码集合口径：非空、不超过单批上限、元素都没有空白、批次内没有重复编码。
+  /// </summary>
+  /// <remarks>
+  /// 四类违规各有专属文案，一次只报告第一类命中的违规，使调用方按集合口径逐项修正；
+  /// 空白与重复按编码本身报告，避免只报条数而无法定位是哪些编码。
+  /// </remarks>
+  /// <param name="standardProjectCodes">本次提交的标准项目编码集合。</param>
+  /// <exception cref="InvalidOperationException">集合为空、超过单批上限、含空白编码或批次内编码重复时抛出。</exception>
+  private static void ValidateBatchItemCollection(IReadOnlyList<string> standardProjectCodes)
+  {
+    if (standardProjectCodes.Count == 0) throw new InvalidOperationException("业务拒绝：标准项目编码集合不能为空。");
+    if (standardProjectCodes.Count > MaxBatchItemCount)
+      throw new InvalidOperationException($"业务拒绝：单批标准项目编码不能超过 {MaxBatchItemCount} 条。");
+
+    string[] blankCodes = [.. standardProjectCodes.Where(string.IsNullOrWhiteSpace)];
+    if (blankCodes.Length > 0) throw new InvalidOperationException($"业务拒绝：标准项目编码不能为空白：{string.Join('、', blankCodes)}。");
+
+    string[] duplicatedCodes =
+    [
+      .. standardProjectCodes
+        .GroupBy(code => code, StringComparer.Ordinal)
+        .Where(group => group.Count() > 1)
+        .Select(group => group.Key)
+        .Order(StringComparer.Ordinal)
+    ];
+    if (duplicatedCodes.Length > 0)
+      throw new InvalidOperationException($"业务拒绝：标准项目编码在批次内重复：{string.Join('、', duplicatedCodes)}。");
+  }
+
+  /// <summary>
+  /// 校验整批编码对应的标准项目目录：三层都有效才算可用于新建互认项目配置，并收集全部违规编码按原因分组。
+  /// </summary>
+  /// <remarks>
+  /// 编码不存在按请求编码与读取返回编码的差集判定，因此缺失编码不承担任何额外读取；
+  /// 三层停用按分类、分组、项目的顺序归入各自分组，同一编码同时命中多层时只按最上层原因报告一次。
+  /// </remarks>
+  /// <param name="standardProjectCodes">本次提交的标准项目编码集合。</param>
+  /// <param name="statesByCode">本次读取到的目录状态，按标准项目编码索引。</param>
+  /// <exception cref="InvalidOperationException">存在编码不存在或三层任一停用时抛出，文案按原因分组携带全部违规编码。</exception>
+  private static void ValidateStandardCatalogForBatch(
+    IReadOnlyList<string> standardProjectCodes,
+    IReadOnlyDictionary<string, MedicalStandardItemCatalogState> statesByCode)
+  {
+    string[] missingCodes = [.. standardProjectCodes.Where(code => !statesByCode.ContainsKey(code)).Order(StringComparer.Ordinal)];
+    string[] disabledCategoryCodes =
+    [
+      .. standardProjectCodes
+        .Where(code => statesByCode.TryGetValue(code, out MedicalStandardItemCatalogState? state) && !state.CategoryIsValid)
+        .Order(StringComparer.Ordinal)
+    ];
+    string[] disabledGroupCodes =
+    [
+      .. standardProjectCodes
+        .Where(code => statesByCode.TryGetValue(code, out MedicalStandardItemCatalogState? state) && state.CategoryIsValid && !state.GroupIsValid)
+        .Order(StringComparer.Ordinal)
+    ];
+    string[] disabledItemCodes =
+    [
+      .. standardProjectCodes
+        .Where(code =>
+          statesByCode.TryGetValue(code, out MedicalStandardItemCatalogState? state) && state.CategoryIsValid && state.GroupIsValid && !state.ItemIsValid)
+        .Order(StringComparer.Ordinal)
+    ];
+
+    if (missingCodes.Length == 0 && disabledCategoryCodes.Length == 0 && disabledGroupCodes.Length == 0 && disabledItemCodes.Length == 0) return;
+
+    List<string> reasons = [];
+    if (missingCodes.Length > 0) reasons.Add($"编码不存在：{string.Join('、', missingCodes)}");
+    if (disabledCategoryCodes.Length > 0) reasons.Add($"所属分类已停用：{string.Join('、', disabledCategoryCodes)}");
+    if (disabledGroupCodes.Length > 0) reasons.Add($"所属分组已停用：{string.Join('、', disabledGroupCodes)}");
+    if (disabledItemCodes.Length > 0) reasons.Add($"标准项目已停用：{string.Join('、', disabledItemCodes)}");
+    throw new InvalidOperationException($"业务拒绝：标准项目目录不可用于新建互认项目配置：{string.Join("；", reasons)}。");
+  }
+
+  /// <summary>
+  /// 按命令与已读取的目录状态构造待写入的互认项目配置集合。
+  /// </summary>
+  /// <remarks>逐项生成配置标识，绑定批次上统一的可互认时间与操作字段，启用状态固定为启用；顺序与提交的编码顺序一致。</remarks>
+  /// <param name="command">批量新建配置命令。</param>
+  /// <param name="statesByCode">本次读取到的目录状态，按标准项目编码索引。</param>
+  /// <returns>待写入的互认项目配置集合，与提交的编码逐项对应。</returns>
+  private IReadOnlyList<MutualRecognitionItem> BuildBatchMutualRecognitionItems(
+    CreateMutualRecognitionItemsCommand command,
+    IReadOnlyDictionary<string, MedicalStandardItemCatalogState> statesByCode) =>
+  [
+    .. command.StandardProjectCodes.Select(code => new MutualRecognitionItem
+    {
+      Id = repository.CreateGuid(),
+      OrganizationCode = command.OrganizationCode,
+      StandardItemId = statesByCode[code].StandardItemId,
+      StandardProjectCode = code,
+      RecognitionDurationDays = command.RecognitionDurationDays,
+      // 聚合初值固定为启用：领域事件与"创建必为启用"的行为断言都以该值为准。
+      IsValid = true,
+      OperId = command.OperId,
+      OperTime = command.OperTime
+    })
+  ];
 
   /// <summary>
   /// 修改互认项目配置的可互认时间天数。

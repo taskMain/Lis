@@ -237,17 +237,18 @@ public sealed class Stage5ConstraintTests
   ];
 
   /// <summary>
-  /// 全仓显式事务声明的冻结分布：三个文件共九处，本阶段新增三处，既有六处不变。
+  /// 全仓显式事务声明的冻结分布：三个文件共十处，本阶段新增三处，既有六处与批量新建一处不变。
   /// </summary>
   /// <remarks>
   /// 依据 S5-D18 与矩阵 V87：既有实现二十三处公开入口中四处声明在写应用服务入口、两处声明在控制器上传动作
   /// （框架按路由端点元数据取事务声明）；本阶段四个接口全为自动端点，新增三处声明即端点本身。
+  /// 批量新建互认项目配置按裁定声明事务：整批逐条写入任一条失败时必须整批回滚，因此列入本清单。
   /// </remarks>
   private static readonly (string RelativePath, string[] MethodNames)[] FrozenTransactionDeclarations =
   [
     (
       "server/Dy.MedicalRecognition.Application/MedicalRecognitionReportAggregate/MedicalRecognitionReportAppService.cs",
-      ["CreateMedicalStandardGroupAsync", "CreateMedicalStandardItemAsync"]
+      ["CreateMedicalStandardGroupAsync", "CreateMedicalStandardItemAsync", "CreateMutualRecognitionItemsAsync"]
     ),
     (
       "server/Dy.MedicalRecognition.Application/MedicalRecognitionReportAggregate/MedicalRecognitionReportAppService.Submission.cs",
@@ -463,10 +464,10 @@ public sealed class Stage5ConstraintTests
   }
 
   /// <summary>
-  /// V87：全仓显式事务声明恰好九处，分布为既有六处加本阶段新增三处，且引用详情查询入口不声明。
+  /// V87：全仓显式事务声明恰好十处，分布为既有六处、本阶段新增三处与批量新建互认项目配置一处，且引用详情查询入口不声明。
   /// </summary>
   /// <remarks>
-  /// 三处新增声明位于三个自动端点对应的写应用服务方法上；引用详情是只读查询，在任何分片都不声明事务。
+  /// 三处阶段 5 新增声明位于三个自动端点对应的写应用服务方法上；引用详情是只读查询，在任何分片都不声明事务。
   /// 只断言"某方法带声明"时，声明被挪到别的入口或在别处多出一处都不会失败，因此这里冻结逐文件逐方法的等值清单。
   /// </remarks>
   [Fact]
@@ -488,10 +489,11 @@ public sealed class Stage5ConstraintTests
       expected.OrderBy(entry => entry.RelativePath, StringComparer.Ordinal).ThenBy(entry => entry.MethodName, StringComparer.Ordinal),
       actual.OrderBy(entry => entry.RelativePath, StringComparer.Ordinal).ThenBy(entry => entry.MethodName, StringComparer.Ordinal));
 
-    // 本阶段新增的三处、既有写应用服务的四处与控制器上传动作的两处，逐项在清单内出现。
+    // 本阶段新增的三处、既有写应用服务的四处、批量新建一处与控制器上传动作的两处，逐项在清单内出现。
     string[] stage5Entrypoints = ["RequestRecognitionMatchesAsync", "SubmitRecognitionProcessingResultsAsync", "SubmitRecognitionReferencesAsync"];
     foreach (string entrypoint in stage5Entrypoints) Assert.Contains(actual, entry => entry.MethodName == entrypoint);
-    Assert.Equal(6, actual.Count(entry => entry.MethodName is not ("RequestRecognitionMatchesAsync" or "SubmitRecognitionProcessingResultsAsync" or "SubmitRecognitionReferencesAsync")));
+    Assert.Contains(actual, entry => entry.MethodName == "CreateMutualRecognitionItemsAsync");
+    Assert.Equal(7, actual.Count(entry => entry.MethodName is not ("RequestRecognitionMatchesAsync" or "SubmitRecognitionProcessingResultsAsync" or "SubmitRecognitionReferencesAsync")));
 
     // 引用详情查询入口不声明：查询应用服务的整个工程内一处声明都没有，入口所在分片同样没有。
     Assert.Empty(TransactionDeclarations("server/Dy.MedicalRecognition.Application/Queries"));

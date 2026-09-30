@@ -9,6 +9,7 @@ namespace Dy.MedicalRecognition.Repository.MedicalRecognitionReportAggregate;
 /// </summary>
 /// <remarks>
 /// 只发映射文件中已有的语句，不判断业务状态、存在性与配置唯一性，均由领域层判定；
+/// 批量新建互认项目配置按提交顺序逐条调用单条创建语句，不另设批量写入语句；
 /// 并发写入违反“组织编码 + 标准项目编码”唯一约束时由数据库唯一索引拒绝，数据库异常按原样向外传播。
 /// </remarks>
 public partial class MedicalRecognitionReportRepository
@@ -63,4 +64,14 @@ public partial class MedicalRecognitionReportRepository
   /// <param name="standardProjectCode">标准项目编码。</param>
   /// <returns>互认项目配置实体；未建立时返回 <see langword="null"/>。</returns>
   public async Task<MutualRecognitionItem?> GetMutualRecognitionItemByOrganizationAndProjectAsync(string organizationCode, string standardProjectCode) => await dataMapper.QuerySingleAsync<MutualRecognitionItem>(new { OrganizationCode = organizationCode, StandardProjectCode = standardProjectCode }, scope: MutualRecognitionItemScope);
+
+  /// <summary>
+  /// 按组织编码与标准项目编码集合一次读取该组织已有的互认项目配置。
+  /// </summary>
+  /// <param name="organizationCode">组织编码，取自可信组织上下文。</param>
+  /// <param name="standardProjectCodes">本次待查重的标准项目编码集合。</param>
+  /// <returns>集合内已建立配置的互认项目配置实体。</returns>
+  public async Task<IReadOnlyList<MutualRecognitionItem>> GetMutualRecognitionItemsByCodesAsync(string organizationCode, IReadOnlyList<string> standardProjectCodes) =>
+    [.. await dataMapper.QueryAsync<MutualRecognitionItem>(
+      new { OrganizationCode = organizationCode, StandardProjectCodes = standardProjectCodes }, scope: MutualRecognitionItemScope)];
 }

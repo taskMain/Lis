@@ -316,7 +316,10 @@ public sealed class Stage5SqlMapTests
     ("CountSourceRecognitionDetails", null),
     ("QuerySourceRecognitionDetails", null),
     ("QueryRecognitionMatchRecordView", null),
-    ("QueryRecognitionMatchRecordViewItems", null)
+    ("QueryRecognitionMatchRecordViewItems", null),
+    // 批量新增互认项目配置的两个批量读取语句同批登记：语句改别名、改列名或把列写到另一张表上时逐项判定发现。
+    ("GetMedicalStandardItemsByCodes", "MedicalStandardItem.xml"),
+    ("GetMutualRecognitionItemsByCodes", "MutualRecognitionItem.xml")
   ];
 
   /// <summary>

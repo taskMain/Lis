@@ -14,7 +14,7 @@
 
 批量创建 `CreateMutualRecognitionItemsRequest` 将公共属性上提：批次级唯一一份 `RecognitionDurationDays`（`[Range(1, int.MaxValue)]` 的 `int`，整批共用），元素为 `IReadOnlyList<string> StandardProjectCodes`，逐项只携带标准项目编码，不携带天数；契约同样不提交 `OrganizationCode` 与内部 ID。集合口径：非空（空集合拒绝）、单批最多 1000 条（上限防御，错误中明示）、元素非空白、批次内不允许重复编码（重复即整批拒绝并报告重复编码）。S2-D18 的"统一可互认时间"由此从页面约束上升为契约形状。
 
-五个互认写入口（`CreateMutualRecognitionItemAsync`、`CreateMutualRecognitionItemsAsync`、`UpdateMutualRecognitionItemConfigurationAsync`、`EnableMutualRecognitionItemAsync`、`DisableMutualRecognitionItemAsync`）的返回与异常口径固定为：成功返回 `Task<bool>` 的 `true`，**不返回 `false`**；入参校验失败、可信组织或操作人不可解析、业务拒绝与影响行数不为预期值一律以异常结束（`ValidationException` 或 `InvalidOperationException`），调用方不需要按返回值判失败。批量创建的业务拒绝错误必须携带按原因分组的违规编码集合（空/超上限/批次内重复/目录无效/与库内配置重复），具体传输形状在实现时按框架错误契约落地，设计锁定"携带分组编码集合"这一事实；并发唯一冲突整批拒绝按"存在并发冲突，请刷新后重试"表达，不逐码定位。启停入口在条件更新影响 0 行时按同一可信组织**复读一次**，复读结果分为三种：复读已是目标状态按**幂等成功**返回 `true` 且不登记事件；复读仍是反向状态按**并发冲突**拒绝、提示刷新后重试；复读读不到配置按**配置不存在**拒绝（与归属校验同一口径，不泄漏其他组织配置）。该三分支与后文"启停并发与归属"一节及 `MedicalRecognitionReportManager` 的复读口径一致，两个启停入口的 XML 文档即按此三出口描述。
+五个互认写入口（`CreateMutualRecognitionItemAsync`、`CreateMutualRecognitionItemsAsync`、`UpdateMutualRecognitionItemConfigurationAsync`、`EnableMutualRecognitionItemAsync`、`DisableMutualRecognitionItemAsync`）的返回与异常口径固定为：成功返回 `Task<bool>` 的 `true`，**不返回 `false`**；入参校验失败、可信组织或操作人不可解析、业务拒绝与影响行数不为预期值一律以异常结束（`ValidationException` 或 `InvalidOperationException`），调用方不需要按返回值判失败。批量创建的业务拒绝错误必须携带按原因分组的违规编码集合（空/超上限/批次内重复/目录无效/与库内配置重复），具体传输形状在实现时按框架错误契约落地，设计锁定"携带分组编码集合"这一事实；并发窗口内的唯一冲突使整批 INSERT 失败，数据库异常按原样向外传播，不翻译为业务拒绝、不逐码定位、不部分写入。启停入口在条件更新影响 0 行时按同一可信组织**复读一次**，复读结果分为三种：复读已是目标状态按**幂等成功**返回 `true` 且不登记事件；复读仍是反向状态按**并发冲突**拒绝、提示刷新后重试；复读读不到配置按**配置不存在**拒绝（与归属校验同一口径，不泄漏其他组织配置）。该三分支与后文"启停并发与归属"一节及 `MedicalRecognitionReportManager` 的复读口径一致，两个启停入口的 XML 文档即按此三出口描述。
 
 组织上下文已取证：组织编码为 `String`，可信当前组织取自框架请求上下文的 `HttpRequestInfo.OrgId`（值来自 Bearer token 的 `org` claim）；页面所选组织经宿主登录入口选择 → 宿主签发 token → `Authorization: Bearer` → 框架 `WorkUnitEndpointFilter` 构造上下文到达服务端，业务请求不提交也不得覆盖该字段。证据见 [取证-组织与事件机制](取证-组织与事件机制.md)。授权组织集合在平台上没有契约来源（`IOrganizationAppService` 只提供全局或按入参查询，不判定调用方是否有权访问该组织），因此**跨组织判定采用"只信可信当前组织"口径**：服务端只接受与 `HttpRequestInfo.OrgId` 相等的组织，不等即拒绝；组织切换由宿主重新签发 token 完成，服务端不另建授权集合，也不重复判断操作权限（SRS 业务规则 298）。业务接口授权仍由权限系统负责，不重复建角色模型；非开发环境的最终合并配置与代理可用性另行核对，不复制开发地址作为生产配置。
 
@@ -65,8 +65,9 @@
 | `DisableMutualRecognitionItemCommand` | 修改 Command | D/Aggregate/Commands | AppService 传入ID、可信组织、操作字段 | 接受调用方伪造的原状态 |
 | `MutualRecognitionItem` | 核对 Entity | D/Aggregate | Manager 保存配置和操作字段 | 复制目录展示资料 |
 | `MedicalRecognitionReportManager` | 修改既有 Manager | D/Aggregate | 目录有效性、归属、状态、批量整批原子校验、影响行数、事件登记 | 控制事务、公共 DTO |
-| `IMedicalRecognitionReportRepository` | 重开轮扩展既有仓储接口 | D/Aggregate | AppService 必要目录读取（单条与按编码集合批量）、Manager 配置读取（单条与按编码集合批量查重）和写入（单条与批量插入） | Provider 类型 |
-| `MedicalRecognitionReportRepository` | 修改既有仓储 | R/Aggregate | 实现上述接口、条件更新返回行数、批量插入为一条多行 INSERT（复用 `MutualRecognitionItem.CreateMutualRecognitionItem` sqlId 的 BulkInsert 写法，参照同组织 `Dy.DDDSolution1` `BulkInsertAsync(items, sqlId)` 先例）、并发冲突由唯一索引兜底 | 决定是否允许启用 |
+| `MedicalStandardItemCatalogState` | 重开轮新增内部读投影 | D/Aggregate/MedicalStandardItemCatalogState.cs | 仓储按编码集合一次返回标准项目标识与所属分类、所属分组标识及三层启用状态，供 Manager 在内存中解析标识并逐编码判定目录有效性 | 充当公共契约、承载配置展示资料 |
+| `IMedicalRecognitionReportRepository` | 重开轮扩展既有仓储接口 | D/Aggregate | AppService 单条目录读取、Manager 目录读取（单条与按编码集合批量）与配置读取（单条与按编码集合批量查重）和写入（单条） | Provider 类型 |
+| `MedicalRecognitionReportRepository` | 修改既有仓储 | R/Aggregate | 实现上述接口、条件更新返回行数、并发冲突由唯一索引兜底 | 决定是否允许启用 |
 | `IMedicalRecognitionReportQueryRepository` | 扩展既有查询仓储接口 | D/Queries | QueryAppService 获取组织过滤后的投影 | 公共 ReadModel、授权判断 |
 | `MedicalRecognitionReportQueryRepository` | 扩展既有查询仓储 | R/Queries | SQL 关联、过滤、排序、返回内部投影 | 领域写入 |
 | `RecognitionProjectConfigurationListItem` | 新增内部投影 | D/Queries/RecognitionProjectConfigurationListItem.cs | 仓储返回配置字段及目录三层状态，供 Application 映射 | 充当公共契约 |
@@ -101,7 +102,7 @@
 
 创建时 Application 通过既有仓储接口新增按编码读取能力 `GetMedicalStandardItemByCodeAsync`，把 Request 的 `StandardProjectCode` 解析为服务端 `StandardItemId`，编码仍保持同名；Manager 复用 `GetMedicalStandardItemByIdAsync`、`GetMedicalStandardCategoryByIdAsync`、`GetMedicalStandardGroupByIdAsync` 校验三层当前状态和关联。四个 Command 的 `OrganizationCode`、`OperId`、`OperTime` 均由 Application 注入。Manager 用新增 `GetMutualRecognitionItemByIdAsync(id, organizationCode)` 在可信组织范围读取；既有配置编码、目录ID从持久化配置取得，不由修改/启停请求补入，不另建目录服务接口。
 
-批量创建时 Application 新增按编码集合**一次批量读取**当前有效标准项目（`GetMedicalStandardItemsByCodesAsync`，先对编码集合去重再读取，调用次数只随筛选维度增长、不随行数增长，见 [backend-architecture](../../../../.agents/instructions/backend-architecture.md) 第 5.3 节），逐编码解析 `StandardItemId` 后组装 `CreateMutualRecognitionItemsCommand`（`StandardProjectCodes` 与 Request 同名保留，`OrganizationCode`、`OperId`、`OperTime` 由 Application 注入）。Manager 批量创建路径：先校验集合口径（非空、≤1000、元素非空白、批次内无重复），再按项目集合批量读取项目/分类/分组三层状态（一次批量读取、内存映射校验，不逐行往返），收集**全部**违规编码并按原因分组（编码不存在、所属分类停用、所属分组停用、标准项目停用），随后用新增的 `GetMutualRecognitionItemsByCodesAsync(organizationCode, codes)` 一次性查重（含停用配置占用的唯一键）；任一命中即整批拒绝、零行写入、零事件。全部通过后 Manager 构造实体集合（逐项生成 `Id`、`is_valid=true`、绑定统一天数与操作字段），调用 `BulkInsertMutualRecognitionItemsAsync` 走一条多行 INSERT（sqlId 复用 `MutualRecognitionItem.CreateMutualRecognitionItem`，写法参照同组织 `Dy.DDDSolution1.Repository` 的 `_dataMapper.BulkInsertAsync(items, sqlId: "CreateApplication")` 先例，不新增注册键），影响行数等于批次数才登记一次 `MutualRecognitionItemsCreatedEvent`；行数不符视为持久化不变量异常，不返回成功、不登记事件。
+批量创建时 `CreateMutualRecognitionItemsCommand` 只承载可信组织、标准项目编码集合、统一天数、操作字段与操作时间，不接受逐元素天数；编码到 `StandardItemId` 的解析由 Manager 在批量读取结果上完成，Application 不另行读取标准目录。Manager 批量创建路径：先校验集合口径（非空、≤1000、元素非空白、批次内无重复），再按编码集合**一次批量读取**标准项目及其分类、分组标识与三层启用状态（`GetMedicalStandardItemsByCodesAsync`，先对编码集合去重再读取，调用次数只随筛选维度增长、不随行数增长，见 [backend-architecture](../../../../.agents/instructions/backend-architecture.md) 第 5.3 节），在内存映射中同时完成逐编码 `StandardItemId` 解析与三层有效性校验（编码不存在按请求编码集合与返回结果的差集判定），收集**全部**违规编码并按原因分组（编码不存在、所属分类停用、所属分组停用、标准项目停用），随后用新增的 `GetMutualRecognitionItemsByCodesAsync(organizationCode, codes)` 一次性查重（含停用配置占用的唯一键）；任一命中即整批拒绝、零行写入、零事件。全部通过后 Manager 构造实体集合（逐项生成 `Id`、`is_valid=true`、绑定统一天数与操作字段），按提交顺序**逐条**插入（复用既有单条创建语句 `MutualRecognitionItem.CreateMutualRecognitionItem`，不新增语句、不新增注册键），累加各次影响行数；合计等于批次数才登记一次 `MutualRecognitionItemsCreatedEvent`；行数合计不符视为持久化不变量异常，不返回成功、不登记事件。整批全成全败由应用入口声明的工作单元事务保证。批量路径的目录读取、配置查重各一次，与验证矩阵 V33 一致。
 
 查询链：Host → 既有 `IMedicalRecognitionReportQueryAppService.QueryRecognitionProjectConfigurationListAsync` → `MedicalRecognitionReportQueryAppService` 校验 Request 组织等于可信当前组织（两侧按去首尾空白比较，不另建授权组织集合） → 既有 `IMedicalRecognitionReportQueryRepository` 的同名方法 → `MedicalRecognitionReportQueryRepository` / `MedicalRecognitionReportQuery.xml` 在数据库按组织、可选编码和状态过滤并稳定排序 → `RecognitionProjectConfigurationListItem` → Application 映射 `RecognitionProjectConfigurationReadModel`。内部投影携带分类/分组/项目状态供派生原因，公共返回不泄漏这些内部字段；查询不得产生写入、审计事件或消息。
 
@@ -109,8 +110,8 @@
 
 | Command/FacadeCommand | 主要 DomainEvent | 成功条件 | 关键事件字段 | 登记位置 | 失败/幂等语义 |
 |---|---|---|---|---|---|
-| `CreateMutualRecognitionItemCommand` | `MutualRecognitionItemCreatedEvent` | 三层目录有效且插入恰好 1 行 | `Id`、`OrganizationCode`、`StandardProjectCode`、`RecognitionDurationDays`、`IsValid=true` | `MedicalRecognitionReportManager` | 校验、唯一冲突或写入失败不登记；重复配置由唯一约束拒绝 |
-| `CreateMutualRecognitionItemsCommand` | `MutualRecognitionItemsCreatedEvent` | 全部编码通过集合口径、三层有效性与组织内查重，且多行 INSERT 恰好 N 行 | `OrganizationCode`、`Items` 快照（各 `Id`、`StandardProjectCode`、`RecognitionDurationDays`、`IsValid=true`）、`EventCreator`、`EventCreatedTime` | `MedicalRecognitionReportManager` | 任一预校验命中整批拒绝且不登记，错误携带按原因分组的违规编码集合；并发唯一冲突整批拒绝翻译为并发冲突；影响行数 ≠ N 为持久化不变量异常 |
+| `CreateMutualRecognitionItemCommand` | `MutualRecognitionItemCreatedEvent` | 三层目录有效且插入恰好 1 行 | `Id`、`OrganizationCode`、`StandardProjectCode`、`RecognitionDurationDays`、`IsValid=true` | `MedicalRecognitionReportManager` | 校验、写入失败或行数不为 1 不登记；重复配置由写入前查重拒绝，并发窗口内的唯一索引冲突由数据库拒绝并按原样向外传播 |
+| `CreateMutualRecognitionItemsCommand` | `MutualRecognitionItemsCreatedEvent` | 全部编码通过集合口径、三层有效性与组织内查重，且逐条写入的影响行数合计等于批次数 | `OrganizationCode`、`Items` 快照（各 `Id`、`StandardProjectCode`、`RecognitionDurationDays`、`IsValid=true`）、`EventCreator`、`EventCreatedTime` | `MedicalRecognitionReportManager` | 任一预校验命中整批拒绝且不登记，错误携带按原因分组的违规编码集合；写入由工作单元事务保证整批全成全败，并发窗口内的唯一索引冲突使整批回滚、数据库异常按原样向外传播；行数合计 ≠ 批次数为持久化不变量异常 |
 | `UpdateMutualRecognitionItemConfigurationCommand` | `MutualRecognitionItemConfigurationUpdatedEvent` | 组织范围内按 ID 更新恰好 1 行 | `Id`、`OrganizationCode`、`StandardProjectCode`、修改后 `RecognitionDurationDays` | `MedicalRecognitionReportManager` | 同值也保存并登记；0 行拒绝且不登记 |
 | `EnableMutualRecognitionItemCommand` | `MutualRecognitionItemEnabledEvent` | 目录有效且条件更新恰好 1 行 | `Id`、`OrganizationCode`、`StandardProjectCode`、`IsValid=true` | `MedicalRecognitionReportManager` | 已是目标状态时幂等成功且不登记；反向竞争冲突拒绝 |
 | `DisableMutualRecognitionItemCommand` | `MutualRecognitionItemDisabledEvent` | 条件更新恰好 1 行 | `Id`、`OrganizationCode`、`StandardProjectCode`、`IsValid=false` | `MedicalRecognitionReportManager` | 已是目标状态时幂等成功且不登记；反向竞争冲突拒绝 |
@@ -121,13 +122,13 @@
 
 | 写用例 | Application Service 入口 | 主要 Repository 数据库语句/操作 | 是否开启事务 | 框架机制 | 原子性依据 | 并发兜底 | DomainEvent 口径 | 外部调用及顺序 | 失败语义 | 验证方式 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 创建 | `CreateMutualRecognitionItemAsync` | 目录读取后 1 条 INSERT | 否 | 不加 `[WorkUnit]`；无显式事务，由框架 `EventBusActionUnitFilter` 在请求完成时统一 `FlushAsync` | 单条 INSERT 的语句级原子性 | 组织编码 + 标准项目编码唯一索引（唯一冲突翻译为重复配置业务拒绝） | INSERT 恰好 1 行才登记创建事件 | 本阶段无外部调用 | 校验、唯一冲突或写入失败均无成功事件 | V1-V4、V15-V16、V24 |
-| 批量创建 | `CreateMutualRecognitionItemsAsync` | 集合口径校验后：1 次批量目录读取 + 1 次批量配置查重读取 + 1 条多行 INSERT | 否 | 不加 `[WorkUnit]`；无显式事务，同上框架 Flush | 单条多行 INSERT 的语句级原子性 | 组织编码 + 标准项目编码唯一索引（预校验后的并发窗口使整批 INSERT 失败，翻译为并发冲突整批拒绝） | INSERT 恰好 N 行才登记一次批量事件 | 本阶段无外部调用 | 任一预校验命中零行零事件，错误携带分组违规编码；行数 ≠ N 为持久化不变量异常 | V28-V33、V24 |
+| 创建 | `CreateMutualRecognitionItemAsync` | 目录读取后 1 条 INSERT | 否 | 不加 `[WorkUnit]`；无显式事务，由框架 `EventBusActionUnitFilter` 在请求完成时统一 `FlushAsync` | 单条 INSERT 的语句级原子性 | 写入前按组织编码与标准项目编码查重；并发窗口内的唯一索引冲突由数据库拒绝并按原样向外传播 | INSERT 恰好 1 行才登记创建事件 | 本阶段无外部调用 | 校验、唯一冲突或写入失败均无成功事件 | V1-V4、V15-V16、V24 |
+| 批量创建 | `CreateMutualRecognitionItemsAsync` | 集合口径校验后：1 次批量目录读取 + 1 次批量配置查重读取 + 按批次数逐条 INSERT | 是 | `[WorkUnit(UseTransaction = true)]`，与同文件新建分组、新建标准项目两个入口同形 | 框架工作单元事务：任一条写入失败即整批回滚 | 写入前按组织编码与编码集合批量查重；并发窗口内的唯一索引冲突使整批回滚并按原样向外传播，无部分写入 | 逐条写入的影响行数合计等于批次数才登记一次批量事件 | 本阶段无外部调用 | 任一预校验命中零行零事件，错误携带分组违规编码；行数合计数 ≠ 批次数为持久化不变量异常 | V28-V33、V24 |
 | 修改 | `UpdateMutualRecognitionItemConfigurationAsync` | 组织范围读取后 1 条按 ID + 可信组织 UPDATE | 否 | 不加 `[WorkUnit]`；无显式事务，同上框架 Flush | 单条条件 UPDATE 的语句级原子性 | `ID + 可信组织` 定位并检查影响行数 | 恰好 1 行登记修改事件，同值仍保存并登记 | 本阶段无外部调用 | 0 行或异常拒绝，不伪造成功 | V5-V6、V11、V16、V24、V27 |
 | 启用 | `EnableMutualRecognitionItemAsync` | 组织范围读取、必要目录校验后 1 条条件 UPDATE | 否 | 不加 `[WorkUnit]`；无显式事务，同上框架 Flush | 单条条件 UPDATE 的语句级原子性 | `ID + 可信组织 + 原状态`；检查 0/1/N 行 | 恰好 1 行登记启用事件，幂等不登记 | 本阶段无外部调用 | 幂等无事件；反向竞争冲突拒绝 | V7-V11、V16、V24、V26-V27 |
 | 停用 | `DisableMutualRecognitionItemAsync` | 组织范围读取后 1 条条件 UPDATE | 否 | 不加 `[WorkUnit]`；无显式事务，同上框架 Flush | 单条条件 UPDATE 的语句级原子性 | `ID + 可信组织 + 原状态`；检查 0/1/N 行 | 恰好 1 行登记停用事件，幂等不登记 | 本阶段无外部调用 | 幂等无事件；反向竞争冲突拒绝 | V9-V11、V16、V24、V26-V27 |
 
-事务决策遵循 S2-D6 的口径。本阶段五个用例各最多一条写语句（批量创建的多行 INSERT 仍是一条语句），不锁定目录，依靠单语句原子性，不为事件增加 WorkUnit。通用规范要求同表多写全成全败时也考虑事务，与 S2-D6“仅跨表或外观命令使用”的范围不同；本阶段批量创建通过单语句原子性满足整批全成全败，不涉及该分歧，不将其扩张成后续阶段通用规则。若将来出现同表多条独立写语句，先修订设计，不能自行套用任一口径。目录停用不改写配置状态，查询/匹配仍检查当时的三层有效性。
+事务决策遵循 S2-D6 的口径：单条写语句的用例依靠语句级原子性，不声明事务；批量创建一次请求要写入多条同一张表的记录且业务要求整批全成全败，因此按框架提供的工作单元声明事务边界（`[WorkUnit(UseTransaction = true)]`），与同文件新建分组、新建标准项目两个入口的既有写法一致，不自建事务、不使用手工事务 API。该结论只回答"本用例需要事务"，不把 S2-D6 的范围扩张成后续阶段通用规则；将来出现同表多条独立写语句的用例，仍须先修订设计再实现。目录停用不改写配置状态，查询/匹配仍检查当时的三层有效性。
 
 组织代理契约尚未核实；确认需要外部调用时，复用 Host `HttpConfig.HttpServiceConfigs` 集中超时/重试机制，应用层不再包装或自动重试。外部校验失败不得进入写入、不得登记事件。
 
@@ -137,7 +138,7 @@
 
 启用 UPDATE 条件为 `id = $Id AND organization_code = $OrganizationCode AND is_valid = false`，停用为相同ID/组织条件且 `is_valid = true`。原状态由 Manager 已读取状态决定，不接受客户端状态；只更新 `is_valid`、`oper_time`、`oper_id`。恰好1行才登记对应事件；0行按同一可信组织复读一次：不存在/越组织拒绝，复读已是目标状态则幂等成功无事件，仍为反向状态则返回并发冲突，提示刷新后重试，不自动无限重试。大于1行视为持久化不变量异常，不返回成功、不登记事件。
 
-无交错反向操作时，并发同方向请求只有一条条件更新成功、只登记一次事件；不宣称仅靠布尔原状态能识别所有 ABA 交错，也不增加版本字段。本阶段反向并发只承诺单次条件更新和上述复读/冲突结果，不替用户循环重放意图。修改天数也必须按ID+可信组织读取和更新，越组织ID无论状态相同与否都拒绝；唯一约束冲突统一翻译为重复配置业务错误。
+无交错反向操作时，并发同方向请求只有一条条件更新成功、只登记一次事件；不宣称仅靠布尔原状态能识别所有 ABA 交错，也不增加版本字段。本阶段反向并发只承诺单次条件更新和上述复读/冲突结果，不替用户循环重放意图。修改天数也必须按ID+可信组织读取和更新，越组织ID无论状态相同与否都拒绝；写入前按组织编码与标准项目编码查重命中即按重复配置拒绝，并发窗口内的唯一约束冲突由数据库拒绝并按原样向外传播。
 
 ### 无 WorkUnit 事件证据边界
 
@@ -168,7 +169,7 @@ V24 的运行面须在真实库与真实入口下分别记录正常调用、写�
 
 唯一索引固定为 `ux_mrec_mutual_recognition_org_project`，覆盖 `(organization_code, standard_project_code)`，无状态过滤，停用配置也占用唯一键；索引注释为“同一组织标准项目互认配置唯一（含停用配置）”。脚本包含 `COMMENT ON TABLE`、每列 `COMMENT ON COLUMN` 和 `COMMENT ON INDEX`。不创建 `StandardItemId` 外键，不迁移或触碰其他系统对象；目标数据库/schema 确认并执行最终 DDL 后，才继续依赖新表的集成验证。
 
-SqlMap 的 `Scope` 和每个 DataMapper 调用点统一改为 `MutualRecognitionItem`，不调用 `SetContext`；SQL 显式指向 `mrec_mutual_recognition_item`。每个手写 Statement 补业务功能 XML 注释；SELECT、INSERT、UPDATE 字段补中文注释，复杂 CASE/JOIN/条件补处理、原因、结果注释。作用域查找键/注册键已由 `Stage1SqlMapProbeTests` 的不连库探针核实并在测试中断言（注册面）；运行面见宿主证据（阶段 `testReport.md` 的宿主验收与"结果"节）。批量插入复用 `MutualRecognitionItem.CreateMutualRecognitionItem` 注册键走 `_dataMapper.BulkInsertAsync` 参数展开，不新增 Statement；批量读取（目录按编码集合、配置按组织+编码集合）各新增一个 Statement，同样补功能与字段注释。
+SqlMap 的 `Scope` 和每个 DataMapper 调用点统一改为 `MutualRecognitionItem`，不调用 `SetContext`；SQL 显式指向 `mrec_mutual_recognition_item`。每个手写 Statement 补业务功能 XML 注释；SELECT、INSERT、UPDATE 字段补中文注释，复杂 CASE/JOIN/条件补处理、原因、结果注释。作用域查找键/注册键已由 `Stage1SqlMapProbeTests` 的不连库探针核实并在测试中断言（注册面）；运行面见宿主证据（阶段 `testReport.md` 的宿主验收与"结果"节）。批量写入复用 `MutualRecognitionItem.CreateMutualRecognitionItem` 注册键逐条插入，不新增 Statement；批量读取（目录按编码集合、配置按组织+编码集合）各新增一个 Statement，同样补功能与字段注释。
 
 目录停用原因采用根设计 S2-D14 固定的规则，只处理停用，不处理删除；按“分类 → 分组 → 项目”优先级返回第一条原因，具体文案依次为“所属分类已停用”“所属分组已停用”“标准项目已停用”。全部目录有效时 `UnavailableReason = null`；配置自身停用只由 `ConfigurationStatus` 表达，不能抢占目录原因。查询使用配置组织过滤后关联全局标准目录，不复制名称、类型、分类或分组；上级恢复时实时重算，不改写配置自身状态。目录资料缺失不是正常业务可达状态，不建立测试夹具或直接写库构造该数据。
 
@@ -208,7 +209,7 @@ V16单元验证事件构造/登记规则，不能替代V24真实生产调度；V
 | V12 | 配置列表组织过滤与目录关联 | Query | 只返回当前组织，资料实时关联 | 是 | 否 | 两个组织；有效目录 |
 | V13 | `UnavailableReason` 空值与单层停用原因 | Query | 三层启用为null；仅分类/仅分组/仅项目停用时分别返回对应具体文案；配置自身停用不产生目录原因 | 是 | 否 | 有效目录与配置；分别独立停用一层，其余两层自身状态启用 |
 | V14 | 查询排序和空结果 | Query | 标准项目编码升序，空集合成功；不构造同编码或相同 ID 数据测试附加排序 | 是 | 否 | 同一组织通过正常接口创建多个不同编码配置，或无匹配配置 |
-| V15 | 数据库唯一约束冲突翻译 | Repository/Application | 返回统一业务错误 | 是 | 否 | 两个正常创建请求并发提交同一组织、同一标准项目编码；不直接写库预置冲突行 |
+| V15 | 数据库唯一约束冲突 | Repository/Application | 数据库唯一索引拒绝，异常按原样向外传播，不部分写入、不登记事件 | 是 | 否 | 两个正常创建请求并发提交同一组织、同一标准项目编码；不直接写库预置冲突行 |
 | V16 | 事件字段和失败不登记事件 | Domain | 五事件字段及EventCreator/EventCreatedTime正确；创建IsValid=true；批量事件Items快照完整；修改含组织/编码；0行或异常不登记 | 否 | 否 | 成功、0行、异常、幂等命令；可信操作字段与已加载配置记录 |
 | V17 | SQL物理表映射 | Repository | 仅访问 `mrec_` 表 | 是 | 否 | 目标表已建立 |
 | V18 | DDL列序、类型、注释、索引 | Static/DB | 与设计一致 | 是 | 否 | 最终 DDL |
@@ -216,14 +217,14 @@ V16单元验证事件构造/登记规则，不能替代V24真实生产调度；V
 | V20 | 多层目录停用原因优先级 | Query | 分类优先于分组，分组优先于项目；恢复上层后显露下一原因，全恢复为null | 是 | 否 | 配置先正常创建；分类+分组、分类+项目、分组+项目及三层同时停用，随后逐层恢复 |
 | V21 | Request/ReadModel 契约 | Contract | 字段、枚举、可空性与设计一致（含批量 Request 的天数上提与编码集合形状） | 否 | 否 | 稳定契约 |
 | V22 | 可信组织与操作人来源、组织选择传递 | Application/Host | 选中组织到服务端取值链可追溯（token `org` claim → `HttpRequestInfo.OrgId`）；缺失/越权组织及无法解析/空Guid操作人拒绝 | 否 | 否 | 实际宿主身份与真实 token；组织编码来源与传递链已取证，运行面待验 |
-| V23 | SqlMap scope 查找键 | Repository/Static | 实际查找键与注册键一致（批量插入复用既有 `CreateMutualRecognitionItem` 键，不新增键） | 是 | 否 | 作用域探测结果 |
+| V23 | SqlMap scope 查找键 | Repository/Static | 实际查找键与注册键一致（批量写入复用既有 `CreateMutualRecognitionItem` 键逐条插入，不新增键） | 是 | 否 | 作用域探测结果 |
 | V24 | 无WorkUnit生产入口事件调度与提交结果 | Framework/Integration | 正常与写失败分别记录登记/数据库提交/异常结果；事件可见性子面无观察点，须按 Testing Baseline §3 处理且不得整条记为通过（执行状态见"无 WorkUnit 事件证据边界"一节的"运行面状态"说明） | 是 | 否；真实无WorkUnit生产入口 | 实际Host入口与失败注入；机制面已 `SourceConfirmed`，运行面（写入与失败响应）已实测通过；不得用带WorkUnit探针替代 |
 | V25 | DDL和SQL注释/短索引 | Static/DB | 注释、列序、类型、唯一索引符合设计 | 是 | 否 | 最终脚本和目标库 |
 | V26 | 并发同方向启用/停用及0行复读 | Domain/Repository/Integration | 无交错反向操作时仅1行状态变化、只登记一次事件，其余幂等；补反向竞争0行复读仍反向时冲突且无自动无限重试 | 是 | 否 | 通过正常接口创建配置，再经正常启停接口形成目标反向状态；启用时三层有效；同步屏障并发请求；V24观察点；反向竞争分独立场景 |
 | V27 | 跨组织配置ID写入拒绝 | Application/Domain/Repository | 组织A修改/启用/停用组织B配置均拒绝，含已是目标状态；B配置、操作字段不变且无事件 | 是 | 否 | A、B均通过正常接口形成各自配置；A请求引用B的配置ID，仅验证资源范围边界，不构造异常数据库数据 |
-| V28 | 批量新增成功 | Domain/Repository/Application | 全部编码合法时一条多行 INSERT 恰好 N 行、全部默认启用、登记一次 `MutualRecognitionItemsCreatedEvent`，事件 Items 快照含各编码、天数与 IsValid=true | 是 | 否 | 授权组织；三层目录启用；批次含跨分类、跨分组编码 |
+| V28 | 批量新增成功 | Domain/Repository/Application | 全部编码合法时按提交顺序逐条写入、影响行数合计等于批次数、全部默认启用、登记一次 `MutualRecognitionItemsCreatedEvent`，事件 Items 快照含各编码、天数与 IsValid=true | 是 | 否 | 授权组织；三层目录启用；批次含跨分类、跨分组编码 |
 | V29 | 批量入参口径 | Contract/Domain | 空集合、单批超 1000、元素空白、批次内重复编码均整批拒绝并报告对应违规编码；不进入目录校验与写入 | 否 | 否 | 非法输入；边界值 0、1、1000、1001 |
 | V30 | 批量目录有效性逐码校验 | Domain | 混合合法与停用层编码时收集全部违规编码、按原因分组（编码不存在/分类停用/分组停用/项目停用）随错误返回，零行写入、零事件 | 否 | 否 | 对应层独立停用的目录数据 |
 | V31 | 批量与库内配置查重 | Domain/Repository | 选中集合含已配置编码（含停用配置占用唯一键）即整批拒绝并报告编码，零行写入、零事件 | 是 | 否 | 同组织经正常接口先创建部分配置，再批量提交含相同编码的批次 |
-| V32 | 批量并发唯一冲突 | Repository/Application | 预校验通过后另一请求抢先创建同编码配置，本批多行 INSERT 因唯一索引整批失败，翻译为并发冲突整批拒绝，无脏写 | 是 | 否 | 两请求并发提交同组织重叠编码批次；不直接写库预置冲突行 |
+| V32 | 批量并发唯一冲突 | Repository/Application | 预校验通过后另一请求抢先创建同编码配置，本批写入因唯一索引整批回滚（工作单元事务），数据库异常按原样向外传播，无脏写、无部分写入、不登记事件 | 是 | 否 | 两请求并发提交同组织重叠编码批次；不直接写库预置冲突行 |
 | V33 | 批量读取无 N+1 | Application/Domain/Repository | 目录按编码集合、配置按组织+编码集合各一次读取完成校验与查重，调用次数不随行数增长 | 否 | 否 | 计数替身断言批量读取方法调用次数 |

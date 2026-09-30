@@ -96,5 +96,16 @@
       <!-- 保存前提定位：组织编码与标准项目编码同时相等即命中，启用状态不参与判断 -->
       where organization_code = $OrganizationCode and standard_project_code = $StandardProjectCode
     </Statement>
+    <!--
+      功能：在可信组织范围内按标准项目编码集合一次读取该组织已建立的互认项目配置，供批量新建配置写入前按整批编码一次查重。
+      结果：返回集合内已建立配置的配置字段清单，编码上没有配置的项不出现；不筛选启用状态，因此已停用配置同样命中，
+      标准项目编码在同一组织内唯一，因此同一编码至多命中一行；返回顺序按标准项目编码升序，使同一批的返回顺序稳定。
+    -->
+    <Statement Id="GetMutualRecognitionItemsByCodes">
+      select <Include RefId="MutualRecognitionItemColumns" /> from mrec_mutual_recognition_item
+      <!-- 组织范围：只返回该组织的配置；集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表 -->
+      where organization_code = $OrganizationCode and standard_project_code in $StandardProjectCodes
+      order by standard_project_code asc  <!-- 排序：按标准项目编码升序，保证同一批内的返回顺序稳定 -->
+    </Statement>
   </Statements>
 </SqlMap>

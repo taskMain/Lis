@@ -25,14 +25,16 @@ public sealed class Stage4EndpointTests
   /// <summary>
   /// 报告写入口在阶段 1 至阶段 3 已交付的方法名，按 Ordinal 升序。
   /// </summary>
+  /// <remarks>互认项目配置的五个写入口都在本清单内：单条新增、批量新增、修改可互认时间、启用与停用。</remarks>
   private static readonly string[] ExistingWriteMethods =
   [
     "ChangeMedicalStandardItemRemarkAsync", "CreateMedicalStandardCategoryAsync", "CreateMedicalStandardGroupAsync",
-    "CreateMedicalStandardItemAsync", "CreateMutualRecognitionItemAsync", "DisableMedicalStandardCategoryAsync",
-    "DisableMedicalStandardGroupAsync", "DisableMedicalStandardItemAsync", "DisableMutualRecognitionItemAsync",
-    "EnableMedicalStandardCategoryAsync", "EnableMedicalStandardGroupAsync", "EnableMedicalStandardItemAsync",
-    "EnableMutualRecognitionItemAsync", "SaveBranchRecognitionAmountAsync", "SaveOrganizationHospitalBranchRecognitionAmountAsync",
-    "UpdateMedicalStandardCategoryAsync", "UpdateMedicalStandardGroupAsync", "UpdateMutualRecognitionItemConfigurationAsync"
+    "CreateMedicalStandardItemAsync", "CreateMutualRecognitionItemAsync", "CreateMutualRecognitionItemsAsync",
+    "DisableMedicalStandardCategoryAsync", "DisableMedicalStandardGroupAsync", "DisableMedicalStandardItemAsync",
+    "DisableMutualRecognitionItemAsync", "EnableMedicalStandardCategoryAsync", "EnableMedicalStandardGroupAsync",
+    "EnableMedicalStandardItemAsync", "EnableMutualRecognitionItemAsync", "SaveBranchRecognitionAmountAsync",
+    "SaveOrganizationHospitalBranchRecognitionAmountAsync", "UpdateMedicalStandardCategoryAsync",
+    "UpdateMedicalStandardGroupAsync", "UpdateMutualRecognitionItemConfigurationAsync"
   ];
 
   /// <summary>

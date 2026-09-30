@@ -11,7 +11,10 @@ public partial interface IMedicalRecognitionReportRepository
   /// <summary>
   /// 插入一条互认项目配置记录。
   /// </summary>
-  /// <remarks>同一可信组织与同一标准项目只能存在一条配置，并发重复写入由组织与标准项目唯一约束拒绝，数据库异常按原样向外传播。</remarks>
+  /// <remarks>
+  /// 同一可信组织与同一标准项目只能存在一条配置，并发重复写入由组织与标准项目唯一约束拒绝，数据库异常按原样向外传播。
+  /// 批量新建互认项目配置按提交顺序逐条调用本方法，本方法即该批次的写入入口，不另设批量写入成员。
+  /// </remarks>
   /// <param name="mutualRecognitionItem">待插入的互认项目配置实体。</param>
   /// <returns>受影响行数。</returns>
   Task<int> CreateMutualRecognitionItemAsync(MutualRecognitionItem mutualRecognitionItem);
@@ -57,4 +60,16 @@ public partial interface IMedicalRecognitionReportRepository
   /// <param name="standardProjectCode">标准项目编码。</param>
   /// <returns>互认项目配置实体。</returns>
   Task<MutualRecognitionItem?> GetMutualRecognitionItemByOrganizationAndProjectAsync(string organizationCode, string standardProjectCode);
+
+  /// <summary>
+  /// 按组织编码与标准项目编码集合一次读取该组织已有的互认项目配置。
+  /// </summary>
+  /// <remarks>
+  /// 供批量新建配置写入前按整批编码一次查重：读取次数不随编码个数增长，不逐条往返数据库；
+  /// 启用中与已停用的配置都会被返回，停用配置同样占用"组织编码 + 标准项目编码"唯一键；集合内没有配置的编码不出现在结果中。
+  /// </remarks>
+  /// <param name="organizationCode">组织编码，取自可信组织上下文。</param>
+  /// <param name="standardProjectCodes">本次待查重的标准项目编码集合。</param>
+  /// <returns>集合内已建立配置的互认项目配置实体。</returns>
+  Task<IReadOnlyList<MutualRecognitionItem>> GetMutualRecognitionItemsByCodesAsync(string organizationCode, IReadOnlyList<string> standardProjectCodes);
 }

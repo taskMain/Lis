@@ -96,5 +96,33 @@
     <Statement Id="MedicalStandardItemCodeExists">
       select count(1) from mrec_medical_standard_item where code = $Code
     </Statement>
+    <!--
+      功能：按标准项目编码集合一次读取标准项目及其所属分类、所属分组的当前状态，供批量新建互认项目配置按整批编码一次完成目录读取。
+      结果：返回集合内命中标准项目的项目标识、所属分类标识、所属分组标识与三层启用状态，每行一个标准项目；
+      编码不存在的标准项目不返回，由调用方按请求编码与返回编码的差集判定；三层启用状态都返回，不筛选启用状态，
+      因此已停用的分类、分组与项目同样返回，当前是否有效由领域层判断；标准项目编码全局唯一，因此同一编码至多返回一行。
+    -->
+    <Statement Id="GetMedicalStandardItemsByCodes">
+      select
+        i.code as standard_project_code,   <!-- 标准项目编码：与请求提交的编码逐项对应，是编码存在性判定的依据 -->
+        i.id as standard_item_id,          <!-- 标准项目标识：互认项目配置保存该标识 -->
+        i.category_id,                     <!-- 所属分类标识 -->
+        i.group_id,                        <!-- 所属分组标识 -->
+        i.is_valid as item_is_valid,       <!-- 标准项目自身的启用状态：停用时该项目不可用于新建互认配置 -->
+        c.is_valid as category_is_valid,   <!-- 所属分类的启用状态：停用时该项目不可用于新建互认配置，原因优先于分组与项目两层 -->
+        g.is_valid as group_is_valid       <!-- 所属分组的启用状态：停用时该项目不可用于新建互认配置 -->
+      from mrec_medical_standard_item i
+      <!--
+        处理：分别按标准项目的分类标识与分组标识关联分类表与分组表。
+        原因：本语句要分别取得分类层与分组层各自的启用状态，使停止使用的一层能被单独判定；
+        附加分类与分组同源的条件会让归属历史不一致的标准项目整体从结果中消失，最终表现为编码不存在，掩盖真实的停用层。
+        结果：三层启用状态各自独立返回，领域层据此按“分类优先于分组、分组优先于项目”的顺序给出停用原因。
+      -->
+      join mrec_medical_standard_category c on c.id = i.category_id
+      join mrec_medical_standard_group g on g.id = i.group_id
+      <!-- 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表；空集合展开为空列表，不返回任何行 -->
+      where i.code in $Codes
+      order by i.code asc  <!-- 排序：按标准项目编码升序，保证同一批内的返回顺序稳定 -->
+    </Statement>
   </Statements>
 </SqlMap>

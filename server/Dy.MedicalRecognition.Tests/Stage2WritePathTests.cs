@@ -26,13 +26,16 @@ namespace Dy.MedicalRecognition.Tests;
 /// 阶段 2 互认项目配置写入口的用例与领域行为校验：新增即为启用状态并登记创建事件、目录三层停用按层拒绝、
 /// 可互认时间正整数与可构造边界、停用后仍可修改、启用前校验目录、重复启停幂等、组织与操作人只取自登录令牌、
 /// 事件字段与失败不登记事件、条件更新影响行数判定（启用与停用的 0 行复读三分支、多行不变量）、
-/// 跨组织归属拒绝、仓储层唯一约束冲突识别与其它数据库错误的继续传播，以及互认配置 SqlMap 的静态约定。
+/// 跨组织归属拒绝、批量新增的集合口径、目录逐码判定、组织内查重、无 N+1 读取、逐条写入的行数合计与事务声明，
+/// 以及互认配置 SqlMap 的静态约定。
 /// </summary>
 /// <remarks>
-/// 对应阶段 2 验证矩阵 V1、V3、V4、V6、V8、V9、V11、V16、V26、V27 中不依赖真实数据库的部分，以及四个写入口的 SqlMap 静态约定。
-/// 真实数据库上的唯一约束冲突结果、并发交错与物理表运行证据属于阶段 2 的 V2、V15、V17、V26 运行面，不在本文件验证。
+/// 对应阶段 2 验证矩阵 V1、V3、V4、V6、V8、V9、V11、V16、V26、V27、V28、V29、V30、V31、V32、V33 中不依赖真实数据库的部分，
+/// 以及五个写入口的 SqlMap 静态约定。
+/// 批量新建的事务回滚与真实唯一索引拒绝属于运行面，须在真实后端与真实数据库上取证，本文件只验证管理器的异常传播与事件登记语义。
+/// 真实数据库上的唯一约束冲突结果、并发交错与物理表运行证据属于阶段 2 的 V2、V15、V17、V26、V32 运行面，不在本文件验证。
 /// 本文件使用手写的最小测试替身：内存目录与配置数据、可脚本化的影响行数与读取序列、可观察的领域事件队列，
-/// 以及按脚本抛出数据库异常的数据映射器替身。
+/// 以及按脚本抛出数据库异常的仓储替身。
 /// </remarks>
 public sealed class Stage2WritePathTests
 {
@@ -47,6 +50,13 @@ public sealed class Stage2WritePathTests
 
   /// <summary>命令携带的操作时间，用于核对事件时间来源于命令而不是数据库当前时间。</summary>
   private static readonly DateTimeOffset CommandOperTime = new(2026, 9, 15, 8, 30, 0, TimeSpan.Zero);
+
+  /// <summary>
+  /// 唯一索引拒绝的数据库异常文案；与真实 Provider 报出的约束名一致，
+  /// 用于断言批量写入遇到唯一冲突时异常按原样向外传播、没有被替换成业务拒绝。
+  /// </summary>
+  private const string DuplicateConfigurationMessage =
+    "duplicate key value violates unique constraint \"ux_mrec_mutual_recognition_org_project\"";
 
   /// <summary>可互认时间天数在测试中的合法取值。</summary>
   private const int ValidDurationDays = 30;
@@ -85,6 +95,55 @@ public sealed class Stage2WritePathTests
     repository.Items[item.Id] = item;
     return item;
   }
+
+  /// <summary>
+  /// 向仓储替身追加一个独立的启用分类与启用分组，返回它们的标识。
+  /// </summary>
+  /// <remarks>用于构造批次内跨分类、跨分组的编码集合：同一批次的编码可以来自不同分类与不同分组。</remarks>
+  /// <param name="repository">承载目录数据的最小仓储替身。</param>
+  /// <param name="categoryName">分类名称，同一用例内应各不相同。</param>
+  /// <param name="groupName">分组名称。</param>
+  /// <returns>新加入的分类标识与分组标识。</returns>
+  private static (Guid CategoryId, Guid GroupId) AddEnabledCategoryAndGroup(
+    FakeReportRepository repository, string categoryName, string groupName)
+  {
+    MedicalStandardCategory category = new() { Id = Guid.NewGuid(), Name = categoryName, IsValid = true };
+    MedicalStandardGroup group = new() { Id = Guid.NewGuid(), CategoryId = category.Id, Name = groupName, IsValid = true };
+    repository.Categories[category.Id] = category;
+    repository.Groups[group.Id] = group;
+    return (category.Id, group.Id);
+  }
+
+  /// <summary>在指定的分类与分组下追加一个启用的标准项目，供跨分类、跨分组的批次构造。</summary>
+  /// <param name="repository">承载目录数据的最小仓储替身。</param>
+  /// <param name="code">标准项目编码。</param>
+  /// <param name="categoryId">所属分类标识。</param>
+  /// <param name="groupId">所属分组标识。</param>
+  /// <returns>新加入的标准项目。</returns>
+  private static MedicalStandardItem AddEnabledItem(
+    FakeReportRepository repository, string code, Guid categoryId, Guid groupId)
+  {
+    MedicalStandardItem item = new() { Id = Guid.NewGuid(), CategoryId = categoryId, GroupId = groupId, Code = code, Name = "标准项目", IsValid = true };
+    repository.Items[item.Id] = item;
+    return item;
+  }
+
+  /// <summary>构建批量新增命令，字段与写入口解析后的命令一致。</summary>
+  /// <param name="standardProjectCodes">本次建立配置的标准项目编码集合。</param>
+  /// <param name="organizationCode">命令携带的可信组织编码。</param>
+  /// <param name="recognitionDurationDays">批次上统一的可互认时间天数。</param>
+  /// <returns>可直接交给领域管理器的批量新增命令。</returns>
+  private static CreateMutualRecognitionItemsCommand CreateItemsCommand(
+    IReadOnlyList<string> standardProjectCodes,
+    string organizationCode = TrustedOrganization,
+    int recognitionDurationDays = ValidDurationDays) => new()
+    {
+      OrganizationCode = organizationCode,
+      StandardProjectCodes = standardProjectCodes,
+      RecognitionDurationDays = recognitionDurationDays,
+      OperId = TrustedOperId,
+      OperTime = CommandOperTime
+    };
 
   /// <summary>向仓储替身登记一条已存在的互认配置，用于修改与启停用例的前置数据。</summary>
   /// <param name="repository">承载配置数据的最小仓储替身。</param>
@@ -571,6 +630,465 @@ public sealed class Stage2WritePathTests
     Assert.Empty(events.Events);
   }
 
+  /// <summary>
+  /// V28：全部编码合法时整批建立配置，逐条写入恰好 N 次且合计影响 N 行、全部默认启用，并登记一次批量创建事件。
+  /// 批次含跨分类、跨分组的编码，事件快照按提交顺序逐项携带编码、统一天数与启用状态。
+  /// </summary>
+  [Fact]
+  public async Task Batch_create_with_valid_catalog_writes_every_row_and_registers_a_single_event()
+  {
+    FakeReportRepository repository = new();
+    MedicalStandardItem first = AddEnabledCatalog(repository, "P1");
+    (Guid secondCategoryId, Guid secondGroupId) = AddEnabledCategoryAndGroup(repository, "分类二", "分组二");
+    MedicalStandardItem second = AddEnabledItem(repository, "P2", secondCategoryId, secondGroupId);
+    MedicalStandardItem third = AddEnabledItem(repository, "P3", secondCategoryId, secondGroupId);
+
+    (RecordingEventQueue events, bool result) = await ExecuteAsync(
+      () => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(["P1", "P2", "P3"])));
+
+    Assert.True(result);
+    // 逐条写入三次、每次影响 1 行，合计等于批次数 3；提交的实体按请求顺序逐项绑定目录标识与统一天数。
+    Assert.Equal(3, repository.CreateCalls);
+    IReadOnlyList<MutualRecognitionItem> created = repository.CreatedConfigurations;
+    Assert.Equal(3, created.Count);
+    Assert.Equal(["P1", "P2", "P3"], created.Select(configuration => configuration.StandardProjectCode));
+    Assert.Equal([first.Id, second.Id, third.Id], created.Select(configuration => configuration.StandardItemId));
+    Assert.All(created, configuration => Assert.True(configuration.IsValid));
+    Assert.All(created, configuration => Assert.Equal(TrustedOrganization, configuration.OrganizationCode));
+    Assert.All(created, configuration => Assert.Equal(ValidDurationDays, configuration.RecognitionDurationDays));
+    Assert.All(created, configuration => Assert.Equal(TrustedOperId, configuration.OperId));
+    Assert.All(created, configuration => Assert.Equal(CommandOperTime, configuration.OperTime));
+
+    MutualRecognitionItemsCreatedEvent createdEvent = Assert.Single(events.Events.OfType<MutualRecognitionItemsCreatedEvent>());
+    Assert.Empty(events.Events.OfType<MutualRecognitionItemCreatedEvent>());
+    Assert.Equal(MedicalRecognitionReportConst.AggregateId, createdEvent.AggregateId);
+    Assert.Equal(nameof(MutualRecognitionItemsCreatedEvent), createdEvent.EventType);
+    Assert.Equal(TrustedOrganization, createdEvent.OrganizationCode);
+    Assert.Equal(TrustedOperId, createdEvent.EventCreator);
+    Assert.Equal(CommandOperTime, createdEvent.EventCreatedTime);
+    Assert.Equal(3, createdEvent.Items.Count);
+    Assert.Equal(["P1", "P2", "P3"], createdEvent.Items.Select(snapshot => snapshot.StandardProjectCode));
+    Assert.Equal(created.Select(configuration => configuration.Id), createdEvent.Items.Select(snapshot => snapshot.Id));
+    Assert.All(createdEvent.Items, snapshot => Assert.Equal(ValidDurationDays, snapshot.RecognitionDurationDays));
+    Assert.All(createdEvent.Items, snapshot => Assert.True(snapshot.IsValid));
+  }
+
+  /// <summary>
+  /// V33：目录按编码集合一次读取、配置按组织与编码集合一次读取，两次读取各只发生一次，调用次数不随编码个数增长。
+  /// 逐编码的单条读取与逐编码的单条查重一次也不发生；写入次数随批次数增长，这是本轮裁定接受的代价。
+  /// </summary>
+  [Fact]
+  public async Task Batch_create_reads_catalog_and_configurations_once_each_regardless_of_batch_size()
+  {
+    FakeReportRepository repository = new();
+    MedicalStandardItem first = AddEnabledCatalog(repository, "P1");
+    (Guid categoryId, Guid groupId) = AddEnabledCategoryAndGroup(repository, "分类二", "分组二");
+    for (int index = 2; index <= 20; index++) AddEnabledItem(repository, $"P{index}", categoryId, groupId);
+    string[] codes = [.. Enumerable.Range(1, 20).Select(index => $"P{index}")];
+
+    (_, bool result) = await ExecuteAsync(() => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(codes)));
+
+    Assert.True(result);
+    Assert.Equal(1, repository.CatalogBatchReadCalls);
+    Assert.Equal(1, repository.ConfigurationBatchReadCalls);
+    // 批量读取的入参覆盖整批编码，而不是只取第一条；两侧都按编码升序比较，避免把提交顺序当成读取顺序的判据。
+    Assert.Equal(codes.Order(StringComparer.Ordinal), repository.LastCatalogBatchCodes.Order(StringComparer.Ordinal));
+    Assert.Equal(codes.Order(StringComparer.Ordinal), repository.LastConfigurationBatchCodes.Order(StringComparer.Ordinal));
+    // 单条读取一次也不发生：逐条往返会让读取次数随行数增长。
+    Assert.Equal(0, repository.SingleItemByIdReadCalls);
+    Assert.Equal(0, repository.SingleItemByCodeReadCalls);
+    Assert.Equal(0, repository.SingleCategoryByIdReadCalls);
+    Assert.Equal(0, repository.SingleGroupByIdReadCalls);
+    Assert.Equal(0, repository.SingleConfigurationByProjectReadCalls);
+    // 写入次数等于批次数，且与提交顺序逐项对应。
+    Assert.Equal(codes.Length, repository.CreateCalls);
+    Assert.Equal(codes, repository.CreatedConfigurations.Select(configuration => configuration.StandardProjectCode));
+    Assert.Equal(first.Code, repository.CreatedConfigurations[0].StandardProjectCode);
+  }
+
+  /// <summary>
+  /// V29：集合口径的非法输入整批拒绝并报告对应违规编码，且不进入目录读取与写入。
+  /// 覆盖空集合、超上限、元素空白与批次内重复编码，以及单批上限的四个边界取值 0、1、1000、1001。
+  /// </summary>
+  /// <param name="caseName">非法输入的类别。</param>
+  [Theory]
+  [InlineData("empty")]
+  [InlineData("over-limit")]
+  [InlineData("blank-item")]
+  [InlineData("duplicated")]
+  public async Task Batch_create_rejects_invalid_code_collections_before_any_read(string caseName)
+  {
+    FakeReportRepository repository = new();
+    AddEnabledCatalog(repository, "P1");
+    IReadOnlyList<string> codes = caseName switch
+    {
+      "empty" => [],
+      "over-limit" => [.. Enumerable.Range(1, 1001).Select(index => $"P{index}")],
+      "blank-item" => ["P1", "   "],
+      _ => ["P1", "P1"]
+    };
+
+    (RecordingEventQueue events, InvalidOperationException error) = await ExecuteExpectingRejectionAsync(
+      () => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(codes)));
+
+    // 集合口径违规各有专属文案，避免用同一子串断言时错文案不会被发现。
+    string expected = caseName switch
+    {
+      "empty" => "业务拒绝：标准项目编码集合不能为空。",
+      "over-limit" => "业务拒绝：单批标准项目编码不能超过 1000 条。",
+      "blank-item" => "业务拒绝：标准项目编码不能为空白：   。",
+      _ => "业务拒绝：标准项目编码在批次内重复：P1。"
+    };
+    Assert.Equal(expected, error.Message);
+    // 集合口径校验先于一切目录读取与写入：整批拒绝时零读取、零写入、零事件。
+    Assert.Equal(0, repository.CatalogBatchReadCalls);
+    Assert.Equal(0, repository.ConfigurationBatchReadCalls);
+    Assert.Equal(0, repository.CreateCalls);
+    Assert.Empty(events.Events);
+  }
+
+  /// <summary>
+  /// V29 的边界取值：0 条与 1001 条拒绝，1 条与 1000 条经批量路径成功写入。
+  /// 合法边界用内存输入构造，不建立同等规模的目录夹具。
+  /// </summary>
+  /// <param name="codeCount">本次提交的编码条数。</param>
+  [Theory]
+  [InlineData(0)]
+  [InlineData(1)]
+  [InlineData(1000)]
+  [InlineData(1001)]
+  public async Task Batch_create_upper_boundary_is_enforced_at_the_collection_level(int codeCount)
+  {
+    FakeReportRepository repository = new();
+    repository.TreatEveryBatchCodeAsValidCatalog = true;
+    string[] codes = [.. Enumerable.Range(1, codeCount).Select(index => $"P{index}")];
+
+    if (codeCount is 0 or 1001)
+    {
+      (RecordingEventQueue rejectedEvents, InvalidOperationException error) = await ExecuteExpectingRejectionAsync(
+        () => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(codes)));
+
+      Assert.Contains("标准项目编码", error.Message);
+      Assert.Equal(0, repository.CatalogBatchReadCalls);
+      Assert.Equal(0, repository.CreateCalls);
+      Assert.Empty(rejectedEvents.Events);
+      return;
+    }
+
+    (RecordingEventQueue events, bool result) = await ExecuteAsync(
+      () => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(codes)));
+
+    Assert.True(result);
+    Assert.Equal(codeCount, repository.CreateCalls);
+    Assert.Equal(codeCount, repository.CreatedConfigurations.Count);
+    Assert.Equal(codeCount, Assert.Single(events.Events.OfType<MutualRecognitionItemsCreatedEvent>()).Items.Count);
+  }
+
+  /// <summary>
+  /// V30：混合合法与停用层编码时收集全部违规编码并按原因分组，零行写入、零事件。
+  /// 四类原因各自独立构造，编码不存在按请求编码与返回编码的差集判定，不为缺失编码额外发起单条读取。
+  /// </summary>
+  [Fact]
+  public async Task Batch_create_collects_every_catalog_violation_grouped_by_reason()
+  {
+    FakeReportRepository repository = new();
+    MedicalStandardItem valid = AddEnabledCatalog(repository, "P1");
+    MedicalStandardItem disabledCategory = AddEnabledCatalog(repository, "P2");
+    repository.Categories[disabledCategory.CategoryId].IsValid = false;
+    MedicalStandardItem disabledGroup = AddEnabledCatalog(repository, "P3");
+    repository.Groups[disabledGroup.GroupId].IsValid = false;
+    MedicalStandardItem disabledItem = AddEnabledCatalog(repository, "P4");
+    disabledItem.IsValid = false;
+
+    (RecordingEventQueue events, InvalidOperationException error) = await ExecuteExpectingRejectionAsync(
+      () => CreateManager(repository).CreateMutualRecognitionItemsAsync(
+        CreateItemsCommand(["P1", "P2", "P3", "P4", "NOT-EXIST-A", "NOT-EXIST-B"])));
+
+    Assert.Equal(
+      "业务拒绝：标准项目目录不可用于新建互认项目配置：编码不存在：NOT-EXIST-A、NOT-EXIST-B；所属分类已停用：P2；所属分组已停用：P3；标准项目已停用：P4。",
+      error.Message);
+    Assert.Equal(1, repository.CatalogBatchReadCalls);
+    // 不存在编码由差集判定：不为缺失编码发起单条读取，也不在读取后继续查重与写入。
+    Assert.Equal(0, repository.SingleItemByCodeReadCalls);
+    Assert.Equal(0, repository.SingleItemByIdReadCalls);
+    Assert.Equal(0, repository.ConfigurationBatchReadCalls);
+    Assert.Equal(0, repository.CreateCalls);
+    Assert.Empty(events.Events);
+    Assert.Equal(valid.Code, "P1");
+  }
+
+  /// <summary>V30：全部编码都合法时目录校验通过，四类违规分组都不产生，继续进入查重与写入。</summary>
+  [Fact]
+  public async Task Batch_create_passes_catalog_validation_when_every_layer_is_enabled()
+  {
+    FakeReportRepository repository = new();
+    AddEnabledCatalog(repository, "P1");
+
+    (_, bool result) = await ExecuteAsync(() => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(["P1"])));
+
+    Assert.True(result);
+    Assert.Equal(1, repository.ConfigurationBatchReadCalls);
+    Assert.Equal(1, repository.CreateCalls);
+  }
+
+  /// <summary>
+  /// V31：选中集合含该组织已配置的编码即整批拒绝并报告这些编码，零行写入、零事件。
+  /// 已停用的配置同样占用"组织编码 + 标准项目编码"唯一键，因此同样命中查重。
+  /// </summary>
+  /// <param name="existingIsValid">已存在配置的启用状态。</param>
+  [Theory]
+  [InlineData(true)]
+  [InlineData(false)]
+  public async Task Batch_create_rejects_codes_already_configured_in_the_organization(bool existingIsValid)
+  {
+    FakeReportRepository repository = new();
+    MedicalStandardItem configured = AddEnabledCatalog(repository, "P1");
+    AddEnabledCatalog(repository, "P2");
+    AddConfiguration(repository, configured, TrustedOrganization, existingIsValid);
+
+    (RecordingEventQueue events, InvalidOperationException error) = await ExecuteExpectingRejectionAsync(
+      () => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(["P1", "P2"])));
+
+    Assert.Equal("业务拒绝：该组织已配置以下标准项目：P1。", error.Message);
+    Assert.Equal(1, repository.ConfigurationBatchReadCalls);
+    Assert.Equal(1, repository.CatalogBatchReadCalls);
+    Assert.Equal(0, repository.CreateCalls);
+    Assert.Empty(events.Events);
+  }
+
+  /// <summary>V31：其他组织的同编码配置不占用本组织的唯一键，不影响本次建立。</summary>
+  [Fact]
+  public async Task Batch_create_ignores_configurations_of_other_organizations()
+  {
+    FakeReportRepository repository = new();
+    MedicalStandardItem item = AddEnabledCatalog(repository, "P1");
+    AddConfiguration(repository, item, OtherOrganization, isValid: true);
+
+    (_, bool result) = await ExecuteAsync(() => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(["P1"])));
+
+    Assert.True(result);
+    Assert.Equal(1, repository.CreateCalls);
+    Assert.Equal(TrustedOrganization, repository.CreatedConfigurations[0].OrganizationCode);
+  }
+
+  /// <summary>
+  /// V32：预校验通过后并发请求抢先建立同编码配置，逐条写入在命中冲突元素时失败。
+  /// 数据库异常按原样向外传播、零事件、不返回成功；已在同一批次内写入的更早元素由入口声明的事务回滚，
+  /// 本用例只证明管理器不捕获、不翻译异常且不登记事件，回滚由真实库面取证。
+  /// </summary>
+  [Fact]
+  public async Task Batch_create_lets_the_unique_violation_propagate_without_translation()
+  {
+    FakeReportRepository repository = new();
+    AddEnabledCatalog(repository, "P1");
+    AddEnabledCatalog(repository, "P2");
+    // 查重读取返回空集合，模拟查重与写入之间另一请求抢先建立了 P1 的配置；该配置只在写入时按唯一键参与判定。
+    repository.ScriptedConfigurationBatchReads.Enqueue([]);
+    repository.ConcurrentlyInsertedConfigurations.Add(new MutualRecognitionItem
+    {
+      Id = Guid.NewGuid(),
+      OrganizationCode = TrustedOrganization,
+      StandardProjectCode = "P1",
+      RecognitionDurationDays = ValidDurationDays,
+      IsValid = true
+    });
+
+    RecordingEventQueue events = InstallRecordingEventQueue();
+    try
+    {
+      DataException error = await Assert.ThrowsAsync<DataException>(
+        () => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(["P1", "P2"])));
+
+      // 异常按原样传播：不包装为业务拒绝，文案保持数据库报出的原文。
+      Assert.Equal(DuplicateConfigurationMessage, error.Message);
+      Assert.IsNotType<InvalidOperationException>(error);
+      Assert.Equal(1, repository.CreateCalls);
+      Assert.Empty(events.Events);
+      // 管理器不吞异常、不返回成功：异常已向调用方抛出，此处不存在"部分成功"的返回值。
+      Assert.Empty(repository.CreatedConfigurations);
+    }
+    finally
+    {
+      UninstallRecordingEventQueue();
+    }
+  }
+
+  /// <summary>
+  /// V32：非唯一冲突的持久化故障同样按原样传播，证明批量路径不捕获、不翻译任何数据库异常。
+  /// </summary>
+  [Fact]
+  public async Task Batch_create_lets_other_persistence_failures_propagate_unchanged()
+  {
+    FakeReportRepository repository = new();
+    AddEnabledCatalog(repository, "P1");
+    InvalidTimeZoneException failure = new("连接已断开。");
+    repository.CreateFailure = failure;
+
+    RecordingEventQueue events = InstallRecordingEventQueue();
+    try
+    {
+      InvalidTimeZoneException error = await Assert.ThrowsAsync<InvalidTimeZoneException>(
+        () => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(["P1"])));
+
+      Assert.Same(failure, error);
+      Assert.Equal(1, repository.CreateCalls);
+      Assert.Empty(events.Events);
+      Assert.Empty(repository.CreatedConfigurations);
+    }
+    finally
+    {
+      UninstallRecordingEventQueue();
+    }
+  }
+
+  /// <summary>
+  /// V16 的行数不变量：逐条写入的实际影响行数合计不等于提交条数时拒绝、不登记事件，也不返回成功。
+  /// </summary>
+  /// <remarks>
+  /// 逐条写入下"合计不等于批次数"的两种成因都被构造：某一条影响 0 行使合计偏小，以及合计大于条数。
+  /// </remarks>
+  /// <param name="affectedRowScript">按写入顺序脚本化的影响行数。</param>
+  [Theory]
+  [InlineData(new[] { 0, 1 })]
+  [InlineData(new[] { 1, 0 })]
+  [InlineData(new[] { 1, 2 })]
+  public async Task Batch_create_rejects_affected_rows_that_differ_from_the_batch_size(int[] affectedRowScript)
+  {
+    FakeReportRepository repository = new();
+    AddEnabledCatalog(repository, "P1");
+    AddEnabledCatalog(repository, "P2");
+    foreach (int affectedRows in affectedRowScript) repository.ScriptedConfigurationWriteRows.Enqueue(affectedRows);
+
+    (RecordingEventQueue events, InvalidOperationException error) = await ExecuteExpectingRejectionAsync(
+      () => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(["P1", "P2"])));
+
+    Assert.Equal(
+      "业务拒绝：互认项目配置批量保存影响的行数异常，未完成保存。",
+      error.Message);
+    Assert.Empty(events.Events);
+  }
+
+  /// <summary>
+  /// V16：批量事件承载本批次全部创建项，类型独立于单条创建事件；
+  /// 批量路径不为每个创建项重复登记单条创建事件。
+  /// </summary>
+  [Fact]
+  public async Task Batch_create_registers_the_batch_event_only()
+  {
+    FakeReportRepository repository = new();
+    AddEnabledCatalog(repository, "P1");
+    AddEnabledCatalog(repository, "P2");
+
+    (RecordingEventQueue events, bool result) = await ExecuteAsync(
+      () => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(["P1", "P2"])));
+
+    Assert.True(result);
+    Assert.Single(events.Events);
+    Assert.IsType<MutualRecognitionItemsCreatedEvent>(events.Events[0]);
+    Assert.NotEqual(
+      nameof(MutualRecognitionItemCreatedEvent),
+      Assert.Single(events.Events.OfType<MutualRecognitionItemsCreatedEvent>()).EventType);
+  }
+
+  /// <summary>
+  /// V29/V30/V31 的共同失败语义：任一预校验命中都不产生写入，仓库中的配置集合保持为空。
+  /// </summary>
+  [Fact]
+  public async Task Batch_create_never_partially_writes_on_any_rejection()
+  {
+    FakeReportRepository repository = new();
+    MedicalStandardItem configured = AddEnabledCatalog(repository, "P1");
+    AddEnabledCatalog(repository, "MISSING-IN-CATALOG");
+    AddConfiguration(repository, configured, TrustedOrganization, isValid: false);
+    int existingCount = repository.Configurations.Count;
+
+    (RecordingEventQueue events, _) = await ExecuteExpectingRejectionAsync(
+      () => CreateManager(repository).CreateMutualRecognitionItemsAsync(CreateItemsCommand(["P1", "MISSING-IN-CATALOG"])));
+
+    Assert.Equal(existingCount, repository.Configurations.Count);
+    Assert.Equal(0, repository.CreateCalls);
+    Assert.Empty(events.Events);
+  }
+
+  /// <summary>批量新增入口的组织编码只来自登录令牌的组织声明，公共请求不提供可覆盖的组织字段。</summary>
+  [Fact]
+  public async Task Batch_create_takes_organization_from_trusted_context_only()
+  {
+    TrustedRequestContext.Use(TrustedOrganization, TrustedOperId.ToString());
+    FakeReportRepository repository = new();
+    AddEnabledCatalog(repository, "P1");
+    AddEnabledCatalog(repository, "P2");
+
+    Assert.Null(typeof(CreateMutualRecognitionItemsRequest).GetProperty("OrganizationCode"));
+    Assert.Null(typeof(CreateMutualRecognitionItemsRequest).GetProperty("StandardItemId"));
+
+    (RecordingEventQueue events, bool result) = await ExecuteAsync(
+      () => CreateAppService(repository).CreateMutualRecognitionItemsAsync(
+        new CreateMutualRecognitionItemsRequest { StandardProjectCodes = ["P1", "P2"], RecognitionDurationDays = ValidDurationDays }));
+
+    Assert.True(result);
+    Assert.All(repository.CreatedConfigurations, configuration => Assert.Equal(TrustedOrganization, configuration.OrganizationCode));
+    Assert.All(repository.CreatedConfigurations, configuration => Assert.Equal(TrustedOperId, configuration.OperId));
+    Assert.Equal(TrustedOrganization, Assert.Single(events.Events.OfType<MutualRecognitionItemsCreatedEvent>()).OrganizationCode);
+  }
+
+  /// <summary>批量新增入口的可互认时间只允许正整数，空集合与非法天数在请求校验处拒绝。</summary>
+  [Fact]
+  public void Batch_create_request_declares_collection_and_positive_duration_rules()
+  {
+    Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(
+      () => MedicalRecognitionRequestValidator.Validate(
+        new CreateMutualRecognitionItemsRequest { StandardProjectCodes = ["P1"], RecognitionDurationDays = 0 }));
+    Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(
+      () => MedicalRecognitionRequestValidator.Validate(
+        new CreateMutualRecognitionItemsRequest { StandardProjectCodes = ["P1"], RecognitionDurationDays = -1 }));
+    Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(
+      () => MedicalRecognitionRequestValidator.Validate(
+        new CreateMutualRecognitionItemsRequest { StandardProjectCodes = null!, RecognitionDurationDays = 1 }));
+
+    Assert.Null(Record.Exception(() => MedicalRecognitionRequestValidator.Validate(
+      new CreateMutualRecognitionItemsRequest { StandardProjectCodes = ["P1", "P2"], RecognitionDurationDays = 1 })));
+    Assert.Null(Record.Exception(() => MedicalRecognitionRequestValidator.Validate(
+      new CreateMutualRecognitionItemsRequest { StandardProjectCodes = ["P1"], RecognitionDurationDays = int.MaxValue })));
+  }
+
+  /// <summary>
+  /// V29 的条数上限在请求层即生效：恰好上限通过，超过上限被请求校验拒绝，
+  /// 因此超大集合不会先被反序列化并进入领域层。上线上限与请求声明的常量同源。
+  /// </summary>
+  [Fact]
+  public void Batch_create_request_rejects_code_collections_above_the_declared_limit()
+  {
+    int limit = CreateMutualRecognitionItemsRequest.MaxStandardProjectCodeCount;
+    string[] atLimit = [.. Enumerable.Range(0, limit).Select(index => $"P{index}")];
+    string[] aboveLimit = [.. atLimit, "P-EXTRA"];
+
+    Assert.Equal(1000, limit);
+    Assert.Null(Record.Exception(() => MedicalRecognitionRequestValidator.Validate(
+      new CreateMutualRecognitionItemsRequest { StandardProjectCodes = atLimit, RecognitionDurationDays = 1 })));
+    Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(
+      () => MedicalRecognitionRequestValidator.Validate(
+        new CreateMutualRecognitionItemsRequest { StandardProjectCodes = aboveLimit, RecognitionDurationDays = 1 }));
+  }
+
+  /// <summary>批量新增入口与单条入口一样以 UTC 当前时间写入操作字段，不依赖数据库当前时间。</summary>
+  [Fact]
+  public async Task Batch_create_uses_utc_operation_time()
+  {
+    DateTimeOffset before = DateTimeOffset.UtcNow;
+    TrustedRequestContext.Use(TrustedOrganization, TrustedOperId.ToString());
+    FakeReportRepository repository = new();
+    AddEnabledCatalog(repository, "P1");
+
+    (_, bool result) = await ExecuteAsync(() => CreateAppService(repository).CreateMutualRecognitionItemsAsync(
+      new CreateMutualRecognitionItemsRequest { StandardProjectCodes = ["P1"], RecognitionDurationDays = ValidDurationDays }));
+
+    Assert.True(result);
+    DateTimeOffset operTime = repository.CreatedConfigurations[0].OperTime;
+    Assert.Equal(TimeSpan.Zero, operTime.Offset);
+    Assert.InRange(operTime, before.AddMinutes(-1), DateTimeOffset.UtcNow.AddMinutes(1));
+  }
+
   /// <summary>V26：启用语句影响 0 行时按同一可信组织复读一次，复读已是目标状态则幂等成功且不登记事件。</summary>
   [Fact]
   public async Task Zero_row_enable_that_became_enabled_concurrently_is_idempotent_success()
@@ -802,7 +1320,7 @@ public sealed class Stage2WritePathTests
     Assert.Empty(disableEvents.Events);
   }
 
-  /// <summary>V11：四个互认写入口的组织编码只来自登录令牌的组织声明，公共请求不提供可覆盖的组织字段。</summary>
+  /// <summary>V11：五个互认写入口的组织编码只来自登录令牌的组织声明，公共请求不提供可覆盖的组织字段。</summary>
   [Fact]
   public async Task Write_entrypoints_take_organization_from_trusted_context_only()
   {
@@ -810,9 +1328,11 @@ public sealed class Stage2WritePathTests
     (FakeReportRepository repository, MedicalStandardItem item) = CreateEnabledCatalog();
     // 前置配置挂在第二个标准项目上：新增入口按组织与标准项目查重，与新增目标同项目会让新增命中重复拒绝。
     MutualRecognitionItem configuration = AddConfiguration(repository, AddEnabledCatalog(repository, "P2"), TrustedOrganization, isValid: false);
+    AddEnabledCatalog(repository, "P3");
     MedicalRecognitionReportAppService appService = CreateAppService(repository);
 
     Assert.Null(typeof(CreateMutualRecognitionItemRequest).GetProperty("OrganizationCode"));
+    Assert.Null(typeof(CreateMutualRecognitionItemsRequest).GetProperty("OrganizationCode"));
     Assert.Null(typeof(UpdateMutualRecognitionItemConfigurationRequest).GetProperty("OrganizationCode"));
     Assert.Null(typeof(EnableMutualRecognitionItemRequest).GetProperty("OrganizationCode"));
     Assert.Null(typeof(DisableMutualRecognitionItemRequest).GetProperty("OrganizationCode"));
@@ -836,6 +1356,12 @@ public sealed class Stage2WritePathTests
       Assert.True(await appService.DisableMutualRecognitionItemAsync(new DisableMutualRecognitionItemRequest { Id = configuration.Id }));
       Assert.Equal(TrustedOrganization, repository.LastDisableCommand!.OrganizationCode);
       Assert.Equal(TrustedOperId, repository.LastDisableCommand.OperId);
+
+      // 批量入口与单条入口同一口径：请求不提供组织字段，命令的组织与操作人只来自可信上下文。
+      Assert.True(await appService.CreateMutualRecognitionItemsAsync(
+        new CreateMutualRecognitionItemsRequest { StandardProjectCodes = ["P3"], RecognitionDurationDays = ValidDurationDays }));
+      Assert.All(repository.CreatedConfigurations, created => Assert.Equal(TrustedOrganization, created.OrganizationCode));
+      Assert.All(repository.CreatedConfigurations, created => Assert.Equal(TrustedOperId, created.OperId));
     });
   }
 
@@ -890,11 +1416,29 @@ public sealed class Stage2WritePathTests
     Assert.Empty(events.Events);
   }
 
-  /// <summary>四个互认写入口各保持最多一条写语句，不声明 <c>WorkUnitAttribute</c>。</summary>
+  /// <summary>
+  /// 互认写入口的事务声明按业务原子边界分布：批量新建逐条写入要求整批全成全败，因此声明开启事务的
+  /// <c>WorkUnitAttribute</c>；其余四个入口各只有一条写语句，不声明任何 <c>WorkUnitAttribute</c>。
+  /// </summary>
+  /// <remarks>
+  /// 两个方向都必须是判据：只断言批量入口声明事务时，事务声明被删掉不会被发现；
+  /// 只断言其余四个不声明事务时，批量入口漏声明事务同样不会被发现。
+  /// 事务声明按特性存在性与 <c>UseTransaction</c> 取值两处反射判定，不只比对特性名。
+  /// 逐条写入的某一条失败时，只有入口声明的事务能让前面已写入的行整批回滚。
+  /// </remarks>
   [Fact]
-  public void Mutual_write_entrypoints_declare_no_work_unit()
+  public void Mutual_write_entrypoints_declare_the_batch_transaction_only()
   {
     Type appService = typeof(MedicalRecognitionReportAppService);
+
+    MethodInfo batchEntrypoint = appService.GetMethod("CreateMutualRecognitionItemsAsync")!;
+    Attribute workUnit = Assert.Single(
+      batchEntrypoint.GetCustomAttributes(),
+      attribute => attribute.GetType().Name == "WorkUnitAttribute");
+    Assert.True(
+      (bool)workUnit.GetType().GetProperty("UseTransaction")!.GetValue(workUnit)!,
+      "批量新建入口的 WorkUnitAttribute 必须声明 UseTransaction = true，否则逐条写入中途失败时不会回滚。");
+
     foreach (string name in new[]
     {
       "CreateMutualRecognitionItemAsync", "UpdateMutualRecognitionItemConfigurationAsync",
@@ -904,10 +1448,15 @@ public sealed class Stage2WritePathTests
       MethodInfo method = appService.GetMethod(name)!;
       Assert.DoesNotContain(method.GetCustomAttributes(), attribute => attribute.GetType().Name == "WorkUnitAttribute");
     }
+
+    // 变异证据：单条创建入口没有事务声明，证明上面对批量入口的"恰好一处 + 取值为真"不是对任意方法都成立。
+    Assert.DoesNotContain(
+      appService.GetMethod("CreateMutualRecognitionItemAsync")!.GetCustomAttributes(),
+      attribute => attribute.GetType().Name == "WorkUnitAttribute");
   }
 
   /// <summary>
-  /// 四个互认写入口先执行公共请求校验，再映射领域命令。
+  /// 五个互认写入口先执行公共请求校验，再映射领域命令。
   /// 探针按完整签名绑定到唯一的方法声明，并用花括号配平切出方法体，不再按方法名文本宽松命中。
   /// </summary>
   [Fact]
@@ -919,7 +1468,7 @@ public sealed class Stage2WritePathTests
     Assert.Empty(FindValidationOrderViolations(source));
 
     // 探针自校验：证明它按完整声明定位，改名或不存在的声明不会被误命中。
-    string renamed = source.Replace(nameof(MedicalRecognitionReportAppService.CreateMutualRecognitionItemAsync), "CreateMutualRecognitionItemsAsync", StringComparison.Ordinal);
+    string renamed = source.Replace(nameof(MedicalRecognitionReportAppService.CreateMutualRecognitionItemAsync), "CreateMutualRecognitionItemBatchAsync", StringComparison.Ordinal);
     Assert.NotEqual(source, renamed);
     Assert.Throws<InvalidOperationException>(() => FindValidationOrderViolations(renamed));
 
@@ -930,6 +1479,10 @@ public sealed class Stage2WritePathTests
     Assert.Contains(
       "CreateMutualRecognitionItemAsync: 缺少公共请求校验调用",
       FindValidationOrderViolations(validationRemoved));
+    // 批量入口同样必须被探针覆盖：只报单条入口缺少校验时，第五个入口漏校验不会被发现。
+    Assert.Contains(
+      "CreateMutualRecognitionItemsAsync: 缺少公共请求校验调用",
+      FindValidationOrderViolations(validationRemoved));
 
     // 探针自校验：让命令映射先于公共请求校验出现时必须报“校验晚于映射”，证明顺序判定有效。
     string mappingBeforeValidation = validationRemoved
@@ -937,15 +1490,20 @@ public sealed class Stage2WritePathTests
     Assert.Contains(
       "CreateMutualRecognitionItemAsync: 公共请求校验晚于命令映射",
       FindValidationOrderViolations(mappingBeforeValidation));
+    Assert.Contains(
+      "CreateMutualRecognitionItemsAsync: 公共请求校验晚于命令映射",
+      FindValidationOrderViolations(mappingBeforeValidation));
   }
 
   /// <summary>
-  /// 四个互认写入口的完整声明签名；探针按签名绑定声明，避免同名方法或方法名文本被误命中。
+  /// 五个互认写入口的完整声明签名；探针按签名绑定声明，避免同名方法或方法名文本被误命中。
   /// </summary>
   private static readonly (string Name, string Signature)[] MutualWriteEntrypointDeclarations =
   [
     (nameof(MedicalRecognitionReportAppService.CreateMutualRecognitionItemAsync),
       "public async Task<bool> CreateMutualRecognitionItemAsync(CreateMutualRecognitionItemRequest request)"),
+    (nameof(MedicalRecognitionReportAppService.CreateMutualRecognitionItemsAsync),
+      "public async Task<bool> CreateMutualRecognitionItemsAsync(CreateMutualRecognitionItemsRequest request)"),
     (nameof(MedicalRecognitionReportAppService.UpdateMutualRecognitionItemConfigurationAsync),
       "public async Task<bool> UpdateMutualRecognitionItemConfigurationAsync(UpdateMutualRecognitionItemConfigurationRequest request)"),
     (nameof(MedicalRecognitionReportAppService.EnableMutualRecognitionItemAsync),
@@ -955,7 +1513,7 @@ public sealed class Stage2WritePathTests
   ];
 
   /// <summary>
-  /// 检查四个互认写入口是否都先执行公共请求校验、再映射领域命令。
+  /// 检查五个互认写入口是否都先执行公共请求校验、再映射领域命令。
   /// </summary>
   /// <param name="source">应用服务的 C# 源码文本；可以是用例构造的变更副本。</param>
   /// <returns>违规描述集合；全部满足时为空的集合。</returns>
@@ -1214,6 +1772,103 @@ public sealed class Stage2WritePathTests
   }
 
   /// <summary>
+  /// V33 的静态面：批量目录读取语句按编码集合一次读取标准项目及其所属分类、所属分组的当前状态，
+  /// 一次返回三层启用状态所需的全部字段，使"目录按编码集合一次读取完成校验"在语句层面成立。
+  /// </summary>
+  [Fact]
+  public void Standard_item_sql_map_exposes_batch_catalog_lookup_with_all_three_layers()
+  {
+    XDocument document = XDocument.Load(FindRepositorySqlMap("MedicalStandardItem.xml"));
+    XElement statement = document.Descendants().Single(element => (string?)element.Attribute("Id") == "GetMedicalStandardItemsByCodes");
+    string sql = NormalizeSqlText(statement.Value);
+
+    // 集合筛选：参数名直接跟在 in 之后、不带括号，由框架展开为值列表。
+    Assert.Contains("where i.code in $Codes", sql, StringComparison.Ordinal);
+    // 三层启用状态都在同一次读取中返回：缺任一列都会让领域层无法在一次读取内判定该层。
+    Assert.Contains("i.is_valid as item_is_valid", sql, StringComparison.Ordinal);
+    Assert.Contains("c.is_valid as category_is_valid", sql, StringComparison.Ordinal);
+    Assert.Contains("g.is_valid as group_is_valid", sql, StringComparison.Ordinal);
+    Assert.Contains("i.id as standard_item_id", sql, StringComparison.Ordinal);
+    Assert.Contains("join mrec_medical_standard_category c on c.id = i.category_id", sql, StringComparison.Ordinal);
+    Assert.Contains("join mrec_medical_standard_group g on g.id = i.group_id", sql, StringComparison.Ordinal);
+    Assert.Contains("order by i.code asc", sql, StringComparison.Ordinal);
+    Assert.True(statement.PreviousNode is XComment);
+
+    // 变异证据：去掉分类层启用列后，同一判据必须判为缺少该层，证明上面的断言不是对任何文本都成立。
+    Assert.DoesNotContain(
+      "c.is_valid as category_is_valid",
+      sql.Replace("c.is_valid as category_is_valid", string.Empty, StringComparison.Ordinal),
+      StringComparison.Ordinal);
+  }
+
+  /// <summary>
+  /// V33 的静态面：配置批量查重语句按组织与编码集合一次读取既有配置，不筛选启用状态，
+  /// 使停用配置占用的唯一键同样在写入前被发现。
+  /// </summary>
+  [Fact]
+  public void Mutual_sql_map_exposes_batch_configuration_lookup_without_state_filter()
+  {
+    XDocument document = XDocument.Load(FindRepositorySqlMap("MutualRecognitionItem.xml"));
+    XElement statement = document.Descendants().Single(element => (string?)element.Attribute("Id") == "GetMutualRecognitionItemsByCodes");
+    string sql = NormalizeSqlText(statement.Value);
+
+    Assert.Contains("from mrec_mutual_recognition_item", sql, StringComparison.Ordinal);
+    Assert.Contains("where organization_code = $OrganizationCode and standard_project_code in $StandardProjectCodes", sql, StringComparison.Ordinal);
+    // 查重不筛选启用状态：出现启用谓词会让已停用配置占用的唯一键漏判。
+    Assert.DoesNotContain("is_valid", sql, StringComparison.Ordinal);
+    Assert.Contains("order by standard_project_code asc", sql, StringComparison.Ordinal);
+    Assert.True(statement.PreviousNode is XComment);
+  }
+
+  /// <summary>
+  /// 批量新增互认项目配置复用单条创建的写入语句：只新增一个配置查重读取语句，写入语句集合仍是一条，
+  /// 使"逐条复用既有单条写入语句、不新增语句与注册键"在映射文件层面成立。
+  /// </summary>
+  [Fact]
+  public void Mutual_sql_map_reuses_the_single_create_statement_for_batch_write()
+  {
+    XDocument document = XDocument.Load(FindRepositorySqlMap("MutualRecognitionItem.xml"));
+    string[] statementIds = [.. document.Descendants()
+      .Where(element => element.Attribute("Id") is not null)
+      .Select(element => (string)element.Attribute("Id")!)];
+
+    string[] createStatements = [.. statementIds.Where(id => id.Contains("Create", StringComparison.Ordinal))];
+    Assert.Equal(["CreateMutualRecognitionItem"], createStatements);
+    Assert.Contains("GetMutualRecognitionItemsByCodes", statementIds);
+    // 写入语句仍是普通单行 values 写法，不含批量展开所需的集合参数。
+    string createStatement = NormalizeSqlText(document.Descendants()
+      .Single(element => (string?)element.Attribute("Id") == "CreateMutualRecognitionItem").Value);
+    Assert.Contains(") values ($Id, $OrganizationCode, $StandardItemId, $StandardProjectCode, $RecognitionDurationDays, true, $OperId, $OperTime)", createStatement, StringComparison.Ordinal);
+    Assert.DoesNotContain("$Ids", createStatement, StringComparison.Ordinal);
+  }
+
+  /// <summary>
+  /// 两个新增语句都必须有说明职责的 XML 注释，且整份映射文件的每条语句都带注释。
+  /// </summary>
+  [Fact]
+  public void Batch_sql_map_statements_are_documented()
+  {
+    foreach (string fileName in new[] { "MutualRecognitionItem.xml", "MedicalStandardItem.xml" })
+    {
+      XDocument document = XDocument.Load(FindRepositorySqlMap(fileName));
+      Assert.All(
+        document.Descendants().Where(element => element.Attribute("Id") is not null),
+        statement => Assert.True(statement.PreviousNode is XComment, $"{fileName} 的语句 {statement.Attribute("Id")?.Value} 缺少 XML 注释"));
+    }
+  }
+
+  /// <summary>
+  /// 把 SQL 文本中的换行与连续空白归一为单个空格，使冻结判据只对语句内容敏感、不对映射文件排版敏感。
+  /// </summary>
+  /// <param name="text">SQL 文本或语句片段。</param>
+  /// <returns>空白归一后的 SQL 文本，已去掉语句内部的行内 XML 注释。</returns>
+  private static string NormalizeSqlText(string text) =>
+    System.Text.RegularExpressions.Regex.Replace(
+      System.Text.RegularExpressions.Regex.Replace(text, "<!--.*?-->", " ", System.Text.RegularExpressions.RegexOptions.Singleline),
+      @"\s+",
+      " ").Trim();
+
+  /// <summary>
   /// 本用例读取的映射文件及其固定分组目录，相对 <c>server/Dy.MedicalRecognition.Repository</c>。
   /// </summary>
   private static readonly Dictionary<string, string> SqlMapDirectories = new(StringComparer.Ordinal)
@@ -1292,6 +1947,57 @@ public sealed class Stage2WritePathTests
     /// <summary>按顺序脚本化写语句影响行数；为空时按内存数据写出并返回 1。</summary>
     public Queue<int> ScriptedConfigurationWriteRows { get; } = [];
 
+    /// <summary>批量目录读取的调用次数，用于断言读取次数不随编码个数增长。</summary>
+    public int CatalogBatchReadCalls { get; private set; }
+
+    /// <summary>最后一次批量目录读取传入的编码集合，用于核对该次读取覆盖整批编码。</summary>
+    public IReadOnlyList<string> LastCatalogBatchCodes { get; private set; } = [];
+
+    /// <summary>批量查重读取的调用次数，用于断言读取次数不随编码个数增长。</summary>
+    public int ConfigurationBatchReadCalls { get; private set; }
+
+    /// <summary>最后一次批量查重读取传入的编码集合。</summary>
+    public IReadOnlyList<string> LastConfigurationBatchCodes { get; private set; } = [];
+
+    /// <summary>按顺序脚本化批量查重读取结果；为空时按内存数据读取。用于模拟预校验通过后并发请求抢先写入的窗口。</summary>
+    public Queue<IReadOnlyList<MutualRecognitionItem>> ScriptedConfigurationBatchReads { get; } = [];
+
+    /// <summary>按标准项目标识逐条读取的调用次数；批量路径应为 0，非 0 即说明存在逐编码往返。</summary>
+    public int SingleItemByIdReadCalls { get; private set; }
+
+    /// <summary>按分类标识逐条读取的调用次数；批量路径应为 0，非 0 即说明存在逐编码往返。</summary>
+    public int SingleCategoryByIdReadCalls { get; private set; }
+
+    /// <summary>按分组标识逐条读取的调用次数；批量路径应为 0，非 0 即说明存在逐编码往返。</summary>
+    public int SingleGroupByIdReadCalls { get; private set; }
+
+    /// <summary>按标准项目编码逐条读取的调用次数；批量路径应为 0，非 0 即说明按编码逐条往返。</summary>
+    public int SingleItemByCodeReadCalls { get; private set; }
+
+    /// <summary>按组织与标准项目编码逐条查重的调用次数；批量路径应为 0，非 0 即说明按编码逐条查重。</summary>
+    public int SingleConfigurationByProjectReadCalls { get; private set; }
+
+    /// <summary>逐条写入时实际落库的配置，按写入顺序保存；用于核对写入顺序、条数与逐条调用次数。</summary>
+    public List<MutualRecognitionItem> CreatedConfigurations { get; } = [];
+
+    /// <summary>非空时逐条写入直接抛出该异常，用于模拟唯一索引拒绝或连接中断等持久化故障。</summary>
+    public Exception? CreateFailure { get; set; }
+
+    /// <summary>
+    /// 模拟查重读取之后、逐条写入之前另一请求抢先建立的配置。
+    /// </summary>
+    /// <remarks>
+    /// 这些配置不参与查重读取（查重读取已被脚本化为空集合），只在逐条写入时按唯一键参与重复判定，
+    /// 用于构造"预校验通过但写入时唯一索引拒绝"的并发窗口。
+    /// </remarks>
+    public List<MutualRecognitionItem> ConcurrentlyInsertedConfigurations { get; } = [];
+
+    /// <summary>
+    /// 为真时批量目录读取按请求编码合成有效目录状态，使逐条写入获得唯一且合法的标准项目标识。
+    /// </summary>
+    /// <remarks>只用于验证单批上限的边界取值，使 1000 条合法输入可以走完整条批量路径，不需要建立同等规模的目录夹具。</remarks>
+    public bool TreatEveryBatchCodeAsValidCatalog { get; set; }
+
     /// <summary>新增语句调用次数。</summary>
     public int CreateCalls { get; private set; }
 
@@ -1324,25 +2030,80 @@ public sealed class Stage2WritePathTests
     /// <param name="id">标准项目标识。</param>
     /// <returns>标准项目；不存在时返回 <see langword="null"/>。</returns>
     public Task<MedicalStandardItem?> GetMedicalStandardItemByIdAsync(Guid id)
-      => Task.FromResult(Items.TryGetValue(id, out MedicalStandardItem? item) ? item : null);
+    {
+      SingleItemByIdReadCalls++;
+      return Task.FromResult(Items.TryGetValue(id, out MedicalStandardItem? item) ? item : null);
+    }
 
     /// <summary>按标准项目编码读取标准项目，用于应用层解析服务端目录标识。</summary>
     /// <param name="code">标准项目编码。</param>
     /// <returns>标准项目；不存在时返回 <see langword="null"/>。</returns>
     public Task<MedicalStandardItem?> GetMedicalStandardItemByCodeAsync(string code)
-      => Task.FromResult(Items.Values.SingleOrDefault(item => item.Code == code));
+    {
+      SingleItemByCodeReadCalls++;
+      return Task.FromResult(Items.Values.SingleOrDefault(item => item.Code == code));
+    }
+
+    /// <summary>
+    /// 按编码集合一次读取标准项目及其所属分类与分组的当前状态，模拟批量目录读取。
+    /// </summary>
+    /// <remarks>
+    /// 读取次数被记录，用于断言批量创建路径的目录读取次数不随编码个数增长；
+    /// 编码不存在的标准项目不返回，与映射语句按编码集合筛选的行为一致。
+    /// </remarks>
+    /// <param name="codes">待读取的标准项目编码集合。</param>
+    /// <returns>集合内命中的标准项目目录状态，按标准项目编码升序。</returns>
+    public Task<IReadOnlyList<MedicalStandardItemCatalogState>> GetMedicalStandardItemsByCodesAsync(IReadOnlyList<string> codes)
+    {
+      CatalogBatchReadCalls++;
+      LastCatalogBatchCodes = [.. codes];
+      IReadOnlyList<MedicalStandardItemCatalogState> states = TreatEveryBatchCodeAsValidCatalog
+        ? [.. codes.Select(code => new MedicalStandardItemCatalogState
+        {
+          StandardProjectCode = code,
+          StandardItemId = Guid.NewGuid(),
+          CategoryId = Guid.NewGuid(),
+          GroupId = Guid.NewGuid(),
+          ItemIsValid = true,
+          CategoryIsValid = true,
+          GroupIsValid = true
+        })]
+        :
+        [
+          .. Items.Values
+            .Where(item => codes.Contains(item.Code))
+            .Select(item => new MedicalStandardItemCatalogState
+            {
+              StandardProjectCode = item.Code,
+              StandardItemId = item.Id,
+              CategoryId = item.CategoryId,
+              GroupId = item.GroupId,
+              ItemIsValid = item.IsValid,
+              CategoryIsValid = Categories.TryGetValue(item.CategoryId, out MedicalStandardCategory? category) && category.IsValid,
+              GroupIsValid = Groups.TryGetValue(item.GroupId, out MedicalStandardGroup? group) && group.IsValid
+            })
+            .OrderBy(state => state.StandardProjectCode, StringComparer.Ordinal)
+        ];
+      return Task.FromResult(states);
+    }
 
     /// <summary>按主键读取分类。</summary>
     /// <param name="id">分类标识。</param>
     /// <returns>分类；不存在时返回 <see langword="null"/>。</returns>
     public Task<MedicalStandardCategory?> GetMedicalStandardCategoryByIdAsync(Guid id)
-      => Task.FromResult(Categories.TryGetValue(id, out MedicalStandardCategory? category) ? category : null);
+    {
+      SingleCategoryByIdReadCalls++;
+      return Task.FromResult(Categories.TryGetValue(id, out MedicalStandardCategory? category) ? category : null);
+    }
 
     /// <summary>按主键读取分组。</summary>
     /// <param name="id">分组标识。</param>
     /// <returns>分组；不存在时返回 <see langword="null"/>。</returns>
     public Task<MedicalStandardGroup?> GetMedicalStandardGroupByIdAsync(Guid id)
-      => Task.FromResult(Groups.TryGetValue(id, out MedicalStandardGroup? group) ? group : null);
+    {
+      SingleGroupByIdReadCalls++;
+      return Task.FromResult(Groups.TryGetValue(id, out MedicalStandardGroup? group) ? group : null);
+    }
 
     /// <summary>在可信组织范围内按主键读取互认配置，模拟数据库的组织范围过滤。</summary>
     /// <param name="id">配置标识。</param>
@@ -1357,21 +2118,37 @@ public sealed class Stage2WritePathTests
           : null);
     }
 
-    /// <summary>插入一条互认配置，模拟影响行数。</summary>
+    /// <summary>
+    /// 插入一条互认配置，模拟影响行数；批量新建逐条调用本成员，因此同时记录写入顺序与实际落库集合。
+    /// </summary>
     /// <param name="mutualRecognitionItem">待插入配置。</param>
     /// <returns>受影响行数。</returns>
+    /// <exception cref="DataException">集合内该配置与既有配置重复，或已配置写入失败时抛出，模拟数据库唯一索引拒绝。</exception>
     public Task<int> CreateMutualRecognitionItemAsync(MutualRecognitionItem mutualRecognitionItem)
     {
       CreateCalls++;
       LastCreated = mutualRecognitionItem;
+      if (CreateFailure is not null) throw CreateFailure;
+      // 唯一键判定同时看已落库配置与并发窗口内抢先写入的配置，使"查重通过但写入冲突"可构造。
+      bool duplicated = Configurations.Values.Concat(ConcurrentlyInsertedConfigurations).Any(configuration =>
+        configuration.OrganizationCode == mutualRecognitionItem.OrganizationCode
+        && configuration.StandardProjectCode == mutualRecognitionItem.StandardProjectCode);
+      if (duplicated) throw new DataException(DuplicateConfigurationMessage);
+
       if (ScriptedConfigurationWriteRows.Count > 0)
       {
         int rows = ScriptedConfigurationWriteRows.Dequeue();
-        if (rows > 0) Configurations[mutualRecognitionItem.Id] = mutualRecognitionItem;
+        if (rows > 0)
+        {
+          Configurations[mutualRecognitionItem.Id] = mutualRecognitionItem;
+          CreatedConfigurations.Add(mutualRecognitionItem);
+        }
+
         return Task.FromResult(rows);
       }
 
       Configurations[mutualRecognitionItem.Id] = mutualRecognitionItem;
+      CreatedConfigurations.Add(mutualRecognitionItem);
       return Task.FromResult(1);
     }
 
@@ -1515,9 +2292,33 @@ public sealed class Stage2WritePathTests
     /// <param name="organizationCode">组织编码。</param>
     /// <param name="standardProjectCode">标准项目编码。</param>
     /// <returns>已存在的配置；不存在时返回 <see langword="null"/>。</returns>
-    public Task<MutualRecognitionItem?> GetMutualRecognitionItemByOrganizationAndProjectAsync(string organizationCode, string standardProjectCode) =>
-      Task.FromResult(Configurations.Values.SingleOrDefault(configuration =>
+    public Task<MutualRecognitionItem?> GetMutualRecognitionItemByOrganizationAndProjectAsync(string organizationCode, string standardProjectCode)
+    {
+      SingleConfigurationByProjectReadCalls++;
+      return Task.FromResult(Configurations.Values.SingleOrDefault(configuration =>
         configuration.OrganizationCode == organizationCode && configuration.StandardProjectCode == standardProjectCode));
+    }
+
+    /// <summary>
+    /// 按组织与编码集合一次读取既有互认配置，模拟批量新增配置的整批查重。
+    /// </summary>
+    /// <remarks>读取次数被记录，用于断言查重读取次数不随编码个数增长；不筛选启用状态，已停用配置同样命中。</remarks>
+    /// <param name="organizationCode">组织编码。</param>
+    /// <param name="standardProjectCodes">标准项目编码集合。</param>
+    /// <returns>集合内已建立配置的互认配置，按标准项目编码升序。</returns>
+    public Task<IReadOnlyList<MutualRecognitionItem>> GetMutualRecognitionItemsByCodesAsync(string organizationCode, IReadOnlyList<string> standardProjectCodes)
+    {
+      ConfigurationBatchReadCalls++;
+      LastConfigurationBatchCodes = [.. standardProjectCodes];
+      if (ScriptedConfigurationBatchReads.Count > 0) return Task.FromResult(ScriptedConfigurationBatchReads.Dequeue());
+      IReadOnlyList<MutualRecognitionItem> configurations =
+      [
+        .. Configurations.Values
+          .Where(configuration => configuration.OrganizationCode == organizationCode && standardProjectCodes.Contains(configuration.StandardProjectCode))
+          .OrderBy(configuration => configuration.StandardProjectCode, StringComparer.Ordinal)
+      ];
+      return Task.FromResult(configurations);
+    }
 
     /// <summary>本测试未使用：按四个业务键读取金额记录。</summary>
     /// <param name="organizationCode">组织编码。</param>

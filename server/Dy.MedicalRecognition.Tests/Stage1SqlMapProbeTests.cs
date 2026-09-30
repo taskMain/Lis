@@ -135,6 +135,12 @@ public sealed class Stage1SqlMapProbeTests
     Assert.Contains("MedicalStandardItem.GetMedicalStandardItemByCode", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionProjectConfigurationList", registeredKeys);
 
+    // 批量新增配置不新增写入键：整批按提交顺序逐条调用单条创建语句，仍走 MutualRecognitionItem.CreateMutualRecognitionItem。
+    // 出现独立批量写入键（例如 MutualRecognitionItem.CreateMutualRecognitionItems）说明新增了重复语句或改了写入口径。
+    Assert.DoesNotContain("MutualRecognitionItem.CreateMutualRecognitionItems", registeredKeys);
+    Assert.DoesNotContain("MutualRecognitionItem.BulkInsertMutualRecognitionItems", registeredKeys);
+    Assert.DoesNotContain("MutualRecognitionItem.BulkInsertMutualRecognitionItem", registeredKeys);
+
     // 复用的字段清单语句与全量查询语句同样必须注册在实体作用域下：这两条键此前只出现在上面的打印清单里，
     // 语句标识被改名或作用域被改动时没有任何用例会失败。
     Assert.Contains("MutualRecognitionItem.MutualRecognitionItemColumns", registeredKeys);
@@ -155,6 +161,13 @@ public sealed class Stage1SqlMapProbeTests
     // 缺少这两条断言时，语句标识或作用域被改名只在运行时表现为"找不到语句"，静态检查不会失败。
     Assert.Contains("MutualRecognitionItem.GetMutualRecognitionItemByOrganizationAndProject", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionAmountList", registeredKeys);
+
+    // 批量新增互认项目配置只新增一个配置查重读取语句：
+    // 目录批量读取注册在标准项目作用域、配置批量查重注册在互认配置作用域；
+    // 缺少这两条断言时，语句标识被改名或作用域被改动只在运行时表现为"找不到语句"，静态检查不会失败。
+    // 写入按提交顺序逐条复用既有的 MutualRecognitionItem.CreateMutualRecognitionItem 键，不新增写入键（见下方负向断言）。
+    Assert.Contains("MedicalStandardItem.GetMedicalStandardItemsByCodes", registeredKeys);
+    Assert.Contains("MutualRecognitionItem.GetMutualRecognitionItemsByCodes", registeredKeys);
 
     // 阶段 5 追加核对：获取引用详情的候选采纳记录、报告公共上下文与标准项目名称三条查询语句注册在同一查询作用域下；
     // 缺少这些断言时，语句标识被改名或作用域被改动只在运行时表现为"找不到语句"，静态检查不会失败。

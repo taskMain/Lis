@@ -2,7 +2,7 @@
  * 互认项目适配层的纯逻辑、请求体形状与契约用例（测试矩阵 C2 / C3 / C6 / C20 / C23 的非 Host 面）。
  *
  * 装配边界：纯函数用真实实现；I/O 出口用**生成端同形的伪 Client**驱动，断言真实下发的
- * 请求体形状（组织编码显式下发、创建不含组织与内部 ID、启停只带目标标识），
+ * 请求体形状（组织编码显式下发、批量创建不含组织与内部 ID、启停只带目标标识），
  * 不构造真实鉴权适配器、不替换任何模块。
  */
 import { describe, expect, it, vi } from 'vitest'
@@ -12,28 +12,36 @@ import {
   CONFIGURATION_STATUS_TEXTS,
   EMPTY_RECOGNITION_PROJECT_FILTER,
   MAX_RECOGNITION_DURATION_DAYS,
+  RECOGNITION_DURATION_RANGE_TEXT,
+  buildBatchCreateConfigurationRequest,
   buildConfigurationListQuery,
-  buildCreateConfigurationRequest,
   buildDurationUpdatePayload,
   configuredStandardProjectCodes,
   configurationStatusActionText,
   configurationStatusTagColor,
   configurationStatusText,
-  createRecognitionProjectConfiguration,
+  countColumnRows,
+  createRecognitionProjectConfigurations,
   excludeConfiguredStandardItems,
-  filterConfigurationRows,
+  filterRecognitionProjectColumnView,
   parseRecognitionDurationDays,
   queryRecognitionProjectConfigurations,
+  recognitionProjectRowBadge,
+  rowDisplayName,
   toConfigurationStatusFilterOptions,
   querySelectableStandardItems,
   setRecognitionProjectConfigurationEnabled,
   toConfigurationRows,
-  toSelectableOptionGroups,
+  toRecognitionProjectColumnView,
+  toSelectableColumnView,
   toSelectableStandardItems,
   updateRecognitionDuration,
   type EffectiveMedicalStandardCatalogReadModel,
   type MedicalRecognitionClient,
+  type RecognitionProjectColumnRow,
+  type RecognitionProjectColumnView,
   type RecognitionProjectConfigurationRow,
+  type SelectableStandardItem,
 } from './recognitionProjectsApi'
 
 /**
@@ -50,6 +58,7 @@ function stubClient(handlers: Record<string, unknown> = {}) {
       },
       medicalRecognitionReport: {
         createMutualRecognitionItem: { post: post('create') },
+        createMutualRecognitionItems: { post: post('createBatch') },
         updateMutualRecognitionItemConfiguration: { post: post('updateDuration') },
         enableMutualRecognitionItem: { post: post('enable') },
         disableMutualRecognitionItem: { post: post('disable') },
@@ -116,11 +125,11 @@ describe('C6 可互认时间解析与创建请求适配', () => {
     }
   })
 
-  it('非法天数或空编码不构造创建请求，页面据此零写请求', () => {
+  it('非法天数或空选择不构造批量创建请求，页面据此零写请求', () => {
     for (const input of ['', '0', '-3', '2.5', 'x']) {
-      expect(buildCreateConfigurationRequest('A01', input)).toBeNull()
+      expect(buildBatchCreateConfigurationRequest(new Set(['A01']), input)).toBeNull()
     }
-    expect(buildCreateConfigurationRequest('   ', '30')).toBeNull()
+    expect(buildBatchCreateConfigurationRequest(new Set(), '30')).toBeNull()
   })
 
   // 设计条目：可互认时间上界与后端 `[Range(1, int.MaxValue)]` 同口径，必须在本地拦下，
@@ -130,16 +139,21 @@ describe('C6 可互认时间解析与创建请求适配', () => {
     expect(parseRecognitionDurationDays(String(MAX_RECOGNITION_DURATION_DAYS))).toBe(MAX_RECOGNITION_DURATION_DAYS)
     expect(parseRecognitionDurationDays('2147483648')).toBeNull()
     expect(parseRecognitionDurationDays('99999999999999999999')).toBeNull()
-    expect(buildCreateConfigurationRequest('A01', '2147483648')).toBeNull()
+    expect(buildBatchCreateConfigurationRequest(new Set(['A01']), '2147483648')).toBeNull()
     expect(buildDurationUpdatePayload('c1', '2147483648')).toBeNull()
-    expect(buildCreateConfigurationRequest('A01', String(MAX_RECOGNITION_DURATION_DAYS)))
-      .toEqual({ standardProjectCode: 'A01', recognitionDurationDays: MAX_RECOGNITION_DURATION_DAYS })
+    expect(buildBatchCreateConfigurationRequest(new Set(['A01']), String(MAX_RECOGNITION_DURATION_DAYS)))
+      .toEqual({ standardProjectCodes: ['A01'], recognitionDurationDays: MAX_RECOGNITION_DURATION_DAYS })
   })
 
-  it('C23 创建请求只含标准项目编码与正整数天数，不含组织编码与内部标准项目 ID', () => {
-    const request = buildCreateConfigurationRequest(' A01 ', ' 30 ')
-    expect(request).toEqual({ standardProjectCode: 'A01', recognitionDurationDays: 30 })
-    expect(Object.keys(request as object)).toEqual(['standardProjectCode', 'recognitionDurationDays'])
+  it('C23 批量创建请求只含标准项目编码集合与统一天数，不含组织编码与内部标准项目 ID', () => {
+    const request = buildBatchCreateConfigurationRequest(new Set(['A01', 'A02']), ' 30 ')
+    expect(request).toEqual({ standardProjectCodes: ['A01', 'A02'], recognitionDurationDays: 30 })
+    expect(Object.keys(request as object)).toEqual(['standardProjectCodes', 'recognitionDurationDays'])
+  })
+
+  it('批量创建请求的编码集合按选择顺序逐项提交，单个项目也走同一形状', () => {
+    expect(buildBatchCreateConfigurationRequest(new Set(['A03', 'A01']), '7'))
+      .toEqual({ standardProjectCodes: ['A03', 'A01'], recognitionDurationDays: 7 })
   })
 
   it('修改请求只含目标标识与天数；同值不做短路，缺失标识或非法天数不构造请求', () => {
@@ -314,28 +328,50 @@ describe('C2 目录选择器只允许最底层当前有效标准项目', () => {
   it('只产出最底层标准项目，分类与分组不作为可选项', () => {
     const items = toSelectableStandardItems(CATALOG)
     expect(items.map((item) => item.code)).toEqual(['A01', 'A02', 'B01'])
-    expect(items[0]).toEqual({ code: 'A01', name: '血常规', itemType: 0, categoryName: '检验分类', groupName: '血液' })
+    expect(items[0]).toEqual({ code: 'A01', name: '血常规', itemType: 0, itemTypeText: null, categoryName: '检验分类', groupName: '血液' })
     expect(items[2].itemType).toBe(1)
     expect(items.map((item) => item.code)).not.toContain('检验分类')
     expect(items.map((item) => item.code)).not.toContain('血液')
   })
 
-  it('选择器选项按分类 / 分组分组，选项值始终是最底层项目编码', () => {
-    expect(toSelectableOptionGroups(toSelectableStandardItems(CATALOG))).toEqual([
-      { label: '检验分类 / 血液', options: [{ value: 'A01', label: '血常规（A01）' }, { value: 'A02', label: '尿常规（A02）' }] },
-      { label: '检查分类 / 影像', options: [{ value: 'B01', label: '胸部CT（B01）' }] },
+  it('可选集合的列视图按目录层级摊开，全部行都是未配置行', () => {
+    const view = toSelectableColumnView(toSelectableStandardItems(CATALOG))
+    expect(view.map((itemType) => [itemType.itemType, itemType.itemTypeText])).toEqual([[0, '检验'], [1, '检查']])
+    expect(view[0].categories.map((category) => category.categoryName)).toEqual(['检验分类'])
+    expect(view[0].categories[0].groups.map((group) => [group.groupName, group.rows.map((item) => item.standardProjectCode)])).toEqual([
+      ['血液', ['A01', 'A02']],
     ])
+    // 弹窗只列未配置项目：每一行都没有配置标识、可互认时间与配置状态。
+    expect(view.flatMap((itemType) => itemType.categories).flatMap((category) => category.groups).flatMap((group) => group.rows))
+      .toEqual([
+        { rowIdentity: 'A01|血常规', standardProjectCode: 'A01', standardItemName: '血常规', configured: false, configurationId: null, recognitionDurationDays: null, configurationStatus: null, configurationStatusText: null, unavailableReason: null },
+        { rowIdentity: 'A02|尿常规', standardProjectCode: 'A02', standardItemName: '尿常规', configured: false, configurationId: null, recognitionDurationDays: null, configurationStatus: null, configurationStatusText: null, unavailableReason: null },
+        { rowIdentity: 'B01|胸部CT', standardProjectCode: 'B01', standardItemName: '胸部CT', configured: false, configurationId: null, recognitionDurationDays: null, configurationStatus: null, configurationStatusText: null, unavailableReason: null },
+      ])
   })
 
-  it('目录为空或读取失败时不产出任何可选项', () => {
+  it('目录为空或读取失败时不产出任何可选项，可选集合的列视图同样为空', () => {
     expect(toSelectableStandardItems(null)).toEqual([])
     expect(toSelectableStandardItems({ itemTypes: null })).toEqual([])
-    expect(toSelectableOptionGroups([])).toEqual([])
+    expect(toSelectableColumnView([])).toEqual([])
   })
 
   it('未知项目类型不默认成已知类型', () => {
     const items = toSelectableStandardItems({ itemTypes: [{ itemType: 7, categories: [{ categoryName: 'C', groups: [{ groupName: 'G', items: [{ code: 'X1', name: '未知类型项目' }] }] }] }] })
-    expect(items).toEqual([{ code: 'X1', name: '未知类型项目', itemType: null, categoryName: 'C', groupName: 'G' }])
+    expect(items).toEqual([{ code: 'X1', name: '未知类型项目', itemType: null, itemTypeText: null, categoryName: 'C', groupName: 'G' }])
+  })
+
+  // 契约字段只承载服务端交付的文本：若在此处补本地兜底文案，类型列会优先取到兜底值，
+  // 服务端文案就永远显示不出来（列视图节点按「契约文本优先、兜底随后」取候选）。
+  it('类型文案只承载契约交付的文本，字段缺失时留空而不补本地兜底', () => {
+    const [withText] = toSelectableStandardItems({
+      itemTypes: [{ itemType: 0, itemTypeText: '服务端类型文案', categories: [{ categoryName: 'C', groups: [{ groupName: 'G', items: [{ code: 'X1', name: '项目' }] }] }] }],
+    })
+    expect(withText.itemTypeText).toBe('服务端类型文案')
+
+    const [withoutText] = toSelectableStandardItems(CATALOG)
+    expect(withoutText.itemTypeText).toBeNull()
+    expect(withoutText.itemTypeText).not.toBe('检验')
   })
 })
 
@@ -362,23 +398,297 @@ describe('C3 已配置项目排除集合（含停用配置）', () => {
   })
 })
 
+/**
+ * 列表本地展示筛选的语义在列视图裁剪这一条路径上固定：页面只渲染列视图，
+ * 因此不再为配置行单独保留一个筛选出口，避免两处判定各自漂移。
+ */
 describe('列表本地展示筛选', () => {
-  it('编码按包含匹配、状态按配置状态精确匹配，且不修改入参数组', () => {
-    const rows = [row('A01', 1), row('A02', 2), row('B01', 2)]
-    const snapshot = rows.map((value) => ({ ...value }))
+  const rows = [row('A01', 1), row('A02', 2), row('B01', 2)]
+  const view = toRecognitionProjectColumnView(rows, COLUMN_CATALOG)
 
-    expect(filterConfigurationRows(rows, { code: 'a0', status: 'all' }).map((value) => value.standardProjectCode)).toEqual(['A01', 'A02'])
-    expect(filterConfigurationRows(rows, { code: '', status: 2 }).map((value) => value.standardProjectCode)).toEqual(['A02', 'B01'])
-    expect(filterConfigurationRows(rows, { code: '', status: 1 }).map((value) => value.standardProjectCode)).toEqual(['A01'])
-    expect(filterConfigurationRows(rows, { code: 'ZZ', status: 'all' })).toEqual([])
-    // 同一引用在调用前后逐元素比对：筛选只读入参，不就地改写调用方持有的行。
-    expect(rows).toEqual(snapshot)
+  it('编码按包含匹配、状态按配置状态精确匹配，且不修改入参视图', () => {
+    const snapshot = configuredCodesIn(view)
+
+    // 编码匹配不区分大小写，且是包含匹配（`a0` 命中 `A01`）。
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: 'a0', status: 'all' }))).toEqual(['A01', 'A02'])
+    // 状态是精确匹配：停用只留 `A02`、`B01`，启用只留 `A01`。
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: '', status: 2 }))).toEqual(['A02', 'B01'])
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: '', status: 1 }))).toEqual(['A01'])
+    // 编码筛不到任何行时整份视图为空，层级节点一并被丢弃。
+    expect(filterRecognitionProjectColumnView(view, { code: 'ZZ', status: 'all' })).toEqual([])
+
+    // 裁剪是纯函数：不改写调用方持有的列视图。
+    expect(configuredCodesIn(view)).toEqual(snapshot)
   })
 
   it('配置状态未知的行只在全部筛选下可见', () => {
-    const unknown = { ...row('A03'), configurationStatus: null }
-    expect(filterConfigurationRows([unknown], { code: '', status: 'all' })).toHaveLength(1)
-    expect(filterConfigurationRows([unknown], { code: '', status: 1 })).toEqual([])
+    const unknownView = toRecognitionProjectColumnView([{ ...row('A03'), configurationStatus: null }], COLUMN_CATALOG)
+
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(unknownView, { code: '', status: 'all' }))).toEqual(['A03'])
+    expect(filterRecognitionProjectColumnView(unknownView, { code: '', status: 1 })).toEqual([])
+    expect(filterRecognitionProjectColumnView(unknownView, { code: '', status: 2 })).toEqual([])
+  })
+})
+
+/**
+ * 列视图夹具：目录交付类型中文（服务端文案的唯一来源），四层结构与 `CATALOG` 同形而多一组分组，
+ * 另有一个目录读不到的编码由配置行在第二遍补齐。
+ */
+const COLUMN_CATALOG: SelectableStandardItem[] = [
+  { code: 'A01', name: '血常规', itemType: 0, itemTypeText: '服务端检验文案', categoryName: '检验分类', groupName: '血液' },
+  { code: 'A02', name: '尿常规', itemType: 0, itemTypeText: '服务端检验文案', categoryName: '检验分类', groupName: '血液' },
+  { code: 'A03', name: '便常规', itemType: 0, itemTypeText: '服务端检验文案', categoryName: '检验分类', groupName: '体液' },
+  { code: 'B01', name: '胸部CT', itemType: 1, itemTypeText: '服务端检查文案', categoryName: '检查分类', groupName: '影像' },
+]
+
+/** 目录读不到的配置行（目录已停用）：自己的类型、分类与分组由第二遍按行内字段建立。 */
+const disabledCatalogRow: RecognitionProjectConfigurationRow = {
+  ...row('C99', 2),
+  categoryName: '历史分类',
+  groupName: '历史分组',
+  unavailableReason: '所属分组已停用',
+}
+
+const columnRows = (view: RecognitionProjectColumnView): RecognitionProjectColumnRow[] =>
+  view.flatMap((itemType) => itemType.categories.flatMap((category) => category.groups.flatMap((group) => group.rows)))
+
+const configuredCodesIn = (view: RecognitionProjectColumnView): (string | null)[] =>
+  columnRows(view).filter((value) => value.configured).map((value) => value.standardProjectCode)
+
+describe('列视图合并：目录结构与当前组织配置行合并为四层视图', () => {
+  it('按目录顺序建立层级，目录读不到的配置行追加在各层末尾，类型按取值升序', () => {
+    const view = toRecognitionProjectColumnView(
+      [row('A01', 1), row('B01', 2), disabledCatalogRow],
+      COLUMN_CATALOG,
+    )
+
+    expect(view.map((itemType) => itemType.itemType)).toEqual([0, 1])
+    expect(view[0].categories.map((category) => category.categoryName)).toEqual(['检验分类', '历史分类'])
+    expect(view[0].categories[0].groups.map((group) => group.groupName)).toEqual(['血液', '体液'])
+    expect(view[1].categories[0].groups[0].rows.map((value) => value.standardProjectCode)).toEqual(['B01'])
+  })
+
+  it('第二遍按配置行顺序补齐，编码缺失的行同样进入列视图而不是被丢弃', () => {
+    // 同一编码的两行在两处，中间隔着一行别的编码：按配置行顺序补齐时「乙分类」先于第二行「甲分类」出现，
+    // 按编码分组后再补齐（先排完同一编码的全部行）会得到相反结果。
+    const first: RecognitionProjectConfigurationRow = { ...row('C99', 2), categoryName: '乙分类', groupName: '乙分组' }
+    const interleaved: RecognitionProjectConfigurationRow = { ...row('D99', 2), categoryName: '甲分类', groupName: '甲分组' }
+    const second: RecognitionProjectConfigurationRow = { ...row('C99', 2), configurationId: 'c-C99-b', categoryName: '丙分类', groupName: '丙分组' }
+    // 编码缺失的行在目录里没有对应项目，只能在第二遍出现；丢弃它会连同它的目录停用原因一起消失。
+    const withoutCode: RecognitionProjectConfigurationRow = { ...row('', 2), standardProjectCode: null, categoryName: '无编码分类', groupName: '无编码分组' }
+
+    const view = toRecognitionProjectColumnView([first, interleaved, second, withoutCode], COLUMN_CATALOG)
+
+    expect(view[0].categories.map((category) => category.categoryName))
+      .toEqual(['检验分类', '乙分类', '甲分类', '丙分类', '无编码分类'])
+    expect(columnRows(view).filter((value) => value.configured).map((value) => value.standardProjectCode))
+      .toEqual(['C99', 'D99', 'C99', null])
+  })
+
+  it('未配置的目录项目进入列视图，配置字段一律为空且计数包含它们', () => {
+    const view = toRecognitionProjectColumnView([row('A01', 1), row('B01', 2), disabledCatalogRow], COLUMN_CATALOG)
+    const [a02] = columnRows(view).filter((value) => value.standardProjectCode === 'A02')
+
+    expect(a02.configured).toBe(false)
+    expect(a02.standardItemName).toBe('尿常规')
+    expect(a02.configurationId).toBeNull()
+    expect(a02.recognitionDurationDays).toBeNull()
+    expect(a02.configurationStatus).toBeNull()
+    expect(a02.configurationStatusText).toBeNull()
+    expect(a02.unavailableReason).toBeNull()
+    expect(countColumnRows(view)).toBe(5)
+  })
+
+  it('已配置行取配置行的配置标识、可互认时间、状态与目录停用原因', () => {
+    const view = toRecognitionProjectColumnView([row('A01', 1), disabledCatalogRow], COLUMN_CATALOG)
+    const [a01] = columnRows(view).filter((value) => value.standardProjectCode === 'A01')
+    const [c99] = columnRows(view).filter((value) => value.standardProjectCode === 'C99')
+
+    expect(a01.configured).toBe(true)
+    expect(a01.configurationId).toBe('c-A01')
+    expect(a01.recognitionDurationDays).toBe(30)
+    expect(a01.configurationStatus).toBe(1)
+    expect(a01.configurationStatusText).toBe('启用')
+    expect(a01.unavailableReason).toBeNull()
+
+    // 目录读不到的配置行必须仍然出现：目录停用原因只由这一步带出来。
+    expect(c99.configured).toBe(true)
+    expect(c99.configurationId).toBe('c-C99')
+    expect(c99.unavailableReason).toBe('所属分组已停用')
+  })
+
+  // 项目类型中文的唯一来源是服务端枚举声明，目录与配置行交付的是同一份声明，任一来源有值就应采用。
+  // 目录未交付类型中文、而第一遍就匹配上目录的配置行交付了文本时，这条路径最容易漏掉候选：
+  // 类型格会回落到本地兜底「检验」，页面上的服务端文案随之永远显示不出来。
+  it('第一遍匹配到目录的配置行同样补充类型文案候选，本地兜底不出现', () => {
+    const catalogWithoutTypeText: SelectableStandardItem[] = [{ ...COLUMN_CATALOG[0], itemTypeText: null }]
+    const view = toRecognitionProjectColumnView(
+      [{ ...row('A01', 1), itemTypeText: '配置行交付文案' }],
+      catalogWithoutTypeText,
+    )
+
+    expect(view[0].itemType).toBe(0)
+    expect(view[0].itemTypeText).toBe('配置行交付文案')
+    expect(view[0].itemTypeText).not.toBe('检验')
+    // 该行在第一遍取用目录项目，配置字段仍来自配置行。
+    expect(columnRows(view)[0].configured).toBe(true)
+  })
+
+  it('三个来源都为空时才用本地兜底，目录交付优先于配置行', () => {
+    const catalogWithoutTypeText: SelectableStandardItem[] = [{ ...COLUMN_CATALOG[0], itemTypeText: null }]
+
+    // 目录与配置行都有文本时取目录交付的文本。
+    const bothSources = toRecognitionProjectColumnView(
+      [{ ...row('A01', 1), itemTypeText: '配置行交付文案' }],
+      COLUMN_CATALOG,
+    )
+    expect(bothSources[0].itemTypeText).toBe('服务端检验文案')
+
+    // 目录与配置行都为空时用本地兜底。
+    const noSource = toRecognitionProjectColumnView(
+      [{ ...row('A01', 1), itemTypeText: '' }],
+      catalogWithoutTypeText,
+    )
+    expect(noSource[0].itemTypeText).toBe('检验')
+  })
+
+  it('类型节点中文取第一个非空候选：目录交付优先于配置行，都没有时用本地兜底', () => {
+    const fromCatalog = toRecognitionProjectColumnView([row('A01', 1)], COLUMN_CATALOG)
+    expect(fromCatalog[0].itemTypeText).toBe('服务端检验文案')
+
+    // 目录未交付类型中文时，改取第二遍补齐的配置行交付的文本。
+    const fromRow = toRecognitionProjectColumnView(
+      [{ ...row('C99', 1), itemTypeText: '配置行交付文案' }],
+      [{ ...COLUMN_CATALOG[0], itemTypeText: null }],
+    )
+    expect(fromRow[0].itemType).toBe(0)
+    expect(fromRow[0].itemTypeText).toBe('配置行交付文案')
+
+    // 两处都没有候选时用本地兜底，未知取值不默认成已知类型。
+    const fallback = toRecognitionProjectColumnView([], [{ ...COLUMN_CATALOG[0], itemTypeText: null }])
+    expect(fallback[0].itemTypeText).toBe('检验')
+
+    const unknownType = toRecognitionProjectColumnView([], [
+      { code: 'X1', name: '未知类型项目', itemType: null, itemTypeText: null, categoryName: '其他分类', groupName: '其他分组' },
+      COLUMN_CATALOG[3],
+    ])
+    expect(unknownType.map((itemType) => itemType.itemType)).toEqual([1, null])
+    expect(unknownType[1].itemTypeText).toBe('未知类型')
+  })
+
+  it('类型中文经目录摊平从生成响应贯穿到列视图', () => {
+    const items = toSelectableStandardItems({
+      itemTypes: [{
+        itemType: 0,
+        itemTypeText: '服务端交付的类型中文',
+        categories: [{ categoryName: '检验分类', groups: [{ groupName: '血液', items: [{ code: 'A01', name: '血常规' }] }] }],
+      }],
+    })
+
+    expect(toRecognitionProjectColumnView([row('A01', 1)], items)[0].itemTypeText).toBe('服务端交付的类型中文')
+  })
+
+  it('行标识在整份合并结果内唯一：业务键优先取配置标识，缺失时用编码与名称组成', () => {
+    const view = toRecognitionProjectColumnView([row('A01', 1), row('B01', 2), disabledCatalogRow], COLUMN_CATALOG)
+    const identities = columnRows(view).map((value) => value.rowIdentity)
+
+    expect(new Set(identities).size).toBe(identities.length)
+    // 契约唯一键存在时标识就是它，不引入本次行集的数组下标。
+    expect(identities).toContain('c-A01')
+    expect(identities).toContain('c-B01')
+    expect(identities).toContain('c-C99')
+    // 配置标识缺失的未配置行按编码与名称组成业务键。
+    expect(identities).toContain('A02|尿常规')
+  })
+
+  it('业务键完全相同的多行只在重复处追加出现序号，序号不进入业务字段', () => {
+    // 契约唯一键缺失且业务字段完全相同的行在查询结果里不可区分：名称与目录同名，标识只由出现次序区分。
+    const duplicate = { ...row('A01'), configurationId: null, standardItemName: '血常规' }
+    const view = toRecognitionProjectColumnView([duplicate, { ...duplicate }], COLUMN_CATALOG)
+    const a01Rows = columnRows(view).filter((value) => value.standardProjectCode === 'A01')
+
+    expect(a01Rows.map((value) => value.rowIdentity)).toEqual(['A01|血常规', 'A01|血常规#1'])
+    expect(a01Rows.map((value) => value.configured)).toEqual([true, true])
+    expect(a01Rows.map((value) => value.standardItemName)).toEqual(['血常规', '血常规'])
+  })
+
+  it('空目录与空行集都产出空列视图，不伪造层级', () => {
+    expect(toRecognitionProjectColumnView([], [])).toEqual([])
+    expect(countColumnRows([])).toBe(0)
+  })
+})
+
+describe('列视图裁剪与计数', () => {
+  const rows = [row('A01', 1), row('B01', 2)]
+  const view = toRecognitionProjectColumnView(rows, COLUMN_CATALOG)
+
+  it('裁剪与配置行筛选共用同一条判定：编码包含匹配、状态精确匹配', () => {
+    // `a0` 只命中 A 段编码；B 段编码不在结果里，说明编码是包含匹配而不是前缀或全等。
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: 'a0', status: 'all' })))
+      .toEqual(['A01'])
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: '0', status: 'all' })))
+      .toEqual(['A01', 'B01'])
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: '', status: 2 })))
+      .toEqual(['B01'])
+    expect(filterRecognitionProjectColumnView(view, { code: 'ZZ', status: 'all' })).toEqual([])
+    expect(filterRecognitionProjectColumnView(view, { code: '', status: 1 }).map((itemType) => itemType.itemType)).toEqual([0])
+  })
+
+  it('裁剪先筛项目行，再丢弃没有可见项目的分组、分类与类型', () => {
+    const byCode = filterRecognitionProjectColumnView(view, { code: 'B01', status: 'all' })
+
+    expect(byCode.map((itemType) => itemType.itemType)).toEqual([1])
+    expect(byCode[0].categories.map((category) => category.categoryName)).toEqual(['检查分类'])
+    expect(byCode[0].categories[0].groups.map((group) => group.groupName)).toEqual(['影像'])
+    expect(countColumnRows(byCode)).toBe(1)
+
+    // 裁剪只筛选可见行，不改写入参持有的列视图。
+    expect(countColumnRows(view)).toBe(4)
+    expect(configuredCodesIn(view)).toEqual(['A01', 'B01'])
+  })
+
+  it('未配置行按编码匹配同样保留，状态筛选把它们排除在可见行之外', () => {
+    const byCode = filterRecognitionProjectColumnView(view, { code: 'A02', status: 'all' })
+    expect(columnRows(byCode).map((value) => [value.standardProjectCode, value.configured])).toEqual([['A02', false]])
+
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: '', status: 2 }))).toEqual(['B01'])
+  })
+})
+
+describe('项目行状态徽标', () => {
+  const rowOf = (view: RecognitionProjectColumnView, code: string) =>
+    columnRows(view).filter((value) => value.standardProjectCode === code)[0]
+
+  it('目录停用优先于配置自身状态，并带出目录停用原因', () => {
+    const badge = recognitionProjectRowBadge(rowOf(toRecognitionProjectColumnView([disabledCatalogRow], COLUMN_CATALOG), 'C99'))
+    expect(badge).toEqual({ text: '目录已停用', color: 'error', reason: '所属分组已停用' })
+  })
+
+  it('未配置行单独表达，不带配置状态色板', () => {
+    const badge = recognitionProjectRowBadge(rowOf(toRecognitionProjectColumnView([], COLUMN_CATALOG), 'A02'))
+    expect(badge).toEqual({ text: '未配置', color: 'default', reason: null })
+  })
+
+  it('已配置行取服务端交付的状态中文与状态色板，未知状态安全展示', () => {
+    const view = toRecognitionProjectColumnView([row('A01', 1), row('B01', 2), row('A03', null)], COLUMN_CATALOG)
+
+    expect(recognitionProjectRowBadge(rowOf(view, 'A01'))).toEqual({ text: '启用', color: 'success', reason: null })
+    expect(recognitionProjectRowBadge(rowOf(view, 'B01'))).toEqual({ text: '停用', color: undefined, reason: null })
+    expect(recognitionProjectRowBadge(rowOf(view, 'A03'))).toEqual({ text: '未知', color: 'warning', reason: null })
+  })
+})
+
+describe('可互认时间范围提示与行显示名', () => {
+  it('范围提示与解析上界同源，文案与既有提示完全一致', () => {
+    expect(RECOGNITION_DURATION_RANGE_TEXT).toBe('可互认时间为 1 到 2147483647 之间的整数天数')
+    expect(RECOGNITION_DURATION_RANGE_TEXT).toContain(String(MAX_RECOGNITION_DURATION_DAYS))
+  })
+
+  // 入参放宽为结构子集是编译期事实：这里的调用由 `tsc -b` 校验，页面的配置行与列视图行都可直接传入。
+  it('行显示名接受只含编码与名称的结构子集', () => {
+    expect(rowDisplayName({ standardProjectCode: 'A01', standardItemName: '血常规' })).toBe('血常规')
+    expect(rowDisplayName({ standardProjectCode: 'A01', standardItemName: null })).toBe('A01')
+    expect(rowDisplayName({ standardProjectCode: null, standardItemName: null })).toBe('未知项目')
   })
 })
 
@@ -413,25 +723,28 @@ describe('C1 / C23 接线后的真实请求体形状（适配层 I/O 出口）',
     expect(rows[0].configurationStatus).toBe(2)
   })
 
-  it('C23 新增只提交标准项目编码与天数：不含组织编码、不含内部标准项目 ID', async () => {
+  it('C23 批量新增只提交编码集合与统一天数：不含组织编码、不含内部标准项目 ID', async () => {
     const client = stubClient()
-    const request = buildCreateConfigurationRequest(' A01 ', '30')
+    const request = buildBatchCreateConfigurationRequest(new Set(['A01', 'A02']), '30')
     expect(request).not.toBeNull()
 
-    await createRecognitionProjectConfiguration(client, request!)
-    const body = bodyOf(client.api.medicalRecognitionReport.createMutualRecognitionItem.post)
-    expect(body).toEqual({ standardProjectCode: 'A01', recognitionDurationDays: 30 })
+    await createRecognitionProjectConfigurations(client, request!)
+    const body = bodyOf(client.api.medicalRecognitionReport.createMutualRecognitionItems.post)
+    expect(body).toEqual({ standardProjectCodes: ['A01', 'A02'], recognitionDurationDays: 30 })
+    expect(Object.keys(body)).toEqual(['standardProjectCodes', 'recognitionDurationDays'])
     expect(body).not.toHaveProperty('organizationCode')
     expect(body).not.toHaveProperty('id')
     expect(body).not.toHaveProperty('standardItemId')
+    // 批量入口是唯一的新增通道：单条新增接口不再被页面调用。
+    expect(client.api.medicalRecognitionReport.createMutualRecognitionItem.post).not.toHaveBeenCalled()
   })
 
-  it('非法天数或空编码不构造创建与修改请求，调用方据此零写请求', () => {
+  it('非法天数或空选择不构造批量创建与修改请求，调用方据此零写请求', () => {
     for (const input of ['', '0', '-3', '2.5', 'abc']) {
-      expect(buildCreateConfigurationRequest('A01', input)).toBeNull()
+      expect(buildBatchCreateConfigurationRequest(new Set(['A01']), input)).toBeNull()
       expect(buildDurationUpdatePayload('c1', input)).toBeNull()
     }
-    expect(buildCreateConfigurationRequest('   ', '30')).toBeNull()
+    expect(buildBatchCreateConfigurationRequest(new Set(), '30')).toBeNull()
   })
 
   it('C6 / C20 修改只提交配置标识与天数，同值照常提交', async () => {

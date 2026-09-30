@@ -12,6 +12,8 @@ import { CreateMedicalStandardItemRequestBuilderRequestsMetadata, type CreateMed
 // @ts-ignore
 import { CreateMutualRecognitionItemRequestBuilderRequestsMetadata, type CreateMutualRecognitionItemRequestBuilder } from './createMutualRecognitionItem/index.js';
 // @ts-ignore
+import { CreateMutualRecognitionItemsRequestBuilderRequestsMetadata, type CreateMutualRecognitionItemsRequestBuilder } from './createMutualRecognitionItems/index.js';
+// @ts-ignore
 import { DisableMedicalStandardCategoryRequestBuilderRequestsMetadata, type DisableMedicalStandardCategoryRequestBuilder } from './disableMedicalStandardCategory/index.js';
 // @ts-ignore
 import { DisableMedicalStandardGroupRequestBuilderRequestsMetadata, type DisableMedicalStandardGroupRequestBuilder } from './disableMedicalStandardGroup/index.js';
@@ -80,6 +82,10 @@ export interface MedicalRecognitionReportRequestBuilder extends BaseRequestBuild
      * The CreateMutualRecognitionItem property
      */
     get createMutualRecognitionItem(): CreateMutualRecognitionItemRequestBuilder;
+    /**
+     * The CreateMutualRecognitionItems property
+     */
+    get createMutualRecognitionItems(): CreateMutualRecognitionItemsRequestBuilder;
     /**
      * The DisableMedicalStandardCategory property
      */
@@ -187,6 +193,9 @@ export const MedicalRecognitionReportRequestBuilderNavigationMetadata: Record<Ex
     },
     createMutualRecognitionItem: {
         requestsMetadata: CreateMutualRecognitionItemRequestBuilderRequestsMetadata,
+    },
+    createMutualRecognitionItems: {
+        requestsMetadata: CreateMutualRecognitionItemsRequestBuilderRequestsMetadata,
     },
     disableMedicalStandardCategory: {
         requestsMetadata: DisableMedicalStandardCategoryRequestBuilderRequestsMetadata,

@@ -138,9 +138,9 @@ public sealed class Stage7ExclusionGuardTests
   /// </summary>
   /// <remarks>
   /// 路径全量等值已由 <c>Stage2EnumContractTests.Frozen_openapi_keeps_the_expected_path_set_and_no_unnormalized_shapes</c>
-  /// 冻结为阶段 6 交付后的 54 条快照；本用例在该清单上按排除子串再扫一遍，
+  /// 冻结为阶段 6 交付后的 55 条快照；本用例在该清单上按排除子串再扫一遍，
   /// 让「排除项被实现并新增路由」这一回归即使在新清单断言被同步放行时也会被本用例拦下。
-  /// 路径数量同时复断言 54，防止快照被整体替换后扫描面悄悄缩小。
+  /// 路径数量同时复断言 55，防止快照被整体替换后扫描面悄悄缩小。
   /// </remarks>
   [Fact]
   public void V1_frozen_openapi_paths_declare_no_excluded_operation()
@@ -148,7 +148,7 @@ public sealed class Stage7ExclusionGuardTests
     JsonNode document = JsonNode.Parse(File.ReadAllText(OpenApiSnapshotPath()))!;
     IReadOnlyList<string> paths = [.. document["paths"]!.AsObject().Select(property => property.Key)];
 
-    Assert.Equal(54, paths.Count);
+    Assert.Equal(55, paths.Count);
     foreach (string path in paths)
     {
       foreach (string substring in ExcludedRouteSubstrings)

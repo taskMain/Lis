@@ -1,56 +1,47 @@
 import {
-  CheckCircleOutlined,
-  EditOutlined,
   PlusOutlined,
   ReloadOutlined,
-  StopOutlined,
 } from '@ant-design/icons'
 import {
   Alert,
   Button,
-  Empty,
   Input,
   Modal,
   Segmented,
   Space,
-  Table,
-  Tag,
-  Tooltip,
   Typography,
-  type TableColumnsType,
 } from 'antd'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApiClientContext } from '../../contexts/ApiClientContext'
 import { useEnumMetadata } from '../../hooks/useEnumMetadata'
-import {
-  CreateConfigurationModal,
-  DurationModal,
-  ToggleModal,
-  type RecognitionProjectWriteGate,
-} from './RecognitionProjectModals'
+import { RecognitionProjectCascade, type RecognitionProjectHighlight } from './RecognitionProjectCascade'
+import { RecognitionProjectRow } from './RecognitionProjectRow'
+import { RecognitionProjectBatchCreateModal, ToggleModal } from './RecognitionProjectModals'
+import { type RecognitionProjectWriteGate } from './recognitionProjectWriteGate'
 import {
   EMPTY_RECOGNITION_PROJECT_FILTER,
   CONFIGURATION_STATUS_METADATA_FALLBACK,
   DISABLED_CONFIGURATION_STATUS,
   ENABLED_CONFIGURATION_STATUS,
+  buildBatchCreateConfigurationRequest,
   buildConfigurationListQuery,
-  buildCreateConfigurationRequest,
   buildDurationUpdatePayload,
   configurationStatusActionText,
-  configurationStatusTagColor,
   configuredStandardProjectCodes,
-  createRecognitionProjectConfiguration,
+  countColumnRows,
+  createRecognitionProjectConfigurations,
   excludeConfiguredStandardItems,
-  filterConfigurationRows,
+  filterRecognitionProjectColumnView,
   queryRecognitionProjectConfigurations,
   querySelectableStandardItems,
-  rowDisplayName,
   setRecognitionProjectConfigurationEnabled,
   toConfigurationStatusFilterOptions,
-  toSelectableOptionGroups,
+  toRecognitionProjectColumnView,
+  toSelectableColumnView,
   toSelectableStandardItems,
   updateRecognitionDuration,
-  type ConfigurationStatusValue,
+  type RecognitionProjectColumnRow,
+  type RecognitionProjectColumnView,
   type RecognitionProjectConfigurationRow,
   type RecognitionProjectFilter,
   type SelectableStandardItem,
@@ -61,9 +52,7 @@ import './RecognitionProjects.css'
 type ModalState =
   | { kind: 'none' }
   | { kind: 'create' }
-  /** 修改可互认时间弹窗只持目标配置标识，行数据每次渲染都按当前行集重取（见 `durationRow`）。 */
-  | { kind: 'duration'; configurationId: string }
-  /** 启停确认弹窗只持目标配置标识，行数据与目标状态每次渲染都按当前行集重取（见 `toggleRow`）。 */
+  /** 启停确认弹窗只持目标配置标识，行数据与目标状态每次渲染都按当前列视图重取（见 `toggleRow`）。 */
   | { kind: 'toggle'; configurationId: string }
 
 /**
@@ -72,14 +61,14 @@ type ModalState =
  */
 type LoadFailure = null | 'load' | 'refreshAfterWrite'
 
-/** 配置状态 Tag：色板取自适配层出口，文案由调用方给出（服务端契约文本优先）。 */
-function configurationStatusTag(value: ConfigurationStatusValue | null, text: string) {
-  return <Tag color={configurationStatusTagColor(value)}>{text}</Tag>
-}
-
-/** 表格行 = 查询交付的行模型 + 仅在页面内使用的稳定行标识（不作为业务字段提交或展示）。 */
-interface TableRow extends RecognitionProjectConfigurationRow {
-  rowIdentity: string
+/**
+ * 列视图里的全部项目行，按渲染顺序摊平。两个写界面的目标行查找都基于它，查找范围由调用方决定：
+ * 启停弹窗查整份列视图，行内编辑查裁剪后的可见列视图。
+ */
+function flattenColumnRows(view: RecognitionProjectColumnView): RecognitionProjectColumnRow[] {
+  return view.flatMap((itemType) =>
+    itemType.categories.flatMap((category) => category.groups.flatMap((group) => group.rows)),
+  )
 }
 
 export function RecognitionProjects() {
@@ -105,6 +94,22 @@ export function RecognitionProjects() {
   const [filter, setFilter] = useState<RecognitionProjectFilter>(EMPTY_RECOGNITION_PROJECT_FILTER)
   const [modal, setModal] = useState<ModalState>({ kind: 'none' })
   const [submitting, setSubmitting] = useState(false)
+  /** 被点中的层级格；`null` 表示没有高亮。高亮只标识位置，不携带任何写操作。 */
+  const [highlight, setHighlight] = useState<RecognitionProjectHighlight | null>(null)
+  /**
+   * 行内可互认时间编辑态**只持行标识**：目标行每次渲染都在可见列视图里重取，
+   * 因此后台刷新交付新值后编辑态回填的是当前行取值，也不停留在打开编辑那一刻的行快照。
+   */
+  const [durationEdit, setDurationEdit] = useState<{ rowIdentity: string } | null>(null)
+  /**
+   * 批量新增弹窗的选择与统一可互认时间由页面持有。
+   *
+   * 放在页面而不是弹窗内：弹窗按 `modal.kind` 条件渲染，关闭即卸载；若选择随弹窗一起消失，
+   * 「提交失败保留选择」就只能靠弹窗不卸载来保证。由页面持有后，失败保留是天然的，
+   * 关闭与组织变化时的清空也集中在同一处（见 `openBatchCreate` 与 `applyOrganization`）。
+   */
+  const [batchSelection, setBatchSelection] = useState<ReadonlySet<string>>(new Set())
+  const [batchDurationInput, setBatchDurationInput] = useState('')
   /** 页面实际展示的组织；与可信组织不一致时说明组织变化尚未被确认。 */
   const [appliedOrganizationCode, setAppliedOrganizationCode] = useState<string | null>(trustedOrganizationCode)
   /** 用户对「组织变化」确认框点过取消的那一次可信组织编码；仅用于不自动重复弹窗。 */
@@ -112,12 +117,12 @@ export function RecognitionProjects() {
   /**
    * 提交期组织复核失败的可见原因；`null` 表示提交期内没有发生过复核失败。
    *
-   * 渲染期门控（写弹窗的 `writeGate`）在宿主重新签发 token 后必然重算，但「宿主已换凭证、
+   * 渲染期门控（写界面的 `writeGate`）在宿主重新签发 token 后必然重算，但「宿主已换凭证、
    * 页面尚未重渲染」这个窗口里它仍是上一帧的结论。提交期复核在这里留下一条可见原因，
-   * 使用户看到「点了保存却什么都没发生」的原因；原因在组织重新对齐或用户主动关闭弹窗时清除。
+   * 使用户看到「点了保存却什么都没发生」的原因；原因在组织重新一致或用户主动关闭写界面时清除。
    *
    * 用对象而不是字符串承载：连续两次内容相同的复核失败也必须各自触发一次重渲染
-   * （字符串取值相等时 React 会跳过更新，弹窗内就不会出现原因）。
+   * （字符串取值相等时 React 会跳过更新，写界面内就不会出现原因）。
    */
   const [organizationRecheckFailure, setOrganizationRecheckFailure] = useState<{ reason: string } | null>(null)
 
@@ -170,7 +175,7 @@ export function RecognitionProjects() {
    * 启停动作标签：目标状态的标签取枚举元数据（不可用或尚未到达时回退到适配层动作文案出口）。
    * 展示文本直接取契约交付的 `row.configurationStatusText`（与元数据同源于枚举成员上的 `[Description]`），
    * 因此同屏并列不会出现两种中文；未登记取值不进入筛选器（后端该枚举集合封闭）。
-   * 元数据在途期间用兜底文案（与后端同为「启用/停用」），到达后同一弹窗会更新为服务端文案。
+   * 元数据在途期间用兜底文案（与后端同为「启用/停用」），到达后同一界面会更新为服务端文案。
    * 本函数只在渲染体内被直接调用（不向下传引用），无需 `useCallback` 包裹。
    */
   const actionLabel = (nextEnabled: boolean) => {
@@ -209,7 +214,7 @@ export function RecognitionProjects() {
   }, [client])
 
   /**
-   * 应用目标组织：让旧组织的在途请求失效，清空列表、选择数据、筛选与弹窗，
+   * 应用目标组织：让旧组织的在途请求失效，清空列表、选择数据、筛选、高亮与写界面，
    * 然后由加载 effect 读取目标组织。目标组织读取失败时停留在阻断态，不回退复用旧组织数据。
    */
   const applyOrganization = useCallback((targetOrganizationCode: string) => {
@@ -220,26 +225,43 @@ export function RecognitionProjects() {
     setCatalogLoaded(false)
     setFilter(EMPTY_RECOGNITION_PROJECT_FILTER)
     setModal({ kind: 'none' })
+    setDurationEdit(null)
+    setHighlight(null)
+    // 新增弹窗的选择与天数属于旧组织：切换后不得带到新组织的可选集合上。
+    setBatchSelection(new Set())
+    setBatchDurationInput('')
     setLoadFailure(null)
     setDismissedOrganizationCode(null)
-    // 页面已对齐到新组织：上一次提交期复核留下的原因不再成立。
+    // 页面已应用新组织：上一次提交期复核留下的原因不再成立。
     setOrganizationRecheckFailure(null)
     setAppliedOrganizationCode(targetOrganizationCode)
   }, [])
 
+  const columnView = useMemo(() => toRecognitionProjectColumnView(rows, catalogItems), [rows, catalogItems])
+  const visibleColumnView = useMemo(() => filterRecognitionProjectColumnView(columnView, filter), [columnView, filter])
+  /** 列视图里的项目行总数；列表计数与空态文案都按它判定。 */
+  const totalRowCount = useMemo(() => countColumnRows(columnView), [columnView])
+  /** 裁剪后仍然可见的项目行总数。 */
+  const visibleRowCount = useMemo(() => countColumnRows(visibleColumnView), [visibleColumnView])
+
   /**
-   * 修改可互认时间弹窗的目标行与启停弹窗的目标行：两个弹窗都**只持配置标识**，
-   * 行数据每次渲染都按**当前行集**重取，因此后台刷新（重试读取、写后刷新）交付新值后，
-   * 弹窗展示与表单回填取的都是当前行，不再停留在打开那一刻的行快照。
-   * 行集里找不到该配置（配置已不在本组织视图中）时目标行为 `null`，调用方据此不渲染弹窗，
+   * 启停弹窗的目标行：只持配置标识，行数据每次渲染都按**整份列视图**重取，
+   * 因此后台刷新（重试读取、写后刷新）交付新值后，弹窗展示与动作目标取的都是当前行。
+   * 查找范围与旧实现查当前行集一致：本地筛选不参与启停目标的判定。
+   * 列视图里找不到该配置（配置已不在本组织视图中）时目标行为 `null`，调用方据此不渲染弹窗，
    * 避免对一个未知行提交写入。
    */
-  const durationRow = modal.kind === 'duration'
-    ? rows.find((candidate) => candidate.configurationId === modal.configurationId) ?? null
-    : null
   const toggleRow = modal.kind === 'toggle'
-    ? rows.find((candidate) => candidate.configurationId === modal.configurationId) ?? null
+    ? flattenColumnRows(columnView).find((candidate) => candidate.configurationId === modal.configurationId) ?? null
     : null
+  /**
+   * 行内编辑的目标行：只持行标识，且只在**可见列视图**里查找。编辑态必须在真正渲染出来的行里存在，
+   * 否则本地筛选把该行藏起来之后，页面上留着看不见的编辑态，同时它还会让组织变化多弹一次确认框。
+   * 找不到时不渲染编辑态（该行也不再承载未保存内容）。
+   */
+  const durationEditRow = durationEdit === null
+    ? null
+    : flattenColumnRows(visibleColumnView).find((candidate) => candidate.rowIdentity === durationEdit.rowIdentity) ?? null
   /**
    * 启停弹窗的动作目标：按目标行的**当前**状态取反，与目标行在同一处派生。
    * 当前状态未知（`null`）时返回 `null`：无法判定动作目标，调用方不渲染弹窗。
@@ -248,12 +270,11 @@ export function RecognitionProjects() {
     ? null
     : toggleRow.configurationStatus !== ENABLED_CONFIGURATION_STATUS
   /**
-   * 「未保存内容」判定与**实际渲染**一致：新增弹窗与修改弹窗都按打开状态判定，但修改弹窗在
-   * 目标行离开当前行集时并不渲染（见 `durationRow`），此时它不承载任何内容。若只按
-   * `modal.kind === 'duration'` 判定，行集刷新掉该配置后会留下不实的未保存内容，
-   * 组织变化会多弹一次确认框，而用户无法主动清除它。
+   * 「未保存内容」判定与**实际渲染**一致：新增弹窗按打开状态判定，行内编辑按目标行是否仍在可见列视图中判定
+   * （见 `durationEditRow`），目标行被筛掉或刷新掉时它不承载任何内容。若只按 `durationEdit` 判定，
+   * 行集刷新掉该行后会留下不实的未保存内容，组织变化会多弹一次确认框，而用户无法主动清除它。
    */
-  const hasUnsavedContent = modal.kind === 'create' || durationRow !== null
+  const hasUnsavedContent = modal.kind === 'create' || durationEditRow !== null
   /** 宿主重新签发 token 后组织已变化，但页面仍展示上一个组织的配置。 */
   const organizationChanged = appliedOrganizationCode !== null
     && trustedOrganizationCode !== null
@@ -268,7 +289,7 @@ export function RecognitionProjects() {
       // 展示由「组织范围不可用」分支接管，因此这里只清理不可见状态，不改动渲染状态。
       // 注意这里**不动** `appliedOrganizationRef`：它只镜像 `appliedOrganizationCode`，
       // 单独把它置空会让它与门控所看的 state 永久不一致（「可用 → 不可用 → 同一组织」之后
-      // 按钮可点而四条写路径静默失效）。作废在途请求由上面的序号推进完成。
+      // 按钮可点而写路径静默失效）。作废在途请求由上面的序号推进完成。
       requestIdRef.current += 1
       return
     }
@@ -298,30 +319,15 @@ export function RecognitionProjects() {
     () => excludeConfiguredStandardItems(catalogItems, configuredCodes),
     [catalogItems, configuredCodes],
   )
-  const optionGroups = useMemo(() => toSelectableOptionGroups(selectableItems), [selectableItems])
-  const visibleRows = useMemo(() => filterConfigurationRows(rows, filter), [filter, rows])
   /**
-   * 表格数据源：为每行补一个稳定唯一的行标识。契约唯一键（`configurationId`）优先；
-   * 缺失时用业务字段组合，仍不引入本次行集内的位置下标（同一行换位置不改变标识）。
-   * 业务字段完全相同的多行在契约上不可区分，此时只在一组相同的行之间回退到出现序号，
-   * 以保证表格 key 唯一、操作控件不串位；该序号不参与任何业务判定，也不作为字段提交或展示。
+   * 新增弹窗的可选集合列视图：有效目录剔除已配置编码后按目录层级摊开。
+   * 排除在构造之前完成，因此弹窗里不会出现已配置项目；目录停用项目本就不在有效目录中。
    */
-  const tableRows = useMemo<TableRow[]>(() => {
-    const occurrences = new Map<string, number>()
-    return visibleRows.map((row) => {
-      const businessIdentity = row.configurationId
-        ?? [row.standardProjectCode, row.itemType, row.standardItemName, row.categoryName, row.groupName]
-          .map((value) => value ?? '')
-          .join('|')
-      const occurrence = occurrences.get(businessIdentity) ?? 0
-      occurrences.set(businessIdentity, occurrence + 1)
-      return { ...row, rowIdentity: occurrence === 0 ? businessIdentity : `${businessIdentity}#${occurrence}` }
-    })
-  }, [visibleRows])
+  const selectableColumnView = useMemo(() => toSelectableColumnView(selectableItems), [selectableItems])
 
   const organizationReady = appliedOrganizationCode !== null && appliedOrganizationCode === trustedOrganizationCode
   /**
-   * 提交期复核的原因只在它依据的事实仍然成立时生效：页面与可信组织重新对齐（现值又等于页面已应用组织）后，
+   * 提交期复核的原因只在它依据的事实仍然成立时生效：页面与可信组织重新一致（现值又等于页面已应用组织）后，
    * 上一次的结论自动失效。这里按派生值失效，不用 effect 把它改回 `null`——那会在 effect 里同步写入状态。
    */
   const writeRecheckFailure = organizationReady ? null : organizationRecheckFailure?.reason ?? null
@@ -329,18 +335,21 @@ export function RecognitionProjects() {
   /**
    * 提交写操作，两道防线各管一段：
    *
-   * 第一道是渲染期门控（写弹窗的 `writeGate`，由 `organizationReady` 裁决），它只表达
+   * 第一道是渲染期门控（写界面的 `writeGate`，由 `organizationReady` 裁决），它只表达
    * **本帧渲染读到**的可信组织；第二道是这里的提交期复核——发请求前用
    * `readTrustedOrganizationCode()` 读**现值**，覆盖「宿主重新签发 token 到页面重渲染之间」
-   * 这个窗口：宿主已换凭证、页面还是上一帧时第一道门控全绿，请求却会带着新凭证出去，可跨组织落库。
+   * 这个窗口：宿主已换凭证、页面还是上一帧时第一道门控全绿，请求却会带着新凭证出去，可跨组织写入。
    *
    * 现值与页面已应用组织不一致、或读不到可信组织时**不发写请求**，并且不静默返回：
-   * 把原因写进 `organizationRecheckFailure`（由 `writeGate` 传给三个写弹窗显示），
-   * 弹窗与输入保留，用户能看到「点了保存但没有发请求」的原因。
+   * 把原因写进 `organizationRecheckFailure`（由 `writeGate` 传给弹窗与行内编辑器显示），
+   * 写界面与输入保留，用户能看到「点了保存但没有发请求」的原因。
    *
-   * 通过复核后同步去重防止连续点击产生多次写请求；失败保留弹窗与输入且不重载。
+   * 通过复核后同步去重防止连续点击产生多次写请求；失败保留写界面与输入且不重载。
+   *
+   * `exitSurface` 由调用方给出：请求成功后由它收起**发起这次写入的那个界面**（弹窗或行内编辑器），
+   * 使「写完就收起」与「哪一种界面发起的」一致，页面不必按界面种类分支。
    */
-  const submitWrite = async (request: () => Promise<void>) => {
+  const submitWrite = async (request: () => Promise<void>, exitSurface: () => void) => {
     const organizationCodeAtSubmit = readTrustedOrganizationCode()
     if (organizationCodeAtSubmit === null || organizationCodeAtSubmit !== appliedOrganizationRef.current) {
       setOrganizationRecheckFailure({ reason: organizationCodeAtSubmit === null
@@ -357,7 +366,7 @@ export function RecognitionProjects() {
       submittingRef.current = false
       setSubmitting(false)
     }
-    setModal({ kind: 'none' })
+    exitSurface()
     // 写完成后若页面已经切到别的组织，就不再重载，避免把旧组织的写入结果刷进新组织视图。
     if (appliedOrganizationRef.current !== organizationCodeAtSubmit) return
     await load(organizationCodeAtSubmit, 'refreshAfterWrite')
@@ -367,6 +376,33 @@ export function RecognitionProjects() {
   const closeWriteModal = useCallback(() => {
     setModal({ kind: 'none' })
     setOrganizationRecheckFailure(null)
+  }, [])
+
+  /**
+   * 打开新增弹窗：清空上一次的选择与天数，使每次进入都从空选择开始。
+   * 清空放在打开这一侧而不是关闭那一侧：写入成功与用户取消都会关闭弹窗，
+   * 两条路径因此共用同一处复位，不需要各自记得清一次。
+   */
+  const openBatchCreate = useCallback(() => {
+    setBatchSelection(new Set())
+    setBatchDurationInput('')
+    setOrganizationRecheckFailure(null)
+    setModal({ kind: 'create' })
+  }, [])
+
+  /** 收起行内编辑，与 `closeWriteModal` 对称：清空编辑态与提交期复核原因。 */
+  const closeDurationEdit = useCallback(() => {
+    setDurationEdit(null)
+    setOrganizationRecheckFailure(null)
+  }, [])
+
+  /**
+   * 改变本地展示筛选。可见行集随之变化，因此编辑态一并清除：
+   * 目标行可能被筛掉，筛选恢复后编辑态若"复活"，用户会看到一个自己没有打开过的输入框。
+   */
+  const changeFilter = useCallback((update: (previous: RecognitionProjectFilter) => RecognitionProjectFilter) => {
+    setFilter(update)
+    setDurationEdit(null)
   }, [])
 
   const canWrite = organizationReady && loadFailure === null && !loading && !submitting
@@ -381,10 +417,10 @@ export function RecognitionProjects() {
    */
   const catalogReady = organizationReady && !loading && loadFailure === null && catalogLoaded
   /**
-   * 写弹窗门控：与 `canWrite` 同源（组织对齐、读取未失败、读取不在途、无在途提交），
-   * 由弹窗禁用确定按钮并给出与页面顶部提示同口径的原因；「写请求在途」交给弹窗的提交反馈表达，
-   * 因此弹窗内不再重复一条暂停说明。`organizationRecheckFailure` 是提交期复核留下的原因，
-   * 与「组织未对齐」同属组织类阻断，在弹窗内优先于读取类原因显示。
+   * 写界面门控：与 `canWrite` 同源（组织一致、读取未失败、读取不在途、无在途提交），
+   * 由写界面禁用提交并给出与页面顶部提示同口径的原因；「写请求在途」交给提交反馈表达，
+   * 因此界面内不再重复一条暂停说明。`organizationRecheckFailure` 是提交期复核留下的原因，
+   * 与「组织未一致」同属组织类阻断，在写界面内优先于读取类原因显示。
    */
   const writeGate: RecognitionProjectWriteGate = { organizationReady, canWrite, loadFailure, organizationRecheckFailure: writeRecheckFailure }
   /** 是否存在生效的本地筛选：用于把「本组织没有配置」与「筛选后没有匹配项」两种空态分开。 */
@@ -393,67 +429,6 @@ export function RecognitionProjects() {
     if (appliedOrganizationCode === null) return
     void load(appliedOrganizationCode, loadFailure ?? 'load')
   }
-
-  const columns: TableColumnsType<TableRow> = [
-    { title: '编码', dataIndex: 'standardProjectCode', width: 170, render: (value: string | null) => value ?? '—' },
-    { title: '名称', dataIndex: 'standardItemName', width: 180, render: (value: string | null) => value ?? '—' },
-    { title: '类型', width: 80, render: (_, row) => row.itemTypeText },
-    { title: '分类', dataIndex: 'categoryName', width: 150, render: (value: string | null) => value ?? '—' },
-    { title: '分组', dataIndex: 'groupName', width: 150, render: (value: string | null) => value ?? '—' },
-    {
-      title: '可互认时间（天）',
-      dataIndex: 'recognitionDurationDays',
-      width: 140,
-      className: 'recognition-projects-number',
-      render: (value: number | null) => value ?? '—',
-    },
-    { title: '配置状态', width: 100, render: (_, row) => configurationStatusTag(row.configurationStatus, row.configurationStatusText) },
-    { title: '目录停用原因', dataIndex: 'unavailableReason', width: 170, ellipsis: true, render: (value: string | null) => value ?? '—' },
-    {
-      title: '操作',
-      width: 96,
-      fixed: 'right',
-      render: (_, row) => {
-        const writable = canWrite && row.configurationId !== null && row.configurationStatus !== null
-        const stopsConfiguration = row.configurationStatus === ENABLED_CONFIGURATION_STATUS
-        // 动作文案与状态文案都从同一个状态标签出口取（元数据可用时为服务端声明），页面不再自拼「状态 → 中文」。
-        const actionText = actionLabel(!stopsConfiguration)
-        const statusText = row.configurationStatusText
-        return <Space size={2}>
-          <Tooltip title='修改可互认时间'>
-            <Button
-              type='text'
-              size='small'
-              icon={<EditOutlined />}
-              aria-label={`修改可互认时间：${rowDisplayName(row)}`}
-              disabled={!writable}
-              onClick={() => {
-                // 只把配置标识交给弹窗：弹窗渲染时按当前行集重取该行，不持有打开那一刻的行快照。
-                if (row.configurationId === null) return
-                setModal({ kind: 'duration', configurationId: row.configurationId })
-              }}
-            />
-          </Tooltip>
-          <Tooltip title={row.configurationStatus === null ? `配置状态${statusText}` : `${actionText}配置`}>
-            <Button
-              type='text'
-              size='small'
-              danger={stopsConfiguration}
-              icon={stopsConfiguration ? <StopOutlined /> : <CheckCircleOutlined />}
-              aria-label={`${actionText}配置：${rowDisplayName(row)}（当前${statusText}）`}
-              disabled={!writable}
-              onClick={() => {
-                // 只把配置标识交给弹窗：弹窗渲染时按当前行集重取该行与它的当前状态，
-                // 不持有打开那一刻的行快照，也不持有打开那一刻的目标状态。
-                if (row.configurationId === null) return
-                setModal({ kind: 'toggle', configurationId: row.configurationId })
-              }}
-            />
-          </Tooltip>
-        </Space>
-      },
-    },
-  ]
 
   if (trustedOrganizationCode === null) {
     return <div className='recognition-projects-page'>
@@ -469,15 +444,17 @@ export function RecognitionProjects() {
     </div>
   }
 
-  return <div className='recognition-projects-page'>
+  return <div
+    className='recognition-projects-page'
+    // 点击页面其它区域清除高亮：层级格在自己的点击处理里阻止冒泡，因此这里不会立刻清掉刚设置的高亮。
+    onClick={() => setHighlight(null)}
+  >
     <div className='recognition-projects-header'>
       <div><Typography.Title level={2}>互认项目</Typography.Title><Typography.Text type='secondary'>标准项目互认配置</Typography.Text></div>
       <Space wrap>
         <Typography.Text type='secondary'>组织编码：{appliedOrganizationCode ?? '—'}</Typography.Text>
-        <Tooltip title='重新读取当前组织的配置与标准项目'>
-          <Button icon={<ReloadOutlined />} aria-label='重新读取互认配置' loading={loading} disabled={loading || !organizationReady} onClick={retry} />
-        </Tooltip>
-        <Button type='primary' icon={<PlusOutlined />} disabled={!canWrite || !catalogReady} onClick={() => setModal({ kind: 'create' })}>新增配置</Button>
+        <Button icon={<ReloadOutlined />} aria-label='重新读取互认配置' loading={loading} disabled={loading || !organizationReady} onClick={retry} />
+        <Button type='primary' icon={<PlusOutlined />} disabled={!canWrite || !catalogReady} onClick={openBatchCreate}>新增配置</Button>
       </Space>
     </div>
 
@@ -506,65 +483,69 @@ export function RecognitionProjects() {
         autoComplete='off'
         allowClear
         value={filter.code}
-        onChange={(event) => setFilter((previous) => ({ ...previous, code: event.target.value }))}
+        onChange={(event) => changeFilter((previous) => ({ ...previous, code: event.target.value }))}
       />
       <Segmented<RecognitionProjectFilter['status']>
         aria-label='配置状态筛选'
         value={filter.status}
         options={statusSegmentedOptions}
-        onChange={(status) => setFilter((previous) => ({ ...previous, status }))}
+        onChange={(status) => changeFilter((previous) => ({ ...previous, status }))}
       />
-      <Button icon={<ReloadOutlined />} aria-label='重置编码与状态筛选' onClick={() => setFilter(EMPTY_RECOGNITION_PROJECT_FILTER)}>重置</Button>
+      <Button icon={<ReloadOutlined />} aria-label='重置编码与状态筛选' onClick={() => changeFilter(() => EMPTY_RECOGNITION_PROJECT_FILTER)}>重置</Button>
     </div>
 
-    <Table
-      // 三者皆空的行在列表里可能同时出现多行：业务字段组合完全相同时退回出现序号补齐唯一标识，
-      // 避免使用 antd 已弃用的 `rowKey` 索引参数（该参数不保证按预期工作），也避免这些行的操作控件串位。
-      rowKey='rowIdentity'
-      size='small'
-      columns={columns}
-      dataSource={tableRows}
-      loading={loading && rows.length === 0}
-      scroll={{ x: 1300 }}
-      pagination={false}
-      locale={{
-        emptyText: <Empty
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          // 两种空态事实不同：本组织确实没有配置，与本地筛选把这些配置全滤掉了。
-          description={rows.length === 0 ? '当前组织没有互认项目配置' : '没有匹配的配置'}
-        />,
-      }}
-    />
+    <div className='recognition-projects-cascade-wrap'>
+      <RecognitionProjectCascade
+        view={visibleColumnView}
+        highlight={highlight}
+        onLevelClick={setHighlight}
+        // 两种空态事实不同：目录里没有任何可展示的标准项目，与本地筛选把项目全滤掉了。
+        emptyText={totalRowCount === 0 ? '当前组织没有可展示的标准项目' : '没有匹配的配置'}
+        renderRow={(columnRow) => <RecognitionProjectRow
+          row={columnRow}
+          writeGate={writeGate}
+          submitting={submitting}
+          canWrite={canWrite}
+          actionText={actionLabel}
+          editing={durationEditRow !== null && durationEditRow.rowIdentity === columnRow.rowIdentity}
+          onStartEdit={() => setDurationEdit({ rowIdentity: columnRow.rowIdentity })}
+          onCancelEdit={closeDurationEdit}
+          onSubmitDuration={(durationInput) => {
+            const request = buildDurationUpdatePayload(columnRow.configurationId, durationInput)
+            if (request === null) return Promise.resolve()
+            return submitWrite(() => updateRecognitionDuration(client, request), closeDurationEdit)
+          }}
+          onToggle={() => {
+            // 只把配置标识交给弹窗：弹窗渲染时按当前列视图重取该行与它的当前状态，
+            // 不持有打开那一刻的行快照，也不持有打开那一刻的目标状态。
+            if (columnRow.configurationId === null) return
+            setModal({ kind: 'toggle', configurationId: columnRow.configurationId })
+          }}
+        />}
+      />
+    </div>
     <Typography.Text type='secondary' className='recognition-projects-summary'>
-      本组织共 {rows.length} 项配置{filtering ? `，筛选后 ${visibleRows.length} 项` : ''}
+      本组织共 {rows.length} 项配置{filtering ? `，筛选后 ${visibleRowCount} 项` : ''}
     </Typography.Text>
 
-    {modal.kind === 'create' ? <CreateConfigurationModal
+    {modal.kind === 'create' ? <RecognitionProjectBatchCreateModal
       open
-      optionGroups={optionGroups}
+      view={selectableColumnView}
       catalogReady={catalogReady}
+      selection={batchSelection}
+      durationInput={batchDurationInput}
       writeGate={writeGate}
       onCancel={closeWriteModal}
       submitting={submitting}
-      onSubmit={(values) => {
-        const request = buildCreateConfigurationRequest(values.standardProjectCode ?? '', values.recognitionDurationDays ?? '')
+      onSelectionChange={setBatchSelection}
+      onDurationChange={setBatchDurationInput}
+      onSubmit={() => {
+        const request = buildBatchCreateConfigurationRequest(batchSelection, batchDurationInput)
+        // 载荷构造失败（未勾选或天数非法）时零写请求：弹窗内已就地给出原因，这里只负责不放行请求。
         if (request === null) return Promise.resolve()
-        return submitWrite(() => createRecognitionProjectConfiguration(client, request))
+        return submitWrite(() => createRecognitionProjectConfigurations(client, request), closeWriteModal)
       }}
     /> : null}
-
-    {durationRow === null ? null : <DurationModal
-      open
-      row={durationRow}
-      writeGate={writeGate}
-      onCancel={closeWriteModal}
-      submitting={submitting}
-      onSubmit={(values) => {
-        const request = buildDurationUpdatePayload(durationRow.configurationId, values.recognitionDurationDays ?? '')
-        if (request === null) return Promise.resolve()
-        return submitWrite(() => updateRecognitionDuration(client, request))
-      }}
-    />}
 
     {toggleRow === null || toggleNextEnabled === null ? null : <ToggleModal
       open
@@ -579,6 +560,7 @@ export function RecognitionProjects() {
         if (configurationId === null) return Promise.resolve()
         return submitWrite(
           () => setRecognitionProjectConfigurationEnabled(client, { id: configurationId, enabled: toggleNextEnabled }),
+          closeWriteModal,
         )
       }}
     />}
@@ -595,8 +577,8 @@ export function RecognitionProjects() {
       destroyOnHidden
     >
       <Typography.Paragraph>
-        宿主已把当前组织切换为 <Typography.Text strong>{trustedOrganizationCode}</Typography.Text>，但新增或修改弹窗中还有未保存的内容。
-        继续切换会放弃这些内容，并清空当前组织的列表、筛选和弹窗状态。
+        宿主已把当前组织切换为 <Typography.Text strong>{trustedOrganizationCode}</Typography.Text>，但新增弹窗或行内编辑中还有未保存的内容。
+        继续切换会放弃这些内容，并清空当前组织的列表、筛选和写入界面状态。
       </Typography.Paragraph>
       <Typography.Paragraph type='secondary' style={{ marginBottom: 0 }}>选择取消可保留当前内容，之后再决定何时切换。</Typography.Paragraph>
     </Modal> : null}

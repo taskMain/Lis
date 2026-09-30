@@ -1254,6 +1254,12 @@ public sealed class Stage3WritePathTests
     /// <returns>不返回结果。</returns>
     public Task<int> CreateMutualRecognitionItemAsync(MutualRecognitionItem mutualRecognitionItem) => throw new NotSupportedException(UnusedMember);
 
+    /// <summary>本测试未使用：按组织与编码集合读取互认配置。</summary>
+    /// <param name="organizationCode">组织编码。</param>
+    /// <param name="standardProjectCodes">标准项目编码集合。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<IReadOnlyList<MutualRecognitionItem>> GetMutualRecognitionItemsByCodesAsync(string organizationCode, IReadOnlyList<string> standardProjectCodes) => throw new NotSupportedException(UnusedMember);
+
     /// <summary>本测试未使用：修改互认配置可互认时间。</summary>
     /// <param name="mutualRecognitionItem">待更新配置。</param>
     /// <returns>不返回结果。</returns>
@@ -1278,6 +1284,11 @@ public sealed class Stage3WritePathTests
     /// <param name="code">标准项目编码。</param>
     /// <returns>不返回结果。</returns>
     public Task<MedicalStandardItem?> GetMedicalStandardItemByCodeAsync(string code) => throw new NotSupportedException(UnusedMember);
+
+    /// <summary>本测试未使用：按编码集合读取标准项目及其所属分类与分组的当前状态。</summary>
+    /// <param name="codes">标准项目编码集合。</param>
+    /// <returns>不返回结果。</returns>
+    public Task<IReadOnlyList<MedicalStandardItemCatalogState>> GetMedicalStandardItemsByCodesAsync(IReadOnlyList<string> codes) => throw new NotSupportedException(UnusedMember);
 
     /// <summary>本测试未使用：按主键读取分类。</summary>
     /// <param name="id">分类标识。</param>

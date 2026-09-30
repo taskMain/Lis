@@ -167,6 +167,18 @@ public partial interface IMedicalRecognitionReportRepository
   Task<MedicalStandardItem?> GetMedicalStandardItemByCodeAsync(string code);
 
   /// <summary>
+  /// 按标准项目编码集合一次读取标准项目及其所属分类、所属分组的当前状态。
+  /// </summary>
+  /// <remarks>
+  /// 供批量新建互认项目配置按整批编码一次读取目录并完成逐编码判定：读取次数不随编码个数增长，不逐条往返数据库；
+  /// 返回结果同时携带标准项目标识与三层启用状态，使标准项目标识解析与目录有效性判定共用这一次读取；
+  /// 编码不存在的标准项目不出现在结果中，由调用方按请求编码与返回编码的差集判定；三层状态都返回，不筛选启用状态。
+  /// </remarks>
+  /// <param name="codes">待读取的标准项目编码集合。</param>
+  /// <returns>集合内命中的标准项目目录状态。</returns>
+  Task<IReadOnlyList<MedicalStandardItemCatalogState>> GetMedicalStandardItemsByCodesAsync(IReadOnlyList<string> codes);
+
+  /// <summary>
   /// 统计同编码的标准项目是否已存在。
   /// </summary>
   /// <remarks>用于新建标准项目前的编码查重。</remarks>

@@ -581,6 +581,7 @@ public sealed class Stage2EnumContractTests
       "/Api/MedicalRecognitionReport/CreateMedicalStandardGroup",
       "/Api/MedicalRecognitionReport/CreateMedicalStandardItem",
       "/Api/MedicalRecognitionReport/CreateMutualRecognitionItem",
+      "/Api/MedicalRecognitionReport/CreateMutualRecognitionItems",
       "/Api/MedicalRecognitionReport/DisableMedicalStandardCategory",
       "/Api/MedicalRecognitionReport/DisableMedicalStandardGroup",
       "/Api/MedicalRecognitionReport/DisableMedicalStandardItem",

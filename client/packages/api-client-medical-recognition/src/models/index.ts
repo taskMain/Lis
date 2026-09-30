@@ -458,6 +458,15 @@ export function createCreateMutualRecognitionItemRequestFromDiscriminatorValue(p
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {CreateMutualRecognitionItemsRequest}
+ */
+// @ts-ignore
+export function createCreateMutualRecognitionItemsRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoCreateMutualRecognitionItemsRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {DisableMedicalStandardCategoryRequest}
  */
 // @ts-ignore
@@ -863,6 +872,20 @@ export interface CreateMutualRecognitionItemRequest extends AdditionalDataHolder
      * The standardProjectCode property
      */
     standardProjectCode?: string | null;
+}
+export interface CreateMutualRecognitionItemsRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The changedProperties property
+     */
+    changedProperties?: string[] | null;
+    /**
+     * The recognitionDurationDays property
+     */
+    recognitionDurationDays?: number | null;
+    /**
+     * The standardProjectCodes property
+     */
+    standardProjectCodes?: string[] | null;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1583,6 +1606,19 @@ export function deserializeIntoCreateMutualRecognitionItemRequest(createMutualRe
         "changedProperties": n => { createMutualRecognitionItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
         "recognitionDurationDays": n => { createMutualRecognitionItemRequest.recognitionDurationDays = n.getNumberValue(); },
         "standardProjectCode": n => { createMutualRecognitionItemRequest.standardProjectCode = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param CreateMutualRecognitionItemsRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoCreateMutualRecognitionItemsRequest(createMutualRecognitionItemsRequest: Partial<CreateMutualRecognitionItemsRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "changedProperties": n => { createMutualRecognitionItemsRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "recognitionDurationDays": n => { createMutualRecognitionItemsRequest.recognitionDurationDays = n.getNumberValue(); },
+        "standardProjectCodes": n => { createMutualRecognitionItemsRequest.standardProjectCodes = n.getCollectionOfPrimitiveValues<string>("string"); },
     }
 }
 /**
@@ -5879,6 +5915,20 @@ export function serializeCreateMutualRecognitionItemRequest(writer: Serializatio
     writer.writeNumberValue("recognitionDurationDays", createMutualRecognitionItemRequest.recognitionDurationDays);
     writer.writeStringValue("standardProjectCode", createMutualRecognitionItemRequest.standardProjectCode);
     writer.writeAdditionalData(createMutualRecognitionItemRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param CreateMutualRecognitionItemsRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeCreateMutualRecognitionItemsRequest(writer: SerializationWriter, createMutualRecognitionItemsRequest: Partial<CreateMutualRecognitionItemsRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!createMutualRecognitionItemsRequest || isSerializingDerivedType) { return; }
+    writer.writeCollectionOfPrimitiveValues<string>("changedProperties", createMutualRecognitionItemsRequest.changedProperties);
+    writer.writeNumberValue("recognitionDurationDays", createMutualRecognitionItemsRequest.recognitionDurationDays);
+    writer.writeCollectionOfPrimitiveValues<string>("standardProjectCodes", createMutualRecognitionItemsRequest.standardProjectCodes);
+    writer.writeAdditionalData(createMutualRecognitionItemsRequest.additionalData);
 }
 /**
  * Serializes information the current object

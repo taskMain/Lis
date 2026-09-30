@@ -19,7 +19,7 @@ namespace Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate;
 /// <summary>
 /// 标准目录、互认项目配置与互认项目金额的写入口。
 /// </summary>
-/// <remarks>仅新建标准分组和新建标准项目声明显式事务；其余标准目录用例、四个互认项目配置用例与两个金额保存用例各只有一条写语句，不声明显式事务。</remarks>
+/// <remarks>新建标准分组、新建标准项目与批量新建互认项目配置声明显式事务；其余标准目录用例、其余四个互认项目配置用例与两个金额保存用例各只有一条写语句，不声明显式事务。</remarks>
 public partial class MedicalRecognitionReportAppService : ApplicationService, IMedicalRecognitionReportAppService
 {
   /// <summary>
@@ -343,6 +343,39 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
       ?? throw new InvalidOperationException("业务拒绝：标准项目不存在。");
     createMutualRecognitionItemCommand.StandardItemId = standardItem.Id;
     return await manager.CreateMutualRecognitionItemAsync(createMutualRecognitionItemCommand);
+  }
+
+  /// <summary>
+  /// 批量新建互认项目配置。
+  /// </summary>
+  /// <remarks>
+  /// 组织编码取自框架认证上下文（登录令牌的组织声明，经 <c>HttpRequestInfo.OrgId</c> 读取），
+  /// 操作人取自登录令牌的用户标识（经 <c>HttpRequestInfo.UserId</c> 读取），两者都由应用层写入命令；
+  /// 调用方只提交标准项目编码集合与批次上的可互认时间，服务端不读取目录：标准项目标识的解析、编码集合口径与
+  /// 目录三层有效性判定都在领域层按编码集合一次读取完成，调用方不能提交内部标识或逐项天数；
+  /// 本次提交的全部配置整批建立，任一编码不合规即整批拒绝。
+  /// 本入口是事务边界：整批配置逐条写入，任一条写入失败时前面已写入的配置必须一并回滚，
+  /// 因此声明显式事务；事务由框架的工作单元机制管理，应用服务不手工开启、提交或回滚。
+  /// </remarks>
+  /// <param name="request">批量新建互认项目配置请求。</param>
+  /// <returns>是否整批创建成功。</returns>
+  /// <exception cref="ValidationException">请求字段不满足契约声明的必填或取值约束时抛出，此时不进入领域调用、不写入任何数据。</exception>
+  /// <exception cref="InvalidOperationException">
+  /// 登录令牌的组织声明取不到组织编码、用户标识不能解析为非空 Guid 时抛出；
+  /// 编码集合为空、单批超过上限、含空白编码或批次内编码重复、编码不存在或目录三层已停用、
+  /// 该组织已配置集合中的标准项目，以及写入影响的行数合计不等于提交条数时同样抛出，此时不登记批量创建事件。
+  /// 并发下两个请求可能同时通过查重，此时由唯一索引拒绝，数据库异常按原样向外传播、不翻译为业务拒绝。
+  /// </exception>
+  [WorkUnit(UseTransaction = true)]
+  public async Task<bool> CreateMutualRecognitionItemsAsync(CreateMutualRecognitionItemsRequest request)
+  {
+    MedicalRecognitionRequestValidator.Validate(request);
+    var createMutualRecognitionItemsCommand = request.MapToCreateMutualRecognitionItemsCommand();
+    createMutualRecognitionItemsCommand.OrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定当前可信组织。");
+    if (!Guid.TryParse(HttpRequestInfo?.UserId, out var userId) || userId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
+    createMutualRecognitionItemsCommand.OperId = userId;
+    createMutualRecognitionItemsCommand.OperTime = DateTimeOffset.UtcNow;
+    return await manager.CreateMutualRecognitionItemsAsync(createMutualRecognitionItemsCommand);
   }
 
   /// <summary>

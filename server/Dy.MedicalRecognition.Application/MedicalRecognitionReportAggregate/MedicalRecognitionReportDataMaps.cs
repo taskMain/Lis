@@ -17,6 +17,7 @@ using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
 [assembly: ObjectMap(typeof(EnableMedicalStandardItemRequest), typeof(EnableMedicalStandardItemCommand), ObjectMapMode.OneWay)]
 [assembly: ObjectMap(typeof(DisableMedicalStandardItemRequest), typeof(DisableMedicalStandardItemCommand), ObjectMapMode.OneWay)]
 [assembly: ObjectMap(typeof(CreateMutualRecognitionItemRequest), typeof(CreateMutualRecognitionItemCommand), ObjectMapMode.OneWay)]
+[assembly: ObjectMap(typeof(CreateMutualRecognitionItemsRequest), typeof(CreateMutualRecognitionItemsCommand), ObjectMapMode.OneWay)]
 [assembly: ObjectMap(typeof(UpdateMutualRecognitionItemConfigurationRequest), typeof(UpdateMutualRecognitionItemConfigurationCommand), ObjectMapMode.OneWay)]
 [assembly: ObjectMap(typeof(EnableMutualRecognitionItemRequest), typeof(EnableMutualRecognitionItemCommand), ObjectMapMode.OneWay)]
 [assembly: ObjectMap(typeof(DisableMutualRecognitionItemRequest), typeof(DisableMutualRecognitionItemCommand), ObjectMapMode.OneWay)]

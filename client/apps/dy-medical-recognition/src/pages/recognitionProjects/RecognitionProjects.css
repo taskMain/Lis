@@ -2,6 +2,69 @@
 .recognition-projects-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .recognition-projects-header h2.ant-typography { margin: 0; }
 .recognition-projects-filters { display: grid; grid-template-columns: minmax(140px, 240px) minmax(200px, 260px) auto; gap: 8px; margin: 16px 0 12px; align-items: center; }
-.recognition-projects-number { font-variant-numeric: tabular-nums; }
 .recognition-projects-summary { display: block; margin-top: 12px; font-variant-numeric: tabular-nums; }
+
+/*
+ * 列视图：类型｜分类｜分组｜项目四栏同时摊开。
+ * 四列宽度固定且不压缩，窄视口由外层滚动容器承载横向滚动，因此任何视口下四栏都同时存在。
+ * 版面定位由组件写在每个单元格的 grid-column / grid-row 内联样式上，这里只声明列宽与外观。
+ */
+.recognition-projects-cascade-wrap { overflow-x: auto; margin-top: 14px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
+.recognition-projects-cascade { display: grid; grid-template-columns: 88px 186px 208px minmax(560px, 1fr); min-width: 1060px; background: #fff; }
+.recognition-projects-cascade-head { min-width: 0; padding: 10px 12px; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #d1d5db; background: #f5f5f5; color: #4b5563; font-weight: 600; }
+
+/* 层级格是原生按钮直接作为网格项：网格项默认在两条轴上拉伸，整个格都是点击区域（含格内空白处）。 */
+.recognition-projects-level { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 4px; min-width: 0; margin: 0; padding: 10px 12px; border: 0; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; font: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.recognition-projects-level:focus-visible { outline: 2px solid #1677ff; outline-offset: -2px; }
+/* 类型格与分类格各有底色，分组格与项目格保持底色，使从属关系在纵向上一眼可辨。 */
+.recognition-projects-level-type { align-items: center; padding-top: 16px; background: #eef0f5; color: #2b3350; font-weight: 700; }
+.recognition-projects-level-category { background: #f7f8fb; color: #3c4356; font-weight: 600; }
+.recognition-projects-level-group { background: #fff; color: #1f2937; font-weight: 600; }
+/* 高亮只改背景，因此高亮态与普通态在尺寸、边框与文字位置上完全一致，切换时不产生跳动。 */
+.recognition-projects-level.recognition-projects-level-highlighted { background: #e6f4ff; }
+.recognition-projects-level-type.recognition-projects-level-highlighted { background: #d6e9ff; }
+
+/* 项目格：一行一个分组，内部纵向排列该分组的全部项目行。 */
+.recognition-projects-cascade-items { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 4px 8px; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+/* 项目格是下级链路的最后一层：所属分组格被高亮时它一并高亮，取值与分组格的普通高亮一致。 */
+.recognition-projects-cascade-items.recognition-projects-level-highlighted { background: #e6f4ff; }
+/* 高亮行内的行底色让位给悬停色，避免悬停态把所属分组的高亮盖掉。 */
+.recognition-projects-cascade-items.recognition-projects-level-highlighted .recognition-projects-row-content:hover { background: #d8ecff; }
+.recognition-projects-row { min-width: 0; }
+.recognition-projects-row-content { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-width: 0; padding: 6px 8px; border-radius: 6px; }
+.recognition-projects-row-content:hover { background: #fafafa; }
+.recognition-projects-row-name { display: flex; flex: 1 1 auto; flex-direction: column; gap: 1px; min-width: 0; }
+.recognition-projects-row-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recognition-projects-row-code { color: #6b7280; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recognition-projects-row-reason { flex: none; max-width: 180px; color: #cf1322; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 可互认时间：非编辑态是可点的值，编辑态是「输入框 + 保存 + 取消」。 */
+.recognition-projects-days { flex: none; }
+.recognition-projects-days-value { display: inline-flex; align-items: baseline; gap: 3px; padding: 2px 6px; border: 1px solid transparent; border-radius: 4px; background: none; color: inherit; font: inherit; font-variant-numeric: tabular-nums; }
+button.recognition-projects-days-value { cursor: text; }
+button.recognition-projects-days-value:hover:not(:disabled) { border-color: #91caff; background: #e6f4ff; }
+button.recognition-projects-days-value:focus-visible { outline: 2px solid #1677ff; outline-offset: 1px; }
+button.recognition-projects-days-value:disabled { color: #9ca3af; cursor: not-allowed; }
+.recognition-projects-days-value .unit { color: #6b7280; font-size: 12px; }
+.recognition-projects-days-editor { display: inline-flex; flex: none; align-items: center; gap: 6px; }
+.recognition-projects-days-input { width: 104px; }
+/* 输入不合法与写入被冻结的原因都换到整行的下一行显示，不挤压同一行的名称与其它控件。 */
+.recognition-projects-days-error { flex: 0 0 100%; }
+
+.recognition-projects-cascade-empty { margin-top: 14px; padding: 44px 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; color: #6b7280; text-align: center; }
+
+/*
+ * 批量新增弹窗：弹窗内的列视图与页面同一套结构，因此只补弹窗自己的滚动与底栏。
+ * 弹窗宽度按四栏的最小宽度给出，内容区自己承载纵向滚动，使四栏表头与底部操作区始终可见。
+ */
+.recognition-projects-batch-body { max-height: 52vh; overflow: auto; }
+.recognition-projects-batch-body .recognition-projects-cascade-wrap { margin-top: 0; }
+.recognition-projects-batch-error { margin-top: 12px; }
+.recognition-projects-batch-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.recognition-projects-batch-count { color: #4b5563; font-variant-numeric: tabular-nums; }
+.recognition-projects-batch-days { display: inline-flex; align-items: center; gap: 8px; color: #4b5563; }
+.recognition-projects-batch-days input { width: 120px; }
+/* 层级格里的整组勾选控件：紧跟在层级名称之前，不改变层级格自身的点击区域。 */
+.recognition-projects-level-check { display: inline-flex; }
+
 @media (max-width: 720px) { .recognition-projects-filters { grid-template-columns: minmax(0, 1fr); } }

@@ -3113,6 +3113,83 @@
         ]
       }
     },
+    "/Api/MedicalRecognitionReport/CreateMutualRecognitionItems": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMutualRecognitionItemsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMutualRecognitionItemsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMutualRecognitionItemsRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMutualRecognitionItemsRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMutualRecognitionItemsRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMutualRecognitionItemsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
     "/Api/MedicalRecognitionReport/UpdateMutualRecognitionItemConfiguration": {
       "post": {
         "tags": [
@@ -4703,6 +4780,37 @@
         "properties": {
           "standardProjectCode": {
             "type": "string"
+          },
+          "recognitionDurationDays": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          },
+          "changedProperties": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CreateMutualRecognitionItemsRequest": {
+        "required": [
+          "standardProjectCodes"
+        ],
+        "type": "object",
+        "properties": {
+          "standardProjectCodes": {
+            "maxItems": 1000,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "recognitionDurationDays": {
             "maximum": 2147483647,
