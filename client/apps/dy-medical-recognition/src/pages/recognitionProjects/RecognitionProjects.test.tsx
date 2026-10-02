@@ -26,10 +26,13 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { useSyncExternalStore } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildFilterSearch, parseFilterSearch } from './recognitionProjectsFilterUrl'
 import {
   type EffectiveMedicalStandardCatalogReadModel,
+  type MedicalItemTypeValue,
   type RecognitionProjectColumnRow,
   type RecognitionProjectConfigurationRow,
+  type TrustedOrganizationScope,
 } from './recognitionProjectsApi'
 import { RecognitionProjects } from './RecognitionProjects'
 import { RecognitionProjectBatchCreateModal, ToggleModal } from './RecognitionProjectModals'
@@ -79,6 +82,7 @@ const authState = vi.hoisted(() => {
 const api = vi.hoisted(() => ({
   queryRecognitionProjectConfigurations: vi.fn(),
   querySelectableStandardItems: vi.fn(),
+  queryTrustedOrganizationScope: vi.fn(),
   createRecognitionProjectConfigurations: vi.fn(),
   updateRecognitionDuration: vi.fn(),
   setRecognitionProjectConfigurationEnabled: vi.fn(),
@@ -189,22 +193,96 @@ function deferred<T>() {
 interface PendingLoad {
   configurations: ReturnType<typeof deferred<Row[]>>
   items: ReturnType<typeof deferred<EffectiveMedicalStandardCatalogReadModel | null>>
+  scope: ReturnType<typeof deferred<TrustedOrganizationScope>>
+}
+
+/** 弹窗数据源（可新增标准项目）的在途读取；与页面读取相互独立。 */
+interface PendingSelectableLoad {
+  items: ReturnType<typeof deferred<EffectiveMedicalStandardCatalogReadModel | null>>
+}
+
+/**
+ * 已知可信组织的展示名称。名称由范围查询交付，与组织编码同源；
+ * 用固定映射而不是让夹具照抄被测实现，避免断言失去判别力。
+ */
+const ORGANIZATION_NAMES: Record<string, string> = { 'ORG-A': '组织甲', 'ORG-B': '组织乙' }
+
+/** 构造范围查询的返回：编码取给定组织，名称按同一编码派生。 */
+function scopeFor(organizationCode: string): TrustedOrganizationScope {
+  return { organizationCode, organizationName: ORGANIZATION_NAMES[organizationCode] ?? `${organizationCode}名称` }
+}
+
+/**
+ * 模拟服务端的可新增标准项目查询（S2-D29）：返回「有效目录 − 本组织已配置」，
+ * 且按关键字在编码/名称/分类/分组四列上做不区分大小写的字面包含匹配。
+ * 排除与关键字过滤都由**服务端**完成，客户端不再做差集或本地裁剪。
+ */
+function selectableCatalog(
+  catalog: EffectiveMedicalStandardCatalogReadModel | null,
+  rows: Row[],
+  keyword = '',
+): EffectiveMedicalStandardCatalogReadModel | null {
+  if (catalog === null) return null
+  const configured = new Set(rows.map((row) => row.standardProjectCode).filter((code): code is string => !!code))
+  const needle = keyword.trim().toLocaleLowerCase()
+  const hit = (code: string, name: string, categoryName: string, groupName: string) =>
+    needle.length === 0 || [code, name, categoryName, groupName].some((field) => field.toLocaleLowerCase().includes(needle))
+  const itemTypes = (catalog.itemTypes ?? []).map((type) => ({
+    ...type,
+    categories: (type.categories ?? []).map((category) => ({
+      ...category,
+      groups: (category.groups ?? []).map((group) => ({
+        ...group,
+        items: (group.items ?? []).filter((item) => !configured.has(item.code ?? '')
+          && hit(item.code ?? '', item.name ?? '', category.categoryName ?? '', group.groupName ?? '')),
+      })).filter((group) => (group.items ?? []).length > 0),
+    })).filter((category) => (category.groups ?? []).length > 0),
+  })).filter((type) => (type.categories ?? []).length > 0)
+  return { ...catalog, itemTypes }
 }
 
 function pendingLoad(): PendingLoad {
-  return { configurations: deferred<Row[]>(), items: deferred<EffectiveMedicalStandardCatalogReadModel | null>() }
+  return {
+    configurations: deferred<Row[]>(),
+    items: deferred<EffectiveMedicalStandardCatalogReadModel | null>(),
+    scope: deferred<TrustedOrganizationScope>(),
+  }
 }
 
-/** 排队一次完整读取（页面每次 load 固定按 配置 → 标准目录 顺序发起）。 */
+function pendingSelectableLoad(): PendingSelectableLoad {
+  return { items: deferred<EffectiveMedicalStandardCatalogReadModel | null>() }
+}
+
+/**
+ * 排队一次**页面**读取：页面只读配置列表与可信范围两次（S2-D29 之后页面不再读标准目录），
+ * 因此这里只把这两个出口排成一次性返回；可新增项目由弹窗另一次读取交付（见 `armSelectableLoad`）。
+ */
 function armLoad(load: PendingLoad) {
   api.queryRecognitionProjectConfigurations.mockReturnValueOnce(load.configurations.promise)
+  api.queryTrustedOrganizationScope.mockReturnValueOnce(load.scope.promise)
+  return load
+}
+
+/** 排队一次**弹窗**读取（可新增标准项目），用于显式控制弹窗数据源的交付时机。 */
+function armSelectableLoad(load: PendingSelectableLoad) {
   api.querySelectableStandardItems.mockReturnValueOnce(load.items.promise)
   return load
 }
 
 async function settle(load: PendingLoad, rows: Row[], catalog: EffectiveMedicalStandardCatalogReadModel | null = CATALOG) {
+  // 记下本次结算的数据：随后未点名的读取（打开弹窗、写入后重载）按这一份返回。
+  currentRows = rows
+  currentCatalog = catalog
   await act(async () => {
     load.configurations.resolve(rows)
+    // 范围查询返回当前可信组织与按同一编码派生的名称，使名称与编码同源。
+    load.scope.resolve(scopeFor(authState.state.organizationCode ?? ''))
+  })
+}
+
+/** 结算一次弹窗读取：交付的目录就是服务端会返回的可新增集合。 */
+async function settleSelectable(load: PendingSelectableLoad, catalog: EffectiveMedicalStandardCatalogReadModel | null) {
+  await act(async () => {
     load.items.resolve(catalog)
   })
 }
@@ -212,7 +290,7 @@ async function settle(load: PendingLoad, rows: Row[], catalog: EffectiveMedicalS
 async function failLoad(load: PendingLoad) {
   await act(async () => {
     load.configurations.reject(new Error('读取失败'))
-    load.items.reject(new Error('读取失败'))
+    load.scope.reject(new Error('读取失败'))
   })
 }
 
@@ -229,6 +307,35 @@ const switchTrustedOrganization = async (organizationCode: string) => {
   await act(async () => {
     authState.change({ organizationCode, token: `token-${organizationCode}` })
   })
+}
+
+/**
+ * 模拟服务端的关键字过滤（S2-D29）：按字面包含同时匹配标准项目编码、名称、所属分类名称、
+ * 所属分组名称，任一列命中即返回，比较不区分大小写。客户端不再做这一步裁剪。
+ */
+function keywordRows(rows: Row[], keyword: string): Row[] {
+  const needle = keyword.trim().toLocaleLowerCase()
+  if (needle.length === 0) return rows
+  return rows.filter((row) => [
+    row.standardProjectCode ?? '', row.standardItemName ?? '', row.categoryName ?? '', row.groupName ?? '',
+  ].some((field) => field.toLocaleLowerCase().includes(needle)))
+}
+
+/**
+ * 布置一个**已生效**的关键字筛选：输入原文只是草稿，必须经搜索按钮或回车提交（S2-D21）。
+ * 按 S2-D29 提交会把关键字下推服务端查询，因此这里排队并结算一次读取——交付的是服务端
+ * 按关键字过滤后的行集；`currentRows`（"全集"夹具）不被这次结算改写，清空条件后重读才能拿到全量。
+ * 需要「筛选确实在起作用」的用例统一走这里；验证草稿、提交时机与读取本身的用例才分步操作。
+ */
+async function applyKeywordFilter(value: string) {
+  await change(screen.getByLabelText('关键字筛选'), value)
+  const load = armLoad(pendingLoad())
+  submitSearch()
+  await act(async () => {
+    load.configurations.resolve(keywordRows(currentRows, value))
+    load.scope.resolve(scopeFor(authState.state.organizationCode ?? ''))
+  })
+  await settleUnarmedReload()
 }
 
 function renderPage() {
@@ -263,7 +370,8 @@ function closeModal(title: string) {
 }
 
 const query = () => api.queryRecognitionProjectConfigurations
-const addButton = () => screen.getByRole('button', { name: /新增配置/ })
+/** 主操作按钮；名称与页面标题、宿主菜单项同为「互认项目」（S2-D23）。 */
+const addButton = () => screen.getByRole('button', { name: /新增互认项目/ })
 
 /**
  * 直接渲染行内编辑器：读取失败与读取在途时页面的编辑入口本身是禁用的，
@@ -362,12 +470,46 @@ const selectedStatusLabels = () =>
     .map((node) => node.textContent?.trim())
 
 /**
- * 未点名读取的兜底 mock：实现若放行了写操作，写完成后的重载（含随后被应用的组织切换重载）
- * 会拿到空结果而不是 `undefined`，使用例以断言失败结束，而不是先撞上渲染异常。
+ * 最近一次结算的页面数据。打开新增弹窗会触发一次重读（S2-D25），写入成功后也会重载；
+ * 这些未点名的读取按这一份返回，使既有装配不被额外读取扰动，同时保持「读到的是本组织当前数据」。
+ */
+let currentRows: Row[] = []
+let currentCatalog: EffectiveMedicalStandardCatalogReadModel | null = CATALOG
+
+/**
+ * 未点名读取的兜底 mock：按调用时点的当前可信组织与最近一次结算的数据返回。
+ * 实现若放行了写操作，写完成后的重载（含随后被应用的组织切换重载）因此拿到真实形状的结果，
+ * 使用例以断言失败结束，而不是先撞上渲染异常。
  */
 function stubUnarmedLoads() {
-  api.queryRecognitionProjectConfigurations.mockResolvedValue([])
-  api.querySelectableStandardItems.mockResolvedValue(CATALOG)
+  api.queryRecognitionProjectConfigurations.mockImplementation(async () => currentRows)
+  // 未点名的弹窗读取按服务端口径返回可新增集合（有效目录 − 本组织已配置，并按关键字过滤），
+  // 使弹窗展示的就是"还能新增哪些"。
+  api.querySelectableStandardItems.mockImplementation(async (_client, keyword) => selectableCatalog(currentCatalog, currentRows, keyword))
+  api.queryTrustedOrganizationScope.mockImplementation(async () => scopeFor(authState.state.organizationCode ?? ''))
+}
+
+/**
+ * 页头组织范围的展示形态。名称与编码各占一行，因此按元素分别取，
+ * 同时断言不存在「组织」文字标签——标签的有无是 S2-D22 的判定点之一。
+ */
+const scopeLines = () => ({
+  name: document.querySelector('.recognition-projects-scope-name')?.textContent ?? null,
+  code: document.querySelector('.recognition-projects-scope-code')?.textContent ?? null,
+  label: document.querySelector('.recognition-projects-scope-label')?.textContent ?? null,
+})
+
+/**
+ * 触发一次重新读取。按 S2-D24，读取由搜索提交发起；输入框为空时提交等价于刷新，
+ * 因此需要「刷新」语义的用例统一走这里，不再有独立的刷新按钮。
+ */
+const submitSearch = () => click(screen.getByRole('button', { name: '搜索' }))
+
+/** 等未点名装配的那次重读落地：兜底实现立即返回，冲刷微任务即可（弹窗读取多一层 then，多冲几拍）。 */
+async function settleUnarmedReload() {
+  for (let i = 0; i < 4; i += 1) {
+    await act(async () => { await Promise.resolve() })
+  }
 }
 
 async function renderLoaded(rows: Row[], catalog: EffectiveMedicalStandardCatalogReadModel | null = CATALOG) {
@@ -378,10 +520,27 @@ async function renderLoaded(rows: Row[], catalog: EffectiveMedicalStandardCatalo
   await waitFor(() => expect(addButton()).toBeEnabled())
 }
 
+/**
+ * 用另一行的启停写入触发一次后台重载。这条路径不改筛选条件（S2-D24），
+ * 正在渲染的行内编辑态因此保留，可以单独观察「编辑态是否随本次读取交付的行集重取」；
+ * 走搜索提交则会在应用条件时一并清掉编辑态，观察不到这一点。
+ */
+async function reloadByTogglingOtherRow(accessibleName: string, rows: Row[]) {
+  click(screen.getByLabelText(accessibleName))
+  const confirm = await findModal('停用互认项目配置')
+  const reload = armLoad(pendingLoad())
+  click(within(confirm).getByRole('button', { name: /确认停用/ }))
+  await waitFor(() => expect(api.setRecognitionProjectConfigurationEnabled).toHaveBeenCalledTimes(1))
+  await settle(reload, rows)
+  await expectModalClosed('停用互认项目配置')
+}
+
 /** 打开批量新增弹窗，勾选给定标准项目并填写统一天数（不提交）。 */
 async function openBatchCreate(items: string[], duration: string) {
   click(addButton())
   const create = await findModal('新增互认项目配置')
+  // 打开弹窗会触发一次重读（S2-D25）：等它落地，否则确定按钮仍停在读取在途的禁用态。
+  await settleUnarmedReload()
   for (const item of items) click(batchItemCheckbox(create, item))
   await change(within(create).getByLabelText('可互认时间（天）'), duration)
   return create
@@ -389,11 +548,18 @@ async function openBatchCreate(items: string[], duration: string) {
 
 beforeEach(() => {
   authState.reset()
+  // 页面按地址栏查询参数初始化已生效筛选（S2-D27），而 jsdom 在整份用例间共用同一个地址：
+  // 上一条用例回写的条件会带进下一条，因此每条用例开始前清掉查询串。
+  window.history.replaceState(null, '', window.location.pathname)
   for (const fn of Object.values(api)) fn.mockReset()
   // 每条用例一个 client 实例（隔离 hook 的按实例缓存），枚举元数据端点默认不可用。
   clientRef.post.mockReset()
   clientRef.current = { api: { enumMetadata: { getEnumMetadata: { post: clientRef.post } } } }
   setMetadataOptions(null)
+  // 未点名读取的兜底数据按用例隔离：上一条用例结算过的行集与目录不得泄漏进来。
+  currentRows = []
+  currentCatalog = CATALOG
+  stubUnarmedLoads()
 })
 
 /**
@@ -419,12 +585,13 @@ afterEach(() => {
  * 第 3 节「C 矩阵对应」的 C13/C14 与 C1 行；首次加载与可信组织的实现位置见该表。
  */
 describe('C13 / C1 页面首次加载与可信组织', () => {
-  it('进入页面自动加载当前组织的配置与选择数据，加载期间禁止写操作', async () => {
+  it('进入页面自动加载当前组织的配置列表与组织范围，加载期间禁止写操作；可新增项目由弹窗打开时再读', async () => {
     const load = armLoad(pendingLoad())
     renderPage()
 
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
-    expect(api.querySelectableStandardItems).toHaveBeenCalledTimes(1)
+    // 页面不再读标准目录（S2-D29）：可新增项目由弹窗自己那次查询交付，页面加载只读配置与组织范围。
+    expect(api.querySelectableStandardItems).not.toHaveBeenCalled()
     expect(addButton()).toBeDisabled()
 
     await settle(load, [row('c1', 'A01', '血常规')])
@@ -438,7 +605,7 @@ describe('C13 / C1 页面首次加载与可信组织', () => {
     expect(query().mock.calls[0][0]).toBe(clientRef.current)
     expect(query().mock.calls[0][1]).toEqual({ organizationCode: 'ORG-A' })
     expect(Object.keys(query().mock.calls[0][1] as object)).toEqual(['organizationCode'])
-    expect(screen.getByText('组织编码：ORG-A')).toBeInTheDocument()
+    expect(scopeLines()).toEqual({ name: '组织甲', code: 'ORG-A', label: null })
   })
 
   it('只展示查询契约交付的列，不展示创建修改信息与已删除的派生状态', async () => {
@@ -458,7 +625,8 @@ describe('C13 / C1 页面首次加载与可信组织', () => {
     expect(screen.getByText('组织范围不可用')).toBeInTheDocument()
     expect(query()).not.toHaveBeenCalled()
     expect(api.querySelectableStandardItems).not.toHaveBeenCalled()
-    expect(screen.queryByRole('button', { name: /新增配置/ })).not.toBeInTheDocument()
+    expect(api.queryTrustedOrganizationScope).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: /新增互认项目/ })).not.toBeInTheDocument()
 
     await act(async () => {
       authState.change({ organizationCode: '   ', token: 'token-x' })
@@ -532,20 +700,20 @@ describe('C13 / C1 页面首次加载与可信组织', () => {
     await waitFor(() => expect(addButton()).toBeEnabled())
   })
 
-  it('仅目录读取失败同样进入阻断态且新增入口关闭，不靠旧目录数据放行', async () => {
+  it('弹窗数据源读取失败只在弹窗内提示数据待刷新，页面列表与行内操作不受影响', async () => {
     await renderLoaded([row('c1', 'A01', '血常规')])
 
-    const partial = armLoad(pendingLoad())
-    click(screen.getByLabelText('重新读取互认配置'))
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    await act(async () => {
-      partial.configurations.resolve([row('c1', 'A01', '血常规'), row('c2', 'A02', '尿常规')])
-      partial.items.reject(new Error('标准目录读取失败'))
-    })
+    // 弹窗数据源与页面列表是两条独立读取（S2-D29）：它的失败只影响弹窗内提示与重读入口，
+    // 不把页面拖进阻断态，也不禁用列表里的行内操作。
+    api.querySelectableStandardItems.mockRejectedValueOnce(new Error('可新增项目读取失败'))
+    click(addButton())
+    const create = await findModal('新增互认项目配置')
 
-    await screen.findByText('互认配置数据待刷新')
-    expect(addButton()).toBeDisabled()
-    expect(screen.getByLabelText('修改可互认时间：血常规')).toBeDisabled()
+    await within(create).findByText('标准目录数据待刷新')
+    expect(addButton()).toBeEnabled()
+    expect(screen.getByLabelText('修改可互认时间：血常规')).toBeEnabled()
+    expect(screen.queryByText('互认配置数据待刷新')).not.toBeInTheDocument()
+    expect(within(create).getByRole('button', { name: /重新读取/ })).toBeInTheDocument()
   })
 })
 
@@ -565,10 +733,15 @@ describe('新增弹窗的目录就绪提示分支', () => {
       open
       view={[]}
       catalogReady={catalogReady}
+      keyword=''
+      onKeywordSearch={() => {}}
       selection={new Set<string>()}
       durationInput=''
       writeGate={WRITABLE_GATE}
       submitting={false}
+      reloading={false}
+      prunedCount={0}
+      onReload={() => {}}
       onSelectionChange={() => {}}
       onDurationChange={() => {}}
       onCancel={() => {}}
@@ -675,14 +848,15 @@ describe('列视图行标识稳定唯一', () => {
  * 第 3 节「C 矩阵对应」的 C14 行与第 2 节「状态机」的「加载中（手动刷新）」行。
  */
 describe('C14 手动刷新', () => {
-  it('重新加载配置与选择数据，刷新期间禁止写操作', async () => {
+  it('重新加载配置列表，刷新期间禁止写操作', async () => {
     await renderLoaded([row('c1', 'A01', '血常规')])
 
     const refresh = armLoad(pendingLoad())
-    click(screen.getByLabelText('重新读取互认配置'))
+    submitSearch()
 
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(api.querySelectableStandardItems).toHaveBeenCalledTimes(2)
+    // 搜索只重读配置列表与组织范围；可新增项目由弹窗自己查询，页面搜索不牵动它。
+    expect(api.querySelectableStandardItems).not.toHaveBeenCalled()
     expect(addButton()).toBeDisabled()
     expect(screen.getByLabelText('修改可互认时间：血常规')).toBeDisabled()
 
@@ -701,7 +875,7 @@ describe('C11 / C15 同组织读取失败与重试恢复', () => {
     await renderLoaded([row('c1', 'A01', '血常规')])
 
     const failing = armLoad(pendingLoad())
-    click(screen.getByLabelText('重新读取互认配置'))
+    submitSearch()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     await failLoad(failing)
 
@@ -726,11 +900,12 @@ describe('C11 / C15 同组织读取失败与重试恢复', () => {
     await renderLoaded([row('c1', 'A01', '血常规')])
 
     const failing = armLoad(pendingLoad())
-    click(screen.getByLabelText('重新读取互认配置'))
+    submitSearch()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    // 配置列表成功、组织范围失败：整次读取判定为失败，但成功来源交付的行仍展示出来。
     await act(async () => {
       failing.configurations.resolve([row('c1', 'A01', '血常规'), row('c2', 'A02', '尿常规')])
-      failing.items.reject(new Error('标准目录读取失败'))
+      failing.scope.reject(new Error('组织范围读取失败'))
     })
 
     await screen.findByText('互认配置数据待刷新')
@@ -749,9 +924,9 @@ describe('C10 / C16 / C17 组织变化', () => {
     await renderLoaded([row('c1', 'A01', '血常规')])
 
     // 切换前布置筛选并记录旧组织目录交付的可选集合。
-    await change(screen.getByLabelText('标准项目编码筛选'), 'A')
+    await applyKeywordFilter('A')
     click(within(screen.getByRole('radiogroup', { name: '配置状态筛选' })).getByText('启用'))
-    click(screen.getByRole('button', { name: /新增配置/ }))
+    click(addButton())
     const before = await findModal('新增互认项目配置')
     await waitFor(() => expect(batchItemLabels(before)).toEqual(['选择标准项目：尿常规（A02）', '选择标准项目：便常规（A03）']))
     // 关闭弹窗，制造“没有未保存内容”的切换前提；筛选保持生效。
@@ -761,17 +936,20 @@ describe('C10 / C16 / C17 组织变化', () => {
     const target = armLoad(pendingLoad())
     await switchTrustedOrganization('ORG-B')
 
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ organizationCode: 'ORG-B' })
+    // 读取次序：进入页面 1 次、搜索提交 1 次、切换组织 1 次（打开弹窗只查可新增项目，不进配置列表读取）。
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    expect(query().mock.calls[2][1]).toEqual({ organizationCode: 'ORG-B' })
     expect(screen.queryByText('血常规')).not.toBeInTheDocument()
-    expect(screen.getByText('组织编码：ORG-B')).toBeInTheDocument()
+    // 组织编码随可信令牌立即更新；名称来自本次范围查询，读取返回前只展示编码（S2-D22）。
+    expect(scopeLines()).toEqual({ name: null, code: 'ORG-B', label: null })
     // applyOrganization 的复位：编码与状态筛选回到默认，否则旧筛选会隐藏新组织的配置。
-    expect((screen.getByLabelText('标准项目编码筛选') as HTMLInputElement).value).toBe('')
+    expect((screen.getByLabelText('关键字筛选') as HTMLInputElement).value).toBe('')
     expect(selectedStatusLabels()).toEqual(['全部'])
 
     // 可选集合必须来自目标组织本次读取的目录，而不是旧组织残留的目录数据。
     await settle(target, [row('c9', 'B01', '乙院项目')], ORG_B_CATALOG)
     await screen.findByText('乙院项目')
+    expect(scopeLines()).toEqual({ name: '组织乙', code: 'ORG-B', label: null })
     click(addButton())
     const after = await findModal('新增互认项目配置')
     await waitFor(() => expect(batchItemLabels(after)).toEqual(['选择标准项目：丙院项目（C01）']))
@@ -796,6 +974,7 @@ describe('C10 / C16 / C17 组织变化', () => {
     const confirm = await findModal('切换组织将放弃未保存内容')
     const target = armLoad(pendingLoad())
     click(within(confirm).getByRole('button', { name: /放弃并切换/ }))
+    // 读取次序：进入页面 1 次、确认切换组织 1 次（打开弹窗只查可新增项目，不进配置列表读取）。
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({ organizationCode: 'ORG-B' })
 
@@ -807,8 +986,7 @@ describe('C10 / C16 / C17 组织变化', () => {
 
     expect(query()).toHaveBeenCalledTimes(2)
     expect(screen.getByText('乙院项目')).toBeInTheDocument()
-    // 旧组织的**配置**行不得出现：列视图同时展示目录里的项目，因此按「是否已配置」判定，
-    // 而不是按名称是否出现在页面上（目录里的同名项目是无配置行，与被放弃的旧组织数据无关）。
+    // 旧组织的配置行不得出现：页面行集就是本组织已配置项（S2-D16），因此按行是否仍在来判定。
     expect(screen.queryByLabelText('修改可互认时间：血常规')).toBeNull()
     expect(screen.queryByLabelText('停用配置：血常规（当前启用）')).toBeNull()
   })
@@ -856,11 +1034,12 @@ describe('C10 / C16 / C17 组织变化', () => {
     await expectModalClosed('切换组织将放弃未保存内容')
 
     // 取消分支：不重载、不清理，未保存内容与旧组织列表都保留，并以提示条说明待切换。
+    // 读取只有进入页面与打开弹窗两次。
     expect(query()).toHaveBeenCalledTimes(1)
     expect(screen.getByText('宿主组织已变化，尚有未保存内容')).toBeInTheDocument()
     expect((within(create).getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('45')
     expect(screen.getByText('血常规')).toBeInTheDocument()
-    expect(screen.getByText('组织编码：ORG-A')).toBeInTheDocument()
+    expect(scopeLines()).toEqual({ name: '组织甲', code: 'ORG-A', label: null })
     expect(addButton()).toBeDisabled()
 
     // 确认分支：清空旧组织的列表与弹窗，加载目标组织。
@@ -869,14 +1048,17 @@ describe('C10 / C16 / C17 组织变化', () => {
     const again = await findModal('切换组织将放弃未保存内容')
     click(within(again).getByRole('button', { name: /放弃并切换/ }))
 
+    // 读取次序：进入页面 1 次、确认切换组织 1 次（打开弹窗只查可新增项目，不进配置列表读取）。
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({ organizationCode: 'ORG-B' })
     await expectModalClosed('新增互认项目配置')
     expect(screen.queryByText('血常规')).not.toBeInTheDocument()
-    expect(screen.getByText('组织编码：ORG-B')).toBeInTheDocument()
+    // 组织编码随可信令牌立即更新；名称来自本次范围查询，读取返回前只展示编码（S2-D22）。
+    expect(scopeLines()).toEqual({ name: null, code: 'ORG-B', label: null })
 
     await settle(target, [row('c9', 'B01', '乙院项目')])
     await screen.findByText('乙院项目')
+    expect(scopeLines()).toEqual({ name: '组织乙', code: 'ORG-B', label: null })
   })
 
   /**
@@ -899,6 +1081,7 @@ describe('C10 / C16 / C17 组织变化', () => {
     click(within(confirm).getByRole('button', { name: /取\s*消/ }))
     await expectModalClosed('切换组织将放弃未保存内容')
     await screen.findByText('宿主组织已变化，尚有未保存内容')
+    // 读取只有进入页面与打开弹窗两次；待切换期间不加载目标组织。
     expect(query()).toHaveBeenCalledTimes(1)
 
     // 放弃未保存内容：关闭写弹窗后，「未保存内容」不再阻断切换。
@@ -906,14 +1089,17 @@ describe('C10 / C16 / C17 组织变化', () => {
     click(within(create).getByRole('button', { name: /取\s*消/ }))
     await expectModalClosed('新增互认项目配置')
 
+    // 读取次序：进入页面 1 次、放弃未保存内容后的自动切换 1 次（打开弹窗只查可新增项目）。
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({ organizationCode: 'ORG-B' })
-    expect(screen.getByText('组织编码：ORG-B')).toBeInTheDocument()
+    // 组织编码随可信令牌立即更新；名称来自本次范围查询，读取返回前只展示编码（S2-D22）。
+    expect(scopeLines()).toEqual({ name: null, code: 'ORG-B', label: null })
     expect(screen.queryByText('血常规')).not.toBeInTheDocument()
     expect(screen.queryByText('宿主组织已变化，尚有未保存内容')).not.toBeInTheDocument()
 
     await settle(target, [row('c9', 'B01', '乙院项目')])
     await screen.findByText('乙院项目')
+    expect(scopeLines()).toEqual({ name: '组织乙', code: 'ORG-B', label: null })
   })
 })
 
@@ -946,6 +1132,7 @@ describe('组织未对齐期间已打开的写弹窗不得提交', () => {
     await act(async () => {})
 
     expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
+    // 读取只有进入页面与打开弹窗两次：组织未对齐期间不加载目标组织。
     expect(query()).toHaveBeenCalledTimes(1)
     expect(modalExists('新增互认项目配置')).toBe(true)
     expect((within(create).getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('30')
@@ -970,6 +1157,7 @@ describe('组织未对齐期间已打开的写弹窗不得提交', () => {
     await act(async () => {})
 
     expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
+    // 读取只有进入页面与打开弹窗两次：待切换期间不加载目标组织。
     expect(query()).toHaveBeenCalledTimes(1)
     expect(modalExists('新增互认项目配置')).toBe(true)
     expect(save).toBeDisabled()
@@ -1008,7 +1196,7 @@ describe('组织未对齐期间已打开的写弹窗不得提交', () => {
    */
   it('读取失败或组织尚未一致时两个写弹窗与行内编辑器的提交按钮禁用且不触发提交', async () => {
     const createSubmit = vi.fn(async () => {})
-    const createProps = { open: true, view: [], catalogReady: true, selection: new Set<string>(), durationInput: '30', onSelectionChange: () => {}, onDurationChange: () => {}, onCancel: () => {}, submitting: false }
+    const createProps = { open: true, view: [], catalogReady: true, keyword: '', onKeywordSearch: () => {}, selection: new Set<string>(), durationInput: '30', onSelectionChange: () => {}, onDurationChange: () => {}, onCancel: () => {}, submitting: false, reloading: false, prunedCount: 0, onReload: () => {} }
     const readFailureGate: RecognitionProjectWriteGate = { organizationReady: true, canWrite: false, loadFailure: 'load', organizationRecheckFailure: null }
 
     const create = render(<RecognitionProjectBatchCreateModal {...createProps} onSubmit={createSubmit} writeGate={readFailureGate} />)
@@ -1105,6 +1293,8 @@ describe('组织未对齐期间已打开的写弹窗不得提交', () => {
       open
       view={[]}
       catalogReady
+      keyword=''
+      onKeywordSearch={() => {}}
       selection={new Set<string>()}
       durationInput='30'
       writeGate={{ ...WRITABLE_GATE, organizationRecheckFailure: '提交时复核发现当前可信组织与页面已应用组织不一致。' }}
@@ -1113,6 +1303,9 @@ describe('组织未对齐期间已打开的写弹窗不得提交', () => {
       onCancel={() => {}}
       onSubmit={async () => {}}
       submitting={false}
+      reloading={false}
+      prunedCount={0}
+      onReload={() => {}}
     />)
     const recheckedDialog = modal('新增互认项目配置')
     expect(recheckedDialog.getByText('提交时复核发现当前可信组织与页面已应用组织不一致。')).toBeInTheDocument()
@@ -1150,6 +1343,7 @@ describe('提交前组织复核取现值', () => {
     await act(async () => {})
 
     expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
+    // 读取只有进入页面与打开弹窗两次：提交期复核拦下时不再发起读取。
     expect(query()).toHaveBeenCalledTimes(1)
     // 不静默返回：弹窗与输入保留，弹窗内给出原因，并进入既有组织变化确认流程。
     expect(modalExists('新增互认项目配置')).toBe(true)
@@ -1171,6 +1365,7 @@ describe('提交前组织复核取现值', () => {
     await act(async () => {})
 
     expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
+    // 读取只有进入页面与打开弹窗两次。
     expect(query()).toHaveBeenCalledTimes(1)
     // 复核失败后的重渲染让页面读到「可信组织不可用」，由既有阻断分支给出原因。
     expect(screen.getByText('组织范围不可用')).toBeInTheDocument()
@@ -1194,6 +1389,7 @@ describe('提交前组织复核取现值', () => {
     // 宿主重新签发**同一组织**的凭证：页面已应用组织与可信组织相同，无需重新对齐，但会重载一次数据。
     const restored = armLoad(pendingLoad())
     await switchTrustedOrganization('ORG-A')
+    // 读取次序：进入页面 1 次、打开弹窗 1 次、同一组织凭证恢复后的重载 1 次。
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     await settle(restored, [row('c1', 'A01', '血常规')])
 
@@ -1262,7 +1458,7 @@ describe('C2 / C3 新增弹窗的可选集合', () => {
 
 /**
  * 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/Client/testPlan.md` 的 C29 与 C30 行、
- * `Client/design.md`「页面与交互」的新增配置段（弹窗多选、统一可互认时间、整组勾选）。
+ * `Client/design.md`「页面与交互」的新增互认项目段（弹窗多选、统一可互认时间、整组勾选）。
  *
  * 判别方式：勾选范围按目录层级判定，因此用例跨类型、跨分类、跨分组布置目录；
  * 半选态取复选框的 `indeterminate` 属性（不是只看外观类名），全选态取 `checked`。
@@ -1273,7 +1469,7 @@ describe('C29 弹窗多选批量新增', () => {
 
   it('确定后一次提交全部所选项目与统一天数，成功关闭弹窗并刷新，已创建项目不再可选', async () => {
     await renderLoaded([row('c1', 'A01', '血常规')])
-    await change(screen.getByLabelText('标准项目编码筛选'), 'A')
+    await applyKeywordFilter('A')
 
     const create = await openBatchCreate(['尿常规（A02）', '便常规（A03）'], '30')
     const reload = armLoad(pendingLoad())
@@ -1286,12 +1482,13 @@ describe('C29 弹窗多选批量新增', () => {
       recognitionDurationDays: 30,
     })
 
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    // 读取次序：进入页面 1 次、搜索提交 1 次、打开弹窗 1 次、写入成功后的重载 1 次。
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
     await settle(reload, [row('c1', 'A01', '血常规'), row('c2', 'A02', '尿常规'), row('c3', 'A03', '便常规')])
 
     await expectModalClosed('新增互认项目配置')
     // 保留当前组织与筛选条件。
-    expect((screen.getByLabelText('标准项目编码筛选') as HTMLInputElement).value).toBe('A')
+    expect((screen.getByLabelText('关键字筛选') as HTMLInputElement).value).toBe('A')
     // 新创建的配置默认启用（提交载荷里没有状态字段，启用由服务端决定）。
     expect(within(rowElement('c2')).getByText('启用')).toBeInTheDocument()
     expect(within(rowElement('c3')).getByText('启用')).toBeInTheDocument()
@@ -1423,7 +1620,7 @@ describe('C30 批量新增失败口径', () => {
         standardProjectCodes: ['A02', 'A03'],
         recognitionDurationDays: 30,
       })
-      // 失败不刷新列表：重新读取一次都没发生。
+      // 失败不刷新列表：停在进入页面与打开弹窗这两次读取上，失败本身不追加读取。
       expect(query()).toHaveBeenCalledTimes(1)
       // 弹窗与选择保留，用户可以直接重试。
       expect(modalExists('新增互认项目配置')).toBe(true)
@@ -1502,16 +1699,20 @@ describe('C6 / C20 修改可互认时间', () => {
    * 旧实现（编辑器持行快照）下输入框仍是进入编辑时的 30、行上徽标仍是「启用」，本条断言会失败。
    */
   it('编辑期间后台刷新交付新值时，编辑器取当前行取值而不是进入编辑时的快照', async () => {
-    await renderLoaded([row('c1', 'A01', '血常规', 1, { recognitionDurationDays: 30 })])
+    await renderLoaded([
+      row('c1', 'A01', '血常规', 1, { recognitionDurationDays: 30 }),
+      row('c2', 'A02', '尿常规', 1),
+    ])
 
     click(screen.getByLabelText('修改可互认时间：血常规'))
     expect((screen.getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('30')
     expect(within(rowElement('c1')).getByText('启用')).toBeInTheDocument()
 
-    const reload = armLoad(pendingLoad())
-    click(screen.getByLabelText('重新读取互认配置'))
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    await settle(reload, [row('c1', 'A01', '血常规', 2, { recognitionDurationDays: 60 })])
+    // 另一行的启停写入带来一次后台重载：血常规的编辑态仍在渲染，本次读取交付了新的取值与状态。
+    await reloadByTogglingOtherRow('停用配置：尿常规（当前启用）', [
+      row('c1', 'A01', '血常规', 2, { recognitionDurationDays: 60 }),
+      row('c2', 'A02', '尿常规', 2),
+    ])
 
     expect((screen.getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('60')
     expect(within(rowElement('c1')).getByText('停用')).toBeInTheDocument()
@@ -1527,18 +1728,17 @@ describe('C6 / C20 修改可互认时间', () => {
    * `Client/design.md`「页面与交互」（组织变化遇未保存时间修改要先确认放弃）。
    *
    * 判别方式：只按编辑态是否为非空判定未保存内容时，本条会停在「待切换确认框」，
-   * 「组织编码：ORG-B」与重载计数断言都失败。
+   * 「组织 组织乙（ORG-B）」与重载计数断言都失败。
    */
   it('后台刷新使行内编辑的目标行消失后，组织变化不再出现未保存内容确认', async () => {
-    await renderLoaded([row('c1', 'A01', '血常规', 1)])
+    await renderLoaded([row('c1', 'A01', '血常规', 1), row('c2', 'A02', '尿常规', 1)])
 
     click(screen.getByLabelText('修改可互认时间：血常规'))
     await screen.findByLabelText('可互认时间（天）')
 
-    const reload = armLoad(pendingLoad())
-    click(screen.getByLabelText('重新读取互认配置'))
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    await settle(reload, [row('c2', 'A02', '尿常规', 1)])
+    // 另一行的启停写入带来一次后台重载：本次交付里已经没有血常规这一行，
+    // 编辑态因此不再渲染，它也就不再承载「未保存内容」。
+    await reloadByTogglingOtherRow('停用配置：尿常规（当前启用）', [row('c2', 'A02', '尿常规', 2)])
     await waitFor(() => expect(screen.queryByLabelText('可互认时间（天）')).toBeNull())
 
     const target = armLoad(pendingLoad())
@@ -1548,14 +1748,16 @@ describe('C6 / C20 修改可互认时间', () => {
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
     expect(query().mock.calls[2][1]).toEqual({ organizationCode: 'ORG-B' })
     expect(screen.queryByText('切换组织将放弃未保存内容')).not.toBeInTheDocument()
-    expect(screen.getByText('组织编码：ORG-B')).toBeInTheDocument()
+    // 组织编码随可信令牌立即更新；名称来自本次范围查询，读取返回前只展示编码（S2-D22）。
+    expect(scopeLines()).toEqual({ name: null, code: 'ORG-B', label: null })
     await settle(target, [row('c9', 'B01', '乙院项目')])
     await screen.findByText('乙院项目')
+    expect(scopeLines()).toEqual({ name: '组织乙', code: 'ORG-B', label: null })
   })
 
   /**
    * 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/Client/design.md`「页面与交互」的可互认时间
-   * 行内修改段（行集里找不到该行时不渲染编辑态）与筛选区的重置规则。
+   * 行内修改段（行集里找不到该行时不渲染编辑态）与筛选区段（生效筛选改变时清空编辑态，S2-D21）。
    *
    * 判别方式：筛选把目标行藏起来后编辑态必须消失（否则留下一个用户看不见、却仍算「未保存内容」的输入框），
    * 筛选恢复后也不得「复活」。若改变筛选时不清空编辑态，本条的中间两处断言都会失败。
@@ -1566,14 +1768,14 @@ describe('C6 / C20 修改可互认时间', () => {
     click(screen.getByLabelText('修改可互认时间：血常规'))
     await screen.findByLabelText('可互认时间（天）')
 
-    await change(screen.getByLabelText('标准项目编码筛选'), 'A02')
+    await applyKeywordFilter('A02')
     // 目标行已被筛掉：编辑态随之消失，页面上不再有看不见的未保存内容。
     await waitFor(() => expect(screen.queryByLabelText('可互认时间（天）')).toBeNull())
     expect(screen.queryByLabelText('修改可互认时间：血常规')).toBeNull()
     expect(screen.getByLabelText('修改可互认时间：尿常规')).toBeInTheDocument()
 
     // 清空筛选让目标行重新可见：编辑态不得复活。
-    await change(screen.getByLabelText('标准项目编码筛选'), '')
+    await change(screen.getByLabelText('关键字筛选'), '')
     await screen.findByLabelText('修改可互认时间：血常规')
     expect(screen.queryByLabelText('可互认时间（天）')).toBeNull()
     expect(api.updateRecognitionDuration).not.toHaveBeenCalled()
@@ -1636,7 +1838,7 @@ describe('C8 启停确认', () => {
     await findModal('停用互认项目配置')
 
     const reload = armLoad(pendingLoad())
-    click(screen.getByLabelText('重新读取互认配置'))
+    submitSearch()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     await settle(reload, [row('c1', 'A01', '血常规', 2)])
 
@@ -1659,7 +1861,7 @@ describe('C8 启停确认', () => {
     await findModal('停用互认项目配置')
 
     const reload = armLoad(pendingLoad())
-    click(screen.getByLabelText('重新读取互认配置'))
+    submitSearch()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     await settle(reload, [row('c2', 'A02', '尿常规', 1)])
 
@@ -1717,6 +1919,7 @@ describe('写弹窗的关闭入口与重开语义', () => {
     await act(async () => {
       write.resolve()
     })
+    // 第三次读取是写入成功后的重载；第二次读取来自打开弹窗即重读（S2-D25）。
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     await settle(reload, [row('c1', 'A01', '血常规'), row('c2', 'A02', '尿常规')])
     await expectModalClosed('新增互认项目配置')
@@ -1741,6 +1944,7 @@ describe('写弹窗的关闭入口与重开语义', () => {
     await act(async () => {
       write.resolve()
     })
+    // 第三次读取是写入成功后的重载；第二次读取来自打开弹窗即重读（S2-D25）。
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     await settle(reload, [row('c1', 'A01', '血常规'), row('c2', 'A02', '尿常规')])
     await expectModalClosed('新增互认项目配置')
@@ -1757,6 +1961,7 @@ describe('写弹窗的关闭入口与重开语义', () => {
    * 变异验证：删掉页面打开弹窗时对选择与天数的清空，本条会停在「已选 2 项」与天数 45。
    */
   it('关闭再打开弹窗时，选择与统一天数回到初始值', async () => {
+    // 本条断言的是弹窗选择与天数的复位，因此需要一个仍有可新增项目的装配：只配置 A01。
     await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
 
     const first = await openBatchCreate(['尿常规（A02）', '丙氨酸氨基转移酶（B01）'], '45')
@@ -1833,6 +2038,7 @@ describe('C19 写入期间防重复', () => {
     await act(async () => {
       write.resolve()
     })
+    // 第三次读取是写入成功后的重载；第二次读取来自打开弹窗即重读（S2-D25）。
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(api.createRecognitionProjectConfigurations).toHaveBeenCalledTimes(1)
 
@@ -1867,36 +2073,398 @@ describe('C19 写入期间防重复', () => {
 })
 
 /**
- * 用例名只描述行为：重置筛选的可访问名称与实际重置范围一致。
- * （旧用例名里的分组编号 B7 只在本文件内使用，无外部登记表。）
+ * 用例名只描述行为：搜索提交会重新读取，裁剪建立在这一次读取返回的数据上，条件为空时提交等价于刷新。
  *
  * 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/Client/Pages/RecognitionProjects/RecognitionProjects.md`
- * 第 1 节「页面结构」的筛选区行（编码输入框、配置状态 Segmented、重置按钮只影响本地展示）。
+ * 第 1 节「页面结构」的筛选区行与第 5 节「已定实现边界」的筛选区交互行（S2-D21、S2-D24）。
  */
-describe('重置筛选的可访问名称与实际范围一致', () => {
-  it('重置按钮同时清空编码与状态两项，名称如实说明范围', async () => {
+describe('C31 搜索重新读取并在新结果上裁剪', () => {
+  it('输入过程不改变列表；提交时重新读取，读取完成后才按输入原文裁剪；条件为空时提交等价于刷新', async () => {
     await renderLoaded([row('c1', 'A01', '血常规', 1), row('c2', 'A02', '尿常规', 2)])
 
-    const codeFilter = () => screen.getByLabelText('标准项目编码筛选') as HTMLInputElement
+    const codeFilter = () => screen.getByLabelText('关键字筛选') as HTMLInputElement
+    const summary = () => screen.getByText(/^共 \d+ 项配置$/).textContent?.trim()
+
+    await change(codeFilter(), 'A01')
+    // 输入原文只是草稿：两行都还在，页脚不出现筛选后计数，也没有因此发起读取。
+    expect(codeFilter().value).toBe('A01')
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    expect(screen.getByText('尿常规')).toBeInTheDocument()
+    expect(summary()).toBe('共 2 项配置')
+    expect(query()).toHaveBeenCalledTimes(1)
+
+    // 提交即重新读取：读取在途时搜索按钮进入载入态，且旧行集不被提前裁掉。
+    const load = armLoad(pendingLoad())
+    submitSearch()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    expect(screen.getByRole('button', { name: '搜索' })).toHaveClass('ant-btn-loading')
+    expect(screen.getByText('尿常规')).toBeInTheDocument()
+
+    // 读取返回后才裁剪：交付的就是服务端按关键字过滤后的行集（S2-D29），本地不再二次裁剪。
+    await settle(load, [row('c1', 'A01', '血常规', 1)])
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    expect(screen.queryByText('尿常规')).not.toBeInTheDocument()
+    expect(summary()).toBe('共 1 项配置')
+
+    // 回车与点击走同一条提交路径。
+    await change(codeFilter(), 'A02')
+    const byEnter = armLoad(pendingLoad())
+    act(() => {
+      fireEvent.keyDown(codeFilter(), { key: 'Enter' })
+    })
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    await settle(byEnter, [row('c2', 'A02', '尿常规', 2)])
+    expect(screen.queryByText('血常规')).not.toBeInTheDocument()
+    expect(screen.getByText('尿常规')).toBeInTheDocument()
+
+    // 结果来自本次读取而不是旧行集：换一批数据后列表跟着换（关键字命中的是名称列，四列口径）。
+    await change(codeFilter(), 'A01')
+    const replaced = armLoad(pendingLoad())
+    submitSearch()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(4))
+    await settle(replaced, [row('c5', 'A05', 'A01命中名称', 1)])
+    expect(screen.getByText('A01命中名称')).toBeInTheDocument()
+    expect(screen.queryByText('血常规')).not.toBeInTheDocument()
+    expect(summary()).toBe('共 1 项配置')
+
+    // 清空输入自带的清除入口：清空即触发一次重读——关键字已下推服务端，只清状态不重读会停在旧结果上。
+    const cleared = armLoad(pendingLoad())
+    await change(codeFilter(), '')
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(5))
+    await settle(cleared, [row('c1', 'A01', '血常规', 1), row('c3', 'A03', '便常规', 1)])
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    expect(screen.getByText('便常规')).toBeInTheDocument()
+    expect(summary()).toBe('共 2 项配置')
+
+    // 条件为空时提交同样等价于刷新：再读一次，结果是本组织当前全部配置。
+    const refreshed = armLoad(pendingLoad())
+    submitSearch()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(6))
+    await settle(refreshed, [row('c1', 'A01', '血常规', 1), row('c3', 'A03', '便常规', 1)])
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    expect(screen.getByText('便常规')).toBeInTheDocument()
+    expect(summary()).toBe('共 2 项配置')
+
+    // 查询请求只提交组织编码与关键字：配置状态不下推服务端，始终只在本地裁剪。
+    for (const call of query().mock.calls) {
+      const body = call[1] as Record<string, unknown>
+      expect(Object.keys(body).every((key) => key === 'organizationCode' || key === 'keyword')).toBe(true)
+      expect(body).not.toHaveProperty('configurationStatus')
+      expect(body.organizationCode).toBe('ORG-A')
+    }
+  })
+})
+
+/**
+ * 用例名只描述行为：筛选区只有编码输入框、搜索按钮与配置状态选择；页头只有主按钮；
+ * 清除编码走输入框自带的清除入口，配置状态切换不触发读取。
+ *
+ * 文档锚点：同上的筛选区行、标题区行与已定实现边界（S2-D21、S2-D23、S2-D24）。
+ */
+describe('C32 筛选区控件构成、清除动作与读写在途门控', () => {
+  it('无重置与独立刷新控件、页头只有主按钮；清除只清编码；配置状态切换不触发读取', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规', 1), row('c2', 'A02', '尿常规', 2)])
+
+    const codeFilter = () => screen.getByLabelText('关键字筛选') as HTMLInputElement
     // Segmented 把外部 aria-label 透传到 role=radiogroup（已核对 @rc-component/segmented@1.3 的
     // `_extends({ ...默认值 }, divProps)` 顺序与宿主可访问性树），故按可访问名称定位并顺带守卫该名称。
     const statusFilter = () => screen.getByRole('radiogroup', { name: '配置状态筛选' })
     const selectedStatus = () =>
       [...statusFilter().querySelectorAll('.ant-segmented-item-selected')].map((node) => node.textContent?.trim())
+    const summary = () => screen.getByText(/^共 \d+ 项配置$/).textContent?.trim()
+    // 清除入口由输入框的 allowClear 提供，渲染出来的是 ant-input-clear-icon 按钮。
+    const clearIcon = () => {
+      const found = document.querySelector<HTMLButtonElement>('.ant-input-clear-icon')
+      if (!found) throw new Error('编码输入框没有清除入口')
+      return found
+    }
 
-    await change(codeFilter(), 'A0')
+    // 控件构成：筛选区是编码输入框、搜索按钮与配置状态三件；页头只有主按钮，没有纯图标刷新。
+    expect(screen.getByRole('button', { name: '搜索' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /重置/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /重新读取/ })).not.toBeInTheDocument()
+    const headerButtons = document.querySelectorAll('.recognition-projects-header button')
+    expect([...headerButtons].map((node) => node.textContent?.trim())).toEqual(['新增互认项目'])
+
+    await applyKeywordFilter('A01')
     click(within(statusFilter()).getByText('停用'))
+    // 编码条件与状态条件同时生效：A01 是启用配置，被状态条件排除后为空。
+    expect(codeFilter().value).toBe('A01')
     expect(selectedStatus()).toEqual(['停用'])
+    expect(summary()).toBe('共 0 项配置')
+    // 搜索提交读取了一次；状态切换只在本地裁剪，不新增读取。
+    expect(query()).toHaveBeenCalledTimes(2)
+
+    // 清除动作清编码：输入原文与生效关键字一起清掉，状态条件保持不变；
+    // 关键字已下推服务端，清空同时重读一次才能让列表回到全量（等价于空条件提交）。
+    click(clearIcon())
+    expect(codeFilter().value).toBe('')
+    expect(selectedStatus()).toEqual(['停用'])
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    await settleUnarmedReload()
     expect(screen.queryByText('血常规')).not.toBeInTheDocument()
     expect(screen.getByText('尿常规')).toBeInTheDocument()
+    expect(summary()).toBe('共 1 项配置')
 
-    // 名称必须表达「编码 + 状态」两项，否则读屏用户会以为只重置了一项。
-    click(screen.getByRole('button', { name: '重置编码与状态筛选' }))
-
-    expect(codeFilter().value).toBe('')
+    // 状态切回全部：只在本地裁剪，不新增读取。
+    click(within(statusFilter()).getByText('全部'))
     expect(selectedStatus()).toEqual(['全部'])
+    expect(summary()).toBe('共 2 项配置')
+
+    // 读取只在「搜索提交」与「清空关键字」时发生；状态切换与二次清空都不触发读取，全过程零写请求。
+    expect(query()).toHaveBeenCalledTimes(3)
+    expect(api.updateRecognitionDuration).not.toHaveBeenCalled()
+    expect(api.setRecognitionProjectConfigurationEnabled).not.toHaveBeenCalled()
+    expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
+  })
+
+  it('读取在途期间列表内的行内操作与新增入口一并禁用，旧数据只能查看', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规', 1)])
+
+    const load = armLoad(pendingLoad())
+    submitSearch()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+
+    // 旧数据仍在，但读写在途：行内入口与新增入口都不可用，不会出现「看着旧数据还能改」。
     expect(screen.getByText('血常规')).toBeInTheDocument()
-    expect(screen.getByText('尿常规')).toBeInTheDocument()
+    expect(screen.getByLabelText('修改可互认时间：血常规')).toBeDisabled()
+    expect(addButton()).toBeDisabled()
+
+    await settle(load, [row('c1', 'A01', '血常规', 1)])
+    expect(screen.getByLabelText('修改可互认时间：血常规')).toBeEnabled()
+    expect(addButton()).toBeEnabled()
+  })
+})
+
+/**
+ * 用例名只描述行为：页头组织为上下两行且不设文字标签，页头只保留一个主按钮。
+ *
+ * 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/Client/Pages/RecognitionProjects/RecognitionProjects.md`
+ * 第 1 节「页面结构」的标题区行与第 5 节「已定实现边界」的页头组织范围行（S2-D22、S2-D23）。
+ */
+describe('C33 页头组织展示与动作区', () => {
+  it('组织按上下两行展示且无文字标签，名称与编码同一来源，名称缺失时只展示编码一行', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')])
+
+    expect(scopeLines()).toEqual({ name: '组织甲', code: 'ORG-A', label: null })
+    // 两行是纵向排列：名称元素在编码元素之前，容器内不存在标签元素。
+    const scope = document.querySelector('.recognition-projects-scope') as HTMLElement
+    expect([...scope.children].map((node) => node.className))
+      .toEqual(['recognition-projects-scope-name', 'recognition-projects-scope-code'])
+    // 范围查询不提交任何入参：组织只取自可信上下文。
+    expect(api.queryTrustedOrganizationScope).toHaveBeenCalledTimes(1)
+    expect(api.queryTrustedOrganizationScope.mock.calls[0][1]).toBeUndefined()
+
+    // 名称缺失（服务端未交付）时只展示编码一行，不留空行也不渲染空括号。
+    const reload = armLoad(pendingLoad())
+    submitSearch()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await act(async () => {
+      reload.configurations.resolve([row('c1', 'A01', '血常规')])
+      reload.items.resolve(CATALOG)
+      reload.scope.resolve({ organizationCode: 'ORG-A', organizationName: null })
+    })
+    expect(scopeLines()).toEqual({ name: null, code: 'ORG-A', label: null })
+    expect([...scope.children].map((node) => node.className)).toEqual(['recognition-projects-scope-code'])
+  })
+
+  it('页头只有「新增互认项目」一个动作，点击即打开新增弹窗', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')])
+
+    const headerButtons = document.querySelectorAll('.recognition-projects-header button')
+    expect([...headerButtons].map((node) => node.textContent?.trim())).toEqual(['新增互认项目'])
+
+    click(addButton())
+    await findModal('新增互认项目配置')
+  })
+
+  it('范围查询失败并入读取失败阻断态，重试成功后页头恢复名称', async () => {
+    const load = armLoad(pendingLoad())
+    renderPage()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
+    await failLoad(load)
+
+    // 三次读取同口径：任一次失败即整页不可写、保留已有数据并给出重试入口。
+    expect(screen.getByText('互认配置数据待刷新')).toBeInTheDocument()
+    expect(addButton()).toBeDisabled()
+    expect(scopeLines()).toEqual({ name: null, code: 'ORG-A', label: null })
+
+    const retryLoad = armLoad(pendingLoad())
+    click(screen.getByRole('button', { name: /重\s*试/ }))
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await settle(retryLoad, [row('c1', 'A01', '血常规')])
+
+    expect(screen.queryByText('互认配置数据待刷新')).not.toBeInTheDocument()
+    expect(scopeLines()).toEqual({ name: '组织甲', code: 'ORG-A', label: null })
+    expect(addButton()).toBeEnabled()
+  })
+
+  it('范围查询回读的组织与本次读取的目标组织不一致时不接受该名称', async () => {
+    const load = armLoad(pendingLoad())
+    renderPage()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
+    await act(async () => {
+      load.configurations.resolve([row('c1', 'A01', '血常规')])
+      load.items.resolve(CATALOG)
+      // 凭证已换：范围查询回读的是另一个组织。
+      load.scope.resolve(scopeFor('ORG-B'))
+    })
+
+    expect(scopeLines()).toEqual({ name: null, code: 'ORG-A', label: null })
+  })
+})
+
+/**
+ * 用例名只描述行为：弹窗打开即重读，弹窗内可手动重读，重读后失效的勾选被剔除并说明。
+ *
+ * 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/Client/Pages/RecognitionProjects/RecognitionProjects.md`
+ * 第 1 节「页面结构」的新增弹窗行与第 5 节「已定实现边界」的弹窗就地重读行（S2-D25）。
+ */
+describe('C34 新增弹窗就地重读与失效勾选剔除', () => {
+  it('打开弹窗即查询可新增项目，可选集合按本次查询计算，读取在途时确定按钮冻结', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')])
+
+    const selectable = armSelectableLoad(pendingSelectableLoad())
+    click(addButton())
+    const create = await findModal('新增互认项目配置')
+    // 打开弹窗触发一次可新增项目查询；页面配置列表不因此重读（S2-D29 之后两条读取相互独立）。
+    await waitFor(() => expect(api.querySelectableStandardItems).toHaveBeenCalledTimes(1))
+    expect(query()).toHaveBeenCalledTimes(1)
+    expect(within(create).getByRole('button', { name: /确定新增/ })).toBeDisabled()
+
+    // 本次查询交付的可新增集合决定弹窗内容：A01、A02 已配置，因此只剩 A03 可选。
+    await settleSelectable(selectable, selectableCatalog(CATALOG, [row('c1', 'A01', '血常规', 1), row('c2', 'A02', '尿常规', 1)]))
+    await waitFor(() => expect(batchItemLabels(create)).toEqual(['选择标准项目：便常规（A03）']))
+    expect(within(create).getByRole('button', { name: /重新读取/ })).toBeInTheDocument()
+    expect(within(create).getByRole('button', { name: /确定新增/ })).toBeEnabled()
+  })
+
+  it('重读后已不在可选集合中的勾选被剔除并给出条数说明，不静默剔除', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')])
+
+    const create = await openBatchCreate(['尿常规（A02）', '便常规（A03）'], '30')
+    expect(batchSelectedCount(create)).toBe('已选 2 项')
+
+    // 期间其他页面把 A02 配置了：弹窗内手动重读后 A02 不再在可选集合中。
+    const selectable = armSelectableLoad(pendingSelectableLoad())
+    click(within(create).getByRole('button', { name: /重新读取/ }))
+    await waitFor(() => expect(api.querySelectableStandardItems).toHaveBeenCalledTimes(2))
+    await settleSelectable(selectable, selectableCatalog(CATALOG, [row('c1', 'A01', '血常规', 1), row('c2', 'A02', '尿常规', 1)]))
+
+    await waitFor(() => expect(batchSelectedCount(create)).toBe('已选 1 项'))
+    expect(within(create).getByText(/有 1 个已选项目已不在当前可新增集合中/)).toBeInTheDocument()
+
+    // 剔除只影响选择，弹窗与天数输入都保留，用户可以直接重试提交。
+    expect((within(create).getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('30')
+    expect(within(create).queryByText('没有可新增的标准项目')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * 用例名只描述行为：弹窗是本页唯一的选择面，因此它自带发现能力——关键字搜索与全选当前结果。
+ *
+ * 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/Client/Pages/RecognitionProjects/RecognitionProjects.md`
+ * 第 1 节「页面结构」的新增弹窗行、第 5 节「已定实现边界」的新增弹窗条与 `Client/design.md`「页面与交互」
+ * 的弹窗段（S2-D26、S2-D29）。
+ *
+ * 判别方式：搜索断在「只发起一次可新增项目查询、不重读配置列表」上——若把搜索实现成一次配置列表查询，
+ * 配置列表读取次数断言失败；命中区断在"点名称即可勾选"上，旧实现只把复选框本身作为命中区。
+ */
+describe('C35 弹窗发现能力：关键字搜索与全选当前结果', () => {
+  it('关键字搜索按服务端查询可新增项目，不重读配置列表；清空后恢复全部可新增项目', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
+
+    const create = await openBatchCreate([], '30')
+    expect(batchItemLabels(create)).toEqual([
+      '选择标准项目：尿常规（A02）',
+      '选择标准项目：凝血酶原时间（A03）',
+      '选择标准项目：丙氨酸氨基转移酶（B01）',
+      '选择标准项目：胸部正位片（C01）',
+    ])
+    const configReadsBeforeSearch = query().mock.calls.length
+    const selectableReadsBeforeSearch = api.querySelectableStandardItems.mock.calls.length
+
+    await change(within(create).getByLabelText('弹窗关键字搜索'), 'B01')
+    // 输入原文只是草稿：未提交前列表不变。
+    expect(batchItemLabels(create)).toHaveLength(4)
+
+    click(within(create).getByRole('button', { name: '搜索' }))
+    await waitFor(() => expect(batchItemLabels(create)).toEqual(['选择标准项目：丙氨酸氨基转移酶（B01）']))
+    // 搜索只查一次可新增项目，不重读配置列表。
+    expect(api.querySelectableStandardItems.mock.calls.length).toBe(selectableReadsBeforeSearch + 1)
+    expect(query().mock.calls.length).toBe(configReadsBeforeSearch)
+
+    // 搜索无命中时给的是"没有匹配的标准项目"，不是"没有可新增项"——两者事实不同。
+    await change(within(create).getByLabelText('弹窗关键字搜索'), 'ZZ')
+    click(within(create).getByRole('button', { name: '搜索' }))
+    await screen.findByText('没有匹配的标准项目')
+
+    // 清空输入原文同时清掉生效条件，可选集合恢复。
+    await change(within(create).getByLabelText('弹窗关键字搜索'), '')
+    await waitFor(() => expect(batchItemLabels(create)).toHaveLength(4))
+    expect(query().mock.calls.length).toBe(configReadsBeforeSearch)
+  })
+
+  it('全选当前结果一次勾选当前搜索结果，已有选择不受影响，再点一次不取消', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
+
+    const create = await openBatchCreate(['尿常规（A02）'], '30')
+    expect(batchSelectedCount(create)).toBe('已选 1 项')
+
+    // 「全选当前结果」按当前搜索结果补齐勾选，不清除已有选择。
+    expect(batchItemLabels(create)).toHaveLength(4)
+    expect(within(create).getByRole('button', { name: '全选当前结果' })).toBeEnabled()
+    click(within(create).getByRole('button', { name: '全选当前结果' }))
+    expect(batchItemCheckbox(create, '凝血酶原时间（A03）')).toBeChecked()
+    expect(batchItemCheckbox(create, '胸部正位片（C01）')).toBeChecked()
+    await waitFor(() => expect(batchSelectedCount(create)).toBe('已选 4 项'))
+
+    // 已被搜索裁掉的项目不在"当前结果"里：全选只补齐当前可见的项目，不清除此前已选。
+    await change(within(create).getByLabelText('弹窗关键字搜索'), 'C01')
+    click(within(create).getByRole('button', { name: '搜索' }))
+    await waitFor(() => expect(batchItemLabels(create)).toEqual(['选择标准项目：胸部正位片（C01）']))
+    click(within(create).getByRole('button', { name: '全选当前结果' }))
+    await waitFor(() => expect(batchSelectedCount(create)).toBe('已选 4 项'))
+    // 清空搜索后可以看到：此前勾上的项目仍在选择里。
+    await change(within(create).getByLabelText('弹窗关键字搜索'), '')
+    await waitFor(() => expect(batchItemCheckbox(create, '尿常规（A02）')).toBeChecked())
+
+    // 全选是补齐动作而不是开关：再点一次不改变已选数量。
+    click(within(create).getByRole('button', { name: '全选当前结果' }))
+    await act(async () => {})
+    expect(batchSelectedCount(create)).toBe('已选 4 项')
+  })
+
+  it('项目行整行都是勾选命中区：点名称与点复选框等价', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
+
+    const create = await openBatchCreate([], '30')
+    const checkbox = batchItemCheckbox(create, '尿常规（A02）')
+    expect(checkbox).not.toBeChecked()
+
+    // 点行内的名称文本即可勾选：旧实现只把复选框本身作为命中区，这里不会勾上。
+    click(within(create).getByText('尿常规'))
+    await waitFor(() => expect(batchItemCheckbox(create, '尿常规（A02）')).toBeChecked())
+    expect(batchSelectedCount(create)).toBe('已选 1 项')
+
+    // 再点名称取消勾选。
+    click(within(create).getByText('尿常规'))
+    await waitFor(() => expect(batchItemCheckbox(create, '尿常规（A02）')).not.toBeChecked())
+    expect(batchSelectedCount(create)).toBe('已选 0 项')
+  })
+
+  it('异步提示与常驻读屏区域：剔除说明与本地拦截都在 aria-live 容器内', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
+
+    const create = await openBatchCreate([], '30')
+    // 读屏区域先于内容存在：容器在未提交时就已在版面上。
+    expect(create.querySelectorAll('[aria-live="polite"]').length).toBeGreaterThan(0)
+
+    // 未勾选即确定：本地拦截，不发写请求。
+    click(within(create).getByRole('button', { name: /确定新增/ }))
+    await screen.findByText('请先勾选要新增的标准项目')
+    expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
+    expect(create.querySelector('[aria-live="polite"]')?.textContent).toContain('请先勾选要新增的标准项目')
   })
 })
 
@@ -1914,6 +2482,7 @@ describe('C21 写成功但刷新失败', () => {
     click(within(create).getByRole('button', { name: /确定新增/ }))
 
     await waitFor(() => expect(api.createRecognitionProjectConfigurations).toHaveBeenCalledTimes(1))
+    // 第二次读取是写入成功后的重载（本次读取失败）；打开弹窗只查可新增项目，不进配置列表读取。
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     await failLoad(failing)
 
@@ -1955,6 +2524,7 @@ describe('C21 写成功但刷新失败', () => {
 
       expect(modalExists('新增互认项目配置')).toBe(true)
       expect((within(create).getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('30')
+      // 第二次读取来自打开弹窗即重读（S2-D25）；写失败不产生重载。
       expect(query()).toHaveBeenCalledTimes(1)
       expect(screen.queryByText('写入已成功，数据待刷新')).not.toBeInTheDocument()
       expect(screen.queryByText('互认配置数据待刷新')).not.toBeInTheDocument()
@@ -2010,6 +2580,7 @@ describe('C21 写成功但刷新失败', () => {
       // 失败结果仍可见：弹窗与输入保留，提交中状态归零后取消/关闭恢复可用（零重载）。
       expect(modalExists('新增互认项目配置')).toBe(true)
       expect((within(create).getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('30')
+      // 第二次读取来自打开弹窗即重读（S2-D25）；写失败不产生重载。
       expect(query()).toHaveBeenCalledTimes(1)
       await waitFor(() => expect(within(create).getByRole('button', { name: /取\s*消/ })).toBeEnabled())
       // 收尾再判一次：观测窗口到用例结束为止，断言之后到达的杂散拒绝同样不得漏判。
@@ -2030,17 +2601,18 @@ describe('新增成功后的列表与选择数据刷新', () => {
   it('写入成功后关闭弹窗、保留筛选条件并刷新，新配置不再可选', async () => {
     await renderLoaded([row('c1', 'A01', '血常规')])
 
-    await change(screen.getByLabelText('标准项目编码筛选'), 'A')
+    await applyKeywordFilter('A')
     const create = await openBatchCreate(['尿常规（A02）'], '30')
     api.createRecognitionProjectConfigurations.mockResolvedValueOnce(undefined)
     const reload = armLoad(pendingLoad())
     click(within(create).getByRole('button', { name: /确定新增/ }))
 
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    // 第四次读取是写入成功后的重载（第二次是搜索提交，第三次是打开弹窗即重读）。
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
     await settle(reload, [row('c1', 'A01', '血常规'), row('c2', 'A02', '尿常规')])
 
     await screen.findByText('尿常规')
-    expect((screen.getByLabelText('标准项目编码筛选') as HTMLInputElement).value).toBe('A')
+    expect((screen.getByLabelText('关键字筛选') as HTMLInputElement).value).toBe('A')
     await expectModalClosed('新增互认项目配置')
 
     // 刷新后的排除集合必须包含刚新增的配置：重开弹窗时它不再出现。
@@ -2058,42 +2630,42 @@ describe('新增成功后的列表与选择数据刷新', () => {
  * 第 5 节「已定实现边界」的「空态与计数口径」条。
  */
 describe('列表空态与计数', () => {
-  it('目录本身为空时显示「当前组织没有可展示的标准项目」且计数为 0', async () => {
+  it('本组织还没有配置时显示本组织空态且计数为 0，目录为空同样报这一种空态', async () => {
     await renderLoaded([], null)
 
-    // 列视图由目录与配置合并而成：目录读不到任何项目时，行集为空，页面只报这一种空态。
-    expect(screen.getByText('当前组织没有可展示的标准项目')).toBeInTheDocument()
+    // 页面行集是本组织已配置项（S2-D16）：行集为空只可能是本组织零配置，目录读不到任何项目也一样。
+    expect(screen.getByText('本组织还没有互认项目配置')).toBeInTheDocument()
     expect(cascadeHeads()).toEqual([])
-    expect(screen.getByText('本组织共 0 项配置')).toBeInTheDocument()
+    expect(screen.getByText('共 0 项配置')).toBeInTheDocument()
     expect(query()).toHaveBeenCalledTimes(1)
   })
 
-  it('目录非空但本组织没有配置时计数为 0，全部项目行显示未配置', async () => {
+  it('目录非空但本组织没有配置时同样报本组织空态：目录里的未配置项目不进列表', async () => {
     await renderLoaded([])
 
-    // 目录里有三个可展示项目：页面不再进入空态，而是把这些项目全部按「未配置」展示。
-    expect(screen.queryByText('当前组织没有可展示的标准项目')).not.toBeInTheDocument()
-    expect(cascadeHeads().map((node) => node.textContent)).toEqual(['类型', '分类', '分组', '项目'])
-    expect(document.querySelectorAll('[data-row-key]')).toHaveLength(3)
-    expect(screen.getAllByText('未配置')).toHaveLength(3)
-    // 计数仍是本组织的配置条数，与目录里的项目数无关。
-    expect(screen.getByText('本组织共 0 项配置')).toBeInTheDocument()
+    // 目录里有三个可展示项目，但本组织一条配置都没有：这些项目不构成列表行，页面报本组织空态。
+    expect(screen.getAllByText('本组织还没有互认项目配置')).toHaveLength(1)
+    expect(cascadeHeads()).toEqual([])
+    expect(document.querySelectorAll('[data-row-key]')).toHaveLength(0)
+    expect(screen.queryByText('未配置')).not.toBeInTheDocument()
+    // 计数与列表行数同源。
+    expect(screen.getByText('共 0 项配置')).toBeInTheDocument()
     expect(query()).toHaveBeenCalledTimes(1)
   })
 
   it('筛选后为空时区分空态文案，并同时给出本组织条数与筛选后条数', async () => {
     await renderLoaded([row('c1', 'A01', '血常规', 1), row('c2', 'A02', '尿常规', 2)])
 
-    expect(screen.getByText('本组织共 2 项配置')).toBeInTheDocument()
+    expect(screen.getByText('共 2 项配置')).toBeInTheDocument()
 
-    await change(screen.getByLabelText('标准项目编码筛选'), 'ZZ')
+    await applyKeywordFilter('ZZ')
 
-    // 本组织确实有配置，只是被本地筛掉：不得报成「当前组织没有可展示的标准项目」。
+    // 本组织确实有配置，只是被本地筛掉：不得报成本组织空态。
     expect(screen.getByText('没有匹配的配置')).toBeInTheDocument()
-    expect(screen.queryByText('当前组织没有可展示的标准项目')).not.toBeInTheDocument()
+    expect(screen.queryByText('本组织还没有互认项目配置')).not.toBeInTheDocument()
     // 列视图裁剪丢弃没有可见项目的层级，裁剪后连表头与网格都不渲染。
     expect(cascadeHeads()).toEqual([])
-    expect(screen.getByText('本组织共 2 项配置，筛选后 0 项')).toBeInTheDocument()
+    expect(screen.getByText('共 0 项配置')).toBeInTheDocument()
   })
 
   it('状态筛选同样进入筛选后为空的计数口径', async () => {
@@ -2101,10 +2673,58 @@ describe('列表空态与计数', () => {
 
     click(within(screen.getByRole('radiogroup', { name: '配置状态筛选' })).getByText('停用'))
 
-    // 未配置行没有配置状态，状态筛选把它们一并排除，因此筛选后为空。
+    // 该行是启用，状态筛到停用后为空。
     expect(screen.getByText('没有匹配的配置')).toBeInTheDocument()
-    expect(screen.getByText('本组织共 1 项配置，筛选后 0 项')).toBeInTheDocument()
+    expect(screen.getByText('共 0 项配置')).toBeInTheDocument()
     expect(screen.queryByText('血常规')).not.toBeInTheDocument()
+  })
+
+  it('地址栏带条件进入时按该条件初始化筛选，列表与页脚都按生效条件计算', async () => {
+    // 深链进入：编码与配置状态都来自查询参数，输入框与列表指向同一条件（S2-D27）。
+    window.history.replaceState(null, '', `${window.location.pathname}?keyword=A02&status=2`)
+    await renderLoaded([row('c1', 'A01', '血常规', 1), row('c2', 'A02', '尿常规', 2)])
+
+    expect((screen.getByLabelText('关键字筛选') as HTMLInputElement).value).toBe('A02')
+    expect(screen.getByText('尿常规')).toBeInTheDocument()
+    expect(screen.queryByText('血常规')).not.toBeInTheDocument()
+    expect(screen.getByText('共 1 项配置')).toBeInTheDocument()
+  })
+})
+
+/**
+ * 已生效筛选与地址栏的一致性（S2-D27）：地址栏只承载经提交生效的条件。
+ */
+describe('筛选与地址栏查询参数一致', () => {
+  it('提交搜索与切换状态都回写地址栏，输入原文不写入，清空条件后参数不残留', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规', 1), row('c2', 'A02', '尿常规', 2)])
+
+    expect(window.location.search).toBe('')
+
+    // 输入原文只是草稿：地址栏不因输入而改变。
+    await change(screen.getByLabelText('关键字筛选'), 'A02')
+    expect(window.location.search).toBe('')
+
+    // 提交后写入生效条件。
+    const load = armLoad(pendingLoad())
+    submitSearch()
+    await settle(load, currentRows, currentCatalog)
+    expect(parseFilterSearch(window.location.search)).toEqual({ keyword: 'A02', status: 'all' })
+
+    // 配置状态切换即生效，同样进入地址栏。
+    click(within(screen.getByRole('radiogroup', { name: '配置状态筛选' })).getByText('停用'))
+    expect(parseFilterSearch(window.location.search)).toEqual({ keyword: 'A02', status: 2 })
+
+    // 清空编码条件后该参数不残留。
+    await change(screen.getByLabelText('关键字筛选'), '')
+    expect(parseFilterSearch(window.location.search)).toEqual({ keyword: '', status: 2 })
+  })
+
+  it('参数口径：缺失或不可识别的取值按该条件不生效，其他参数原样保留', async () => {
+    expect(parseFilterSearch('')).toEqual({ keyword: '', status: 'all' })
+    expect(parseFilterSearch('?keyword=0025&status=1')).toEqual({ keyword: '0025', status: 1 })
+    expect(parseFilterSearch('?status=9')).toEqual({ keyword: '', status: 'all' })
+    expect(buildFilterSearch('?keep=1', { keyword: 'A01', status: 'all' })).toBe('?keep=1&keyword=A01')
+    expect(buildFilterSearch('?keyword=A01&keep=1', { keyword: '', status: 'all' })).toBe('?keep=1')
   })
 })
 
@@ -2127,9 +2747,10 @@ describe('行内动作门控与列表规模', () => {
 
     expect(screen.getAllByLabelText(/^修改可互认时间：项目/)).toHaveLength(25)
     expect(document.querySelectorAll('[data-row-key]')).toHaveLength(25)
-    // 页面按设计不分页：一次读取交付全部行，也不因渲染而追加读取。
+    // 页面按设计不分页：一次读取交付全部行，也不因渲染而追加读取；
+    // 可新增项目不在页面读取里（S2-D29），渲染不牵动它。
     expect(query()).toHaveBeenCalledTimes(1)
-    expect(api.querySelectableStandardItems).toHaveBeenCalledTimes(1)
+    expect(api.querySelectableStandardItems).not.toHaveBeenCalled()
   })
 
   it('配置状态未知的行行内按钮禁用且零写请求', async () => {
@@ -2244,6 +2865,34 @@ const MULTI_LEVEL_CATALOG: EffectiveMedicalStandardCatalogReadModel = {
   ],
 }
 
+/**
+ * 多层级目录的全部项目各建一条配置行。S2-D16 之后页面行集只含本组织已配置项，
+ * 未配置的目录项目不再产生层级格，因此断言"完整层级结构"的用例必须让整份目录都已成为本组织配置。
+ */
+function multiLevelConfiguredRows(): Row[] {
+  const rows: Row[] = []
+  // 生成端把层级数组声明为可空，这里按夹具的完整形状读取并给出空值兜底。
+  for (const itemType of MULTI_LEVEL_CATALOG.itemTypes ?? []) {
+    for (const category of itemType.categories ?? []) {
+      for (const group of category.groups ?? []) {
+        for (const item of group.items ?? []) {
+          // 夹具只使用检验（0）与检查（1）两种项目类型，取值收窄后再构造行；
+          // 类型中文取目录交付的那份，否则两栏类型格的可访问名称会同名而无法分别定位。
+          const itemTypeValue: MedicalItemTypeValue | null =
+            itemType.itemType === 0 || itemType.itemType === 1 ? itemType.itemType : null
+          rows.push(row(`c-${item.code ?? ''}`, item.code ?? '', item.name ?? '', 1, {
+            itemType: itemTypeValue,
+            itemTypeText: itemType.itemTypeText ?? '',
+            categoryName: category.categoryName ?? '',
+            groupName: group.groupName ?? '',
+          }))
+        }
+      }
+    }
+  }
+  return rows
+}
+
 /** 层级格的可访问名称：名称同时表达层级与下级范围，是点击定位的唯一入口。 */
 const ITEM_TYPE_CELLS = ['高亮类型「检验」及其下级', '高亮类型「检查」及其下级']
 const CATEGORY_CELLS = ['高亮分类「血液学」及其下级', '高亮分类「生化」及其下级', '高亮分类「影像」及其下级']
@@ -2276,7 +2925,7 @@ describe('C26 列视图全平铺', () => {
   })
 
   it('类型格与分类格各自只出现一处，并纵向跨过自己的全部分组行', async () => {
-    await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
+    await renderLoaded(multiLevelConfiguredRows(), MULTI_LEVEL_CATALOG)
 
     // 同一类型／分类只有一处层格：多渲染一处就意味着版面变成逐分组重复层级。
     for (const name of ITEM_TYPE_CELLS) expect(screen.getAllByRole('button', { name })).toHaveLength(1)
@@ -2294,7 +2943,7 @@ describe('C26 列视图全平铺', () => {
   })
 
   it('窄视口下四栏由外层容器承载横向滚动，列宽不被压缩', async () => {
-    await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
+    await renderLoaded(multiLevelConfiguredRows(), MULTI_LEVEL_CATALOG)
 
     const wrap = document.querySelector('.recognition-projects-cascade-wrap')
     expect(wrap).not.toBeNull()
@@ -2332,7 +2981,7 @@ describe('C27 层级高亮', () => {
   }
 
   it('点击类型格高亮该类型格与它的全部分类、分组格；点击项目行或页面空白清除', async () => {
-    await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
+    await renderLoaded(multiLevelConfiguredRows(), MULTI_LEVEL_CATALOG)
 
     click(levelButton(ITEM_TYPE_CELLS[0]))
     expect(levelHighlightStates()).toEqual({
@@ -2346,7 +2995,7 @@ describe('C27 层级高亮', () => {
     })
 
     // 点项目行：行外壳不拦截点击，清除高亮。
-    click(rowElement('c1'))
+    click(rowElement('c-A01'))
     expect(levelHighlightStates()).toEqual(noHighlight)
 
     // 再点亮一次，然后点页面空白处：整页回到未高亮状态。
@@ -2359,7 +3008,7 @@ describe('C27 层级高亮', () => {
   })
 
   it('点击分类格只高亮该分类格与它名下的分组格', async () => {
-    await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
+    await renderLoaded(multiLevelConfiguredRows(), MULTI_LEVEL_CATALOG)
 
     click(levelButton(CATEGORY_CELLS[0]))
     expect(levelHighlightStates()).toEqual({
@@ -2381,7 +3030,7 @@ describe('C27 层级高亮', () => {
   })
 
   it('点击分组格只高亮该分组格', async () => {
-    await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
+    await renderLoaded(multiLevelConfiguredRows(), MULTI_LEVEL_CATALOG)
 
     click(levelButton(GROUP_CELLS[1]))
     expect(levelHighlightStates()).toEqual({ ...noHighlight, [GROUP_CELLS[1]]: true })
@@ -2395,7 +3044,7 @@ describe('C27 层级高亮', () => {
    * 若实现只点亮层级格而漏掉项目格（真实宿主曾如此），本条失败。
    */
   it('项目格随所属分组格一起高亮，未点中的分组项目格保持不高亮', async () => {
-    await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
+    await renderLoaded(multiLevelConfiguredRows(), MULTI_LEVEL_CATALOG)
 
     // 初始全不高亮（四个分组各一个项目格，顺序与 GROUP_CELLS 一致）。
     expect(itemCellHighlightStates()).toEqual([false, false, false, false])
@@ -2417,7 +3066,7 @@ describe('C27 层级高亮', () => {
     expect(itemCellHighlightStates()).toEqual([false, false, false, true])
 
     // 点项目行清除高亮：项目格连同层级格一起回到未高亮。
-    click(rowElement('c1'))
+    click(rowElement('c-A01'))
     expect(itemCellHighlightStates()).toEqual([false, false, false, false])
 
     expectNoWriteRequest()
@@ -2432,14 +3081,14 @@ describe('C27 层级高亮', () => {
  * 非法输入零写且保留输入，合法与同值保存都发出请求，保存成功后编辑态收起并按当前行集重取值。
  */
 describe('C28 状态徽标与可互认时间行内展示', () => {
-  /** 四条状态行：启用、停用、目录停用（目录读不到该编码）与未配置（目录里的项目在本组织没有配置）。 */
+  /** 三条状态行：启用、停用与目录停用（配置仍在，但有效目录里读不到该编码）。 */
   const statusRows = () => [
     row('c1', 'A01', '血常规', 1),
     row('c2', 'A02', '尿常规', 2),
     row('c99', 'C99', '历史项目', 2, { unavailableReason: '所属分组已停用' }),
   ]
 
-  it('启用、停用、未配置与目录停用四种状态徽标与目录停用原因各自正确', async () => {
+  it('启用、停用与目录停用三种状态徽标与目录停用原因各自正确，未配置行不出现', async () => {
     await renderLoaded(statusRows(), MULTI_LEVEL_CATALOG)
 
     expect(within(rowElement('c1')).getByText('启用')).toBeInTheDocument()
@@ -2447,19 +3096,20 @@ describe('C28 状态徽标与可互认时间行内展示', () => {
     // 目录读不到的配置行按行内字段补进列视图，徽标表达目录状态并带出停用原因。
     expect(within(rowElement('c99')).getByText('目录已停用')).toBeInTheDocument()
     expect(within(rowElement('c99')).getByText('所属分组已停用')).toBeInTheDocument()
-    // 目录里有、本组织没有配置的项目：按行标识（编码与名称组成）定位，徽标为「未配置」。
-    expect(within(rowElement('A03|凝血酶原时间')).getByText('未配置')).toBeInTheDocument()
+    // 目录里有、本组织没有配置的项目不进列表（S2-D16），因此不存在「未配置」徽标。
+    expect(screen.queryByText('未配置')).not.toBeInTheDocument()
+    expect(document.querySelectorAll('[data-row-key]')).toHaveLength(3)
 
     await act(async () => {})
     expect(api.updateRecognitionDuration).not.toHaveBeenCalled()
   })
 
-  it('未配置行的可互认时间位置是纯文本占位，不带修改可互认时间的可访问名称', async () => {
+  it('每一行都是已配置行：可互认时间都可就地修改，不存在纯文本占位行', async () => {
     await renderLoaded(statusRows(), MULTI_LEVEL_CATALOG)
 
-    const unconfigured = rowElement('A03|凝血酶原时间')
-    expect(within(unconfigured).getByText('—')).toBeInTheDocument()
-    expect(within(unconfigured).queryByLabelText('修改可互认时间：凝血酶原时间')).toBeNull()
+    // 行集只含已配置项，因此每行都有可互认时间入口，没有「—」占位行。
+    expect(screen.getAllByLabelText(/^修改可互认时间：/)).toHaveLength(3)
+    expect(within(rowElement('c1')).getByLabelText('修改可互认时间：血常规')).toBeInTheDocument()
   })
 
   it('点击时间进入行内编辑：非法输入零写并保留输入，合法与同值保存都发出请求', async () => {

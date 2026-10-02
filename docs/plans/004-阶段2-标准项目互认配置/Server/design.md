@@ -20,9 +20,11 @@
 
 静态配置核对（2026-09-14）：`server/Dy.MedicalRecognition/appsettings.Development.json` 已注册 `Dy.Base.Application.Contracts.OrganizationAggregate.IOrganizationAppService` 代理，基础 `appsettings.json` 的 `HttpServiceConfigs` 只有 Default。这只证明开发配置存在代理项，不证明该接口提供当前组织或授权集合。非开发环境须单独核对最终合并配置、已批准的服务目标及代理可用性；不复制开发地址作为生产配置。该次核对未修改这些配置、未访问组织服务；S2-D12 的"只信可信当前组织"口径已结案（`DesignConfirmed`，见阶段根设计），本项不阻断实现。
 
-查询 Request 为 `OrganizationCode`（必填）、`StandardProjectCode`（可选）、`ConfigurationStatus`（可选）。查询组织编码必须等于服务端可信当前组织（`HttpRequestInfo.OrgId`），不等即为越权并拒绝，不降级为空集合。该入参由 UML2 明确声明，只作为**查询目标组织**存在，不作为可信范围声明：前端提交的是它从宿主认证上下文读到的当前组织，服务端一律以 token 推导的可信组织为准并拒绝不一致值，因此不违反 [frontend-api-client](../../../../.agents/instructions/frontend-api-client.md) 第 4 节"不得把可信范围交给调用方决定"的约束。ReadModel 字段为：`ConfigurationId`、`StandardProjectCode`、`StandardItemName`、`ItemType`、`ItemTypeText`、`CategoryName`、`GroupName`、`RecognitionDurationDays`、`ConfigurationStatus`、`ConfigurationStatusText`、可空 `UnavailableReason`；其中两个 `…Text` 是 2026-09-16 按 S2-D15 新增的服务端枚举中文（只读计算属性，`ItemTypeText` 在取值未登记时可为 null）；不返回创建/修改信息及已删除的两个派生状态字段。按标准项目编码升序排序；同一组织编码唯一，不设计同编码或相同 ID 的排序分支。阶段2不分页，登记为 `AcceptedRisk`。
+查询 Request 为 `OrganizationCode`（必填）、`Keyword`（可选）、`ConfigurationStatus`（可选）；`Keyword` 是**单个**查询条件，按字面包含同时匹配标准项目编码、标准项目名称、所属分类名称与所属分组名称，比较不区分大小写，用户输入的 `%` 与 `_` 按普通字符转义（S2-D29）。另有一条**可新增标准项目**查询 Request，只有可选的 `Keyword`，不接收组织入参：组织一律取自可信上下文，返回「三级均启用的有效目录 − 本组织已配置」的同形层级目录。查询组织编码必须等于服务端可信当前组织（`HttpRequestInfo.OrgId`），不等即为越权并拒绝，不降级为空集合。该入参由 UML2 明确声明，只作为**查询目标组织**存在，不作为可信范围声明：前端提交的是它从宿主认证上下文读到的当前组织，服务端一律以 token 推导的可信组织为准并拒绝不一致值，因此不违反 [frontend-api-client](../../../../.agents/instructions/frontend-api-client.md) 第 4 节"不得把可信范围交给调用方决定"的约束。ReadModel 字段为：`ConfigurationId`、`StandardProjectCode`、`StandardItemName`、`ItemType`、`ItemTypeText`、`CategoryName`、`GroupName`、`RecognitionDurationDays`、`ConfigurationStatus`、`ConfigurationStatusText`、可空 `UnavailableReason`；其中两个 `…Text` 是 2026-09-16 按 S2-D15 新增的服务端枚举中文（只读计算属性，`ItemTypeText` 在取值未登记时可为 null）；不返回创建/修改信息及已删除的两个派生状态字段。按标准项目编码升序排序；同一组织编码唯一，不设计同编码或相同 ID 的排序分支。阶段2不分页，登记为 `AcceptedRisk`。
 
 分层职责固定为：Host 绑定 Request；Application 校验公共输入、解析可信组织和操作人、按编码读取当前有效标准项目并组装 Command；Domain Manager 校验目录规则、状态变化和事件登记；Repository 负责互认配置读写、目录查询端口实现、SQL、唯一约束和影响行数；Contracts 不引用 Domain Entity。Request、Command、ReadModel、Entity、DomainEvent 分离，编码到服务端目录 ID 是真实边界转换。
+
+页头范围查询 `QueryTrustedOrganizationScopeAsync` 不接收入参：可信组织只取自 `HttpRequestInfo.OrgId`，与配置列表查询共用 `TrustedOrganizationResolver` 的解析与去首尾空白口径，不新增授权组织集合，也不接受调用方指定组织；组织名称经 `OrganizationPathResolver` 按 `OrganizationPathTarget(可信组织, null, null)` 的组织层解析取得，与阶段 3 `QueryRecognitionAmountList` 同一解析点、同一名称来源（外部组织服务的 `Name`）。返回 `TrustedOrganizationScopeReadModel`，字段为 `OrganizationCode` 与 `OrganizationName`；组织不存在、已停用或外部组织服务不可用时按拒绝结束，不返回空值、不降级为只回编码。该查询只读取外部组织数据，不访问本平台数据库，因此不新增 SQL 与注册键。
 
 ### 层目录与类型归属
 
@@ -106,6 +108,8 @@
 
 查询链：Host → 既有 `IMedicalRecognitionReportQueryAppService.QueryRecognitionProjectConfigurationListAsync` → `MedicalRecognitionReportQueryAppService` 校验 Request 组织等于可信当前组织（两侧按去首尾空白比较，不另建授权组织集合） → 既有 `IMedicalRecognitionReportQueryRepository` 的同名方法 → `MedicalRecognitionReportQueryRepository` / `MedicalRecognitionReportQuery.xml` 在数据库按组织、可选编码和状态过滤并稳定排序 → `RecognitionProjectConfigurationListItem` → Application 映射 `RecognitionProjectConfigurationReadModel`。内部投影携带分类/分组/项目状态供派生原因，公共返回不泄漏这些内部字段；查询不得产生写入、审计事件或消息。
 
+页头范围查询链：Host → `IMedicalRecognitionReportQueryAppService.QueryTrustedOrganizationScopeAsync` → `MedicalRecognitionReportQueryAppService` 经 `TrustedOrganizationResolver` 取可信组织 → `OrganizationPathResolver` 解析该组织层 → Application 映射 `TrustedOrganizationScopeReadModel`。该链不进入 Repository，不读取本平台数据库。
+
 ## Command、事件与事务
 
 | Command/FacadeCommand | 主要 DomainEvent | 成功条件 | 关键事件字段 | 登记位置 | 失败/幂等语义 |
@@ -181,7 +185,7 @@ SqlMap 的 `Scope` 和每个 DataMapper 调用点统一改为 `MutualRecognition
 
 ## 验证矩阵
 
-V1-V27 编号保留，V26-V27补充并发和跨组织写入；V11验证命令可信组织，V19验证查询组织授权；V13验证单层停用，V20验证多层停用优先级，不合并或挪号。重开轮新增 V28-V33（批量创建），沿用同一编号空间。
+V1-V27 编号保留，V26-V27补充并发和跨组织写入；V11验证命令可信组织，V19验证查询组织授权；V13验证单层停用，V20验证多层停用优先级，不合并或挪号。重开轮新增 V28-V33（批量创建），页头范围展示轮新增 V34（可信组织范围查询），沿用同一编号空间。
 
 ### 测试数据边界
 
@@ -228,3 +232,5 @@ V16单元验证事件构造/登记规则，不能替代V24真实生产调度；V
 | V31 | 批量与库内配置查重 | Domain/Repository | 选中集合含已配置编码（含停用配置占用唯一键）即整批拒绝并报告编码，零行写入、零事件 | 是 | 否 | 同组织经正常接口先创建部分配置，再批量提交含相同编码的批次 |
 | V32 | 批量并发唯一冲突 | Repository/Application | 预校验通过后另一请求抢先创建同编码配置，本批写入因唯一索引整批回滚（工作单元事务），数据库异常按原样向外传播，无脏写、无部分写入、不登记事件 | 是 | 否 | 两请求并发提交同组织重叠编码批次；不直接写库预置冲突行 |
 | V33 | 批量读取无 N+1 | Application/Domain/Repository | 目录按编码集合、配置按组织+编码集合各一次读取完成校验与查重，调用次数不随行数增长 | 否 | 否 | 计数替身断言批量读取方法调用次数 |
+| V34 | 可信组织范围查询 | Application/Contract | 不接收入参；可信组织取自请求上下文并按去首尾空白判定；返回该组织的编码与名称，名称来自组织路径解析点；可信组织缺失、为空或纯空白时拒绝；组织不存在、已停用或外部组织服务失败时拒绝，不返回空值也不降级为只回编码；该查询不访问本平台数据库、不产生写入、不与配置列表行数相关 | 否 | 否 | 可信请求上下文 + 组织服务替身（含命中、不存在、停用三类返回） |
+| V35 | 可新增标准项目查询 | Application/Contract | 不接收组织入参，组织只取自可信上下文；入参只有可选 `Keyword`，非空时原样下传仓储；返回与有效目录同形的层级只读模型（项目类型→分类→分组→标准项目），无可新增项目时各层级为空；空白关键字在进入查询前被拒绝 | 否 | 否 | 可信请求上下文 + 仓储替身（含命中、空结果两类返回） |

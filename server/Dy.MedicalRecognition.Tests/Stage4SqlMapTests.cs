@@ -335,7 +335,7 @@ public sealed class Stage4SqlMapTests
   private static readonly string[] ExpectedQueryStatementIds =
   [
     "QueryMedicalStandardCategoryList", "QueryMedicalStandardGroupList", "QueryMedicalStandardItemList",
-    "QueryEffectiveMedicalStandardCatalog", "QueryRecognitionProjectConfigurationList", "QueryRecognitionAmountList",
+    "QueryEffectiveMedicalStandardCatalog", "QueryRecognitionProjectConfigurationList", "QuerySelectableStandardItemList", "QueryRecognitionAmountList",
     "CountMedicalReportList", "QueryMedicalReportList", "QueryMedicalReportVersionList", "GetMedicalReportVersionDetail",
     "GetMedicalReportScope", "GetMedicalReportVersionCommon", "GetMedicalReportVersionFile",
     "GetLaboratoryReportContent", "QueryLaboratoryResultItems", "QueryLaboratoryBacteriaResults",

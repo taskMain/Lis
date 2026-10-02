@@ -2,6 +2,7 @@ using Dy.MedicalRecognition.Application.Contracts.Queries;
 using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
 using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
 using Dy.MedicalRecognition.Application.Contracts.Queries.StandardCatalog;
+using Dy.MedicalRecognition.Application.Contracts.Queries.TrustedScope;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
 using Dy.MedicalRecognition.Application.Validation;
 using Dy.Base.Application.Contracts.OrganizationAggregate;
@@ -143,7 +144,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
   /// <param name="request">互认配置列表查询条件。</param>
   /// <returns>互认配置只读模型集合；无匹配配置时返回空集合。</returns>
   /// <exception cref="ArgumentNullException">查询条件为 null 时抛出，此时无法判定调用方意图的筛选范围。</exception>
-  /// <exception cref="ValidationException">组织编码缺失或为空白文本，标准项目编码已传入但为空白文本，或者配置状态已传入但不是已定义的配置状态枚举值时抛出；空白文本不代表“不过滤”，而是无效的筛选条件。</exception>
+  /// <exception cref="ValidationException">组织编码缺失或为空白文本，关键字已传入但为空白文本，或者配置状态已传入但不是已定义的配置状态枚举值时抛出；空白文本不代表“不过滤”，而是无效的筛选条件。</exception>
   /// <exception cref="InvalidOperationException">无法解析可信当前组织，或请求组织与可信当前组织不一致时抛出；此时不返回该组织的数据，也不降级为空集合。</exception>
   public async Task<IEnumerable<RecognitionProjectConfigurationReadModel>> QueryRecognitionProjectConfigurationListAsync(RecognitionProjectConfigurationListQueryRequest request)
   {
@@ -159,8 +160,57 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
       throw new InvalidOperationException("请求组织与当前登录组织不一致，不能查询该组织的互认配置。");
     }
 
-    IEnumerable<RecognitionProjectConfigurationListItem> items = await repository.QueryRecognitionProjectConfigurationListAsync(currentOrganizationCode, request.StandardProjectCode, request.ConfigurationStatus);
+    IEnumerable<RecognitionProjectConfigurationListItem> items = await repository.QueryRecognitionProjectConfigurationListAsync(currentOrganizationCode, request.Keyword, request.ConfigurationStatus);
     return items.Select(Map);
+  }
+
+  /// <summary>
+  /// 查询当前可信组织尚未建立互认配置、且三级均启用的标准项目目录，组装为与有效目录同形的只读模型。
+  /// </summary>
+  /// <remarks>
+  /// 组织只取自可信上下文，不接受调用方指定；已建立互认配置的项目（含配置自身已停用）与三级任一级停用的项目都不返回。
+  /// 排除在 SQL 内以 not exists 完成，因此返回的行数就是当前可新增的项目数，调用方不必再做差集。
+  /// </remarks>
+  /// <param name="request">可选标准项目查询条件。</param>
+  /// <returns>可选标准项目只读模型；没有可新增项目时各层级为空。</returns>
+  /// <exception cref="ArgumentNullException">查询条件为 null 时抛出，此时无法判定调用方意图的筛选范围。</exception>
+  /// <exception cref="ValidationException">关键字已传入但为空白文本时抛出；空白文本不代表“不过滤”，而是会放大匹配结果的无效条件。</exception>
+  /// <exception cref="InvalidOperationException">无法解析可信当前组织时抛出。</exception>
+  public async Task<EffectiveMedicalStandardCatalogReadModel> QuerySelectableStandardItemListAsync(SelectableStandardItemListQueryRequest request)
+  {
+    MedicalRecognitionRequestValidator.Validate(request);
+
+    string currentOrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定有效的当前组织。");
+    IEnumerable<EffectiveMedicalStandardCatalogItem> items = await repository.QuerySelectableStandardItemListAsync(currentOrganizationCode, request.Keyword);
+    return new EffectiveMedicalStandardCatalogReadModel
+    {
+      ItemTypes = items.GroupBy(item => item.ItemType).OrderBy(group => group.Key).Select(MapType).ToArray()
+    };
+  }
+
+  /// <summary>
+  /// 查询当前可信范围的展示资料：可信组织的编码与名称。
+  /// </summary>
+  /// <remarks>
+  /// 不接收入参：组织只取自可信上下文，与配置列表查询共用同一解析点与去首尾空白口径，不接受调用方指定组织。
+  /// 名称经组织路径解析点的组织一层取得，与金额查询同一来源；组织不存在、已停用或名称读取失败时按拒绝结束，
+  /// 不返回空值、也不降级为只回编码。该查询不访问本平台数据库。
+  /// </remarks>
+  /// <returns>可信范围的当前组织编码与名称。</returns>
+  /// <exception cref="InvalidOperationException">无法解析可信当前组织，或组织不存在、已停用、名称读取失败时抛出。</exception>
+  public async Task<TrustedOrganizationScopeReadModel> QueryTrustedOrganizationScopeAsync()
+  {
+    string currentOrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定有效的当前组织。");
+
+    OrganizationPath path = (await organizationPathResolver.ResolveOrganizationOrThrow(
+      [new OrganizationPathTarget(currentOrganizationCode, null, null)],
+      "业务拒绝：组织不存在或已停用。"))[0];
+
+    return new TrustedOrganizationScopeReadModel
+    {
+      OrganizationCode = path.OrganizationCode,
+      OrganizationName = path.OrganizationName
+    };
   }
 
   /// <summary>

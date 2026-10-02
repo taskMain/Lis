@@ -120,20 +120,23 @@ function RecognitionDurationEditor({ name, currentDays, submitting, blockedReaso
       </Button>
       <Button size='small' aria-label={`取消修改可互认时间：${name}`} disabled={submitting} onClick={onCancel}>取消</Button>
     </span>
-    {durationError === null ? null : <Alert
-      className='recognition-projects-days-error'
-      type='warning'
-      showIcon
-      title='可互认时间输入不合法'
-      description={durationError}
-    />}
-    {blockedReason === null ? null : <Alert
-      className='recognition-projects-days-error'
-      type='warning'
-      showIcon
-      title='写入已暂停'
-      description={blockedReason}
-    />}
+    {/* 异步提示放在常驻的 live region 里：容器先于内容存在，读屏软件才收得到这次变化。 */}
+    <div className='recognition-projects-row-live' aria-live='polite'>
+      {durationError === null ? null : <Alert
+        className='recognition-projects-days-error'
+        type='warning'
+        showIcon
+        title='可互认时间输入不合法'
+        description={durationError}
+      />}
+      {blockedReason === null ? null : <Alert
+        className='recognition-projects-days-error'
+        type='warning'
+        showIcon
+        title='写入已暂停'
+        description={blockedReason}
+      />}
+    </div>
   </>
 }
 

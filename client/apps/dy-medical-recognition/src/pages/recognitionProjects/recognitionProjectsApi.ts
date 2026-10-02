@@ -3,6 +3,7 @@ import type {
   MedicalRecognitionClient,
   RecognitionProjectConfigurationListQueryRequest,
   RecognitionProjectConfigurationReadModel,
+  SelectableStandardItemListQueryRequest,
 } from '@dy/api-client-medical-recognition'
 import {
   isMedicalItemTypeValue,
@@ -28,6 +29,7 @@ export type {
   MedicalRecognitionClient,
   RecognitionProjectConfigurationListQueryRequest,
   RecognitionProjectConfigurationReadModel,
+  SelectableStandardItemListQueryRequest,
 }
 
 /**
@@ -152,24 +154,26 @@ export interface RecognitionProjectConfigurationRow {
   unavailableReason: string | null
 }
 
-/** 列表展示筛选；只作用于本地已加载数据，不下推为读取范围。 */
+/**
+ * 列表筛选条件。`keyword` 是**服务端查询条件**（S2-D29）：按字面包含同时匹配标准项目编码、名称、
+ * 所属分类名称与所属分组名称；`status` 仍只在本地裁剪（离散二选一、切换即生效，下推会让每次切换都走一次网络）。
+ */
 export interface RecognitionProjectFilter {
-  code: string
+  keyword: string
   status: 'all' | ConfigurationStatusValue
 }
 
-export const EMPTY_RECOGNITION_PROJECT_FILTER: RecognitionProjectFilter = { code: '', status: 'all' }
+export const EMPTY_RECOGNITION_PROJECT_FILTER: RecognitionProjectFilter = { keyword: '', status: 'all' }
 
 /**
- * 查询请求载荷：组织编码必填，编码筛选缺省时不下发。
+ * 查询请求载荷：组织编码必填，关键字缺省时不下发。
  * 字段集合是生成类型 `RecognitionProjectConfigurationListQueryRequest` 的**窄化子集**（生成类型把
  * `organizationCode` 生成为可选，这里以必填形式冻结本地构造）。**不含 `configurationStatus`**：
- * 这是业务口径而非契约限制——下推会缩小读取范围，破坏新增排除集合的完整性（见文件头第 4c 条），
- * 配置状态只在本地筛选。契约面已可下发该枚举（生成端为 `number | null`、走 `writeNumberValue`）。
+ * 配置状态只在本地裁剪（S2-D24）。契约面已可下发该枚举（生成端为 `number | null`、走 `writeNumberValue`）。
  */
 export interface ConfigurationListQuery {
   organizationCode: string
-  standardProjectCode?: string
+  keyword?: string
 }
 
 export interface DurationUpdatePayload {
@@ -201,6 +205,15 @@ export interface SelectableStandardItem {
 export interface BatchCreateConfigurationPayload {
   standardProjectCodes: string[]
   recognitionDurationDays: number
+}
+
+/**
+ * 当前可信范围的展示资料：组织编码与名称，两者同源（都由服务端按可信上下文解析）。
+ * 名称缺失时为 `null`，页面据此退回只展示编码。
+ */
+export interface TrustedOrganizationScope {
+  organizationCode: string
+  organizationName: string | null
 }
 
 /**
@@ -249,10 +262,10 @@ export function buildConfigurationListQuery(
 ): ConfigurationListQuery | null {
   const code = organizationCode.trim()
   if (code.length === 0) return null
-  const projectCode = filter.code.trim()
+  const keyword = filter.keyword.trim()
   return {
     organizationCode: code,
-    ...(projectCode.length === 0 ? {} : { standardProjectCode: projectCode }),
+    ...(keyword.length === 0 ? {} : { keyword }),
   }
 }
 
@@ -305,15 +318,6 @@ export function toConfigurationRows(values: readonly RecognitionProjectConfigura
   })
 }
 
-/** 已配置的标准项目编码集合；**包含停用配置**，用于新增选择器的排除。 */
-export function configuredStandardProjectCodes(rows: readonly RecognitionProjectConfigurationRow[]): Set<string> {
-  const codes = new Set<string>()
-  for (const row of rows) {
-    if (row.standardProjectCode !== null && row.standardProjectCode.length > 0) codes.add(row.standardProjectCode)
-  }
-  return codes
-}
-
 /**
  * 把契约交付的有效标准目录**摊平为页面视图模型**：只产出最底层标准项目，
  * 分类与分组不作为可选项，因此不存在“可选到非最底层节点”的路径。
@@ -342,19 +346,6 @@ export function toSelectableStandardItems(catalog: EffectiveMedicalStandardCatal
 }
 
 /**
- * 从摊平结果中剔除**当前组织已配置**的标准项目（含停用配置）。
- *
- * 与摊平分开：摊平结果由目录读取交付、进页面状态；剔除依赖配置读取交付的编码集合，
- * 两者在页面按行集变化重新组合，因此新增弹窗始终隐藏全部已配置项目。
- */
-export function excludeConfiguredStandardItems(
-  items: readonly SelectableStandardItem[],
-  configuredCodes: ReadonlySet<string>,
-): SelectableStandardItem[] {
-  return items.filter((item) => !configuredCodes.has(item.code))
-}
-
-/**
  * 本地展示筛选的最小字段集：配置行与列视图行都满足。
  * 两种行共用同一条判定，页面列表与列视图不会出现两套筛选语义。
  */
@@ -370,9 +361,13 @@ interface FilterableConfigurationRow {
  * 列视图裁剪是它唯一的调用方：页面展示的行集来自列视图，配置行的筛选不再单独暴露出口，
  * 因此页面上只有一条筛选路径，不存在两处语义漂移的可能。
  */
+/**
+ * 本地展示筛选的判定体：**只按配置状态裁剪**。
+ *
+ * 关键字不在这里判定：它已作为查询条件下推服务端（S2-D29），服务端返回的结果就是"任一列命中关键字"的集合；
+ * 若本地再按编码判一次，按名称/分类/分组命中的行会被错误裁掉。
+ */
 function matchesRecognitionProjectFilter(row: FilterableConfigurationRow, filter: RecognitionProjectFilter): boolean {
-  const keyword = filter.code.trim().toLocaleLowerCase()
-  if (keyword.length > 0 && !(row.standardProjectCode ?? '').toLocaleLowerCase().includes(keyword)) return false
   if (filter.status !== 'all' && row.configurationStatus !== filter.status) return false
   return true
 }
@@ -480,6 +475,19 @@ export function toRecognitionProjectColumnView(
   rows: readonly RecognitionProjectConfigurationRow[],
   catalogItems: readonly SelectableStandardItem[],
 ): RecognitionProjectColumnView {
+  return buildColumnView(rows, catalogItems, false)
+}
+
+/**
+ * 合并目录结构与配置行的实现。`includeUnconfigured` 决定目录中未被本组织配置的项目是否进入结果：
+ * 页面列视图传 `false`（S2-D16：行集是本组织已配置项，未配置项目在页面上没有动作，进列表即成死胡同）；
+ * 新增弹窗的可选集合传 `true`（S2-D17：弹窗只列未配置项，因此必须由目录一侧产生行）。
+ */
+function buildColumnView(
+  rows: readonly RecognitionProjectConfigurationRow[],
+  catalogItems: readonly SelectableStandardItem[],
+  includeUnconfigured: boolean,
+): RecognitionProjectColumnView {
   // 按标准项目编码排队，并记住每行在 `rows` 里的位置；编码缺失的行在目录里没有对应项目，直接留给第二遍。
   const queues = new Map<string, { index: number; row: RecognitionProjectConfigurationRow }[]>()
   for (const [index, row] of rows.entries()) {
@@ -496,10 +504,12 @@ export function toRecognitionProjectColumnView(
 
   // 第一遍：按目录顺序建立层级，同时取用同编码的配置行。
   for (const item of catalogItems) {
+    const taken = queues.get(item.code)?.shift()
+    // 目录里这个项目没有被本组织配置：页面行集到此为止，不为它建层级，也不留空行。
+    if (taken === undefined && !includeUnconfigured) continue
     const itemTypeNode = findOrCreateItemType(itemTypes, item.itemType)
     if (item.itemTypeText !== null && item.itemTypeText.length > 0) itemTypeNode.itemTypeTextCandidates.push(item.itemTypeText)
     const groupNode = findOrCreateGroup(findOrCreateCategory(itemTypeNode, item.categoryName), item.groupName)
-    const taken = queues.get(item.code)?.shift()
     if (taken === undefined) {
       groupNode.rows.push({
         standardProjectCode: item.code,
@@ -613,7 +623,17 @@ export function countColumnRows(view: RecognitionProjectColumnView): number {
  * 目录停用项目不会出现在这里——可选集合来自当前有效目录，停用项目本就不在其中。
  */
 export function toSelectableColumnView(items: readonly SelectableStandardItem[]): RecognitionProjectColumnView {
-  return toRecognitionProjectColumnView([], items)
+  return buildColumnView([], items, true)
+}
+
+/**
+ * 单批创建的上限（与 S2-D19 的服务端口径同值）。弹窗在本地按它拦截，避免把必然被拒绝的批次发出去。
+ */
+export const BATCH_CREATE_LIMIT = 1000
+
+/** 选择条数是否超过单批上限；超过时由弹窗就地说明并不发请求。 */
+export function exceedsBatchCreateLimit(selectedCount: number): boolean {
+  return selectedCount > BATCH_CREATE_LIMIT
 }
 
 /**
@@ -637,17 +657,37 @@ export async function queryRecognitionProjectConfigurations(
   request: ConfigurationListQuery,
 ): Promise<RecognitionProjectConfigurationRow[]> {
   const body: RecognitionProjectConfigurationListQueryRequest = { organizationCode: request.organizationCode }
-  if (request.standardProjectCode !== undefined) body.standardProjectCode = request.standardProjectCode
+  if (request.keyword !== undefined) body.keyword = request.keyword
   const values = await client.api.medicalRecognitionReportQuery.queryRecognitionProjectConfigurationList.post(body)
   return toConfigurationRows(values ?? [])
 }
 
-/** 读取当前有效标准目录，用于新增弹窗；目录是平台级资料，不随组织变化。 */
+/**
+ * 读取**可新增**的标准项目目录（服务端已按「三级均启用的有效目录 − 本组织已配置」过滤），用于新增弹窗。
+ *
+ * 关键字是服务端查询条件（S2-D29）：与页面筛选同一口径，按字面包含同时匹配标准项目编码、名称、
+ * 所属分类名称与所属分组名称。组织不在入参里——服务端只按可信上下文排除本组织的配置。
+ */
 export async function querySelectableStandardItems(
   client: MedicalRecognitionClient,
+  keyword?: string,
 ): Promise<EffectiveMedicalStandardCatalogReadModel | null> {
-  const catalog = await client.api.medicalRecognitionReportQuery.queryEffectiveMedicalStandardCatalog.post({})
+  const body: SelectableStandardItemListQueryRequest = {}
+  const trimmed = keyword?.trim() ?? ''
+  if (trimmed.length > 0) body.keyword = trimmed
+  const catalog = await client.api.medicalRecognitionReportQuery.querySelectableStandardItemList.post(body)
   return catalog ?? null
+}
+
+/**
+ * 读取当前可信范围的展示资料：组织编码与名称。
+ *
+ * 组织**只取自服务端可信上下文**：该出口不提交任何入参，调用方无法查询其他组织，
+ * 因此页面拿到的编码与名称必然同源。名称缺失时返回 `null`，由页面退回只展示编码。
+ */
+export async function queryTrustedOrganizationScope(client: MedicalRecognitionClient): Promise<TrustedOrganizationScope> {
+  const scope = await client.api.medicalRecognitionReportQuery.queryTrustedOrganizationScope.post()
+  return { organizationCode: scope?.organizationCode ?? '', organizationName: scope?.organizationName ?? null }
 }
 
 /** 批量新增互认配置：一次请求建立全部所选项目，全部默认启用；载荷不含组织编码与内部标准项目 ID。 */

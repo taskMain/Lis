@@ -111,21 +111,32 @@ public sealed class Stage2ContractTests
       new CreateMutualRecognitionItemRequest { StandardProjectCode = "P1", RecognitionDurationDays = 1 })));
   }
 
-  /// <summary>查询请求保留必填组织编码和两个可选筛选条件，且不新增名称、类型、分类、分组筛选或分页字段。</summary>
+  /// <summary>查询请求保留必填组织编码与两个可选筛选条件（关键字、配置状态），且不新增名称、类型、分类、分组筛选或分页字段。</summary>
   [Fact]
   public void List_query_request_fields_and_optionality_match_design()
   {
     Type type = typeof(RecognitionProjectConfigurationListQueryRequest);
 
-    string[] expected = ["ConfigurationStatus", "OrganizationCode", "StandardProjectCode"];
+    string[] expected = ["ConfigurationStatus", "Keyword", "OrganizationCode"];
     Assert.Equal(expected, DeclaredPropertyNames(type));
 
     Assert.Equal(typeof(string), type.GetProperty("OrganizationCode")!.PropertyType);
-    Assert.Equal(typeof(string), type.GetProperty("StandardProjectCode")!.PropertyType);
+    Assert.Equal(typeof(string), type.GetProperty("Keyword")!.PropertyType);
     Assert.Equal(typeof(ConfigurationStatus?), type.GetProperty("ConfigurationStatus")!.PropertyType);
 
     Assert.Equal(NullabilityState.NotNull, ReadNullability(type, "OrganizationCode"));
-    Assert.Equal(NullabilityState.Nullable, ReadNullability(type, "StandardProjectCode"));
+    Assert.Equal(NullabilityState.Nullable, ReadNullability(type, "Keyword"));
+  }
+
+  /// <summary>可新增标准项目查询请求只有一个可选关键字字段，组织不在入参里。</summary>
+  [Fact]
+  public void Selectable_item_query_request_fields_and_optionality_match_design()
+  {
+    Type type = typeof(SelectableStandardItemListQueryRequest);
+
+    Assert.Equal(["Keyword"], DeclaredPropertyNames(type));
+    Assert.Equal(typeof(string), type.GetProperty("Keyword")!.PropertyType);
+    Assert.Equal(NullabilityState.Nullable, ReadNullability(type, "Keyword"));
   }
 
   /// <summary>查询请求的组织编码缺失、空串或纯空白都在进入查询前被拒绝，合法组织编码通过。</summary>
@@ -139,10 +150,10 @@ public sealed class Stage2ContractTests
     Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(
       () => MedicalRecognitionRequestValidator.Validate(new RecognitionProjectConfigurationListQueryRequest { OrganizationCode = "   " }));
     Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(
-      () => MedicalRecognitionRequestValidator.Validate(new RecognitionProjectConfigurationListQueryRequest { OrganizationCode = "ORG-A", StandardProjectCode = "" }));
+      () => MedicalRecognitionRequestValidator.Validate(new RecognitionProjectConfigurationListQueryRequest { OrganizationCode = "ORG-A", Keyword = "" }));
 
     Assert.Null(Record.Exception(() => MedicalRecognitionRequestValidator.Validate(
-      new RecognitionProjectConfigurationListQueryRequest { OrganizationCode = "ORG-A", StandardProjectCode = null, ConfigurationStatus = ConfigurationStatus.Enabled })));
+      new RecognitionProjectConfigurationListQueryRequest { OrganizationCode = "ORG-A", Keyword = null, ConfigurationStatus = ConfigurationStatus.Enabled })));
   }
 
   /// <summary>

@@ -1313,6 +1313,15 @@ export function createSaveOrganizationHospitalBranchRecognitionAmountRequestFrom
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {SelectableStandardItemListQueryRequest}
+ */
+// @ts-ignore
+export function createSelectableStandardItemListQueryRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoSelectableStandardItemListQueryRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {SourceOrganizationReadModel}
  */
 // @ts-ignore
@@ -1354,6 +1363,15 @@ export function createSourceRecognitionSummaryQueryRequestFromDiscriminatorValue
 // @ts-ignore
 export function createSourceRecognitionSummaryReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoSourceRecognitionSummaryReadModel;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {TrustedOrganizationScopeReadModel}
+ */
+// @ts-ignore
+export function createTrustedOrganizationScopeReadModelFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoTrustedOrganizationScopeReadModel;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -2677,8 +2695,8 @@ export function deserializeIntoRecognitionProcessingResultSubmissionRequest(reco
 export function deserializeIntoRecognitionProjectConfigurationListQueryRequest(recognitionProjectConfigurationListQueryRequest: Partial<RecognitionProjectConfigurationListQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "configurationStatus": n => { recognitionProjectConfigurationListQueryRequest.configurationStatus = n.getNumberValue(); },
+        "keyword": n => { recognitionProjectConfigurationListQueryRequest.keyword = n.getStringValue(); },
         "organizationCode": n => { recognitionProjectConfigurationListQueryRequest.organizationCode = n.getStringValue(); },
-        "standardProjectCode": n => { recognitionProjectConfigurationListQueryRequest.standardProjectCode = n.getStringValue(); },
     }
 }
 /**
@@ -3040,6 +3058,17 @@ export function deserializeIntoSaveOrganizationHospitalBranchRecognitionAmountRe
 }
 /**
  * The deserialization information for the current model
+ * @param SelectableStandardItemListQueryRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoSelectableStandardItemListQueryRequest(selectableStandardItemListQueryRequest: Partial<SelectableStandardItemListQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "keyword": n => { selectableStandardItemListQueryRequest.keyword = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param SourceOrganizationReadModel The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -3157,6 +3186,18 @@ export function deserializeIntoSourceRecognitionSummaryReadModel(sourceRecogniti
         "sourceOrganizationName": n => { sourceRecognitionSummaryReadModel.sourceOrganizationName = n.getStringValue(); },
         "standardProjectCode": n => { sourceRecognitionSummaryReadModel.standardProjectCode = n.getStringValue(); },
         "standardProjectName": n => { sourceRecognitionSummaryReadModel.standardProjectName = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param TrustedOrganizationScopeReadModel The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoTrustedOrganizationScopeReadModel(trustedOrganizationScopeReadModel: Partial<TrustedOrganizationScopeReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "organizationCode": n => { trustedOrganizationScopeReadModel.organizationCode = n.getStringValue(); },
+        "organizationName": n => { trustedOrganizationScopeReadModel.organizationName = n.getStringValue(); },
     }
 }
 /**
@@ -4849,13 +4890,13 @@ export interface RecognitionProjectConfigurationListQueryRequest extends Additio
      */
     configurationStatus?: number | null;
     /**
+     * The keyword property
+     */
+    keyword?: string | null;
+    /**
      * The organizationCode property
      */
     organizationCode?: string | null;
-    /**
-     * The standardProjectCode property
-     */
-    standardProjectCode?: string | null;
 }
 export interface RecognitionProjectConfigurationReadModel extends AdditionalDataHolder, Parsable {
     /**
@@ -5676,6 +5717,12 @@ export interface SaveOrganizationHospitalBranchRecognitionAmountRequest extends 
      * The standardProjectCode property
      */
     standardProjectCode?: string | null;
+}
+export interface SelectableStandardItemListQueryRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The keyword property
+     */
+    keyword?: string | null;
 }
 /**
  * Serializes information the current object
@@ -7054,8 +7101,8 @@ export function serializeRecognitionProcessingResultSubmissionRequest(writer: Se
 export function serializeRecognitionProjectConfigurationListQueryRequest(writer: SerializationWriter, recognitionProjectConfigurationListQueryRequest: Partial<RecognitionProjectConfigurationListQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!recognitionProjectConfigurationListQueryRequest || isSerializingDerivedType) { return; }
     writer.writeNumberValue("configurationStatus", recognitionProjectConfigurationListQueryRequest.configurationStatus);
+    writer.writeStringValue("keyword", recognitionProjectConfigurationListQueryRequest.keyword);
     writer.writeStringValue("organizationCode", recognitionProjectConfigurationListQueryRequest.organizationCode);
-    writer.writeStringValue("standardProjectCode", recognitionProjectConfigurationListQueryRequest.standardProjectCode);
     writer.writeAdditionalData(recognitionProjectConfigurationListQueryRequest.additionalData);
 }
 /**
@@ -7434,6 +7481,18 @@ export function serializeSaveOrganizationHospitalBranchRecognitionAmountRequest(
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param SelectableStandardItemListQueryRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeSelectableStandardItemListQueryRequest(writer: SerializationWriter, selectableStandardItemListQueryRequest: Partial<SelectableStandardItemListQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!selectableStandardItemListQueryRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("keyword", selectableStandardItemListQueryRequest.keyword);
+    writer.writeAdditionalData(selectableStandardItemListQueryRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param SourceOrganizationReadModel The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -7556,6 +7615,19 @@ export function serializeSourceRecognitionSummaryReadModel(writer: Serialization
     writer.writeStringValue("standardProjectCode", sourceRecognitionSummaryReadModel.standardProjectCode);
     writer.writeStringValue("standardProjectName", sourceRecognitionSummaryReadModel.standardProjectName);
     writer.writeAdditionalData(sourceRecognitionSummaryReadModel.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param TrustedOrganizationScopeReadModel The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeTrustedOrganizationScopeReadModel(writer: SerializationWriter, trustedOrganizationScopeReadModel: Partial<TrustedOrganizationScopeReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!trustedOrganizationScopeReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("organizationCode", trustedOrganizationScopeReadModel.organizationCode);
+    writer.writeStringValue("organizationName", trustedOrganizationScopeReadModel.organizationName);
+    writer.writeAdditionalData(trustedOrganizationScopeReadModel.additionalData);
 }
 /**
  * Serializes information the current object
@@ -7895,6 +7967,16 @@ export interface SourceRecognitionSummaryReadModel extends AdditionalDataHolder,
      * The standardProjectName property
      */
     standardProjectName?: string | null;
+}
+export interface TrustedOrganizationScopeReadModel extends AdditionalDataHolder, Parsable {
+    /**
+     * The organizationCode property
+     */
+    organizationCode?: string | null;
+    /**
+     * The organizationName property
+     */
+    organizationName?: string | null;
 }
 export interface UpdateMedicalStandardCategoryRequest extends AdditionalDataHolder, Parsable {
     /**

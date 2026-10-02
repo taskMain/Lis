@@ -431,3 +431,19 @@ V56「检查项目与部位可选人员成对规则」：检查项目与检查�
 - 受影响实现：版本详情投影的电话掩码处理已移除，联系电话改由既有空值归一（`NullIfBlank`）承载；`Stage4QueryTests` / `Stage4ContractTests` 断言与前端 `ReportManagement.test.tsx`、`reportsApi.test.ts` 期望已改到原值口径。自动化证据：目标过滤 49/49 通过、后端全量 781 项中 780 通过（1 项失败为阶段 7 票01 引入的既有登记缺口，与本阶段用例无关）、前端 354 项通过（352 通过、2 跳过），均登记于阶段 7 根 `testReport.md`「票03」节。
 - 真实链路重取证据（2026-09-22，宿主页面与 `localhost:15014` 接口）：报告列表患者姓名、证件号码为业务原值（如 `林来源` / `530101198601012202`、`验收患者甲` / `530101199005120011`）；报告版本详情患者联系电话为业务原值（`MR-ACC-LAB-20260918-001` 第 1、2 版均为 `13800001111`，`MR-ST5-09-CROSS-CSYY2-001` 为 `13800009999`），与 `mrec_medical_report_version.patient_phone_number` 逐字一致；`QueryMedicalReportVersionDetail` 返回 `content.common.patientPhoneNumber` 无掩码。完整取证环境与逐条比对见阶段 7 根 `testReport.md`「票03」节。
 - 历史证据说明：本报告上文的 `*******1111`、`*******1234`/`*******3333` 等记录形成于掩码实现时期，按 Planning And Evidence §4 不得改写已经形成的历史证据，保持原样；现行口径以 S7-D8 与 `docs/需求规约SRS.md`「通用界面要求」第 2、3 条为准。
+
+## 测试夹具时间缺陷修复（2026-10-02）
+
+阶段 2 的后端门禁复跑时发现本阶段 `Stage4WritePathTests` 有 6 条作废用例失败，根因是该文件的测试夹具把时间写成固定常量。修复已执行，改动面只有测试夹具；本节只追加，不改写上文历史证据。
+
+| 项 | 内容 |
+|---|---|
+| 失败形态 | `First_void_takes_effect_without_content_version`、`Voided_report_cannot_be_submitted_again`、`Repeated_void_is_idempotent_only_for_identical_void_facts`、`Voided_laboratory_report_stops_appending_versions`、`Voided_examination_report_stops_appending_versions`、`Void_keeps_versions_and_details_readable` 六条在真实时钟走过夹具时间后必然失败（修复前 810 通过 / 6 失败，总计 816） |
+| 根因 | `VoidCommand` / `ExaminationVoidCommand` 把**作废时间**与**作废请求的接收时间**都默认成固定常量 `ReceivedTime = 2026-10-01 11:30`，而报告当前版本的平台接收时间由服务端取当前时点。固定作废时间去撞「作废时间不得早于当前版本的平台接收时间」、固定请求接收时间去撞「作废时间不得晚于本次请求的接收时间」，管理器 `MedicalRecognitionReportManager.Submission.cs` 的两端边界校验必然拒绝 |
+| 修复 | 两个命令辅助的缺省时间改为同一次「发起时的当前时点」（作废时间与请求接收时间取同一值，与该用例组「两端相等时接受」的口径一致）；用例中显式传入固定常量的三处改用缺省口径；`First_void_takes_effect_without_content_version` 的期望值改为读命令上实际传入的作废时间。固定常量 `ReceivedTime` 保留其在提交路径上的原作用（证明服务端不采信请求声明的接收时间），并补注其不得用作作废时间 |
+| 未改动 | 生产代码、管理器的两端边界校验、`Void_time_boundaries_are_enforced` 用例（继续守「早一秒拒绝、晚一秒拒绝、两端相等接受」）均原样保留；矩阵条目状态不因本次修复改变 |
+| 证据 | `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj` **816 通过 / 0 失败 / 0 跳过（816）** |
+
+该文件另有一条既有审查记录仍然成立、本次未处置：[阶段4-代码与规范符合性审查结果](阶段4-审查相关/阶段4-代码与规范符合性审查结果.md) 的低风险项「依赖当前时间：`Stage4WritePathTests.cs:94-97` 使用 `Math.Abs((version.ReceivedTime - DateTime.Now).TotalMinutes) < 5`，属 `testing-baseline.md` 第 2 节禁止的依赖当前时间写法，建议改为可控时钟」。本次修复只把作废事实的时间锚到同一时点，未改变该断言的写法。
+
+阶段 2 侧的同一条登记见 [阶段 2 测试报告](../004-阶段2-标准项目互认配置/testReport.md) 的「阶段 4 测试夹具时间缺陷修复（2026-10-02，同轮附带）」。

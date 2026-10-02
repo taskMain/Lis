@@ -767,7 +767,11 @@ public sealed class Stage3QueryTests
       throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
 
     /// <inheritdoc/>
-    public Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? standardProjectCode, ConfigurationStatus? configurationStatus) =>
+    public Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? keyword, ConfigurationStatus? configurationStatus) =>
+      throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<EffectiveMedicalStandardCatalogItem>> QuerySelectableStandardItemListAsync(string organizationCode, string? keyword) =>
       throw new NotSupportedException("本测试只覆盖互认项目金额列表查询。");
 
     /// <inheritdoc/>

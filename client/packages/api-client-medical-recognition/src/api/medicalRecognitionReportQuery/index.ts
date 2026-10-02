@@ -40,9 +40,13 @@ import { QueryRecognitionUsageDetailsRequestBuilderRequestsMetadata, type QueryR
 // @ts-ignore
 import { QueryRecognitionUsageSummaryRequestBuilderRequestsMetadata, type QueryRecognitionUsageSummaryRequestBuilder } from './queryRecognitionUsageSummary/index.js';
 // @ts-ignore
+import { QuerySelectableStandardItemListRequestBuilderRequestsMetadata, type QuerySelectableStandardItemListRequestBuilder } from './querySelectableStandardItemList/index.js';
+// @ts-ignore
 import { QuerySourceRecognitionDetailsRequestBuilderRequestsMetadata, type QuerySourceRecognitionDetailsRequestBuilder } from './querySourceRecognitionDetails/index.js';
 // @ts-ignore
 import { QuerySourceRecognitionSummaryRequestBuilderRequestsMetadata, type QuerySourceRecognitionSummaryRequestBuilder } from './querySourceRecognitionSummary/index.js';
+// @ts-ignore
+import { QueryTrustedOrganizationScopeRequestBuilderRequestsMetadata, type QueryTrustedOrganizationScopeRequestBuilder } from './queryTrustedOrganizationScope/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
@@ -127,6 +131,10 @@ export interface MedicalRecognitionReportQueryRequestBuilder extends BaseRequest
      */
     get queryRecognitionUsageSummary(): QueryRecognitionUsageSummaryRequestBuilder;
     /**
+     * The QuerySelectableStandardItemList property
+     */
+    get querySelectableStandardItemList(): QuerySelectableStandardItemListRequestBuilder;
+    /**
      * The QuerySourceRecognitionDetails property
      */
     get querySourceRecognitionDetails(): QuerySourceRecognitionDetailsRequestBuilder;
@@ -134,6 +142,10 @@ export interface MedicalRecognitionReportQueryRequestBuilder extends BaseRequest
      * The QuerySourceRecognitionSummary property
      */
     get querySourceRecognitionSummary(): QuerySourceRecognitionSummaryRequestBuilder;
+    /**
+     * The QueryTrustedOrganizationScope property
+     */
+    get queryTrustedOrganizationScope(): QueryTrustedOrganizationScopeRequestBuilder;
 }
 /**
  * Uri template for the request builder.
@@ -200,11 +212,17 @@ export const MedicalRecognitionReportQueryRequestBuilderNavigationMetadata: Reco
     queryRecognitionUsageSummary: {
         requestsMetadata: QueryRecognitionUsageSummaryRequestBuilderRequestsMetadata,
     },
+    querySelectableStandardItemList: {
+        requestsMetadata: QuerySelectableStandardItemListRequestBuilderRequestsMetadata,
+    },
     querySourceRecognitionDetails: {
         requestsMetadata: QuerySourceRecognitionDetailsRequestBuilderRequestsMetadata,
     },
     querySourceRecognitionSummary: {
         requestsMetadata: QuerySourceRecognitionSummaryRequestBuilderRequestsMetadata,
+    },
+    queryTrustedOrganizationScope: {
+        requestsMetadata: QueryTrustedOrganizationScopeRequestBuilderRequestsMetadata,
     },
 };
 /* tslint:enable */

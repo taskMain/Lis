@@ -1,5 +1,8 @@
 using System.Reflection;
+using Dy.Base.Application.Contracts.OrganizationAggregate;
 using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
+using Dy.MedicalRecognition.Application.Contracts.Queries.StandardCatalog;
+using Dy.MedicalRecognition.Application.Contracts.Queries.TrustedScope;
 using Dy.MedicalRecognition.Application.Queries;
 using Dy.MedicalRecognition.Domain.Queries;
 using Dy.MedicalRecognition.Domain.Queries.Ports;
@@ -22,6 +25,8 @@ public sealed class Stage2QueryTests
 {
   /// <summary>可信当前组织编码；用例通过框架请求上下文注入该值。</summary>
   private const string TrustedOrganizationCode = "ORG-A";
+  /// <summary>外部组织服务为该可信组织返回的名称；只出现在范围查询用例，不参与其他查询的判定。</summary>
+  private const string TrustedOrganizationName = "示例组织";
   /// <summary>与可信当前组织不同的组织编码，用于越权查询用例。</summary>
   private const string OtherOrganizationCode = "ORG-B";
   /// <summary>用例注入的令牌用户标识；查询不读取操作人，只用于构造完整的认证上下文。</summary>
@@ -182,12 +187,12 @@ public sealed class Stage2QueryTests
     IEnumerable<RecognitionProjectConfigurationReadModel> result = await service.QueryRecognitionProjectConfigurationListAsync(
       new RecognitionProjectConfigurationListQueryRequest
       {
-        OrganizationCode = TrustedOrganizationCode, StandardProjectCode = "PROBE", ConfigurationStatus = ConfigurationStatus.Enabled
+        OrganizationCode = TrustedOrganizationCode, Keyword = "PROBE", ConfigurationStatus = ConfigurationStatus.Enabled
       });
     RecognitionProjectConfigurationReadModel[] items = [.. result];
 
     Assert.Equal(TrustedOrganizationCode, repository.ReceivedQuery?.OrganizationCode);
-    Assert.Equal("PROBE", repository.ReceivedQuery?.StandardProjectCode);
+    Assert.Equal("PROBE", repository.ReceivedQuery?.Keyword);
     Assert.Equal(ConfigurationStatus.Enabled, repository.ReceivedQuery?.ConfigurationStatus);
     Assert.Equal(2, items.Length);
     // 查询端口的调用次数只随筛选维度增长，不随返回行数增长（两行结果仍只查询一次）。
@@ -251,7 +256,7 @@ public sealed class Stage2QueryTests
 
     Assert.Empty(items);
     Assert.Equal(TrustedOrganizationCode, repository.ReceivedQuery?.OrganizationCode);
-    Assert.Null(repository.ReceivedQuery?.StandardProjectCode);
+    Assert.Null(repository.ReceivedQuery?.Keyword);
     Assert.Null(repository.ReceivedQuery?.ConfigurationStatus);
   }
 
@@ -274,6 +279,138 @@ public sealed class Stage2QueryTests
     Assert.True(MedicalRecognitionReportQueryRepository.MapConfigurationStatusToIsValid(ConfigurationStatus.Enabled));
     Assert.False(MedicalRecognitionReportQueryRepository.MapConfigurationStatusToIsValid(ConfigurationStatus.Disabled));
     Assert.Null(MedicalRecognitionReportQueryRepository.MapConfigurationStatusToIsValid(null));
+  }
+
+  /// <summary>
+  /// 可信范围查询返回可信组织的编码与名称：组织只取自可信上下文并按去首尾空白判定，
+  /// 名称来自组织路径解析点的组织一层（V34）。
+  /// </summary>
+  [Fact]
+  public async Task Trusted_organization_scope_returns_the_code_and_name_of_the_trusted_organization()
+  {
+    TrustedRequestContext.Use($"  {TrustedOrganizationCode}  ", TrustedOperId);
+    StubOrganizationAppService organizationAppService = new()
+    {
+      Organizations = [new OrganizationDto { Id = TrustedOrganizationCode, Name = TrustedOrganizationName, IsValid = true }]
+    };
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([]), organizationAppService, new StubUserAppService(), new StubSystemParameterAppService());
+
+    TrustedOrganizationScopeReadModel scope = await service.QueryTrustedOrganizationScopeAsync();
+
+    Assert.Equal(TrustedOrganizationCode, scope.OrganizationCode);
+    Assert.Equal(TrustedOrganizationName, scope.OrganizationName);
+    Assert.Equal(1, organizationAppService.OrganizationReadCount);
+  }
+
+  /// <summary>
+  /// V35：可新增标准项目查询只取可信当前组织的未配置项目，关键字原样下传，并按类型 → 分类 → 分组组装层级。
+  /// </summary>
+  /// <remarks>排除已配置项由 SQL 的 not exists 完成，应用层不做差集，因此这里只断言组织与关键字的下传与层级组装。</remarks>
+  [Fact]
+  public async Task Selectable_standard_items_are_queried_for_the_trusted_organization_and_grouped_by_levels()
+  {
+    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
+    FakeQueryRepository repository = new([])
+    {
+      SelectableItems =
+      [
+        new EffectiveMedicalStandardCatalogItem
+        {
+          ItemType = MedicalItemType.Laboratory, ItemId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+          CategoryId = Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111"), CategoryName = "临床检验",
+          GroupId = Guid.Parse("bbbbbbbb-1111-1111-1111-111111111111"), GroupName = "血液学",
+          Code = "PROBE-001", Name = "血常规"
+        },
+        new EffectiveMedicalStandardCatalogItem
+        {
+          ItemType = MedicalItemType.Examination, ItemId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+          CategoryId = Guid.Parse("cccccccc-2222-2222-2222-222222222222"), CategoryName = "医学影像",
+          GroupId = Guid.Parse("dddddddd-2222-2222-2222-222222222222"), GroupName = "CT",
+          Code = "PROBE-002", Name = "胸部CT"
+        }
+      ]
+    };
+    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+
+    EffectiveMedicalStandardCatalogReadModel catalog = await service.QuerySelectableStandardItemListAsync(
+      new SelectableStandardItemListQueryRequest { Keyword = "血" });
+
+    // 组织只取自可信上下文，关键字原样下传；两个条件都不来自调用方的其他字段。
+    Assert.Equal(TrustedOrganizationCode, repository.ReceivedSelectableQuery?.OrganizationCode);
+    Assert.Equal("血", repository.ReceivedSelectableQuery?.Keyword);
+
+    Assert.Equal([MedicalItemType.Laboratory, MedicalItemType.Examination], catalog.ItemTypes.Select(node => node.ItemType));
+    Assert.Equal("临床检验", catalog.ItemTypes[0].Categories[0].CategoryName);
+    Assert.Equal("血液学", catalog.ItemTypes[0].Categories[0].Groups[0].GroupName);
+    Assert.Equal("PROBE-001", catalog.ItemTypes[0].Categories[0].Groups[0].Items[0].Code);
+    Assert.Equal("胸部CT", catalog.ItemTypes[1].Categories[0].Groups[0].Items[0].Name);
+  }
+
+  /// <summary>V35：没有可新增项目时各层级为空，不返回空壳层级；关键字空白在进入查询前被拒绝。</summary>
+  [Fact]
+  public async Task Selectable_standard_items_return_no_levels_when_nothing_is_selectable_and_reject_blank_keyword()
+  {
+    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
+    FakeQueryRepository repository = new([]);
+    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+
+    EffectiveMedicalStandardCatalogReadModel catalog = await service.QuerySelectableStandardItemListAsync(new SelectableStandardItemListQueryRequest());
+    Assert.Empty(catalog.ItemTypes);
+    Assert.Equal(TrustedOrganizationCode, repository.ReceivedSelectableQuery?.OrganizationCode);
+    Assert.Null(repository.ReceivedSelectableQuery?.Keyword);
+
+    await Assert.ThrowsAsync<System.ComponentModel.DataAnnotations.ValidationException>(
+      () => service.QuerySelectableStandardItemListAsync(new SelectableStandardItemListQueryRequest { Keyword = "   " }));
+  }
+
+  /// <summary>可信请求上下文中取不到组织时拒绝，且不读取外部组织服务；不返回空值、也不降级为只回编码（V34）。</summary>
+  [Fact]
+  public async Task Trusted_organization_scope_rejects_when_trusted_organization_is_missing()
+  {    TrustedRequestContext.Use("   ", TrustedOperId);
+    StubOrganizationAppService organizationAppService = new()
+    {
+      Organizations = [new OrganizationDto { Id = TrustedOrganizationCode, Name = TrustedOrganizationName, IsValid = true }]
+    };
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([]), organizationAppService, new StubUserAppService(), new StubSystemParameterAppService());
+
+    await Assert.ThrowsAsync<InvalidOperationException>(() => service.QueryTrustedOrganizationScopeAsync());
+
+    Assert.Equal(0, organizationAppService.OrganizationReadCount);
+  }
+
+  /// <summary>可信组织在外部组织服务里不存在或已停用时拒绝，不返回空名称、也不降级为只回编码（V34）。</summary>
+  /// <param name="organizationExists">外部组织服务的组织全量中是否存在该可信组织。</param>
+  /// <param name="organizationIsValid">存在时该组织是否启用。</param>
+  [Theory]
+  [InlineData(false, false)]
+  [InlineData(true, false)]
+  public async Task Trusted_organization_scope_rejects_when_the_organization_is_missing_or_disabled(bool organizationExists, bool organizationIsValid)
+  {
+    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
+    StubOrganizationAppService organizationAppService = new()
+    {
+      Organizations = organizationExists
+        ? [new OrganizationDto { Id = TrustedOrganizationCode, Name = TrustedOrganizationName, IsValid = organizationIsValid }]
+        : []
+    };
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([]), organizationAppService, new StubUserAppService(), new StubSystemParameterAppService());
+
+    InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.QueryTrustedOrganizationScopeAsync());
+
+    Assert.Equal("业务拒绝：组织不存在或已停用。", exception.Message);
+  }
+
+  /// <summary>
+  /// 可信范围查询不接收入参、也不声明工作单元：组织只来自可信上下文，调用方无法查询其他组织；
+  /// 纯查询路径不引入事务或事件（V34）。
+  /// </summary>
+  [Fact]
+  public void Trusted_organization_scope_entrypoint_takes_no_input_and_declares_no_work_unit()
+  {
+    MethodInfo method = typeof(MedicalRecognitionReportQueryAppService).GetMethod(nameof(MedicalRecognitionReportQueryAppService.QueryTrustedOrganizationScopeAsync))!;
+
+    Assert.Empty(method.GetParameters());
+    Assert.DoesNotContain(method.GetCustomAttributes(), attribute => attribute.GetType().Name == "WorkUnitAttribute");
   }
 
   /// <summary>发起一次组织编码查询并返回唯一结果的不可用原因。</summary>
@@ -343,18 +480,31 @@ public sealed class Stage2QueryTests
     /// <summary>查询返回的互认配置投影集合；可在用例中重新赋值以模拟目录状态变化。</summary>
     public IEnumerable<RecognitionProjectConfigurationListItem> Items { get; set; }
 
+    /// <summary>可新增标准项目查询返回的投影集合（与有效目录同形）。</summary>
+    public IEnumerable<EffectiveMedicalStandardCatalogItem> SelectableItems { get; set; } = [];
+
     /// <summary>本次查询收到的筛选条件；未进入查询端口时为 null。</summary>
-    public (string OrganizationCode, string? StandardProjectCode, ConfigurationStatus? ConfigurationStatus)? ReceivedQuery { get; private set; }
+    public (string OrganizationCode, string? Keyword, ConfigurationStatus? ConfigurationStatus)? ReceivedQuery { get; private set; }
+
+    /// <summary>可新增标准项目查询收到的组织与关键字；未进入该端口时为 null。</summary>
+    public (string OrganizationCode, string? Keyword)? ReceivedSelectableQuery { get; private set; }
 
     /// <summary>进入互认配置查询端口的次数。</summary>
     public int CallCount { get; private set; }
 
     /// <inheritdoc/>
-    public Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? standardProjectCode, ConfigurationStatus? configurationStatus)
+    public Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? keyword, ConfigurationStatus? configurationStatus)
     {
       CallCount++;
-      ReceivedQuery = (organizationCode, standardProjectCode, configurationStatus);
+      ReceivedQuery = (organizationCode, keyword, configurationStatus);
       return Task.FromResult(Items);
+    }
+
+    /// <inheritdoc/>
+    public Task<IEnumerable<EffectiveMedicalStandardCatalogItem>> QuerySelectableStandardItemListAsync(string organizationCode, string? keyword)
+    {
+      ReceivedSelectableQuery = (organizationCode, keyword);
+      return Task.FromResult(SelectableItems);
     }
 
     /// <inheritdoc/>

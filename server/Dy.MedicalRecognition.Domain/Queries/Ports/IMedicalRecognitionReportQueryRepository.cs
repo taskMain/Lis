@@ -52,18 +52,32 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<IEnumerable<EffectiveMedicalStandardCatalogItem>> QueryEffectiveMedicalStandardCatalogAsync(MedicalItemType? itemType, string? categoryName);
 
   /// <summary>
+  /// 查询指定组织范围内尚未建立互认配置、且三级均启用的标准项目目录。
+  /// </summary>
+  /// <remarks>
+  /// 组织编码是必填的范围条件，调用方须先确认它是可信当前组织。
+  /// 已建立互认配置的项目（含配置自身已停用的项目）与三级任一级停用的项目都不返回。
+  /// 关键字按字面包含同时匹配标准项目编码、名称、分类名称与分组名称，符号处理同编码且不区分大小写。
+  /// 传 <see langword="null"/> 表示不按关键字过滤；无可新增项目时返回空集合；排序同有效目录查询。
+  /// </remarks>
+  /// <param name="organizationCode">组织编码；只排除该组织已建立的配置。</param>
+  /// <param name="keyword">关键字筛选条件。</param>
+  /// <returns>展平的可新增标准项目行集合。</returns>
+  Task<IEnumerable<EffectiveMedicalStandardCatalogItem>> QuerySelectableStandardItemListAsync(string organizationCode, string? keyword);
+
+  /// <summary>
   /// 查询指定组织范围内的互认项目配置，并实时关联标准项目所属分类、分组和标准项目。
   /// </summary>
   /// <remarks>
   /// 组织编码是必填的范围条件，调用方须先确认它是可信当前组织。
-  /// 标准项目编码按字面包含匹配，<c>%</c>、<c>_</c> 不作为通配符。
+  /// 关键字按字面包含同时匹配标准项目编码、名称、分类名称与分组名称，<c>%</c>、<c>_</c> 不作为通配符，比较不区分大小写。
   /// 传 <see langword="null"/> 表示不按该条件过滤；无匹配时返回空集合；按标准项目编码升序、配置标识升序。
   /// </remarks>
   /// <param name="organizationCode">配置所属组织编码；只返回该组织的配置。</param>
-  /// <param name="standardProjectCode">标准项目编码筛选条件。</param>
+  /// <param name="keyword">关键字筛选条件。</param>
   /// <param name="configurationStatus">配置启用状态筛选条件。</param>
   /// <returns>互认配置与标准目录三层状态的投影集合。</returns>
-  Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? standardProjectCode, ConfigurationStatus? configurationStatus);
+  Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? keyword, ConfigurationStatus? configurationStatus);
 
   /// <summary>
   /// 查询指定组织、医院与院区范围内的互认项目金额列表，并实时关联标准项目所属分类、分组和标准项目。

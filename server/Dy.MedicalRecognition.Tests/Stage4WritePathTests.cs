@@ -28,7 +28,13 @@ public sealed class Stage4WritePathTests
   /// <summary>固定操作时间。</summary>
   private static readonly DateTimeOffset CommandOperTime = new(2026, 9, 20, 3, 30, 0, TimeSpan.Zero);
 
-  /// <summary>固定平台接收时间；取值晚于全部来源业务时间，避免与来源时间顺序校验冲突。</summary>
+  /// <summary>
+  /// 请求里声明的平台接收时间。提交路径的平台接收时间由服务端取当前时点、不采信请求值，因此这里用一个固定值来证明请求值未被采用。
+  /// </summary>
+  /// <remarks>
+  /// 该常量不得用作**作废时间**或**作废请求的接收时间**：作废要求作废时间不早于服务端写下的版本接收时间、且不晚于本次请求的接收时间，
+  /// 两个边界都锚在服务端当次时点上，固定常量会被真实时钟走过而使校验必然拒绝。作废事实的时间见 <see cref="VoidCommand"/>。
+  /// </remarks>
   private static readonly DateTime ReceivedTime = new(2026, 10, 1, 11, 30, 0, DateTimeKind.Unspecified);
 
   /// <summary>固定报告时间。</summary>
@@ -1081,14 +1087,14 @@ public sealed class Stage4WritePathTests
     MedicalRecognitionReportManager manager = CreateManager(repository);
     await WithCapturedEventsAsync(() => manager.SubmitCompleteLaboratoryReportAsync(LaboratoryCommand()));
 
-    DateTime voidedTime = ReceivedTime;
+    VoidLaboratoryReportCommand request = VoidCommand();
     (RecordingEventQueue events, bool result) = await ExecuteAsync(
-      () => manager.VoidLaboratoryReportAsync(VoidCommand(voidedTime: voidedTime)));
+      () => manager.VoidLaboratoryReportAsync(request));
 
     Assert.True(result);
     MedicalRecognitionReport report = Assert.Single(repository.Reports.Values);
     Assert.Equal(MedicalReportLifecycleStatus.Voided, report.Status);
-    Assert.Equal(voidedTime, report.VoidedTime);
+    Assert.Equal(request.VoidedTime, report.VoidedTime);
     Assert.Equal("重复报告", report.VoidReason);
     // 作废不生成内容版本，也不物理删除既有版本与明细。
     Assert.Single(repository.Versions);
@@ -1097,7 +1103,7 @@ public sealed class Stage4WritePathTests
     LaboratoryReportVoidedEvent voided = Assert.Single(events.Events.OfType<LaboratoryReportVoidedEvent>());
     Assert.Equal(report.Id, voided.ReportId);
     Assert.Equal(ReportNo, voided.ReportNo);
-    Assert.Equal(voidedTime, voided.VoidedTime);
+    Assert.Equal(request.VoidedTime, voided.VoidedTime);
     Assert.Equal("重复报告", voided.VoidReason);
   }
 
@@ -1221,7 +1227,7 @@ public sealed class Stage4WritePathTests
     await WithCapturedEventsAsync(() => manager.SubmitCompleteLaboratoryReportAsync(LaboratoryCommand()));
 
     MedicalReportVersion beforeVoid = Assert.Single(repository.Versions.Values);
-    await WithCapturedEventsAsync(() => manager.VoidLaboratoryReportAsync(VoidCommand(voidedTime: ReceivedTime)));
+    await WithCapturedEventsAsync(() => manager.VoidLaboratoryReportAsync(VoidCommand()));
 
     MedicalReportVersion afterVoid = Assert.Single(repository.Versions.Values);
     Assert.Equal(beforeVoid.Id, afterVoid.Id);
@@ -1286,7 +1292,7 @@ public sealed class Stage4WritePathTests
 
     MedicalRecognitionReport beforeVoid = Assert.Single(repository.Reports.Values);
     Guid versionBeforeVoid = beforeVoid.CurrentVersionId;
-    await WithCapturedEventsAsync(() => manager.VoidLaboratoryReportAsync(VoidCommand(voidedTime: ReceivedTime)));
+    await WithCapturedEventsAsync(() => manager.VoidLaboratoryReportAsync(VoidCommand()));
 
     int versionsBefore = repository.Versions.Count;
     int itemsBefore = repository.LaboratoryResultItems.Count;
@@ -1892,47 +1898,60 @@ public sealed class Stage4WritePathTests
     };
   }
 
-  /// <summary>构建检验报告作废命令。</summary>
-  /// <param name="voidedTime">作废时间；缺省为当前版本平台接收时间。</param>
+  /// <summary>
+  /// 构建检验报告作废命令。作废时间与本次请求的接收时间缺省时取同一次「发起时的当前时点」：
+  /// 两端校验都锚在服务端写下版本时取的当前时点，缺省值因此不能是固定常量。
+  /// </summary>
+  /// <param name="voidedTime">作废时间；缺省为发起时的当前时点。</param>
   /// <param name="voidReason">作废原因；缺省为固定文案。</param>
-  /// <param name="requestReceivedTime">本次请求的接收时间；缺省为固定值。</param>
+  /// <param name="requestReceivedTime">本次请求的接收时间；缺省与作废时间取同一时点。</param>
   /// <returns>可直接交给领域管理器的作废命令。</returns>
   private static VoidLaboratoryReportCommand VoidCommand(
     DateTime? voidedTime = null,
     string voidReason = "重复报告",
-    DateTime? requestReceivedTime = null) => new()
+    DateTime? requestReceivedTime = null)
+  {
+    DateTime when = voidedTime ?? DateTime.Now;
+    return new()
     {
       ReportNo = ReportNo,
-      VoidedTime = voidedTime ?? ReceivedTime,
+      VoidedTime = when,
       VoidReason = voidReason,
       OrganizationCode = TrustedOrganization,
       HospitalCode = TrustedHospital,
       BranchCode = TrustedBranch,
       OperId = TrustedOperId,
       OperTime = CommandOperTime,
-      ReceivedTime = requestReceivedTime ?? ReceivedTime
+      ReceivedTime = requestReceivedTime ?? when
     };
+  }
 
-  /// <summary>构建检查报告作废命令；报告单号取检查链路的固定单号。</summary>
-  /// <param name="voidedTime">作废时间；缺省为当前版本平台接收时间。</param>
+  /// <summary>
+  /// 构建检查报告作废命令；报告单号取检查链路的固定单号。时间缺省口径与 <see cref="VoidCommand"/> 相同。
+  /// </summary>
+  /// <param name="voidedTime">作废时间；缺省为发起时的当前时点。</param>
   /// <param name="voidReason">作废原因；缺省为固定文案。</param>
-  /// <param name="requestReceivedTime">本次请求的接收时间；缺省为固定值。</param>
+  /// <param name="requestReceivedTime">本次请求的接收时间；缺省与作废时间取同一时点。</param>
   /// <returns>可直接交给领域管理器的检查报告作废命令。</returns>
   private static VoidExaminationReportCommand ExaminationVoidCommand(
     DateTime? voidedTime = null,
     string voidReason = "重复报告",
-    DateTime? requestReceivedTime = null) => new()
+    DateTime? requestReceivedTime = null)
+  {
+    DateTime when = voidedTime ?? DateTime.Now;
+    return new()
     {
       ReportNo = ExaminationReportNo,
-      VoidedTime = voidedTime ?? ReceivedTime,
+      VoidedTime = when,
       VoidReason = voidReason,
       OrganizationCode = TrustedOrganization,
       HospitalCode = TrustedHospital,
       BranchCode = TrustedBranch,
       OperId = TrustedOperId,
       OperTime = CommandOperTime,
-      ReceivedTime = requestReceivedTime ?? ReceivedTime
+      ReceivedTime = requestReceivedTime ?? when
     };
+  }
 
   /// <summary>
   /// 记录领域层登记事件的测试替身，用于断言哪些成功路径登记了事件、哪些幂等或失败路径没有登记。

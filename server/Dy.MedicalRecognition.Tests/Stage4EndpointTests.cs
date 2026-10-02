@@ -63,7 +63,7 @@ public sealed class Stage4EndpointTests
   [
     "QueryBranchRecognitionAmountListAsync", "QueryEffectiveMedicalStandardCatalogAsync", "QueryMedicalStandardCategoryListAsync",
     "QueryMedicalStandardGroupListAsync", "QueryMedicalStandardItemListAsync", "QueryRecognitionAmountListAsync",
-    "QueryRecognitionProjectConfigurationListAsync"
+    "QueryRecognitionProjectConfigurationListAsync", "QuerySelectableStandardItemListAsync", "QueryTrustedOrganizationScopeAsync"
   ];
 
   /// <summary>

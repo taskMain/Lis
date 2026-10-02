@@ -49,11 +49,15 @@ public sealed partial class MedicalRecognitionReportQueryRepository : IMedicalRe
     await dataMapper.QueryAsync<EffectiveMedicalStandardCatalogItem>(new { ItemType = itemType, CategoryName = categoryName }, scope: SqlScope);
 
   /// <inheritdoc/>
-  public async Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? standardProjectCode, ConfigurationStatus? configurationStatus) =>
+  public async Task<IEnumerable<EffectiveMedicalStandardCatalogItem>> QuerySelectableStandardItemListAsync(string organizationCode, string? keyword) =>
+    await dataMapper.QueryAsync<EffectiveMedicalStandardCatalogItem>(new { OrganizationCode = organizationCode, Keyword = keyword }, scope: SqlScope);
+
+  /// <inheritdoc/>
+  public async Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? keyword, ConfigurationStatus? configurationStatus) =>
     await dataMapper.QueryAsync<RecognitionProjectConfigurationListItem>(new
     {
       OrganizationCode = organizationCode,
-      StandardProjectCode = standardProjectCode,
+      Keyword = keyword,
       // 配置状态筛选比较的是互认配置表的布尔启用列，映射结果由下面的纯映射方法给出。
       IsValid = MapConfigurationStatusToIsValid(configurationStatus)
     }, scope: SqlScope);

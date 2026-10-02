@@ -49,6 +49,10 @@ internal sealed class StubReportQueryRepository : IMedicalRecognitionReportQuery
   public Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? standardProjectCode, ConfigurationStatus? configurationStatus) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IEnumerable<EffectiveMedicalStandardCatalogItem>> QuerySelectableStandardItemListAsync(string organizationCode, string? keyword) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
   public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
@@ -281,6 +285,10 @@ internal sealed class SyntheticReportPorts : IMedicalRecognitionReportQueryRepos
 
   /// <inheritdoc/>
   public Task<IEnumerable<RecognitionProjectConfigurationListItem>> QueryRecognitionProjectConfigurationListAsync(string organizationCode, string? standardProjectCode, ConfigurationStatus? configurationStatus) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
+  /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
+  public Task<IEnumerable<EffectiveMedicalStandardCatalogItem>> QuerySelectableStandardItemListAsync(string organizationCode, string? keyword) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
   public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode) => throw new NotSupportedException(UnusedMember);

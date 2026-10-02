@@ -123,7 +123,7 @@
     </Statement>
     <!--
       功能：查询指定组织范围内的互认项目配置，并实时关联标准项目所属分类、分组和标准项目，取得展示资料与标准目录三层的启用状态。
-      结果：返回互认配置标识、标准项目编码、标准项目名称、项目类型、分类名称、分组名称、可互认时间天数、配置启用状态，以及分类、分组和标准项目三层的启用状态；按标准项目编码升序、配置标识升序稳定排序，不分页；未传标准项目编码或配置状态时对应条件不参与过滤。
+      结果：返回互认配置标识、标准项目编码、标准项目名称、项目类型、分类名称、分组名称、可互认时间天数、配置启用状态，以及分类、分组和标准项目三层的启用状态；按标准项目编码升序、配置标识升序稳定排序，不分页；未传关键字或配置状态时对应条件不参与过滤；关键字按字面包含同时匹配标准项目编码、名称、分类名称与分组名称且不区分大小写。
     -->
     <Statement Id="QueryRecognitionProjectConfigurationList" ParameterMap="MedicalRecognitionBooleanParameters">
       select
@@ -147,13 +147,62 @@
       where 1 = 1  <!-- 恒真占位条件：使后续每个可选筛选片段都能统一以 and 前缀拼接，传空时等价于不加条件 -->
       and m.organization_code = $OrganizationCode  <!-- 组织范围：只返回该组织的互认配置，组织编码由调用方确认是可信当前组织 -->
       <!--
-        处理：对用户输入的转义符 ! 先加倍，再将 % 转义为 !%、_ 转义为 !_，然后首尾拼接通配符并用 escape '!' 声明转义符。
-        原因：不转义时用户输入的 % 和 _ 会被当作通配符，使标准项目编码的“字面包含”匹配范围被放大，返回超出预期的配置。
-        结果：按标准项目编码做字面包含匹配，用户输入的通配符字符只作为普通字符参与比较。
+        处理：对用户输入的转义符 ! 先加倍，再将 % 转义为 !%、_ 转义为 !_，然后首尾拼接通配符并用 escape '!' 声明转义符；
+             四列比较的两侧统一取 lower，使关键字匹配不区分大小写。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符，使"字面包含"匹配范围被放大；不统一大小写时英文名（如 anti-HCV）的检索会依赖用户的输入形态。
+        结果：关键字按字面包含同时匹配标准项目编码、标准项目名称、所属分类名称与所属分组名称，任一列命中即返回，用户输入的通配符只作为普通字符参与比较。
       -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">m.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入标准项目编码时按标准项目编码做字面包含匹配 -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        lower(m.standard_project_code) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
+        or lower(i.name) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
+        or lower(c.name) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
+        or lower(g.name) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入关键字时按四列字面包含匹配，任一列命中即返回 -->
       <IsNotEmpty Prepend="and" Property="IsValid">m.is_valid = $IsValid</IsNotEmpty>  <!-- 可选筛选：按配置启用状态过滤，调用方已把启用/停用换算为布尔值，SQL 只比较布尔列 -->
       order by m.standard_project_code asc, m.id asc  <!-- 排序：按标准项目编码升序，并以配置标识作为稳定兜底键；同一组织内配置编码唯一，兜底键只保证顺序稳定 -->
+    </Statement>
+
+    <!--
+      功能：查询当前可信组织尚未建立互认配置、且三级均启用的标准项目目录，供新增互认项目选择。
+      结果：与有效目录同形（项目类型、分类、分组、标准项目），按项目类型、分类、分组、项目名称、项目标识稳定排序；不分页。
+    -->
+    <Statement Id="QuerySelectableStandardItemList">
+      select
+        c.item_type,           <!-- 项目类型：0=检验、1=检查 -->
+        c.id as category_id,   <!-- 分类标识 -->
+        c.name as category_name,    <!-- 分类名称 -->
+        g.id as group_id,      <!-- 分组标识 -->
+        g.name as group_name,  <!-- 分组名称 -->
+        i.id as item_id,       <!-- 标准项目标识 -->
+        i.code,                <!-- 标准项目编码 -->
+        i.name,                <!-- 标准项目名称 -->
+        i.remark,              <!-- 备注 -->
+        i.oper_id,             <!-- 操作人标识 -->
+        i.oper_time            <!-- 操作时间 -->
+      from mrec_medical_standard_item i
+      join mrec_medical_standard_group g on g.id = i.group_id
+      join mrec_medical_standard_category c on c.id = i.category_id and c.id = g.category_id
+      <!-- 生效范围：只保留三级都启用的记录，与有效目录查询同一口径 -->
+      where i.is_valid = true and g.is_valid = true and c.is_valid = true
+      <!--
+        排除范围：本组织已建立互认配置的项目不再可选，含配置自身已停用的项目（同一组织同一编码唯一，停用不等于可再次新增）。
+        实现方式：not exists 子查询按组织与编码判定，避免 join 后在存在多条历史配置时产生重复行。
+      -->
+      and not exists (
+        select 1 from mrec_mutual_recognition_item m
+        where m.organization_code = $OrganizationCode and m.standard_project_code = i.code
+      )
+      <!--
+        处理：与配置列表查询同一口径——先加倍 !，再转义 % 与 _，两侧统一 lower 做不区分大小写的字面包含匹配。
+        结果：关键字按字面包含同时匹配标准项目编码、名称、分类名称与分组名称，任一列命中即返回。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        lower(i.code) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
+        or lower(i.name) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
+        or lower(c.name) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
+        or lower(g.name) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入关键字时按四列字面包含匹配，任一列命中即返回 -->
+      order by c.item_type asc, c.id asc, g.id asc, i.name asc, i.id asc  <!-- 排序：与有效目录查询一致，保证同一份数据下顺序稳定 -->
     </Statement>
     <!--
       功能：查询指定组织、医院与院区范围内的互认项目金额列表，供平台管理员与医院管理员两个金额维护页面按标准项目查看当前金额与配置状态。

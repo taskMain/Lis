@@ -223,6 +223,11 @@ public sealed class Stage1ArchitectureTests
       "Task<EffectiveMedicalStandardCatalogReadModel>", ["EffectiveMedicalStandardCatalogQueryRequest request"]),
     (nameof(IMedicalRecognitionReportQueryAppService.QueryRecognitionProjectConfigurationListAsync),
       "Task<IEnumerable<RecognitionProjectConfigurationReadModel>>", ["RecognitionProjectConfigurationListQueryRequest request"]),
+    (nameof(IMedicalRecognitionReportQueryAppService.QuerySelectableStandardItemListAsync),
+      "Task<EffectiveMedicalStandardCatalogReadModel>", ["SelectableStandardItemListQueryRequest request"]),
+    // 页头范围查询不接收入参：组织只取自可信上下文，调用方无法查询其他组织。
+    (nameof(IMedicalRecognitionReportQueryAppService.QueryTrustedOrganizationScopeAsync),
+      "Task<TrustedOrganizationScopeReadModel>", []),
     (nameof(IMedicalRecognitionReportQueryAppService.QueryRecognitionAmountListAsync),
       "Task<IEnumerable<RecognitionAmountReadModel>>", ["RecognitionAmountListQueryRequest request"]),
     (nameof(IMedicalRecognitionReportQueryAppService.QueryBranchRecognitionAmountListAsync),
@@ -545,7 +550,9 @@ public sealed class Stage1ArchitectureTests
       "QueryMedicalStandardItemListAsync", "QueryRecognitionAmountListAsync", "QueryRecognitionCitationDetailAsync",
       "QueryRecognitionMatchRecordAsync", "QueryRecognitionProjectConfigurationListAsync",
       "QueryRecognitionUsageDetailsAsync", "QueryRecognitionUsageSummaryAsync",
-      "QuerySourceRecognitionDetailsAsync", "QuerySourceRecognitionSummaryAsync"
+      "QuerySelectableStandardItemListAsync",
+      "QuerySourceRecognitionDetailsAsync", "QuerySourceRecognitionSummaryAsync",
+      "QueryTrustedOrganizationScopeAsync"
     ];
     string[] actualQueryMethods = [.. typeof(IMedicalRecognitionReportQueryAppService).GetMethods().Select(method => method.Name).OrderBy(name => name, StringComparer.Ordinal)];
     Assert.Equal(expectedQueryMethods, actualQueryMethods);

@@ -7,6 +7,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 import {
+  BATCH_CREATE_LIMIT,
   CONFIGURATION_STATUSES,
   CONFIGURATION_STATUS_METADATA_FALLBACK,
   CONFIGURATION_STATUS_TEXTS,
@@ -16,13 +17,12 @@ import {
   buildBatchCreateConfigurationRequest,
   buildConfigurationListQuery,
   buildDurationUpdatePayload,
-  configuredStandardProjectCodes,
   configurationStatusActionText,
   configurationStatusTagColor,
   configurationStatusText,
   countColumnRows,
   createRecognitionProjectConfigurations,
-  excludeConfiguredStandardItems,
+  exceedsBatchCreateLimit,
   filterRecognitionProjectColumnView,
   parseRecognitionDurationDays,
   queryRecognitionProjectConfigurations,
@@ -55,6 +55,7 @@ function stubClient(handlers: Record<string, unknown> = {}) {
       medicalRecognitionReportQuery: {
         queryRecognitionProjectConfigurationList: { post: post('queryList') },
         queryEffectiveMedicalStandardCatalog: { post: post('queryCatalog') },
+        querySelectableStandardItemList: { post: post('querySelectable') },
       },
       medicalRecognitionReport: {
         createMutualRecognitionItem: { post: post('create') },
@@ -173,13 +174,13 @@ describe('C23 查询请求适配', () => {
     expect(buildConfigurationListQuery('ORG-A', EMPTY_RECOGNITION_PROJECT_FILTER)).toEqual({ organizationCode: 'ORG-A' })
   })
 
-  it('编码筛选按值下发、空白编码不下发；配置状态筛选不进入查询载荷', () => {
-    expect(buildConfigurationListQuery('ORG-A', { code: 'A01', status: 2 })).toEqual({
+  it('关键字按值下发、空白关键字不下发；配置状态筛选不进入查询载荷', () => {
+    expect(buildConfigurationListQuery('ORG-A', { keyword: 'A01', status: 2 })).toEqual({
       organizationCode: 'ORG-A',
-      standardProjectCode: 'A01',
+      keyword: 'A01',
     })
-    // 状态筛选只作用于本地展示：下推会缩小读取范围、破坏新增排除集合的完整性（业务口径，非契约限制）。
-    expect(buildConfigurationListQuery('ORG-A', { code: '   ', status: 1 })).toEqual({
+    // 关键字已下推服务端（S2-D29）；配置状态仍只作用于本地裁剪，下推会让每次切换都走一次网络。
+    expect(buildConfigurationListQuery('ORG-A', { keyword: '   ', status: 1 })).toEqual({
       organizationCode: 'ORG-A',
     })
   })
@@ -375,29 +376,6 @@ describe('C2 目录选择器只允许最底层当前有效标准项目', () => {
   })
 })
 
-describe('C3 已配置项目排除集合（含停用配置）', () => {
-  it('启用与停用配置都进入排除集合，选择器据此隐藏', () => {
-    const rows = [row('A01', 1), row('A02', 2)]
-    const configured = configuredStandardProjectCodes(rows)
-    expect(configured).toEqual(new Set(['A01', 'A02']))
-    expect(excludeConfiguredStandardItems(toSelectableStandardItems(CATALOG), configured).map((item) => item.code)).toEqual(['B01'])
-  })
-
-  it('编码缺失的行不进入排除集合，也不影响其它编码', () => {
-    expect(configuredStandardProjectCodes([{ ...row('A01'), standardProjectCode: null }, { ...row('A02') }])).toEqual(new Set(['A02']))
-  })
-
-  it('剔除只按编码移除，不改动候选集元素、不改变顺序', () => {
-    const items = toSelectableStandardItems(CATALOG)
-    const snapshot = items.map((item) => ({ ...item }))
-
-    expect(excludeConfiguredStandardItems(items, new Set(['A02'])).map((item) => item.code)).toEqual(['A01', 'B01'])
-    expect(excludeConfiguredStandardItems(items, new Set())).toEqual(items)
-    // 剔除是纯函数：入参不被就地改写（页面每次行集变化都基于同一份摊平结果重算）。
-    expect(items).toEqual(snapshot)
-  })
-})
-
 /**
  * 列表本地展示筛选的语义在列视图裁剪这一条路径上固定：页面只渲染列视图，
  * 因此不再为配置行单独保留一个筛选出口，避免两处判定各自漂移。
@@ -406,16 +384,18 @@ describe('列表本地展示筛选', () => {
   const rows = [row('A01', 1), row('A02', 2), row('B01', 2)]
   const view = toRecognitionProjectColumnView(rows, COLUMN_CATALOG)
 
-  it('编码按包含匹配、状态按配置状态精确匹配，且不修改入参视图', () => {
+  it('只按配置状态精确裁剪，关键字不由本地判定，且不修改入参视图', () => {
     const snapshot = configuredCodesIn(view)
 
-    // 编码匹配不区分大小写，且是包含匹配（`a0` 命中 `A01`）。
-    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: 'a0', status: 'all' }))).toEqual(['A01', 'A02'])
+    // 关键字已下推服务端（S2-D29）：本地只看配置状态，服务端返回什么就展示什么，
+    // 本地再按关键字判一次会把按名称/分类/分组命中的行错误裁掉。
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { keyword: 'a0', status: 'all' }))).toEqual(['A01', 'A02', 'B01'])
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { keyword: 'ZZ', status: 'all' }))).toEqual(['A01', 'A02', 'B01'])
     // 状态是精确匹配：停用只留 `A02`、`B01`，启用只留 `A01`。
-    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: '', status: 2 }))).toEqual(['A02', 'B01'])
-    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: '', status: 1 }))).toEqual(['A01'])
-    // 编码筛不到任何行时整份视图为空，层级节点一并被丢弃。
-    expect(filterRecognitionProjectColumnView(view, { code: 'ZZ', status: 'all' })).toEqual([])
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { keyword: '', status: 2 }))).toEqual(['A02', 'B01'])
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { keyword: '', status: 1 }))).toEqual(['A01'])
+    // 状态筛不到任何行时整份视图为空，层级节点一并被丢弃。
+    expect(filterRecognitionProjectColumnView(view, { keyword: '', status: 1 }).length).toBe(1)
 
     // 裁剪是纯函数：不改写调用方持有的列视图。
     expect(configuredCodesIn(view)).toEqual(snapshot)
@@ -424,9 +404,9 @@ describe('列表本地展示筛选', () => {
   it('配置状态未知的行只在全部筛选下可见', () => {
     const unknownView = toRecognitionProjectColumnView([{ ...row('A03'), configurationStatus: null }], COLUMN_CATALOG)
 
-    expect(configuredCodesIn(filterRecognitionProjectColumnView(unknownView, { code: '', status: 'all' }))).toEqual(['A03'])
-    expect(filterRecognitionProjectColumnView(unknownView, { code: '', status: 1 })).toEqual([])
-    expect(filterRecognitionProjectColumnView(unknownView, { code: '', status: 2 })).toEqual([])
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(unknownView, { keyword: '', status: 'all' }))).toEqual(['A03'])
+    expect(filterRecognitionProjectColumnView(unknownView, { keyword: '', status: 1 })).toEqual([])
+    expect(filterRecognitionProjectColumnView(unknownView, { keyword: '', status: 2 })).toEqual([])
   })
 })
 
@@ -456,7 +436,7 @@ const configuredCodesIn = (view: RecognitionProjectColumnView): (string | null)[
   columnRows(view).filter((value) => value.configured).map((value) => value.standardProjectCode)
 
 describe('列视图合并：目录结构与当前组织配置行合并为四层视图', () => {
-  it('按目录顺序建立层级，目录读不到的配置行追加在各层末尾，类型按取值升序', () => {
+  it('按目录顺序建立层级，目录读不到的配置行追加在各层末尾，类型按取值升序（未配置的目录项目不建层级）', () => {
     const view = toRecognitionProjectColumnView(
       [row('A01', 1), row('B01', 2), disabledCatalogRow],
       COLUMN_CATALOG,
@@ -464,7 +444,8 @@ describe('列视图合并：目录结构与当前组织配置行合并为四层�
 
     expect(view.map((itemType) => itemType.itemType)).toEqual([0, 1])
     expect(view[0].categories.map((category) => category.categoryName)).toEqual(['检验分类', '历史分类'])
-    expect(view[0].categories[0].groups.map((group) => group.groupName)).toEqual(['血液', '体液'])
+    // 目录里 A03（体液）没有被本组织配置：它所在的分组不因目录存在而出现。
+    expect(view[0].categories[0].groups.map((group) => group.groupName)).toEqual(['血液'])
     expect(view[1].categories[0].groups[0].rows.map((value) => value.standardProjectCode)).toEqual(['B01'])
   })
 
@@ -480,23 +461,37 @@ describe('列视图合并：目录结构与当前组织配置行合并为四层�
     const view = toRecognitionProjectColumnView([first, interleaved, second, withoutCode], COLUMN_CATALOG)
 
     expect(view[0].categories.map((category) => category.categoryName))
-      .toEqual(['检验分类', '乙分类', '甲分类', '丙分类', '无编码分类'])
+      .toEqual(['乙分类', '甲分类', '丙分类', '无编码分类'])
     expect(columnRows(view).filter((value) => value.configured).map((value) => value.standardProjectCode))
       .toEqual(['C99', 'D99', 'C99', null])
   })
 
-  it('未配置的目录项目进入列视图，配置字段一律为空且计数包含它们', () => {
+  it('未配置的目录项目不进列视图：行集只含本组织已配置项，计数与配置行数一致', () => {
     const view = toRecognitionProjectColumnView([row('A01', 1), row('B01', 2), disabledCatalogRow], COLUMN_CATALOG)
-    const [a02] = columnRows(view).filter((value) => value.standardProjectCode === 'A02')
+    const codes = columnRows(view).map((value) => value.standardProjectCode)
 
-    expect(a02.configured).toBe(false)
-    expect(a02.standardItemName).toBe('尿常规')
-    expect(a02.configurationId).toBeNull()
-    expect(a02.recognitionDurationDays).toBeNull()
-    expect(a02.configurationStatus).toBeNull()
-    expect(a02.configurationStatusText).toBeNull()
-    expect(a02.unavailableReason).toBeNull()
-    expect(countColumnRows(view)).toBe(5)
+    // A02、A03 在目录里但没有被本组织配置：它们不出现在列表里，也不带出任何空配置字段的行。
+    expect(codes).not.toContain('A02')
+    expect(codes).not.toContain('A03')
+    expect(codes.sort()).toEqual(['A01', 'B01', 'C99'])
+    expect(columnRows(view).every((value) => value.configured)).toBe(true)
+    // 计数即本组织配置条数（3），不再把目录里的未配置项目算进分母。
+    expect(countColumnRows(view)).toBe(3)
+  })
+
+  it('弹窗可选集合仍列出全部未配置的目录项目：合并的两种口径互不覆盖', () => {
+    const selectable = toSelectableColumnView(toSelectableStandardItems({
+      itemTypes: [{
+        itemType: 0,
+        itemTypeText: '检验',
+        categories: [{ categoryName: '检验分类', groups: [{ groupName: '血液', items: [{ code: 'A01', name: '血常规' }, { code: 'A02', name: '尿常规' }] }] }],
+      }],
+    }))
+
+    const itemRows = columnRows(selectable)
+    expect(itemRows.map((value) => value.standardProjectCode)).toEqual(['A01', 'A02'])
+    expect(itemRows.every((value) => value.configured === false)).toBe(true)
+    expect(itemRows.every((value) => value.configurationId === null)).toBe(true)
   })
 
   it('已配置行取配置行的配置标识、可互认时间、状态与目录停用原因', () => {
@@ -565,13 +560,16 @@ describe('列视图合并：目录结构与当前组织配置行合并为四层�
     expect(fromRow[0].itemTypeText).toBe('配置行交付文案')
 
     // 两处都没有候选时用本地兜底，未知取值不默认成已知类型。
-    const fallback = toRecognitionProjectColumnView([], [{ ...COLUMN_CATALOG[0], itemTypeText: null }])
+    const fallback = toRecognitionProjectColumnView([{ ...row('C99', 1), itemTypeText: '' }], [
+      { code: 'C99', name: '历史项目', itemType: 0, itemTypeText: null, categoryName: '历史分类', groupName: '历史分组' },
+    ])
     expect(fallback[0].itemTypeText).toBe('检验')
 
-    const unknownType = toRecognitionProjectColumnView([], [
-      { code: 'X1', name: '未知类型项目', itemType: null, itemTypeText: null, categoryName: '其他分类', groupName: '其他分组' },
-      COLUMN_CATALOG[3],
-    ])
+    // 类型取值未知的配置行同样进入列视图，不被默认成已知类型。
+    const unknownType = toRecognitionProjectColumnView([
+      { ...row('X1', 1), itemType: null, itemTypeText: '', categoryName: '其他分类', groupName: '其他分组' },
+      row('B01', 2),
+    ], COLUMN_CATALOG)
     expect(unknownType.map((itemType) => itemType.itemType)).toEqual([1, null])
     expect(unknownType[1].itemTypeText).toBe('未知类型')
   })
@@ -597,8 +595,6 @@ describe('列视图合并：目录结构与当前组织配置行合并为四层�
     expect(identities).toContain('c-A01')
     expect(identities).toContain('c-B01')
     expect(identities).toContain('c-C99')
-    // 配置标识缺失的未配置行按编码与名称组成业务键。
-    expect(identities).toContain('A02|尿常规')
   })
 
   it('业务键完全相同的多行只在重复处追加出现序号，序号不进入业务字段', () => {
@@ -622,36 +618,54 @@ describe('列视图裁剪与计数', () => {
   const rows = [row('A01', 1), row('B01', 2)]
   const view = toRecognitionProjectColumnView(rows, COLUMN_CATALOG)
 
-  it('裁剪与配置行筛选共用同一条判定：编码包含匹配、状态精确匹配', () => {
-    // `a0` 只命中 A 段编码；B 段编码不在结果里，说明编码是包含匹配而不是前缀或全等。
-    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: 'a0', status: 'all' })))
-      .toEqual(['A01'])
-    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: '0', status: 'all' })))
+  it('裁剪只按配置状态精确匹配；关键字由服务端过滤、本地不再二次判定', () => {
+    // 关键字命中什么由服务端决定（S2-D29 四列字面包含），本地只按状态裁剪。
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { keyword: 'a0', status: 'all' })))
       .toEqual(['A01', 'B01'])
-    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: '', status: 2 })))
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { keyword: 'ZZ', status: 'all' })))
+      .toEqual(['A01', 'B01'])
+    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { keyword: '', status: 2 })))
       .toEqual(['B01'])
-    expect(filterRecognitionProjectColumnView(view, { code: 'ZZ', status: 'all' })).toEqual([])
-    expect(filterRecognitionProjectColumnView(view, { code: '', status: 1 }).map((itemType) => itemType.itemType)).toEqual([0])
+    expect(filterRecognitionProjectColumnView(view, { keyword: '', status: 1 }).map((itemType) => itemType.itemType)).toEqual([0])
   })
 
   it('裁剪先筛项目行，再丢弃没有可见项目的分组、分类与类型', () => {
-    const byCode = filterRecognitionProjectColumnView(view, { code: 'B01', status: 'all' })
+    // 状态筛选把检验侧整块裁掉：只剩下检查类型下的那一行，没有可见行的层级节点一并被丢弃。
+    const byStatus = filterRecognitionProjectColumnView(view, { keyword: '', status: 1 })
 
-    expect(byCode.map((itemType) => itemType.itemType)).toEqual([1])
-    expect(byCode[0].categories.map((category) => category.categoryName)).toEqual(['检查分类'])
-    expect(byCode[0].categories[0].groups.map((group) => group.groupName)).toEqual(['影像'])
-    expect(countColumnRows(byCode)).toBe(1)
+    expect(byStatus.map((itemType) => itemType.itemType)).toEqual([0])
+    expect(byStatus[0].categories.map((category) => category.categoryName)).toEqual(['检验分类'])
+    expect(countColumnRows(byStatus)).toBe(1)
 
     // 裁剪只筛选可见行，不改写入参持有的列视图。
-    expect(countColumnRows(view)).toBe(4)
+    expect(countColumnRows(view)).toBe(2)
     expect(configuredCodesIn(view)).toEqual(['A01', 'B01'])
   })
 
-  it('未配置行按编码匹配同样保留，状态筛选把它们排除在可见行之外', () => {
-    const byCode = filterRecognitionProjectColumnView(view, { code: 'A02', status: 'all' })
-    expect(columnRows(byCode).map((value) => [value.standardProjectCode, value.configured])).toEqual([['A02', false]])
+  it('弹窗可选集合不经本地关键字裁剪：服务端已按关键字过滤，这里只保留未配置行', () => {
+    const selectable = toSelectableColumnView(toSelectableStandardItems({
+      itemTypes: [{
+        itemType: 0,
+        itemTypeText: '检验',
+        categories: [{
+          categoryName: '检验分类',
+          groups: [{ groupName: '血液', items: [{ code: 'A01', name: '血常规' }, { code: 'A02', name: '尿常规' }] }],
+        }],
+      }],
+    }))
 
-    expect(configuredCodesIn(filterRecognitionProjectColumnView(view, { code: '', status: 2 }))).toEqual(['B01'])
+    // 服务端返回什么就展示什么：关键字与排除都已在那里完成，本地只按状态（此处为全部）放行。
+    expect(columnRows(filterRecognitionProjectColumnView(selectable, { keyword: 'A02', status: 'all' }))
+      .map((value) => [value.standardProjectCode, value.configured])).toEqual([['A01', false], ['A02', false]])
+  })
+})
+
+describe('单批创建上限', () => {
+  it('上限与选择条数判定同源：等于上限可提交，超过上限被拦下', () => {
+    expect(BATCH_CREATE_LIMIT).toBe(1000)
+    expect(exceedsBatchCreateLimit(BATCH_CREATE_LIMIT)).toBe(false)
+    expect(exceedsBatchCreateLimit(BATCH_CREATE_LIMIT + 1)).toBe(true)
+    expect(exceedsBatchCreateLimit(0)).toBe(false)
   })
 })
 
@@ -665,7 +679,18 @@ describe('项目行状态徽标', () => {
   })
 
   it('未配置行单独表达，不带配置状态色板', () => {
-    const badge = recognitionProjectRowBadge(rowOf(toRecognitionProjectColumnView([], COLUMN_CATALOG), 'A02'))
+    // 页面行集只含已配置项（S2-D16），未配置行的徽标口径由行模型自身固定：这里按行模型直接构造。
+    const badge = recognitionProjectRowBadge({
+      standardProjectCode: 'A02',
+      standardItemName: '尿常规',
+      configured: false,
+      configurationId: null,
+      recognitionDurationDays: null,
+      configurationStatus: null,
+      configurationStatusText: null,
+      unavailableReason: null,
+      rowIdentity: 'A02|尿常规',
+    })
     expect(badge).toEqual({ text: '未配置', color: 'default', reason: null })
   })
 
@@ -704,20 +729,20 @@ describe('C1 / C23 接线后的真实请求体形状（适配层 I/O 出口）',
     expect(Object.keys(body)).toEqual(['organizationCode'])
   })
 
-  it('编码筛选按值下发；配置状态筛选只作用于本地、绝不下推为读取范围', async () => {
+  it('关键字筛选按值下发；配置状态筛选只作用于本地、绝不下推为读取范围', async () => {
     const client = stubClient({
       queryList: [{
         configurationId: 'c1', standardProjectCode: 'A01', standardItemName: '血常规', itemType: 0,
         categoryName: '检验分类', groupName: '血液', recognitionDurationDays: 30, configurationStatus: 2, unavailableReason: null,
       }],
     })
-    const query = buildConfigurationListQuery('ORG-A', { code: 'A01', status: 2 })
+    const query = buildConfigurationListQuery('ORG-A', { keyword: 'A01', status: 2 })
     expect(query).not.toBeNull()
 
     const rows = await queryRecognitionProjectConfigurations(client, query!)
     const body = bodyOf(client.api.medicalRecognitionReportQuery.queryRecognitionProjectConfigurationList.post)
-    // 状态筛选只作用于本地展示（业务口径：下推会缩小读取范围、破坏新增排除集合完整性），故此处断言"不下发"。
-    expect(body).toEqual({ organizationCode: 'ORG-A', standardProjectCode: 'A01' })
+    // 关键字下推服务端（S2-D29）；配置状态仍只作用于本地裁剪，故此处断言"不下发"。
+    expect(body).toEqual({ organizationCode: 'ORG-A', keyword: 'A01' })
     expect(body).not.toHaveProperty('configurationStatus')
     expect(rows[0].configurationId).toBe('c1')
     expect(rows[0].configurationStatus).toBe(2)
@@ -772,27 +797,17 @@ describe('C1 / C23 接线后的真实请求体形状（适配层 I/O 出口）',
     expect(disabledClient.api.medicalRecognitionReport.enableMutualRecognitionItem.post).not.toHaveBeenCalled()
   })
 
-  it('C2 目录读取返回生成端可空形态时归一为 null，不伪造空目录数据', async () => {
+  it('C2 可新增项目读取返回生成端可空形态时归一为 null，不伪造空目录数据', async () => {
     const empty = stubClient()
     expect(await querySelectableStandardItems(empty)).toBeNull()
     expect(toSelectableStandardItems(await querySelectableStandardItems(empty))).toEqual([])
-    expect(bodyOf(empty.api.medicalRecognitionReportQuery.queryEffectiveMedicalStandardCatalog.post)).toEqual({})
+    // 可新增项目查询的入参只可能是关键字：空关键字不下发，非空原样下发（S2-D29）。
+    expect(bodyOf(empty.api.medicalRecognitionReportQuery.querySelectableStandardItemList.post)).toEqual({})
 
-    const filled = stubClient({ queryCatalog: CATALOG })
-    expect(toSelectableStandardItems(await querySelectableStandardItems(filled)).map((item) => item.code))
+    const filled = stubClient({ querySelectable: CATALOG })
+    expect(toSelectableStandardItems(await querySelectableStandardItems(filled, '血')).map((item) => item.code))
       .toEqual(['A01', 'A02', 'B01'])
+    expect(bodyOf(filled.api.medicalRecognitionReportQuery.querySelectableStandardItemList.post)).toEqual({ keyword: '血' })
   })
 
-  it('C3 排除集合来自全量查询结果：停用配置同样阻止重复新增', async () => {
-    const client = stubClient({
-      queryList: [
-        { standardProjectCode: 'A01', configurationStatus: 1 },
-        { standardProjectCode: 'A02', configurationStatus: 2 },
-      ],
-    })
-    const query = buildConfigurationListQuery('ORG-A')
-    const rows = await queryRecognitionProjectConfigurations(client, query!)
-    const selectable = excludeConfiguredStandardItems(toSelectableStandardItems(CATALOG), configuredStandardProjectCodes(rows))
-    expect(selectable.map((item) => item.code)).toEqual(['B01'])
-  })
 })

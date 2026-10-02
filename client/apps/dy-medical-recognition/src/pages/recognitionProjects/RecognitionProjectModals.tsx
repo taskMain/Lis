@@ -12,8 +12,10 @@
  * 边界：本文件只承载弹窗展示与本地校验，不发起请求、不读取组织，也不自行裁决组织一致与读取状态
  * （两者由页面以 `writeGate` 传入）；写失败不改判也不提示（错误由宿主统一展示）。
  */
+import { ReloadOutlined, SearchOutlined } from '@ant-design/icons'
 import {
   Alert,
+  Button,
   Checkbox,
   Input,
   Modal,
@@ -22,7 +24,9 @@ import {
 import { useState, type ReactNode } from 'react'
 import { RecognitionProjectCascade, type RecognitionProjectHighlight } from './RecognitionProjectCascade'
 import {
+  BATCH_CREATE_LIMIT,
   RECOGNITION_DURATION_RANGE_TEXT,
+  exceedsBatchCreateLimit,
   parseRecognitionDurationDays,
   rowDisplayName,
   type RecognitionProjectColumnRow,
@@ -64,6 +68,24 @@ function levelSelectionState(codes: readonly string[], selection: ReadonlySet<st
 }
 
 /**
+ * 整份列视图里的全部标准项目编码，「全选当前结果」按它一次勾选。
+ * 传当前可见视图即可得到「当前搜索结果」的范围，因此全选与层级整组勾选共用同一份编码提取口径。
+ */
+function viewCodes(view: RecognitionProjectColumnView): string[] {
+  const codes: string[] = []
+  for (const itemTypeBlock of view) {
+    for (const category of itemTypeBlock.categories) {
+      for (const group of category.groups) {
+        for (const row of group.rows) {
+          if (row.standardProjectCode !== null && row.standardProjectCode.length > 0) codes.push(row.standardProjectCode)
+        }
+      }
+    }
+  }
+  return codes
+}
+
+/**
  * 弹窗里的项目行：只承载复选与项目名称、编码。
  * 页面的行内操作（修改可互认时间、启停）属于已配置项目，这些项目不进入可选集合，因此这里不重复它们。
  */
@@ -74,28 +96,38 @@ function BatchSelectableRow({ row, selected, onToggle }: {
 }) {
   const code = row.standardProjectCode ?? ''
   const name = rowDisplayName(row)
+  /**
+   * 整行都是勾选命中区：名称与编码放在复选框的标签里，点名称、点编码与点复选框等价。
+   * 可访问名称仍由 `aria-label` 给出（它优先于标签内容），因此读屏播报的仍是完整的选择语义。
+   */
   return <div className='recognition-projects-row-content'>
     <Checkbox
+      className='recognition-projects-batch-row-label'
       aria-label={`选择标准项目：${name}（${code}）`}
       checked={selected}
       onChange={onToggle}
-    />
-    <span className='recognition-projects-row-name'>
-      <span className='recognition-projects-row-name-text' title={name}>{name}</span>
-      <span className='recognition-projects-row-code' title={code}>{code}</span>
-    </span>
+    >
+      <span className='recognition-projects-row-name'>
+        <span className='recognition-projects-row-name-text' title={name}>{name}</span>
+        <span className='recognition-projects-row-code' title={code}>{code}</span>
+      </span>
+    </Checkbox>
   </div>
 }
 
 /**
  * 两个弹窗共用的外壳：统一「提交在途时禁止关闭」与「门控冻结确定按钮并给出原因」两条规则。
+ * `reloading` 是弹窗**数据源**的读取在途：此时可选集合还没定下来，勾选与提交都会建立在旧数据上，
+ * 因此确定按钮一并冻结（写门控只覆盖页面级读取，管不到弹窗自己的那次查询）。
  */
-function RecognitionProjectModal({ title, open, onCancel, onSubmit, submitting, writeGate, okText = '保存', okButtonProps, width, children }: {
+function RecognitionProjectModal({ title, open, onCancel, onSubmit, submitting, reloading = false, writeGate, okText = '保存', okButtonProps, width, children }: {
   title: string
   open: boolean
   onCancel: () => void
   onSubmit: () => Promise<void>
   submitting: boolean
+  /** 弹窗数据源是否在途；在途时确定按钮冻结（可选集合尚未定下来）。 */
+  reloading?: boolean
   writeGate: RecognitionProjectWriteGate
   okText?: string
   okButtonProps?: { danger?: boolean }
@@ -121,7 +153,7 @@ function RecognitionProjectModal({ title, open, onCancel, onSubmit, submitting, 
     onOk={() => { void onSubmit() }}
     okText={okText}
     cancelButtonProps={{ disabled: submitting }}
-    okButtonProps={{ ...okButtonProps, disabled: blockedReason !== null }}
+    okButtonProps={{ ...okButtonProps, disabled: blockedReason !== null || reloading }}
     confirmLoading={submitting}
     destroyOnHidden
   >
@@ -155,18 +187,33 @@ export function RecognitionProjectBatchCreateModal({
   onDurationChange,
   onCancel,
   onSubmit,
+  reloading,
+  prunedCount,
+  onReload,
+  keyword,
+  onKeywordSearch,
 }: {
   open: boolean
-  /** 可选集合的列视图；空视图由 `catalogReady` 区分「目录待刷新」与「确实没有可新增项」。 */
+  /** 可选集合的列视图；空视图由 `catalogReady` 与 `keyword` 区分「数据待刷新」「没有匹配项」「确实没有可新增项」。 */
   view: RecognitionProjectColumnView
-  /** 标准目录是否已读取就绪；未就绪与目录确实为空必须给出不同提示。 */
+  /** 弹窗数据源是否已读取成功；未就绪与结果确实为空必须给出不同提示。 */
   catalogReady: boolean
+  /** 当前生效的查询关键字；空串表示列出全部可新增项目，非空用于区分「没有匹配项」。 */
+  keyword: string
+  /** 按关键字查询可新增项目；由页面发起请求并交付新的 `view`，弹窗不自行请求。 */
+  onKeywordSearch: (keyword: string) => void
   /** 当前已选的标准项目编码集合。 */
   selection: ReadonlySet<string>
   /** 统一可互认时间的输入原文；解析失败时页面据此零写请求。 */
   durationInput: string
   writeGate: RecognitionProjectWriteGate
   submitting: boolean
+  /** 读取是否在途（打开弹窗时的重读或弹窗内手动重读）；在途时「重新读取」按钮保持载入态。 */
+  reloading: boolean
+  /** 上一次重读从选择中剔除的条数；0 表示没有剔除，不渲染说明。 */
+  prunedCount: number
+  /** 手动重新读取；与打开弹窗走同一次读取，弹窗不自行发起请求。 */
+  onReload: () => void
   /** 选择变化时上报新的编码集合；弹窗不自行保存选择。 */
   onSelectionChange: (selection: ReadonlySet<string>) => void
   /** 天数输入变化时上报原文；弹窗不自行保存输入。 */
@@ -179,6 +226,13 @@ export function RecognitionProjectBatchCreateModal({
    * 只作弹窗内的即时反馈，不参与请求构造——真正的零写请求由页面按载荷构造结果拦截。
    */
   const [inputError, setInputError] = useState<string | null>(null)
+  /**
+   * 弹窗内的关键字搜索（S2-D26、S2-D29）：`keywordDraft` 是输入原文，经搜索按钮或回车提交后
+   * **由页面按该关键字向服务端查询可新增项目**（`onKeywordSearch`），结果就是 `view` 本身。
+   * 弹窗因此不再做本地裁剪：以名称、分类或分组命中的项目在客户端是看不出来的（服务端才知道），
+   * 本地再判一次会把它们错误裁掉。`keyword` 是当前生效条件，用于区分「没有可新增项」与「没有匹配项」。
+   */
+  const [keywordDraft, setKeywordDraft] = useState(keyword)
 
   const changeSelection = (next: ReadonlySet<string>) => {
     setInputError(null)
@@ -192,7 +246,7 @@ export function RecognitionProjectBatchCreateModal({
     changeSelection(next)
   }
 
-  /** 整组勾选：该层级已全选则整组取消，否则整组补齐。 */
+  /** 整组勾选：该层级已全选则整组取消，否则整组补齐。范围按当前搜索后的可见视图计算。 */
   const toggleLevel = (target: RecognitionProjectHighlight) => {
     const codes = levelScopeCodes(view, target)
     if (codes.length === 0) return
@@ -202,6 +256,17 @@ export function RecognitionProjectBatchCreateModal({
       if (clearAll) next.delete(code)
       else next.add(code)
     }
+    changeSelection(next)
+  }
+
+  /** 当前搜索结果里的全部可新增项目编码；「全选当前结果」按它一次勾选，不清除此前已选的其他项目。 */
+  const visibleCodes = viewCodes(view)
+
+  /** 全选当前结果：把当前搜索结果里的项目补齐进选择，已有选择不受影响。 */
+  const selectAllVisible = () => {
+    if (visibleCodes.length === 0) return
+    const next = new Set(selection)
+    for (const code of visibleCodes) next.add(code)
     changeSelection(next)
   }
 
@@ -228,9 +293,13 @@ export function RecognitionProjectBatchCreateModal({
   }
 
   const submit = async () => {
-    // 两条本地拦截都保留输入与选择，且不发出写请求：未勾选时无处提交，天数非法时提交必被服务端拒绝。
+    // 三条本地拦截都保留输入与选择，且不发出写请求：未勾选时无处提交，超上限与天数非法时提交必被服务端拒绝。
     if (selection.size === 0) {
       setInputError('请先勾选要新增的标准项目')
+      return
+    }
+    if (exceedsBatchCreateLimit(selection.size)) {
+      setInputError(`一次最多新增 ${BATCH_CREATE_LIMIT} 项，当前已选 ${selection.size} 项；请减少选择后再提交。`)
       return
     }
     if (parseRecognitionDurationDays(durationInput) === null) {
@@ -249,9 +318,37 @@ export function RecognitionProjectBatchCreateModal({
     onCancel={onCancel}
     onSubmit={submit}
     submitting={submitting}
+    reloading={reloading}
     writeGate={writeGate}
     okText='确定新增'
   >
+    <div className='recognition-projects-batch-search'>
+      {/*
+        弹窗成为唯一的选择面后，关键字搜索是定位项目的入口（S2-D26、S2-D29）。提交按该关键字
+        向服务端查询可新增项目（与页面筛选同一口径），结果就是本次查询交付的可选集合；
+        清空动作同时清掉生效条件，回到"列出全部可新增项目"。
+      */}
+      <Input
+        placeholder='编码/名称/分类/分组'
+        aria-label='弹窗关键字搜索'
+        autoComplete='off'
+        allowClear
+        value={keywordDraft}
+        onChange={(event) => {
+          setKeywordDraft(event.target.value)
+          if (event.target.value === '') onKeywordSearch('')
+        }}
+        onPressEnter={() => onKeywordSearch(keywordDraft)}
+      />
+      <Button
+        type='primary'
+        icon={<SearchOutlined />}
+        aria-label='搜索'
+        autoInsertSpace={false}
+        onClick={() => onKeywordSearch(keywordDraft)}
+      >搜索</Button>
+    </div>
+
     <div className='recognition-projects-batch-body'>
       <div className='recognition-projects-cascade-wrap'>
         <RecognitionProjectCascade
@@ -267,21 +364,42 @@ export function RecognitionProjectBatchCreateModal({
               if (row.standardProjectCode !== null) toggleCode(row.standardProjectCode)
             }}
           />}
-          // 目录未就绪时不能报「没有可新增的标准项目」：那是另一个事实的结论。
-          emptyText={catalogReady ? '没有可新增的标准项目' : '标准目录数据待刷新'}
+          // 目录未就绪时不能报「没有可新增的标准项目」：那是另一个事实的结论；
+          // 目录就绪但本次搜索没有命中时，也不能报成"没有可新增项"。
+          emptyText={catalogReady
+            ? (keyword.length === 0 ? '没有可新增的标准项目' : '没有匹配的标准项目')
+            : '标准目录数据待刷新'}
         />
       </div>
     </div>
 
-    {inputError === null ? null : <Alert
-      className='recognition-projects-batch-error'
-      type='warning'
-      showIcon
-      title='无法提交'
-      description={inputError}
-    />}
+    {/* 异步出现的提示都放在常驻的 live region 里：容器先于内容存在，读屏软件才收得到这次变化。 */}
+    <div className='recognition-projects-live' aria-live='polite'>
+      {inputError === null ? null : <Alert
+        className='recognition-projects-batch-error'
+        type='warning'
+        showIcon
+        title='无法提交'
+        description={inputError}
+      />}
+
+      {prunedCount === 0 ? null : <Alert
+        className='recognition-projects-batch-pruned'
+        type='info'
+        showIcon
+        title='选择已按最新数据收敛'
+        description={`重新读取后，有 ${prunedCount} 个已选项目已不在当前可新增集合中（已被配置或目录已停用），已从选择中移除。`}
+      />}
+    </div>
 
     <div className='recognition-projects-batch-footer'>
+      {/* 整批被服务端拒绝后就地重读的入口：写失败文案由宿主统一展示，这里只保证恢复动作就在手边。 */}
+      <Button size='small' icon={<ReloadOutlined />} loading={reloading} onClick={onReload}>重新读取</Button>
+      <Button
+        size='small'
+        disabled={visibleCodes.length === 0}
+        onClick={selectAllVisible}
+      >全选当前结果</Button>
       <span className='recognition-projects-batch-count'>已选 {selection.size} 项</span>
       <span className='recognition-projects-batch-days'>
         <span>可互认时间（天）</span>

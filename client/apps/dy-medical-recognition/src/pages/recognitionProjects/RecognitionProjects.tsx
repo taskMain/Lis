@@ -1,6 +1,6 @@
 import {
   PlusOutlined,
-  ReloadOutlined,
+  SearchOutlined,
 } from '@ant-design/icons'
 import {
   Alert,
@@ -18,6 +18,7 @@ import { RecognitionProjectCascade, type RecognitionProjectHighlight } from './R
 import { RecognitionProjectRow } from './RecognitionProjectRow'
 import { RecognitionProjectBatchCreateModal, ToggleModal } from './RecognitionProjectModals'
 import { type RecognitionProjectWriteGate } from './recognitionProjectWriteGate'
+import { readFilterFromLocation, syncFilterToLocation } from './recognitionProjectsFilterUrl'
 import {
   EMPTY_RECOGNITION_PROJECT_FILTER,
   CONFIGURATION_STATUS_METADATA_FALLBACK,
@@ -27,13 +28,12 @@ import {
   buildConfigurationListQuery,
   buildDurationUpdatePayload,
   configurationStatusActionText,
-  configuredStandardProjectCodes,
   countColumnRows,
   createRecognitionProjectConfigurations,
-  excludeConfiguredStandardItems,
   filterRecognitionProjectColumnView,
   queryRecognitionProjectConfigurations,
   querySelectableStandardItems,
+  queryTrustedOrganizationScope,
   setRecognitionProjectConfigurationEnabled,
   toConfigurationStatusFilterOptions,
   toRecognitionProjectColumnView,
@@ -89,9 +89,32 @@ export function RecognitionProjects() {
    * 不能与"还没读到"混为一谈，否则新增入口会永久禁用且既无提示也无重试入口。
    */
   const [catalogLoaded, setCatalogLoaded] = useState(false)
-  const [loading, setLoading] = useState(false)
+  /** 弹窗数据源（可新增标准项目）的读取是否在途；与页面列表的 loading 相互独立。 */
+  const [selectableLoading, setSelectableLoading] = useState(false)
+  /**
+   * 页面读取是否在途。初值为 `true`：页面一挂载就必然排一次读取，这一帧"还没发起"仍属未就绪，
+   * 否则新增入口会在数据落地前先放行一瞬。
+   */
+  const [loading, setLoading] = useState(true)
   const [loadFailure, setLoadFailure] = useState<LoadFailure>(null)
-  const [filter, setFilter] = useState<RecognitionProjectFilter>(EMPTY_RECOGNITION_PROJECT_FILTER)
+  /**
+   * 已生效筛选。初值取自地址栏查询参数（S2-D27）：带条件的链接进入后列表就按该条件裁剪，
+   * 解析只认 `code` 与 `status` 两个参数，取值不可识别时按该条件不生效处理。
+   */
+  const [filter, setFilter] = useState<RecognitionProjectFilter>(() => readFilterFromLocation())
+  /**
+   * 关键字条件的输入原文。它是**草稿**，与生效筛选分开：输入过程不改变列表，
+   * 只有提交动作（搜索按钮或输入框内回车）才把原文写进 `filter.keyword` 并作为查询条件下推服务端（S2-D21、S2-D29）。
+   * 分开持有是为了让「已输入但未提交」与「已生效」成为两个可分辨的事实，
+   * 页脚计数只按生效条件计算，不会跟着输入逐字跳动。初值取路由地址上的已生效关键字，
+   * 使带条件的链接进入后输入框与列表指向同一条件。
+   */
+  const [keywordDraft, setKeywordDraft] = useState(() => readFilterFromLocation().keyword)
+  /**
+   * 可信组织的名称。与组织编码分开持有：编码来自登录凭证、首帧即有，名称来自范围查询（S2-D22），
+   * 因此名称缺失只让页头退回「组织 编码」，不影响组织范围本身是否可用。
+   */
+  const [organizationName, setOrganizationName] = useState<string | null>(null)
   const [modal, setModal] = useState<ModalState>({ kind: 'none' })
   const [submitting, setSubmitting] = useState(false)
   /** 被点中的层级格；`null` 表示没有高亮。高亮只标识位置，不携带任何写操作。 */
@@ -110,6 +133,40 @@ export function RecognitionProjects() {
    */
   const [batchSelection, setBatchSelection] = useState<ReadonlySet<string>>(new Set())
   const [batchDurationInput, setBatchDurationInput] = useState('')
+  /**
+   * 上一次重读从选择中剔除的条数（S2-D25）。只用于弹窗内的一句可见说明，不参与任何业务判定；
+   * 计数在每次打开弹窗与手动改变选择时清零，避免把上一次重读的结论留到下一次操作上。
+   */
+  const [prunedSelectionCount, setPrunedSelectionCount] = useState(0)
+  /** 弹窗当前生效的查询关键字；空串表示列出全部可新增项目。 */
+  const [batchKeyword, setBatchKeyword] = useState('')
+  /**
+   * `batchSelection` 的同步镜像：读取完成后的收敛判定发生在异步回调里，读不到那一帧的 state；
+   * 由 effect 在每次选择变化后同步，因此它永远等于最近一次渲染的选择，不构成第二个事实来源。
+   */
+  const batchSelectionRef = useRef<ReadonlySet<string>>(new Set())
+  useEffect(() => {
+    batchSelectionRef.current = batchSelection
+  }, [batchSelection])
+  /**
+   * 按重读得到的最新可新增集合收敛选择：已不在集合中的编码从选择里移除，并记录剔除条数。
+   * 剔除不静默进行——用户勾选的数量与提交的数量必须对得上，否则整批拒绝时无法自查。
+   */
+  const pruneBatchSelection = useCallback((selectableCodes: ReadonlySet<string>) => {
+    if (batchSelectionRef.current.size === 0) return
+    const kept = new Set([...batchSelectionRef.current].filter((code) => selectableCodes.has(code)))
+    if (kept.size === batchSelectionRef.current.size) return
+    setBatchSelection(kept)
+    setPrunedSelectionCount(batchSelectionRef.current.size - kept.size)
+  }, [])
+  /**
+   * 已生效筛选的同步镜像：`load` 在异步回调里要读"当前生效关键字"，而 `load` 自身不随筛选重建
+   * （见它的说明），因此这里经 ref 读现值；由 effect 在每次筛选变化后同步，不构成第二个事实来源。
+   */
+  const filterRef = useRef<RecognitionProjectFilter>(EMPTY_RECOGNITION_PROJECT_FILTER)
+  useEffect(() => {
+    filterRef.current = filter
+  }, [filter])
   /** 页面实际展示的组织；与可信组织不一致时说明组织变化尚未被确认。 */
   const [appliedOrganizationCode, setAppliedOrganizationCode] = useState<string | null>(trustedOrganizationCode)
   /** 用户对「组织变化」确认框点过取消的那一次可信组织编码；仅用于不自动重复弹窗。 */
@@ -144,6 +201,8 @@ export function RecognitionProjects() {
    * 该边界与 `useEnumMetadata` 的卸载守卫同一口径。
    */
   const requestIdRef = useRef(0)
+  /** 弹窗数据源读取的请求序号；与页面读取分开，两条读取相互独立、互不作废对方的结果。 */
+  const selectableRequestIdRef = useRef(0)
   /**
    * `appliedOrganizationCode` 的**同步镜像**，只在一处（`applyOrganization`）与它一起赋值，
    * 不构成第二个状态源：两者永远表达同一个「页面已应用组织」。保留它的唯一用途是让
@@ -184,12 +243,24 @@ export function RecognitionProjects() {
   }
 
   /**
-   * 读取指定组织的配置与标准项目选择数据。
-   * 调用方在应用新组织前已推进请求序号，因此迟到的旧组织响应不会覆盖新组织；
-   * 同一组织的重载失败只保留已有数据并进入阻断态，不覆盖成空列表。
+   * 读取指定组织的配置列表与可信范围。调用方在应用新组织前已推进请求序号，因此迟到的旧组织响应不会覆盖新组织；
+   * 同一组织的重载失败只保留已有数据并进入阻断态，不覆盖成空列表。范围查询与配置查询并行发起、
+   * 按同一口径判定成败：任一次失败即整次读取失败（S2-D22）。
+   *
+   * `pendingKeyword` 由搜索提交传入：它既是**本次查询条件**（下推服务端，S2-D29），读取成功后才写成生效筛选，
+   * 因此列表里看到的结果一定来自这一次查询，不会先拿旧条件的结果凑一帧。
+   * 读取失败时不写筛选，页面停在阻断态并保留旧条件，用户看到的是「这次搜索没生效」。
+   *
+   * 未传 `pendingKeyword` 时按**当前已生效关键字**查询（重载、重试、写后刷新都走这一口径）。
+   * 关键字经 `filterRef` 读现值而不是闭包里的 `filter`：`load` 不随筛选变化重建，
+   * 否则「配置状态切换」这类只改本地裁剪的动作会连带触发一次多余读取。
+   *
+   * 页面不再读取标准目录：行集的名称、类型、分类、分组由配置列表读模型实时带出（S2-D29），
+   * 可新增标准项目由弹窗自己那次查询交付。
    */
-  const load = useCallback(async (targetOrganizationCode: string, failureKind: Exclude<LoadFailure, null>) => {
-    const query = buildConfigurationListQuery(targetOrganizationCode)
+  const load = useCallback(async (targetOrganizationCode: string, failureKind: Exclude<LoadFailure, null>, pendingKeyword?: string) => {
+    const keyword = pendingKeyword ?? filterRef.current.keyword
+    const query = buildConfigurationListQuery(targetOrganizationCode, { keyword, status: 'all' })
     if (query === null) {
       setLoading(false)
       setLoadFailure(failureKind)
@@ -199,41 +270,94 @@ export function RecognitionProjects() {
     setLoading(true)
     const results = await Promise.allSettled([
       queryRecognitionProjectConfigurations(client, query),
-      querySelectableStandardItems(client),
+      queryTrustedOrganizationScope(client),
     ])
     if (requestId !== requestIdRef.current) return
 
-    const [configurations, standardCatalog] = results
+    const [configurations, scope] = results
     setLoading(false)
-    if (configurations.status === 'fulfilled') setRows(configurations.value)
-    // 读取响应在进入页面状态前先经适配层摊平为视图模型（见 `catalogItems` 的说明）。
-    if (standardCatalog.status === 'fulfilled') setCatalogItems(toSelectableStandardItems(standardCatalog.value))
-    // "已读到目录"按请求是否成功判定，与目录内容是否为空无关。
-    setCatalogLoaded(standardCatalog.status === 'fulfilled')
-    setLoadFailure(configurations.status === 'rejected' || standardCatalog.status === 'rejected' ? failureKind : null)
+    if (configurations.status === 'fulfilled') {
+      setRows(configurations.value)
+      if (pendingKeyword !== undefined) {
+        setFilter((previous) => (previous.keyword === pendingKeyword ? previous : { ...previous, keyword: pendingKeyword }))
+        // 可见行集随之变化，编辑态一并清除（与 `changeFilter` 同一理由）。
+        setDurationEdit(null)
+      }
+    }
+    // 名称只在范围查询回读的组织与本次读取的目标组织一致时应用：不一致说明凭证已换，
+    // 此时不接受该名称，避免把别的组织名称留在页头。
+    setOrganizationName(
+      scope.status === 'fulfilled' && scope.value.organizationCode === targetOrganizationCode
+        ? scope.value.organizationName
+        : null,
+    )
+    setLoadFailure(
+      configurations.status === 'rejected' || scope.status === 'rejected' ? failureKind : null,
+    )
   }, [client])
 
   /**
-   * 应用目标组织：让旧组织的在途请求失效，清空列表、选择数据、筛选、高亮与写界面，
-   * 然后由加载 effect 读取目标组织。目标组织读取失败时停留在阻断态，不回退复用旧组织数据。
+   * 读取**可新增标准项目**（弹窗的数据源）。这是与页面列表相互独立的一次查询：服务端按
+   * 「三级均启用的有效目录 − 本组织已配置」返回结果（S2-D29），因此页面不必持有全量配置，
+   * 客户端也不再做差集。`keyword` 为空表示列出全部可新增项目。
+   *
+   * 收敛判定（S2-D25）就建立在这份结果上：只有它给出的是真实的可新增集合。
+   *
+   * 失败**不写页面级阻断态**：弹窗数据源读不到只让弹窗内提示「数据待刷新」并保留重读入口，
+   * 页面列表与它的行内操作不受影响（两者是不同的数据、不同的失败面）。成功也不清页面级失败。
+   * 请求序号与页面读取分开：两条读取相互独立，任一条在途都不该作废另一条的结果。
+   */
+  const loadSelectableItems = useCallback(async (keyword: string) => {
+    const requestId = ++selectableRequestIdRef.current
+    setSelectableLoading(true)
+    const result = await querySelectableStandardItems(client, keyword)
+      .then((catalog) => ({ ok: true as const, catalog }))
+      .catch(() => ({ ok: false as const, catalog: null }))
+    if (requestId !== selectableRequestIdRef.current) return
+
+    setSelectableLoading(false)
+    if (result.ok) {
+      const items = toSelectableStandardItems(result.catalog)
+      setCatalogItems(items)
+      setCatalogLoaded(true)
+      // 收敛判定只在**全量可新增集合**这次读取上做（S2-D25）：关键字搜索的结果是用户主动收窄的子集，
+      // 不代表被搜掉的项目已不可新增；按它剔除会把仍然有效的勾选误删。
+      if (keyword.trim().length === 0) pruneBatchSelection(new Set(items.map((item) => item.code)))
+    } else {
+      setCatalogLoaded(false)
+    }
+  }, [client, pruneBatchSelection])
+
+  /**
+   * 应用目标组织：让旧组织的在途请求失效，清空列表、选择数据、筛选（含编码输入原文）、
+   * 高亮与写界面，然后由加载 effect 读取目标组织。目标组织读取失败时停留在阻断态，
+   * 不回退复用旧组织数据。
    */
   const applyOrganization = useCallback((targetOrganizationCode: string) => {
     requestIdRef.current += 1
+    // 弹窗数据源的在途读取一并作废：它属于旧组织，不能落在新组织的可选集合上。
+    selectableRequestIdRef.current += 1
     appliedOrganizationRef.current = targetOrganizationCode
     setRows([])
     setCatalogItems([])
     setCatalogLoaded(false)
     setFilter(EMPTY_RECOGNITION_PROJECT_FILTER)
+    setKeywordDraft('')
+    setOrganizationName(null)
     setModal({ kind: 'none' })
     setDurationEdit(null)
     setHighlight(null)
-    // 新增弹窗的选择与天数属于旧组织：切换后不得带到新组织的可选集合上。
+    // 新增弹窗的选择、天数与关键字属于旧组织：切换后不得带到新组织的可选集合上。
     setBatchSelection(new Set())
     setBatchDurationInput('')
+    setBatchKeyword('')
+    setPrunedSelectionCount(0)
     setLoadFailure(null)
     setDismissedOrganizationCode(null)
     // 页面已应用新组织：上一次提交期复核留下的原因不再成立。
     setOrganizationRecheckFailure(null)
+    // 目标组织的读取已排队未发起：这一帧仍属未就绪，新增入口不得先放行。
+    setLoading(true)
     setAppliedOrganizationCode(targetOrganizationCode)
   }, [])
 
@@ -313,17 +437,11 @@ export function RecognitionProjects() {
     return () => window.clearTimeout(task)
   }, [appliedOrganizationCode, load, trustedOrganizationCode])
 
-  const configuredCodes = useMemo(() => configuredStandardProjectCodes(rows), [rows])
-  // 剔除已配置项目：摊平结果与剔除分开，目录读取只交付摊平后的候选集，排除集合随行集变化重算。
-  const selectableItems = useMemo(
-    () => excludeConfiguredStandardItems(catalogItems, configuredCodes),
-    [catalogItems, configuredCodes],
-  )
   /**
-   * 新增弹窗的可选集合列视图：有效目录剔除已配置编码后按目录层级摊开。
-   * 排除在构造之前完成，因此弹窗里不会出现已配置项目；目录停用项目本就不在有效目录中。
+   * 新增弹窗的可选集合列视图：`catalogItems` 已是服务端按「有效目录 − 本组织已配置」交付的结果
+   * （S2-D29），客户端不再做差集，只把它按层级摊开。
    */
-  const selectableColumnView = useMemo(() => toSelectableColumnView(selectableItems), [selectableItems])
+  const selectableColumnView = useMemo(() => toSelectableColumnView(catalogItems), [catalogItems])
 
   const organizationReady = appliedOrganizationCode !== null && appliedOrganizationCode === trustedOrganizationCode
   /**
@@ -379,16 +497,38 @@ export function RecognitionProjects() {
   }, [])
 
   /**
-   * 打开新增弹窗：清空上一次的选择与天数，使每次进入都从空选择开始。
+   * 弹窗内的数据重读：按当前弹窗关键字再查一次可新增标准项目（S2-D25 的「重新读取」与 S2-D26 的搜索共用）。
+   * 页面已应用组织缺失时不发起请求；请求本身不带组织入参——服务端只按可信上下文排除本组织的配置。
+   */
+  const reloadSelectableItems = useCallback((keyword: string) => {
+    if (appliedOrganizationRef.current === null) return
+    void loadSelectableItems(keyword)
+  }, [loadSelectableItems])
+
+  /**
+   * 弹窗内的关键字搜索：先记录生效条件（弹窗据此区分「没有匹配项」与「没有可新增项」），
+   * 再按它查询一次可新增项目。清空关键字等价于"列出全部可新增项目"。
+   */
+  const searchSelectableItems = useCallback((keyword: string) => {
+    setBatchKeyword(keyword)
+    reloadSelectableItems(keyword)
+  }, [reloadSelectableItems])
+
+  /**
+   * 打开新增弹窗：清空上一次的选择、天数、关键字与剔除说明，并**立即查一次可新增项目**（S2-D25），
+   * 使可选集合是打开那一刻的真实集合，而不是页面最近一次读取的快照。
    * 清空放在打开这一侧而不是关闭那一侧：写入成功与用户取消都会关闭弹窗，
    * 两条路径因此共用同一处复位，不需要各自记得清一次。
    */
   const openBatchCreate = useCallback(() => {
     setBatchSelection(new Set())
     setBatchDurationInput('')
+    setPrunedSelectionCount(0)
+    setBatchKeyword('')
     setOrganizationRecheckFailure(null)
     setModal({ kind: 'create' })
-  }, [])
+    reloadSelectableItems('')
+  }, [reloadSelectableItems])
 
   /** 收起行内编辑，与 `closeWriteModal` 对称：清空编辑态与提交期复核原因。 */
   const closeDurationEdit = useCallback(() => {
@@ -405,17 +545,48 @@ export function RecognitionProjects() {
     setDurationEdit(null)
   }, [])
 
+  /**
+   * 提交搜索：以输入原文作为**服务端查询条件**查一次配置列表（S2-D29），读取成功后把它应用为生效筛选。
+   * 条件为空时提交等价于刷新——查询不带关键字，结果是本组织当前全部配置。
+   * 读取失败时不写筛选，页面停在阻断态并保留旧条件。
+   */
+  const submitKeywordFilter = useCallback(() => {
+    const targetOrganizationCode = appliedOrganizationRef.current
+    if (targetOrganizationCode === null) return
+    void load(targetOrganizationCode, loadFailure ?? 'load', keywordDraft)
+  }, [load, loadFailure, keywordDraft])
+
+  /**
+   * 关键字输入框的输入原文变化。**清空动作**（输入框自带的清除入口，或手动删空）同时清掉生效条件并
+   * 重读一次：关键字已下推服务端，只清状态不重读会让列表停在上一次关键字的结果上、
+   * 而输入框与地址栏都已显示"无条件"；重读口径与"空条件提交等价于刷新"（S2-D24）一致。
+   * 非空原文只更新草稿，等提交动作再进入查询。
+   */
+  const changeKeywordDraft = useCallback((value: string) => {
+    setKeywordDraft(value)
+    if (value !== '') return
+    changeFilter((previous) => (previous.keyword === '' ? previous : { ...previous, keyword: '' }))
+    const targetOrganizationCode = appliedOrganizationRef.current
+    if (targetOrganizationCode !== null) void load(targetOrganizationCode, loadFailure ?? 'load', '')
+  }, [changeFilter, load, loadFailure])
+
+  /**
+   * 已生效筛选与地址栏保持一致（S2-D27）：条件变化后回写地址栏，写入方式见 `syncFilterToLocation`
+   * （替换当前历史项、失败静默降级）。依赖只取 `filter`，因此输入原文不参与，地址栏只反映真正生效的条件。
+   */
+  useEffect(() => {
+    syncFilterToLocation(filter)
+  }, [filter])
+
   const canWrite = organizationReady && loadFailure === null && !loading && !submitting
   /**
-   * 标准项目选择数据是否可用于新增：一次读取里配置与标准目录同时发起，两者都成功才允许新增。
-   * 就绪与否按**本次读取是否成功**判定（`catalogLoaded`），而不是按目录内容是否为空：
-   * 首帧与切换组织后的窗口里读取尚未成功，`rows=[]`/`catalogItems=[]` 若被旧口径判成可写，
-   * 新增弹窗就会把「还没读到目录」误报成「没有可新增的标准项目」；而"读取成功但目录为空"是正常结果，
-   * 此时入口必须可用、由弹窗提示没有可新增项，否则入口会永久禁用且无提示、无重试入口。
-   * `loading` 覆盖同组织重载在途的窗口，因此这里同时判定读取状态与数据。
-   * 目录只影响新增：修改可互认时间与启停不依赖目录，仍只按 `canWrite` 判定。
+   * 新增入口只按 `canWrite` 判定：页面读取成功即允许打开弹窗。原先"目录未读到就禁用"的前提已经不存在——
+   * 可新增项目由弹窗自己那次查询交付（S2-D29），读取失败或为空都在弹窗内就地表达，
+   * 不再用一个页面级的目录读取当前提去禁用入口。
+   *
+   * `catalogReady` 只给弹窗内区分「数据待刷新」与「确实没有可新增项」用，不参与入口门控。
    */
-  const catalogReady = organizationReady && !loading && loadFailure === null && catalogLoaded
+  const catalogReady = catalogLoaded
   /**
    * 写界面门控：与 `canWrite` 同源（组织一致、读取未失败、读取不在途、无在途提交），
    * 由写界面禁用提交并给出与页面顶部提示同口径的原因；「写请求在途」交给提交反馈表达，
@@ -424,7 +595,7 @@ export function RecognitionProjects() {
    */
   const writeGate: RecognitionProjectWriteGate = { organizationReady, canWrite, loadFailure, organizationRecheckFailure: writeRecheckFailure }
   /** 是否存在生效的本地筛选：用于把「本组织没有配置」与「筛选后没有匹配项」两种空态分开。 */
-  const filtering = filter.code.trim().length > 0 || filter.status !== 'all'
+  const filtering = filter.keyword.trim().length > 0 || filter.status !== 'all'
   const retry = () => {
     if (appliedOrganizationCode === null) return
     void load(appliedOrganizationCode, loadFailure ?? 'load')
@@ -452,46 +623,74 @@ export function RecognitionProjects() {
     <div className='recognition-projects-header'>
       <div><Typography.Title level={2}>互认项目</Typography.Title><Typography.Text type='secondary'>标准项目互认配置</Typography.Text></div>
       <Space wrap>
-        <Typography.Text type='secondary'>组织编码：{appliedOrganizationCode ?? '—'}</Typography.Text>
-        <Button icon={<ReloadOutlined />} aria-label='重新读取互认配置' loading={loading} disabled={loading || !organizationReady} onClick={retry} />
-        <Button type='primary' icon={<PlusOutlined />} disabled={!canWrite || !catalogReady} onClick={openBatchCreate}>新增配置</Button>
+        {/*
+          页头组织范围：上下两行，名称在上、编码在下，不设文字标签。
+          名称来自范围查询，读取返回前只展示编码一行（不渲染空行）。
+        */}
+        <span className='recognition-projects-scope'>
+          {organizationName === null ? null : <span className='recognition-projects-scope-name'>{organizationName}</span>}
+          <span className='recognition-projects-scope-code'>{appliedOrganizationCode ?? '—'}</span>
+        </span>
+        {/* 新增入口只按 `canWrite` 门控：可新增集合由弹窗自己查询交付，读取失败在弹窗内表达。 */}
+        <Button type='primary' icon={<PlusOutlined />} disabled={!canWrite} onClick={openBatchCreate}>新增互认项目</Button>
       </Space>
     </div>
 
-    {switchDeferred ? <Alert
-      type='info'
-      showIcon
-      title='宿主组织已变化，尚有未保存内容'
-      description={`宿主已把组织切换为 ${trustedOrganizationCode}，当前页面仍显示组织 ${appliedOrganizationCode} 的配置，维护操作已暂停。放弃未保存内容后即可切换。`}
-      action={<Button size='small' onClick={() => setDismissedOrganizationCode(null)}>放弃并切换</Button>}
-    /> : null}
+    {/*
+      页面级提示都放在常驻的 live region 里：容器先于内容存在，读取失败、写入成功待刷新这类
+      异步出现的状态变化才读得到，而不是只在视觉上出现。
+    */}
+    <div className='recognition-projects-live' aria-live='polite'>
+      {switchDeferred ? <Alert
+        type='info'
+        showIcon
+        title='宿主组织已变化，尚有未保存内容'
+        description={`宿主已把组织切换为 ${trustedOrganizationCode}，当前页面仍显示组织 ${appliedOrganizationCode} 的配置，维护操作已暂停。放弃未保存内容后即可切换。`}
+        action={<Button size='small' onClick={() => setDismissedOrganizationCode(null)}>放弃并切换</Button>}
+      /> : null}
 
-    {loadFailure === null ? null : <Alert
-      type='warning'
-      showIcon
-      title={loadFailure === 'refreshAfterWrite' ? '写入已成功，数据待刷新' : '互认配置数据待刷新'}
-      description={loadFailure === 'refreshAfterWrite'
-        ? '写入已经成功，但重新读取配置与标准项目失败；已有数据保留，维护操作暂不可用。'
-        : '读取失败，已有数据保留；维护操作暂不可用，可重试读取。'}
-      action={<Button size='small' onClick={retry}>重试</Button>}
-    />}
+      {loadFailure === null ? null : <Alert
+        type='warning'
+        showIcon
+        title={loadFailure === 'refreshAfterWrite' ? '写入已成功，数据待刷新' : '互认配置数据待刷新'}
+        description={loadFailure === 'refreshAfterWrite'
+          ? '写入已经成功，但重新读取配置与标准项目失败；已有数据保留，维护操作暂不可用。'
+          : '读取失败，已有数据保留；维护操作暂不可用，可重试读取。'}
+        action={<Button size='small' onClick={retry}>重试</Button>}
+      />}
+    </div>
 
     <div className='recognition-projects-filters'>
       <Input
-        placeholder='标准项目编码'
-        aria-label='标准项目编码筛选'
+        placeholder='标准项目编码/名称/分类/分组关键字'
+        aria-label='关键字筛选'
         autoComplete='off'
         allowClear
-        value={filter.code}
-        onChange={(event) => changeFilter((previous) => ({ ...previous, code: event.target.value }))}
+        value={keywordDraft}
+        onChange={(event) => changeKeywordDraft(event.target.value)}
+        onPressEnter={submitKeywordFilter}
       />
+      {/*
+        搜索按钮是筛选区唯一的主按钮。显式给出可访问名称：`SearchOutlined` 自带英文 `aria-label`，
+        它会参与按钮的名称计算，不声明就会读成「search 搜索」。`autoInsertSpace={false}` 关闭 antd
+        对两个汉字之间自动插入的空格，使按钮文本与可访问名称都是「搜索」，与设计登记的按钮文字一致。
+        提交会触发重新读取（S2-D24），因此按钮在读取在途时进入 `loading`：图标换成旋转指示并禁用，
+        「点了搜索之后正在取数」这件事因此在用户刚点击的位置可见。
+      */}
+      <Button
+        type='primary'
+        icon={<SearchOutlined />}
+        aria-label='搜索'
+        autoInsertSpace={false}
+        loading={loading}
+        onClick={submitKeywordFilter}
+      >搜索</Button>
       <Segmented<RecognitionProjectFilter['status']>
         aria-label='配置状态筛选'
         value={filter.status}
         options={statusSegmentedOptions}
         onChange={(status) => changeFilter((previous) => ({ ...previous, status }))}
       />
-      <Button icon={<ReloadOutlined />} aria-label='重置编码与状态筛选' onClick={() => changeFilter(() => EMPTY_RECOGNITION_PROJECT_FILTER)}>重置</Button>
     </div>
 
     <div className='recognition-projects-cascade-wrap'>
@@ -499,8 +698,10 @@ export function RecognitionProjects() {
         view={visibleColumnView}
         highlight={highlight}
         onLevelClick={setHighlight}
-        // 两种空态事实不同：目录里没有任何可展示的标准项目，与本地筛选把项目全滤掉了。
-        emptyText={totalRowCount === 0 ? '当前组织没有可展示的标准项目' : '没有匹配的配置'}
+        // 两种空态事实不同：本组织还没有任何互认项目配置（此时没有任何生效条件），
+        // 与「有条件但没命中」——关键字或状态把结果裁空了。服务端按关键字过滤后行集为空时
+        // 无法只看行数区分两者，必须结合生效条件判定。
+        emptyText={totalRowCount === 0 && !filtering ? '本组织还没有互认项目配置' : '没有匹配的配置'}
         renderRow={(columnRow) => <RecognitionProjectRow
           row={columnRow}
           writeGate={writeGate}
@@ -525,19 +726,29 @@ export function RecognitionProjects() {
       />
     </div>
     <Typography.Text type='secondary' className='recognition-projects-summary'>
-      本组织共 {rows.length} 项配置{filtering ? `，筛选后 ${visibleRowCount} 项` : ''}
+      {/* 页脚只报当前显示条数：列表响应没有总数来源，而页面行集就是本组织的配置集合（S2-D24）。 */}
+      共 {visibleRowCount} 项配置
     </Typography.Text>
 
     {modal.kind === 'create' ? <RecognitionProjectBatchCreateModal
       open
       view={selectableColumnView}
       catalogReady={catalogReady}
+      keyword={batchKeyword}
+      onKeywordSearch={searchSelectableItems}
       selection={batchSelection}
       durationInput={batchDurationInput}
       writeGate={writeGate}
       onCancel={closeWriteModal}
       submitting={submitting}
-      onSelectionChange={setBatchSelection}
+      reloading={selectableLoading}
+      prunedCount={prunedSelectionCount}
+      onReload={() => reloadSelectableItems(batchKeyword)}
+      // 手动改变选择即表示用户已经看过当前集合，上一次重读的剔除说明不再适用。
+      onSelectionChange={(next) => {
+        setPrunedSelectionCount(0)
+        setBatchSelection(next)
+      }}
       onDurationChange={setBatchDurationInput}
       onSubmit={() => {
         const request = buildBatchCreateConfigurationRequest(batchSelection, batchDurationInput)

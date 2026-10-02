@@ -1,7 +1,21 @@
 .recognition-projects-page { min-width: 0; max-width: 100%; }
 .recognition-projects-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .recognition-projects-header h2.ant-typography { margin: 0; }
-.recognition-projects-filters { display: grid; grid-template-columns: minmax(140px, 240px) minmax(200px, 260px) auto; gap: 8px; margin: 16px 0 12px; align-items: center; }
+/*
+ * 页头组织范围：上下两行，名称在上、编码在下，两行右对齐；不设文字标签，
+ * 靠纵向排列与字号、字重差异表达从属。名称未取得时只渲染编码一行，不留空行。
+ */
+.recognition-projects-scope { display: inline-flex; flex-direction: column; align-items: flex-end; line-height: 1.3; }
+.recognition-projects-scope-name { color: #1f2937; font-weight: 500; }
+.recognition-projects-scope-code { color: #6b7280; font-size: 12px; font-variant-numeric: tabular-nums; }
+/*
+ * 筛选区：条件组整体左对齐一行，控件各自按内容宽度排布，窄视口自动换行。
+ * 不用网格：网格的自动轨道会吸收剩余宽度，把落在该轨道上的控件拉伸成整条（搜索按钮与
+ * 配置状态选择都曾在版面里被拉长），而筛选区没有任何需要占满宽度的元素。
+ */
+.recognition-projects-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 12px; }
+.recognition-projects-filters .ant-input-affix-wrapper { width: 240px; max-width: 100%; }
+.recognition-projects-filters .ant-segmented { min-width: 200px; }
 .recognition-projects-summary { display: block; margin-top: 12px; font-variant-numeric: tabular-nums; }
 
 /*
@@ -13,8 +27,12 @@
 .recognition-projects-cascade { display: grid; grid-template-columns: 88px 186px 208px minmax(560px, 1fr); min-width: 1060px; background: #fff; }
 .recognition-projects-cascade-head { min-width: 0; padding: 10px 12px; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #d1d5db; background: #f5f5f5; color: #4b5563; font-weight: 600; }
 
-/* 层级格是原生按钮直接作为网格项：网格项默认在两条轴上拉伸，整个格都是点击区域（含格内空白处）。 */
-.recognition-projects-level { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 4px; min-width: 0; margin: 0; padding: 10px 12px; border: 0; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; font: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+/*
+ * 层级格是原生按钮直接作为网格项：网格项默认在两条轴上拉伸，整个格都是点击区域（含格内空白处）。
+ * `touch-action: manipulation` 去掉触屏上双击缩放的等待；层级格跨若干行、行高随分组下的项目数变化，
+ * 因此离屏跳过渲染只声明在本层（`content-visibility: auto` + 固有尺寸估计），不做窗口化（S2-D28）。
+ */
+.recognition-projects-level { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 4px; min-width: 0; margin: 0; padding: 10px 12px; border: 0; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; font: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; touch-action: manipulation; content-visibility: auto; contain-intrinsic-size: auto 320px; }
 .recognition-projects-level:focus-visible { outline: 2px solid #1677ff; outline-offset: -2px; }
 /* 类型格与分类格各有底色，分组格与项目格保持底色，使从属关系在纵向上一眼可辨。 */
 .recognition-projects-level-type { align-items: center; padding-top: 16px; background: #eef0f5; color: #2b3350; font-weight: 700; }
@@ -54,17 +72,33 @@ button.recognition-projects-days-value:disabled { color: #9ca3af; cursor: not-al
 .recognition-projects-cascade-empty { margin-top: 14px; padding: 44px 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; color: #6b7280; text-align: center; }
 
 /*
- * 批量新增弹窗：弹窗内的列视图与页面同一套结构，因此只补弹窗自己的滚动与底栏。
- * 弹窗宽度按四栏的最小宽度给出，内容区自己承载纵向滚动，使四栏表头与底部操作区始终可见。
+ * 常驻的读屏播报容器（aria-live）：内容为空时也存在于版面上，异步提示才有"从无到有"的变化可播报。
+ * 行内的提示容器与提示自身同一列宽规则，避免多出一层后把行内控件挤到下一行。
  */
-.recognition-projects-batch-body { max-height: 52vh; overflow: auto; }
+.recognition-projects-live { display: block; }
+.recognition-projects-row-live { flex: 0 0 100%; }
+
+/*
+ * 批量新增弹窗：弹窗内的列视图与页面同一套结构，因此只补弹窗自己的搜索、滚动与底栏。
+ * 弹窗宽度按四栏的最小宽度给出，内容区自己承载纵向滚动，使四栏表头与底部操作区始终可见。
+ * `overscroll-behavior: contain` 把滚动留在弹窗内，滚到底不再带动页面。
+ */
+.recognition-projects-batch-search { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.recognition-projects-batch-search .ant-input-affix-wrapper { width: 240px; max-width: 100%; }
+.recognition-projects-batch-body { max-height: 52vh; overflow: auto; overscroll-behavior: contain; }
 .recognition-projects-batch-body .recognition-projects-cascade-wrap { margin-top: 0; }
 .recognition-projects-batch-error { margin-top: 12px; }
+.recognition-projects-batch-pruned { margin-top: 12px; }
 .recognition-projects-batch-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
 .recognition-projects-batch-count { color: #4b5563; font-variant-numeric: tabular-nums; }
 .recognition-projects-batch-days { display: inline-flex; align-items: center; gap: 8px; color: #4b5563; }
 .recognition-projects-batch-days input { width: 120px; }
 /* 层级格里的整组勾选控件：紧跟在层级名称之前，不改变层级格自身的点击区域。 */
 .recognition-projects-level-check { display: inline-flex; }
+/*
+ * 弹窗里的项目行整行是勾选命中区：复选框标签自身撑满行，名称与编码都在标签内，
+ * 因此点名称、点编码与点复选框等价，不留"看着能点、点了没反应"的空白区。
+ */
+.recognition-projects-batch-row-label { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; }
 
-@media (max-width: 720px) { .recognition-projects-filters { grid-template-columns: minmax(0, 1fr); } }
+/* 窄视口由筛选区的 flex-wrap 承担换行，不再改写列模板，避免回到会拉伸控件的网格排布。 */

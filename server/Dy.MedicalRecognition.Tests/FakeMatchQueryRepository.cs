@@ -191,6 +191,9 @@ internal sealed class FakeMatchQueryRepository : IMedicalRecognitionReportQueryR
   }
 
   /// <inheritdoc/>
+  public Task<IEnumerable<EffectiveMedicalStandardCatalogItem>> QuerySelectableStandardItemListAsync(string organizationCode, string? keyword) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
   public Task<IEnumerable<RecognitionMatchCandidateReportItem>> QueryRecognitionMatchCandidateReportsAsync(
     string organizationCode,
     string hospitalCode,

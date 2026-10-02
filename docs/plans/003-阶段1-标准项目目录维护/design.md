@@ -4,7 +4,7 @@
 
 本文是阶段 1 的阶段设计。后端设计与测试前矩阵见 [Server/design.md](Server/design.md)，前端设计与测试前矩阵见 [Client/design.md](Client/design.md) 与 [Client/testPlan.md](Client/testPlan.md)。实施批次见 [impl.md](impl.md)，实际执行结果见 [testReport.md](testReport.md)。
 
-**当前处于实施与验证收口阶段。** 用户已确认本平台尚未建表，不使用归属未确认的非本平台对象，物理表统一使用 `mrec_` 前缀，实体不加前缀（S1-D3/S1-D31）。S1-D29 已于 2026-09-14 确认进入实现与验证。页面与交互设计见 [Client/design.md](Client/design.md)。
+**阶段状态为 `Complete`（负责人 2026-09-15 裁定收口，2026-09-24 与 2026-09-28 两轮重开交互整改已完成并复验）。** 本平台尚未建表，不使用归属未确认的非本平台对象，物理表统一使用 `mrec_` 前缀，实体不加前缀（S1-D3/S1-D31）。S1-D29 已于 2026-09-14 确认进入实现与验证。页面与交互设计见 [Client/design.md](Client/design.md)。
 
 ## 目标与范围
 

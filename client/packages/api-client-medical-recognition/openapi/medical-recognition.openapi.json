@@ -820,6 +820,125 @@
         ]
       }
     },
+    "/Api/MedicalRecognitionReportQuery/QuerySelectableStandardItemList": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectableStandardItemListQueryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectableStandardItemListQueryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectableStandardItemListQueryRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectableStandardItemListQueryRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectableStandardItemListQueryRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectableStandardItemListQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectiveMedicalStandardCatalogReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectiveMedicalStandardCatalogReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectiveMedicalStandardCatalogReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectiveMedicalStandardCatalogReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectiveMedicalStandardCatalogReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/Api/MedicalRecognitionReportQuery/QueryTrustedOrganizationScope": {
+      "post": {
+        "tags": [
+          "MedicalRecognitionReportQueryAppService"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustedOrganizationScopeReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustedOrganizationScopeReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustedOrganizationScopeReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustedOrganizationScopeReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrustedOrganizationScopeReadModel"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
     "/Api/MedicalRecognitionReportQuery/QueryRecognitionAmountList": {
       "post": {
         "tags": [
@@ -7152,7 +7271,7 @@
           "organizationCode": {
             "type": "string"
           },
-          "standardProjectCode": {
+          "keyword": {
             "type": [
               "null",
               "string"
@@ -8274,6 +8393,17 @@
           }
         }
       },
+      "SelectableStandardItemListQueryRequest": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "SourceImageStatus": {
         "enum": [
           1,
@@ -8662,6 +8792,17 @@
           },
           "isValid": {
             "type": "boolean"
+          }
+        }
+      },
+      "TrustedOrganizationScopeReadModel": {
+        "type": "object",
+        "properties": {
+          "organizationCode": {
+            "type": "string"
+          },
+          "organizationName": {
+            "type": "string"
           }
         }
       },

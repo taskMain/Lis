@@ -41,8 +41,8 @@ public sealed class Stage6SqlMapTests
     "QueryRecognitionMatchRecordView", "QueryRecognitionMatchRecordViewItems"
   ];
 
-  /// <summary>查询作用域在追加统计语句前的既有语句条数；与十七条合计用于冻结清单等值扩展。</summary>
-  private const int ExistingQueryStatementCount = 28;
+  /// <summary>查询作用域在追加统计语句前的既有语句条数（含可新增标准项目查询）；与统计语句合计用于冻结清单等值扩展。</summary>
+  private const int ExistingQueryStatementCount = 29;
 
   /// <summary>计数语句与当页语句的配对及其行集是否按分组键聚合；汇总对作用于聚合后的分组行。</summary>
   private static readonly (string CountId, string PageId, bool GroupedRow)[] CountPagePairs =

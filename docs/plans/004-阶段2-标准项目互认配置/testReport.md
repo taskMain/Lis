@@ -4,7 +4,7 @@
 
 本报告记录阶段2各轮的文档检查与业务矩阵执行结果；业务矩阵的执行边界按下方"执行边界"与各轮小节区分，当前终态见"结果"节。阶段1已于 2026-09-15 完成规定收口（阶段状态 `Complete`，结论见阶段1 `testReport.md`）；本报告不重复裁定阶段1的历史证据。
 
-- 报告状态：**已执行**。矩阵分两部分：原 52 条（后端 V1-V27、前端 C1-C25）中 `Passed` 47 条、`Blocked` 4 条、`N/A` 1 条；重开轮新增 11 条（V28-V33、C26-C30）**全部 `Passed`**。合计分母 **63 条**：`Passed` 58 条、`Blocked` 4 条、`N/A` 1 条，`NotRun`/`Failed`/`PendingRetest` 为 0。4 条受阻项均为**环境或框架边界导致的规定验证面未执行**，其受阻原因登记为决策标签（**接受口径待负责人确认**；决策标签不计入统计，这 4 条 `Blocked` 计入 63 条分母并单列）：**组织切换后目标组织读取失败**（C17）的真实宿主页面层、**事件登记/处理/提交的可见性**（V24）、**并发同方向停用时"恰好登记一次事件"的计数子面**（V26）、**跨组织写配置 ID 的拒绝**（V27）。宿主验收按 [Testing](../../../.agents/instructions/testing.md) 第 1、2 节从真实宿主登录页与菜单执行；`Passed` 只覆盖各用例声明的层级。**2026-09-16 批次A/B 整改后**，受影响用例的宿主证据已按 Testing Baseline §5 重取（见"批次A/B 整改后的宿主重取（2026-09-16）"）；同日完成**7 轴整改后复审与收口前清理**（0 Blocker、0 实现层硬违规），该轮门禁见"整改后复审与收口前清理（2026-09-16）"节；同日后续的 7 轴复审整改见"复审后整改（2026-09-16，批次16 / B15 / F12）"，最新门禁以"门禁终值"节为准；其后的第二批整改见"第二批整改（2026-09-16，批次17 / B16 / F13）"；其后的第三批整改见"第三批整改（2026-09-16，批次18 / B17 / F14）"。**重开轮实施与补证见"重开轮实施（2026-09-29）"与"重开轮补证轮（2026-09-30）"**：补证轮在重开轮终态工作区上重取了 C26、C28、V30，使新增 11 条的证据都对应同一份代码快照。轮次与批次的对照见"轮次索引"节。
+- 报告状态：**已执行**。矩阵分五部分：原 52 条（后端 V1-V27、前端 C1-C25）中 `Passed` 47 条、`Blocked` 4 条、`N/A` 1 条；重开轮新增 11 条（V28-V33、C26-C30）**全部 `Passed`**；筛选区交互整改新增 2 条（C31-C32）与页头范围展示轮新增的 C33，其定义已被"设计与交互修订轮（2026-10-02，批次24 / F21）"改写，三条转 `PendingRetest`；同轮新增 C34，记 `NotRun`；页头范围展示轮的 V34 `Passed`。合计分母 **68 条**：`Passed` 59 条、`PendingRetest` 3 条、`NotRun` 1 条、`Blocked` 4 条、`N/A` 1 条，`Failed` 为 0。修订轮的实现与复测完成后，C31-C34 按实测结果回到终态。4 条受阻项均为**环境或框架边界导致的规定验证面未执行**，其受阻原因登记为决策标签（**接受口径待负责人确认**；决策标签不计入统计，这 4 条 `Blocked` 计入 63 条分母并单列）：**组织切换后目标组织读取失败**（C17）的真实宿主页面层、**事件登记/处理/提交的可见性**（V24）、**并发同方向停用时"恰好登记一次事件"的计数子面**（V26）、**跨组织写配置 ID 的拒绝**（V27）。宿主验收按 [Testing](../../../.agents/instructions/testing.md) 第 1、2 节从真实宿主登录页与菜单执行；`Passed` 只覆盖各用例声明的层级。**2026-09-16 批次A/B 整改后**，受影响用例的宿主证据已按 Testing Baseline §5 重取（见"批次A/B 整改后的宿主重取（2026-09-16）"）；同日完成**7 轴整改后复审与收口前清理**（0 Blocker、0 实现层硬违规），该轮门禁见"整改后复审与收口前清理（2026-09-16）"节；同日后续的 7 轴复审整改见"复审后整改（2026-09-16，批次16 / B15 / F12）"，最新门禁以"门禁终值"节为准；其后的第二批整改见"第二批整改（2026-09-16，批次17 / B16 / F13）"；其后的第三批整改见"第三批整改（2026-09-16，批次18 / B17 / F14）"。**重开轮实施与补证见"重开轮实施（2026-09-29）"与"重开轮补证轮（2026-09-30）"**：补证轮在重开轮终态工作区上重取了 C26、C28、V30，使新增 11 条的证据都对应同一份代码快照。**筛选区交互整改见"筛选区交互整改轮（2026-10-02，批次22 / F19）"**：按阶段根 S2-D21 删除筛选区重置控件并把标准项目编码筛选改为经搜索按钮或回车显式提交，新增 C31、C32 并取得组件层与真实宿主证据。轮次与批次的对照见"轮次索引"节。**页头范围展示见"页头范围展示轮（2026-10-02，批次23 / B20 / F20）"**：按阶段根 S2-D22 与 S2-D23 新增只读范围查询 `QueryTrustedOrganizationScope`，页头组织改为「名称 + 编码、名称为主」，刷新按钮补悬停提示，主按钮命名为「新增互认项目」，新增 V34、C33。**设计与交互修订见"设计与交互修订轮（2026-10-02，批次24 / F21，文档与设计）"**：S2-D21～S2-D23 修订并新增 S2-D24、S2-D25，C31/C32/C33 定义改写并转 `PendingRetest`、新增 C34，本轮只改文档、实现与复测待 F21。
 - 矩阵版本：原矩阵 2026-09-14，后端 V1-V27（27 条）、前端 C1-C25（25 条），分母 52 条；重开轮 2026-09-29 增补后端 V28-V33（6 条）、前端 C26-C30（5 条），**终态分母 63 条**；多层级一条只计一次。
 - 起始提交：`5521cb6b5eb0ba0382eab0efc4c6fdcacfefa1c6`。本轮在共享工作区改代码与文档，不创建分支或提交。
 - 起始状态：实现批次开始前执行 `git status --short --branch`；工作区已有其他修改，未回退或清理。工作区另存在一个**非本轮创建**的既有 worktree `E:/MedSync/MedicalRecognition.worktrees/request-234-branch`（`5521cb6 [agents/request-234-branch]`，与本阶段无关）；本轮未创建、修改或删除任何分支/worktree/提交。
@@ -32,6 +32,12 @@
 | 批次19 / B18 / F15 | 2026-09-16 | 第三批整改后的宿主链路验收：入口与开发地址拦截、首次加载与组织编码、列表渲染与文案、修改可互认时间（同值保存）、启停、编码与状态筛选口径、读取失败门控与重试、写弹窗门控放行 | 无代码改动（改动面只有阶段2 文档登记） | 宿主链路验收（受管前后端进程 + 宿主登录页与菜单进入；按 [Testing](../../../.agents/instructions/testing.md) 第 1、2 节在同一链路核对页面、DOM、Console、Network、响应与最终业务状态） | "宿主验收（2026-09-16，第三批后重取）" |
 | 批次20 / B19 / F16-F18（重开轮实施） | 2026-09-29 | 阶段根 S2-D16～S2-D20 的代码实施与取证：后端批量创建写入能力（V28-V33 离线面）、累计 API Client 重生成、前端列视图全平铺与层级高亮与行内时间编辑、弹窗多选批量新增（C26-C30） | 后端 `server/**`、客户端包 `client/packages/api-client-medical-recognition/**`、前端 `client/apps/dy-medical-recognition/src/pages/recognitionProjects/**`、阶段2 文档 | 基线取证：`dotnet build server/Dy.MedicalRecognition.slnx` 0 错误、`dotnet test` 781 通过 / 0 失败 / 0 跳过；前端 `pnpm -F dy-medical-recognition test --run` 21 文件通过 / 375 passed / 2 skipped。实施中，逐批次门禁见下文"重开轮实施（2026-09-29）"节 | "重开轮实施（2026-09-29）" |
 | 批次21（重开轮补证轮） | 2026-09-30 | 只补证据、不改设计不改实现：从重开轮终态工作区完整重跑全部门禁；在同一受管前后端进程上重取 C26、C28、V30 的宿主/真实运行证据，使重开轮新增矩阵的宿主证据构成一次连续干净的单一构建轮次 | 无代码改动；改动面只有阶段2 文档（本报告） | 后端构建与全量测试、前端 `test`/`build`/`lint`、客户端包 `typecheck`/`build`、`git diff --check`；宿主链路验收（受管前后端进程 + 宿主登录页与菜单进入，同一构建上连续取证） | "重开轮补证轮（2026-09-30）" |
+| 批次22 / F19（筛选区交互整改轮） | 2026-10-02 | 阶段根 S2-D21 的代码实施与取证：删除筛选区重置控件，标准项目编码筛选改为经搜索按钮或输入框回车显式提交，配置状态筛选保持切换即生效（C31-C32） | 前端 `client/apps/dy-medical-recognition/src/pages/recognitionProjects/**` 的页面、样式与用例；阶段2 文档 | 目标测试 RED→GREEN、前端 `test`/`build`/`lint`、`git diff --check`、GitNexus 索引重建与 `impact`（风险 `LOW`）；宿主链路验收（受管前后端进程 + 宿主登录页与菜单进入，含 DOM 版面度量与筛选前后后端调用差值） | "筛选区交互整改轮（2026-10-02，批次22 / F19）" |
+| 批次23 / B20 / F20（页头范围展示轮） | 2026-10-02 | 阶段根 S2-D22 与 S2-D23 的跨端实施与取证：新增只读范围查询 `QueryTrustedOrganizationScope`（V34），页头组织改为「名称 + 编码、名称为主」，刷新按钮补悬停提示，主按钮命名为「新增互认项目」（C33） | 后端 `Application.Contracts/Queries/**`、`Application/Queries/**`、`Tests/**`；客户端包生成物与冻结快照；前端 `client/apps/dy-medical-recognition/src/pages/recognitionProjects/**`；阶段2 文档 | 后端构建与全量测试、冻结路径清单（55→56）与契约方法集（两处）、客户端包 `prepare-openapi`/`generate`/`typecheck`/`build`、前端 `test`/`build`/`lint`、`git diff --check`；宿主链路验收（整页重载后取证） | "页头范围展示轮（2026-10-02，批次23 / B20 / F20）" |
+| 批次24 / F21（设计与交互修订轮，文档轮） | 2026-10-02 | 阶段根 S2-D21～S2-D25 的修订：搜索动作改为「重新读取全量后在结果上本地裁剪、空条件提交等价刷新、去掉独立刷新控件」，页头组织改为上下两行且去掉文字标签，页头只保留主按钮，新增弹窗改为打开即重读并在弹窗内提供「重新读取」与失效勾选剔除 | 阶段2 文档（阶段根设计、客户端设计与页面文档、测试前矩阵、批次表、总体计划）；本轮不改代码 | 文档一致性核对与 `git diff --check`；实现与门禁留待 F21 实施轮 | "设计与交互修订轮（2026-10-02，批次24 / F21，文档与设计）" |
+| 批次24 / F21（实施轮） | 2026-10-02 | 上述修订的代码实施与取证：搜索提交改为重新读取后再本地裁剪、空条件提交等价刷新、搜索按钮读取在途 `loading`；页头组织改上下两行且去标签、页头只保留主按钮；新增弹窗打开即重读、弹窗内「重新读取」常驻、重读后剔除失效勾选并说明条数（C31-C34）。另同轮附带：数据调整后以两个宿主标签页补取「剔除失效勾选」的宿主证据；修复阶段4 测试夹具的时间缺陷（只改测试） | 前端 `client/apps/dy-medical-recognition/src/pages/recognitionProjects/**` 的页面、弹窗、样式与用例；`server/Dy.MedicalRecognition.Tests/Stage4WritePathTests.cs` 的测试夹具；阶段2 文档 | 目标两文件 `vitest`、前端全量 `test`/`build`/`lint`、后端全量 `dotnet test`、`git diff --check`、GitNexus `detect-changes` 与 `impact`；宿主链路验收（整页重载后取证，含网络请求体、读取在途形态与重复点击守卫、两标签页的失效勾选剔除） | "修订轮实施（2026-10-02，批次24 / F21）" |
+
+| 批次25 / F22（行集收敛与弹窗发现能力轮） | 2026-10-02 | 阶段根 S2-D16／S2-D17／S2-D24 的修订与 S2-D26～S2-D28 的实施：页面行集收敛为本组织已配置项、未配置项目只在新增弹窗出现；弹窗补编码搜索与全选当前结果；已生效筛选同步到子应用路由地址；长列表按 `content-visibility: auto` 声明离屏跳过渲染 | 前端 `client/apps/dy-medical-recognition/src/pages/recognitionProjects/**` 的适配层、页面、弹窗、样式与用例；阶段2 文档 | 适配层与页面/弹窗 `vitest`、前端全量 `test`/`lint`/`build`、后端全量 `dotnet test`、`git diff --check`、GitNexus `impact`；宿主链路验收（整页重载后取证，含行集与计数一致、弹窗搜索的读取增量、全选、命中区、路由参数往返） | "行集收敛与弹窗发现能力轮（2026-10-02，批次25 / F22）" |
 
 本报告保留轮次小节，与 [planning-and-evidence.md](../../../.agents/instructions/planning-and-evidence.md) §4"只表达终态"存在张力，处置待规范层裁定。
 
@@ -444,22 +450,25 @@ LisCenter 的枚举中文来源方式（后端 `xxxText` + `EnumMetadata` 查询
 
 ### 终态矩阵
 
-矩阵分两部分，合计分母 **63 条**：
+矩阵分五部分，合计分母 **68 条**：
 
 - 原矩阵 52 条（后端 V1-V27、前端 C1-C25）：`Passed` **47**、`Blocked` **4**（V24 事件可见性、V26 并发事件计数、V27 跨组织写拒绝、C17 组织切换宿主页面层）、`N/A` **1**（V10）。四条受阻原因登记为决策标签（**接受口径待负责人确认**），不改状态、决策标签不计入 `Passed`（4 条 `Blocked` 计入分母并单列）；并发相关条目不在本阶段范围内，不再投入。
 - 重开轮新增 11 条（后端 V28-V33、前端 C26-C30）：`Passed` **11**、`Failed` **0**。其中 C27 在重开轮首轮宿主取证时曾记 `Failed`（项目层高亮缺失），修正后经组件层守卫用例与真实宿主复验通过；C26、C28、V30 在补证轮于重开轮终态工作区上重取。
+- 筛选区交互整改新增 2 条（前端 C31-C32）：定义已被"设计与交互修订轮（2026-10-02，批次24 / F21）"改写，原证据对应修订前的形态，两条均转 `PendingRetest`。
+- 页头范围展示轮新增 2 条（后端 V34、前端 C33）：V34 `Passed`（后端未改动，证据继续有效）；C33 的定义已被同一修订轮改写，转 `PendingRetest`。
+- 设计与交互修订轮新增 1 条（前端 C34：弹窗就地重读与失效勾选剔除）：尚无证据，记 `NotRun`。
 
-合计：`Passed` **58**、`Blocked` **4**、`N/A` **1**，`NotRun`/`Failed`/`PendingRetest` 为 0。
+合计：`Passed` **59**、`PendingRetest` **3**、`NotRun` **1**、`Blocked` **4**、`N/A` **1**（分母 68）。修订轮的实施与复测完成后，C31-C34 按实测结果回到终态。
 
 ### 门禁终值（各端最近一次适用轮次）
 
-下表是各端最近一次适用轮次的复跑结果：后端与前端取"重开轮补证轮（2026-09-30，批次21）"在重开轮终态工作区上的复跑（该轮只补证据、无代码改动，故数值即重开轮终态的稳定值）；客户端包自批次20/重开轮的累计重生成后未再改动。本表只登记各端最新值，各轮时点值见对应轮次小节。
+下表是各端最近一次适用轮次的复跑结果：后端取"修订轮实施（2026-10-02，批次24 / F21）"同轮附带修复阶段4 测试夹具时间缺陷后的复跑（该轮不改后端生产代码，故数值即当前后端的稳定值；页头范围展示轮当时的 6 条失败集合见该轮小节）；前端取"修订轮实施（2026-10-02，批次24 / F21）"的复跑；客户端包取页头范围展示轮的重生成。本表只登记各端最新值，各轮时点值见对应轮次小节。
 
 | 门禁 | 结果 |
 |---|---|
-| 后端构建 / 测试 | `dotnet build server/Dy.MedicalRecognition.slnx` **0 错误 / 5 警告**；`dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj` **通过 811 / 失败 0 / 跳过 0 / 总计 811**（补证轮复跑确认；重开轮基线为 781，净增 30） |
-| 客户端包 | `typecheck` exit 0、`build` exit 0（ESM `288.84 KB`；批次20 重开轮加入批量创建端点后重生成，冻结文档 55 path） |
-| 前端 | `cd client; pnpm -F dy-medical-recognition test --run` **21 文件通过 / 415 passed / 2 skipped（417）**、`build` exit 0、`lint` **0 error / 0 warning**（补证轮复跑确认；重开轮基线为 375 passed / 2 skipped） |
+| 后端构建 / 测试 | `dotnet build server/Dy.MedicalRecognition.slnx` **0 错误**（增量 5 警告 / 全量重建 39 警告，均为既有项）；`dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj` **通过 816 / 失败 0 / 跳过 0 / 总计 816**（6 条 `Stage4WritePathTests` 的作废用例曾因测试夹具时间固定而失败，已随修订轮实施修复夹具，生产代码与两端边界校验用例未改动，见该轮小节） |
+| 客户端包 | `typecheck` exit 0、`build` exit 0；冻结文档 **56 path**（页头范围展示轮净增 `POST /Api/MedicalRecognitionReportQuery/QueryTrustedOrganizationScope`，`/auth/login` 保持排除） |
+| 前端 | `cd client; pnpm -F dy-medical-recognition exec vitest run` **21 文件通过 / 423 passed / 2 skipped（425）**、`build` exit 0、`lint` **0 problems**（修订轮实施复跑；该轮重写 C31/C32/C33 并新增 C34） |
 | 变更影响 | `gitnexus detect-changes --repo Dy.MedicalRecognition`：30 个文件 / 346 个符号 / 风险 `critical`（重开轮实施轮测得；受影响流程全部落在本阶段范围，未出现无法归属的跨阶段影响） |
 | 文档 | 0 断链、0 表格列数不一致 |
 | 工作区 | `git diff --check` exit 0（补证轮复跑确认；该命令不覆盖未跟踪文件，未跟踪前端文件的 trailing whitespace 与 tab 扫描结论见"第二批整改（2026-09-16，批次17 / B16 / F13）"节） |
@@ -1188,9 +1197,408 @@ System.InvalidOperationException: 业务拒绝：标准项目目录不可用于�
 - C28 的行内编辑取证改动了一条既有配置的可互认时间（`70 → 45`），已在取证结束时经同一真实接口恢复为 `70` 并回读确认；业务足迹仍如实登记。
 - 取证结束时的进程收尾：本轮启动的后端（6824）与前端 dev server（39408）均已关闭，实测 15014 与 3008 无监听；未关闭任何其他进程。
 
+## 筛选区交互整改轮（2026-10-02，批次22 / F19）
+
+本节记录阶段根 S2-D21 的代码实施轮：「互认项目」页面筛选区删除重置控件，标准项目编码筛选改为经搜索按钮或输入框内回车显式提交，配置状态筛选保持切换即生效。设计依据为阶段根 [design.md](design.md) 的 S2-D21 与 [Client/design.md](Client/design.md) 的筛选区段；矩阵为 C31、C32。
+
+### 轮次边界与基线
+
+- 起始工作区：`git status --short --branch` 实测 `## main...origin/main [ahead 4]`；工作区内已有本轮的阶段2 设计文档改动（阶段根决策、客户端设计与页面文档、测试前矩阵、批次表与总体计划进度表），未回退或清理非本轮内容。本轮在共享工作区改代码与文档，不创建分支、不提交。
+- 目标失败基线（RED）：改动前执行 `pnpm -F dy-medical-recognition exec vitest run src/pages/recognitionProjects`，**7 个用例失败 / 130 通过**。失败原因是筛选区没有搜索按钮、旧重置控件仍在（失败输出的 DOM 快照中可见 `aria-label="重置编码与状态筛选"`），属目标行为缺失，不是编译错误、夹具错误或环境不可用，符合 [Testing Baseline](../../../.agents/instructions/testing-baseline.md) §1.2。
+- 受影响用例同步（按 Testing Baseline §2「需求确实变化时先更新设计和测试意图」）：`筛选后为空时区分空态文案…`、`C16：宿主组织变化后清空旧列表与弹窗、复位筛选…`、`C29` 批量新增、`筛选把编辑中的行藏起来时编辑态一并消失…`、`新增成功后的列表与选择数据刷新` 五处原先依赖「输入即筛选」的判定，改为经测试内 `applyCodeFilter` 辅助（输入原文后点搜索）布置生效筛选，断言语义不变；原「重置筛选的可访问名称与实际范围一致」用例删除，由 C31、C32 取代。
+
+### 变更影响（闸门 2.3）
+
+索引原为提交 `0a96f34`、检出提交 `4ee4d0a`，已按 [GitNexus Workflow](../../../.agents/instructions/gitnexus-workflow.md) §3 执行 `gitnexus analyze . --name Dy.MedicalRecognition --index-only` 重建（15,210 节点 / 31,381 边 / 348 流程）。`gitnexus impact RecognitionProjects --file client/apps/dy-medical-recognition/src/pages/recognitionProjects/RecognitionProjects.tsx` 返回 **风险 `LOW`**：直接调用方 1（`router/routes.tsx`）、受影响流程 0、受影响模块 0，`epistemic: exact`。影响面限于本页面的路由挂载点，未触及公共接口、OpenAPI、领域事件、数据库公共结构、权限或共享基础设施，未命中停止条件。
+
+### 门禁（本轮）
+
+| 门禁 | 结果 |
+|---|---|
+| 目标验证（受影响的两个测试文件） | `pnpm -F dy-medical-recognition exec vitest run src/pages/recognitionProjects` **2 文件通过 / 137 通过 / 0 失败** |
+| 前端全量测试 | `cd client; pnpm -F dy-medical-recognition exec vitest run` **21 文件通过 / 416 passed / 2 skipped（418）**（上一轮终值 415 passed / 2 skipped；本轮删除 1 条、新增 2 条） |
+| 前端 lint | `pnpm -F dy-medical-recognition lint` exit 0，0 problems |
+| 前端构建 | `pnpm -F dy-medical-recognition build`（`tsc -b && vite build`）exit 0 |
+| 工作区 | `git diff --check` exit 0（仅 LF/CRLF 提示） |
+
+### 矩阵结果
+
+| 用例 | 层级 | 状态 | 证据 |
+|---|---|---|---|
+| C31 编码筛选显式提交 | Component/Host | `Passed` | **Component**：用例「输入过程不改变列表，点击搜索或按回车后才按输入原文筛选」（`RecognitionProjects.test.tsx`），断言输入原文为草稿时列表与页脚计数均不变、点搜索与按回车后按原文筛选、查询仍只提交组织编码且只发起一次。**Host**：见下方宿主取证。 |
+| C32 筛选区控件构成与清除动作 | Component | `Passed` | 用例「无重置控件；清除输入同时清掉输入原文与生效编码筛选；配置状态切换立即生效」（`RecognitionProjects.test.tsx`），断言筛选区内不存在名称含「重置」的按钮、清除入口清空后输入原文与生效编码筛选同时清空、配置状态切换即时改变列表、过程零写请求且查询只发起一次。 |
+
+业务统计：本轮新增 2 条全部 `Passed`，无 `Blocked`、`N/A`、`Failed`、`NotRun`、`PendingRetest`。
+
+### 宿主验收取证（2026-10-02）
+
+在同一受管链路执行：宿主登录页 `http://183.224.180.166:35000/login` 以登录入口「检验检查结果互认平台」进入 → 宿主菜单「检验检查结果互认」→「互认项目」；后端 `http://localhost:15014`（Development），前端 dev server `http://localhost:3008`；子应用资源实测来自 `localhost:3008`（`@vite/client`、`src/main.tsx`、`src/pages/**/*.tsx` 均在 `localhost:3008/...` 下），开发地址拦截生效。控制工具为 `browser-debugging-and-control` 技能的受管 CLI：Chrome `154.0.8037.58`，独立 Profile `%LOCALAPPDATA%\codex-cdp\profile`，CDP 端点 `127.0.0.1:9222`，会话标识 `medsync-verify`。
+
+| 观察项 | 实测结果 |
+|---|---|
+| 筛选区版面 | 筛选区 `display: flex`、单行（高 32px）；三件控件左对齐依次为编码输入框 `240px`（x=244）、搜索按钮 `82px`（x=492）、配置状态 Segmented `200px`（x=582）。搜索按钮与输入框同行（y 差 < 8px），无任何控件被拉伸占满行宽 |
+| 重置控件 | 筛选区内名称含「重置」的按钮计数 **0**；页头「重新读取互认配置」仍为独立控件 |
+| 输入原文不筛选 | 真实键入 `002504`（`Input.insertText`）后仍为 **325 行**，页脚「本组织共 325 项配置」，无筛选后计数 |
+| 点搜索筛选 | 点搜索后 **325 → 46 行**，页脚「本组织共 325 项配置，筛选后 46 项」；46 行编码**全部**包含输入原文（不含原文的可见行数 0） |
+| 回车筛选 | 草稿改为 `00210200001` 后按 `Enter` → **32 行**，同样全部包含原文，页脚「筛选后 32 项」 |
+| 清除动作 | 点输入框自带清除入口后输入原文为 `""` 且 **325 行全部恢复**，页脚退回「本组织共 325 项配置」 |
+| 状态筛选即时 | 配置状态切「停用」后立即 **0 行**、页脚「筛选后 0 项」（325 条配置均为启用）；切回「全部」后恢复 325 行 |
+| 筛选的后端足迹 | 在互认项目页所属 frame 的 `performance` 时间线上比对整轮筛选前后的本地后端调用计数：**19 → 19**（`GetEnumMetadata` 1、`QueryRecognitionProjectConfigurationList` 9、`QueryEffectiveMedicalStandardCatalog` 9），筛选全程零新增读写 |
+| 控制台 | 监听 4 秒，`events: []`，无 error 或 warn |
+
+证据文件：`var/host-check-recognitionProjects-f19/` 下的探针脚本（`probe-filters.js`、`probe-state.js`、`probe-match.js`、`probe-backend-calls.js`、`restore-and-network.js`）与截图 `01-filter-area.png`（`var/` 由仓库根 `.gitignore` 第 410 行排除，不入版本控制）。版面与行为的判据取自 DOM 度量与可访问名称，截图只作留档、未参与判定。
+
+### 残余与边界
+
+- 真实输入由 CDP 的 `Input.insertText` 与 `Input.dispatchKeyEvent` 投递；检索语义（字面包含、区分大小写）与后端一致，本轮未新增该语义的宿主用例，沿用既有口径。
+- 本轮只改前端页面、样式与其用例；后端、客户端包与数据库均未改动，故不重跑后端测试与客户端包门禁。
+- 取证结束时保留的进程：后端（`localhost:15014`）与前端 dev server（`localhost:3008`）仍在本轮启动状态运行，受管 Chrome 会话 `medsync-verify` 保持打开；未关闭任何其他进程。
+
+## 页头范围展示轮（2026-10-02，批次23 / B20 / F20）
+
+本节记录阶段根 S2-D22 与 S2-D23 的跨端实施轮：新增只读范围查询 `QueryTrustedOrganizationScope`（不接收入参，组织取自可信上下文，名称经组织路径解析点的组织一层取得），页头组织改为「名称 + 编码、名称为主」，手动刷新按钮补悬停提示，主按钮命名为「新增互认项目」。设计依据见阶段根 [design.md](design.md) 的 S2-D22／S2-D23、[Server/design.md](Server/design.md) 的公共契约段与 [Client/design.md](Client/design.md) 的页头段；矩阵为 V34、C33。
+
+### 轮次边界与基线
+
+- 起始工作区：`## main...origin/main [ahead 4]`，工作区内已含前一轮（筛选区交互整改）的改动；本轮在共享工作区改代码与文档，不创建分支、不提交。
+- **冻结清单的失败基线（RED）**：新增端点后、同步冻结清单前执行后端全量测试，`Stage4EndpointTests.Query_contract_method_set_matches_the_published_endpoint_inventory` 与 `Stage1ArchitectureTests.Query_contract_is_separated_from_write_service_and_repository_implementation` 各以「集合多出 `QueryTrustedOrganizationScopeAsync`」准确失败；`Stage7ExclusionGuardTests.V1_frozen_openapi_paths_declare_no_excluded_operation` 的路径数 55 与本轮 56 冲突。同步三处冻结清单与该用例后转 GREEN。这是本轮契约面的行为 RED。
+
+### 变更面
+
+| 端 | 改动 |
+|---|---|
+| 后端 | 新增 `Application.Contracts/Queries/TrustedScope/TrustedOrganizationScopeReadModel.cs`；`IMedicalRecognitionReportQueryAppService` 增加不接收入参的 `QueryTrustedOrganizationScopeAsync()`；`MedicalRecognitionReportQueryAppService` 实现：`TrustedOrganizationResolver` 取可信组织 → `OrganizationPathResolver.ResolveOrganizationOrThrow` 解析组织一层 → 映射。该链不进入 Repository，不新增 SQL 与注册键 |
+| 后端测试 | `Stage2QueryTests` 新增 5 条（命中、可信组织缺失、组织不存在／已停用、入口无入参且无工作单元）；`Stage1ArchitectureTests` 的契约方法集与签名表、`Stage4EndpointTests` 的既有查询方法集、`Stage2EnumContractTests` 与 `Stage7ExclusionGuardTests` 的冻结路径清单同步 |
+| 客户端包 | `prepare-openapi` 重新冻结（56 path，修正整数联合 21 处、可空引用 26 处）；`generate` 重生成 Kiota 客户端，新增 `queryTrustedOrganizationScope`；`src/index.ts` 未被覆盖；`typecheck`/`build` exit 0 |
+| 前端 | 适配层新增 `TrustedOrganizationScope` 视图模型与 `queryTrustedOrganizationScope` 出口；页面把范围查询并入既有读取集合（并行发起、失败按同一口径进入阻断态），并用「范围查询回读的组织必须等于本次读取的目标组织」守卫名称；页头改为「组织 名称（编码）」三级文本，刷新按钮套 `Tooltip`，主按钮改名 |
+
+### 门禁
+
+| 门禁 | 结果 |
+|---|---|
+| 后端构建 | `dotnet build server/Dy.MedicalRecognition.slnx` **0 错误**；增量构建 5 警告、`--no-incremental` 全量重建 39 警告，均为既有项，本轮新增文件未产生警告 |
+| 后端测试 | `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj` **810 通过 / 6 失败 / 0 跳过（816）**；6 条失败全部为既有时间硬编码缺陷，见"残余与边界" |
+| 客户端包 | `prepare-openapi` 56 path、`generate` 成功、`typecheck` exit 0、`build` exit 0 |
+| 前端测试 | `cd client; pnpm -F dy-medical-recognition exec vitest run` **21 文件通过 / 420 passed / 2 skipped（422）**（上一轮终值 416／2，本轮新增 4 条 C33 用例） |
+| 前端 lint / 构建 | `eslint .` 0 problems；`pnpm -F dy-medical-recognition build` exit 0 |
+| 工作区 | `git diff --check` exit 0（仅 LF/CRLF 提示） |
+
+### 矩阵结果
+
+| 用例 | 层级 | 状态 | 证据 |
+|---|---|---|---|
+| V34 可信组织范围查询 | Application/Contract | `Passed` | `Stage2QueryTests` 五条：返回可信组织的编码与名称且组织全量只读一次；可信组织缺失或纯空白时拒绝且不读取外部组织服务；组织不存在或已停用时拒绝并给出「业务拒绝：组织不存在或已停用。」；入口不接收入参且不声明工作单元。`Stage1ArchitectureTests` 的签名表另守卫该方法只以接口声明出现、无方法体、无 `public` 修饰符。运行面由宿主验收的 1 次 `QueryTrustedOrganizationScope` 调用覆盖 |
+| C33 页头范围展示与动作命名 | Component/Host | `Passed` | **Component**（`RecognitionProjects.test.tsx` 四条）：页头按「组织 名称（编码）」展示且范围查询不提交入参；名称缺失时退回「组织 编码」、不渲染空括号；刷新按钮悬停渲染作用说明且保留可访问名称、主按钮命名为「新增互认项目」并打开既有新增弹窗；范围查询失败并入读取失败阻断态、重试成功后恢复名称；范围查询回读的组织与目标组织不一致时不接受该名称。**Host**：见下方宿主取证 |
+
+业务统计：本轮新增 2 条（V34、C33）全部 `Passed`，无 `Blocked`、`N/A`、`Failed`、`NotRun`、`PendingRetest`。
+
+### 宿主验收取证（2026-10-02）
+
+链路与上一轮相同（宿主登录页选入口「检验检查结果互认平台」→ 菜单「检验检查结果互认」→「互认项目」；后端 `http://localhost:15014` Development，前端 dev server `http://localhost:3008`）。**本轮先对宿主页面执行整页重载再取证**，使证据来自重载后的当前构建，而非增量热更新的结果。控制工具同为受管 CLI（Chrome `154.0.8037.58`，独立 Profile，CDP `127.0.0.1:9222`，会话 `medsync-verify`）。
+
+| 观察项 | 实测结果 |
+|---|---|
+| 页头组织范围 | 完整文本 `组织 县医共体（01）`；标签「组织 」`rgb(107, 114, 128)`／`12px`，名称「县医共体」`rgb(31, 41, 55)`／`14px`，编码「（01）」`rgb(107, 114, 128)`／`12px`——名称权重高于编码，编码降为次要小号 |
+| 刷新按钮 | 存在，可访问名称「重新读取互认配置」，图标按钮宽 32px；真实鼠标移入后页面渲染 `.ant-tooltip`，文本为「重新读取互认配置」 |
+| 主按钮 | 文本「新增互认项目」（宽 138px）；点击后打开弹窗，标题「新增互认项目配置」，含「可互认时间（天）」输入与「取 消」／「确定新增」；点「取 消」后弹窗关闭。可选集合为空，与本组织 325 个标准项目均已配置一致 |
+| 列表 | 325 行，页脚「本组织共 325 项配置」 |
+| 后端调用 | 互认项目页 frame 在重载后共 4 次本地后端调用：`GetEnumMetadata` 1、`QueryRecognitionProjectConfigurationList` 1、`QueryEffectiveMedicalStandardCatalog` 1、**`QueryTrustedOrganizationScope` 1**；零写入 |
+| 控制台 | 监听 4 秒 `events: []` |
+
+证据文件：`var/host-check-recognitionProjects-f19/` 的探针脚本与截图 `02-header-scope.png`。
+
+### 残余与边界
+
+- **后端全量测试曾有 6 条与本轮无关的既有失败**：`Stage4WritePathTests` 的作废时间相关用例（`First_void_takes_effect_without_content_version`、`Voided_report_cannot_be_submitted_again`、`Repeated_void_is_idempotent_only_for_identical_void_facts`、`Voided_laboratory_report_stops_appending_versions`、`Voided_examination_report_stops_appending_versions`、`Void_keeps_versions_and_details_readable`）。根因是该文件第 32 行的夹具时间 `ReceivedTime = new(2026, 10, 1, 11, 30, 0)` 是固定值，被同时用作作废时间与作废请求的接收时间，而同一文件第 100 行断言版本的平台接收时间由服务端取当前时点：真实时钟走过 2026-10-01 11:30 之后，作废时间必然早于版本接收时间，管理器在 `MedicalRecognitionReportManager.Submission.cs:169-170` 的两端边界校验处拒绝。该文件与相应管理器本轮均未改动（`git status` 无记录）。本报告当时不修改该夹具、也不把这 6 条计入本阶段矩阵，处置留给负责人。**该夹具缺陷已于 2026-10-02 的修订轮实施中一并修复**（只改测试夹具，生产代码不动），修复后后端全量为 **816 通过 / 0 失败 / 0 跳过**，见"阶段 4 测试夹具时间缺陷修复（2026-10-02，同轮附带）"。
+- **本轮的行为用例未取得改动前 RED**：V34 与 C33 的用例在实现之后编写，RED 只覆盖了冻结清单与契约方法集（见"轮次边界与基线"）。用例的判别力来自对新增行为的直接断言（新的页头文本、缺失名称时的回退形态、范围查询不提交入参、组织不一致时不接受名称）与既有回归集，但该轮的 RED-GREEN 顺序与 [Testing Baseline](../../../.agents/instructions/testing-baseline.md) §1.1 的要求存在偏差，如实登记。
+- 名称与组织编码同源的断言只覆盖离线用例与宿主的一次调用计数；组织名称变更是外部组织服务侧的数据变化，本平台不做缓存，页面每次读取都会重新取得。
+
+## 设计与交互修订轮（2026-10-02，批次24 / F21，文档与设计）
+
+本节记录对前两轮已交付交互的修订。**本轮只改设计与文档，不改代码**，因此不产生新的运行证据；其目的是把设计定稿，使随后的实施轮有确定依据。
+
+### 修订内容
+
+| 决策 | 修订 |
+|---|---|
+| S2-D21 | 筛选区仍为「编码输入框 + 搜索按钮 + 配置状态 Segmented」，明确**不设独立刷新控件**；编码经搜索提交、配置状态切换即时生效且不触发读取 |
+| S2-D22 | 页头组织由「名称 + 编码、名称为主」的单行带标签形态，改为**上下两行**（名称在上、编码在下）并**去掉「组织」文字标签** |
+| S2-D23 | 页头动作区**只保留「新增互认项目」**，移除纯图标刷新按钮；手动刷新能力由「条件为空时提交搜索」与「新增弹窗内的重新读取」两条路径承担 |
+| S2-D24（新增） | 搜索动作的语义：提交时**重新读取**配置列表、标准目录与组织范围，再在结果上本地裁剪；条件为空时提交等价于刷新；读取在途时搜索按钮进入 `loading` 形态、列表内行内操作按既有门控禁用；读取失败按既有口径处理，不降级为只筛旧数据 |
+| S2-D25（新增） | 新增弹窗**打开即重新读取**，可选集合按本次读取结果计算；弹窗内提供文字「重新读取」；重读后已不在可选集合中的勾选被剔除并给出条数说明；「重新读取」常驻弹窗底部，整批创建被服务端拒绝时就地即可重读（写失败文案由宿主统一展示，页面不自行捕获写失败，因此入口不依赖页面知道失败原因） |
+
+### 对既有证据的影响
+
+修订改变了三条已记录用例的判定内容，按 [Testing Baseline](../../../.agents/instructions/testing-baseline.md) §3 与 §5 处置如下：
+
+| 用例 | 原记录 | 处置 |
+|---|---|---|
+| C31 | `Passed`（筛选区交互整改轮） | 定义已改写（原判定要求「查询请求仍只提交组织编码」且输入过程与提交均不触发读取；现判定要求提交时重新读取）。原证据对应修订前的形态，**转 `PendingRetest`**，复测随 F21 实施轮进行 |
+| C32 | `Passed`（筛选区交互整改轮） | 定义已改写（新增「不设独立刷新控件」与「读取在途时行内操作禁用」的判定）。**转 `PendingRetest`**，复测随 F21 实施轮进行 |
+| C33 | `Passed`（页头范围展示轮） | 定义已改写（原判定为带「组织」标签的单行形态与刷新按钮悬停提示；现判定为上下两行无标签形态与「页头只有主按钮」）。**转 `PendingRetest`**，复测随 F21 实施轮进行 |
+| V34 | `Passed`（页头范围展示轮） | 不受影响：后端范围查询、查询接口与 SQL 均未改动，证据继续有效 |
+| C34 | 本轮新增 | 尚无证据，随 F21 实施轮取得 |
+
+本轮无后端改动，因此不重跑后端门禁、也不改变后端矩阵状态。**修订前的实现仍在工作区内**（未提交），其对应的旧证据在 F21 实施并复测之前不代表当前设计；该实施与复测已于同日完成，见"修订轮实施（2026-10-02，批次24 / F21）"。
+
+## 修订轮实施（2026-10-02，批次24 / F21）
+
+本节记录阶段根 S2-D21～S2-D25 修订的代码实施与取证，实施批次为 F21（见 [Client/impl.md](Client/impl.md)）。设计依据为阶段根 [design.md](design.md) 的 S2-D22～S2-D25、[Client/design.md](Client/design.md) 的页头段／筛选区段／新增弹窗段与 [Client/Pages/RecognitionProjects/RecognitionProjects.md](Client/Pages/RecognitionProjects/RecognitionProjects.md) 的页面结构表；矩阵为 C31、C32、C33、C34。**本轮无后端改动**：范围查询与配置查询接口未变，V34 沿用上一轮证据。
+
+### 变更面
+
+| 端 | 改动 |
+|---|---|
+| 前端页面 | 页头组织改为上下两行（`.recognition-projects-scope` 列向排布，名称在上、编码在下）并移除标签元素；页头动作区只保留主按钮，删除纯图标刷新控件。`load` 增加 `pendingCode` 入参：配置读取成功后才把输入原文写为生效筛选，并按与 `changeFilter` 同一理由清空行内编辑态；`submitCodeFilter` 以输入原文作为 `pendingCode` 提交；搜索按钮增加 `loading` 形态 |
+| 前端弹窗 | 新增弹窗打开时立即重读（与弹窗内「重新读取」共用同一处读取开关），弹窗底部常驻文字「重新读取」；`pruneBatchSelection` 在重读成功后收敛选择，被剔除条数由页面交给弹窗显示说明 |
+| 前端用例 | C31/C32/C33 重写、C34 新增；两处「编辑态随当前行集重取／判定」的用例改由另一行启停写入触发的后台重载驱动（搜索提交按设计会清掉编辑态，无法再用它观察该性质）；多处读取计数按「打开弹窗即重读」递增 |
+| 后端测试夹具 | `Stage4WritePathTests.cs`：作废命令辅助的缺省时间由固定常量改为同一次「发起时的当前时点」，三处显式传固定常量的调用改用缺省口径，一处期望值改读命令上实际传入的作废时间；固定常量 `ReceivedTime` 保留其在提交路径上的原作用并补注不得用作作废时间（生产代码未改动） |
+| 文档 | 阶段根 S2-D25 的口径按实施事实收窄：「重新读取」常驻弹窗底部，写失败文案由宿主统一展示、页面不自行捕获写失败，因此入口不依赖页面知道失败原因；同步 `Client/design.md`、页面文档与 `Client/testPlan.md` 的 C34 行。`Client/design.md` 另把搜索按钮在途形态的表述按实现改为「图标换成旋转指示，读取在途期间的点击不再发起新的读取」，并补记提交应用条件后清空行内编辑态。`Client/Pages/RecognitionProjects/RecognitionProjects.md` 按四栏列视图与行内编辑订正页面结构中陈旧的「表格／表格行操作／修改弹窗」三行及相关表述 |
+
+### 门禁
+
+| 门禁 | 结果 |
+|---|---|
+| 目标两文件 | `pnpm -F dy-medical-recognition exec vitest run src/pages/recognitionProjects` **2 文件 / 144 通过** |
+| 后端测试 | `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj` **816 通过 / 0 失败 / 0 跳过（816）**（同轮附带修复 `Stage4WritePathTests` 的测试夹具时间缺陷，生产代码未改动，见下文小节） |
+| 前端测试 | 全量 `vitest run` **21 文件通过 / 423 passed / 2 skipped（425）**（上一轮终值 420／2） |
+| 前端 lint / 构建 | `eslint .` 0 problems；`pnpm -F dy-medical-recognition build` exit 0 |
+| 工作区 | `git diff --check` exit 0 |
+
+### 矩阵结果
+
+| 用例 | 层级 | 状态 | 证据 |
+|---|---|---|---|
+| C31 搜索动作重新读取并在新结果上裁剪 | Component/Host | `Passed` | **Component**：用例「输入过程不改变列表；提交时重新读取，读取完成后才按输入原文裁剪；条件为空时提交等价于刷新」——输入原文只作草稿（列表与页脚均不变、零读取），提交时重新读取且读取在途时搜索按钮为 `ant-btn-loading`、旧行集不被提前裁掉，读取返回后才按输入原文裁剪并给出筛选后条数，回车与点击同一条提交路径，换代数据后列表随之更换，空条件提交等价于刷新，且全部查询请求只提交组织编码。**Host**：见下方宿主取证 |
+| C32 筛选区控件构成、清除动作与读写在途门控 | Component/Host | `Passed` | **Component**：两条用例——筛选区无「重置」与独立刷新控件、页头只有主按钮、清除入口只清编码、配置状态切换不触发读取；读取在途期间列表内的行内操作与新增入口一并禁用、旧数据只能查看。**Host**：见下方宿主取证 |
+| C33 页头组织展示与动作区 | Component/Host | `Passed` | **Component**：四条用例——组织按上下两行展示且无文字标签、名称与编码同一来源、名称缺失时只展示编码一行；页头只有「新增互认项目」一个动作且点击打开新增弹窗；范围查询失败并入读取失败阻断态、重试成功后恢复名称；范围查询回读的组织与目标组织不一致时不接受该名称。**Host**：见下方宿主取证 |
+| C34 新增弹窗就地重读与失效勾选剔除 | Component/Host | `Passed` | **Component**：两条用例——打开弹窗即重新读取、可选集合按本次读取计算、读取在途时确定按钮冻结且弹窗内存在「重新读取」；重读后已不在可选集合中的勾选被剔除、给出剔除条数说明（不静默）、天数与弹窗保留。**Host**：打开即重读与弹窗内手动重读见下方宿主取证；失效勾选剔除见「宿主层补证：失效勾选剔除」 |
+
+业务统计：本轮 4 条（C31、C32、C33 由 `PendingRetest`、C34 由 `NotRun` 转 `Passed`）全部 `Passed`，无 `Blocked`、`N/A`、`Failed`、`NotRun`、`PendingRetest`。
+
+### 宿主验收取证（2026-10-02）
+
+链路与上一轮相同（宿主登录页选入口「检验检查结果互认平台」→ 菜单「检验检查结果互认」→「互认项目」；后端 `http://localhost:15014` Development，前端 dev server `http://localhost:3008`）。**取证前对宿主页面执行整页重载**，使证据来自重载后的当前构建。控制工具同为受管 CLI（Chrome `154.0.8037.58`，独立 Profile，CDP `127.0.0.1:9222`，会话 `medsync-verify`）。请求观测为在页面各 realm 包裹 `fetch` 记录路径与请求体；「读取在途」通过仅浏览器侧延迟响应构造（不改数据、不改后端）。
+
+| 观察项 | 实测结果 |
+|---|---|
+| 页头组织形态 | `.recognition-projects-scope` 为 `inline-flex` + `flex-direction: column`；名称「县医共体」占 `y 86–104`（`rgb(31, 41, 55)`／`14px`），编码「01」占 `y 104–119`（`rgb(107, 114, 128)`／`12px`）——名称在上、编码在下；标签元素不存在 |
+| 页头动作区 | 页头内按钮计数 **1**，文本「新增互认项目」且为主按钮；纯图标刷新控件不存在（`refreshPresent: false`） |
+| 筛选区构成 | 筛选区内按钮：输入框的清除入口（`.ant-input-clear-icon`，隐藏态）与「搜索」（主按钮、`aria-label="搜索"`、`SearchOutlined`）；名称或可访问名称含「重置」「刷新」的控件计数 **0**；输入框（`x 244`）、搜索按钮（`x 492`）与配置状态 Segmented（`x 582`）同处一行（三者的 `y` 同为 `152`） |
+| 输入不生效 | 输入完整编码后：列表仍 325 行、页脚仍「本组织共 325 项配置」、新增读取 **0** 次 |
+| 提交即重读并裁剪 | 点击搜索后新增 3 次读取：`QueryRecognitionProjectConfigurationList`（请求体 `{"organizationCode":"01"}`）、`QueryEffectiveMedicalStandardCatalog`（`{}`）、`QueryTrustedOrganizationScope`（无请求体）；列表裁剪为 1 行（即该编码），页脚「本组织共 325 项配置，筛选后 1 项」——总数仍来自本次读取的全量结果 |
+| 读取在途形态与重复提交 | 在途时搜索按钮带 `ant-btn-loading`、图标为 `anticon-loading anticon-spin`，列表保持 325 行旧数据；在途期间追加点击 3 次后读取次数仍为 **3**，未产生额外请求 |
+| 空条件提交等价刷新 | 用输入框自带清除入口清空后，列表立即恢复 325 行（不读取）；再次提交空条件新增 3 次读取，结果为 325 行、页脚「本组织共 325 项配置」 |
+| 弹窗打开即重读 | 点击「新增互认项目」后新增 3 次读取（与页面进入同一条读取路径）；弹窗底部存在文字「重新读取」（图标 `anticon-reload`） |
+| 弹窗内手动重读 | 点击「重新读取」再次产生 3 次读取，弹窗保持打开；弹窗正文为「没有可新增的标准项目」，与组织 `01` 的 325 个目录项均已配置一致；点「取 消」后弹窗关闭 |
+| 控制台 | 整页重载后监听 6 秒，`error`/`warning`/`assert` 事件 `[]` |
+
+证据文件：`var/host-check-recognitionProjects-f21/` 的探针脚本与截图 `01-page-search-and-header.png`、`02-modal-reload.png`。
+
+### 宿主层补证：失效勾选剔除（2026-10-02，同一轮）
+
+实施轮取证时组织 `01` 的有效目录项全部已配置，弹窗可新增集合为空，「剔除失效勾选」在宿主层不可构造。数据调整后（组织 `01` 的互认配置由 325 条调减为 300 条，有效标准项目仍为 325 条）该场景可构造，遂在同一验收链路上补取证据。构造用两个宿主标签页：A 标签打开新增弹窗并勾选两个可新增项目，B 标签经页面新增其中之一（一次真实页面写入），A 标签再点弹窗内「重新读取」。
+
+| 观察项 | 实测结果 |
+|---|---|
+| 补证前数据 | 组织 `01` 互认配置 **300** 条（全部启用），有效标准项目 325 条；A 标签弹窗可新增集合 **25** 项 |
+| A 标签勾选 | 勾选「乙型肝炎表面抗原（HBsAg）（002504030040000-01001）」与「乙型肝炎表面抗体（anti-HBs）（002504030050000-01001）」，已选 **2 项**，无收敛说明 |
+| B 标签写入 | 在 B 标签的新增弹窗内勾选同一「乙型肝炎表面抗原」项、填 30 天并提交：弹窗按成功路径关闭，页脚由「本组织共 300 项配置」变为 **301**，该行显示「启用 / 30 天」（经页面写入，未直接写库） |
+| A 标签重读 | 点「重新读取」后可新增集合由 25 项变为 **24** 项，已勾选的该项不再出现；已选由 2 项收敛为 **1 项**；弹窗内出现「选择已按最新数据收敛」说明，正文为「重新读取后，有 1 个已选项目已不在当前可新增集合中（已被配置或目录已停用），已从选择中移除。」——剔除不静默 |
+| 剔除后仍可继续 | 「确定新增」保持可用（剩余的已勾选项仍在可选集合中）；点「取 消」关闭弹窗，本次未提交 |
+| 数据终态 | 以只读方式核对：组织 `01` 互认配置 **301** 条（全部启用），其中 `002504030040000-01001` 为 30 天、启用、操作时间 `2026-10-02T02:24:08+08:00` |
+
+本节的写入只新增上述 1 条配置，是新增互认项目弹窗的正常业务写入。上文实施轮宿主证据表内的「本组织共 325 项配置」等数值是数据调减前的观测值，本节数值为补证时的实际数据。
+
+### 残余与边界
+
+- **整批创建被服务端拒绝后的就地恢复**：设计口径已收窄为「『重新读取』常驻弹窗底部」，其存在性与可用性由 C34 的宿主证据（打开弹窗即存在、点击即再读）与组件层用例覆盖；整批被拒后的弹窗保留与选择保留另在重开轮的宿主验收中已取证，本轮不重复。
+- **「读取在途」为浏览器侧延迟响应构造**：仅延迟本次响应返回时机，未改后端、未改数据；真实网络时延下的表现未另行取证。
+- **搜索按钮在途形态不设 `disabled` 属性**：实测按钮带 `ant-btn-loading`、图标换成旋转指示，DOM `disabled` 仍为 `false`——重复提交由 antd 的 loading 守卫拦下（追加点击 3 次后请求数不变）。设计表述已按此事实写为「读取在途期间的点击不再发起新的读取」。
+- **本轮两处既有用例的驱动方式变更**：「编辑期间后台刷新交付新值时，编辑器取当前行取值」与「后台刷新使行内编辑的目标行消失后，组织变化不再出现未保存内容确认」改由**另一行启停写入触发的后台重载**驱动。原因是搜索提交按 S2-D24 会应用条件并清空行内编辑态，原以「提交搜索」充当后台刷新的写法会先清掉被观察的编辑态，从而失去判别力；改后两处仍在读取交付新行集后断言编辑态的取值与「未保存内容」判定。
+- 本轮未改动后端生产代码与数据库；对数据库的变更只有补证时经页面写入的 1 条配置。
+
+### 阶段 4 测试夹具时间缺陷修复（2026-10-02，同轮附带）
+
+页头范围展示轮的后端门禁记录中，6 条 `Stage4WritePathTests` 的作废用例失败被登记为「既有时间硬编码缺陷、处置待负责人裁定」。该缺陷在本轮一并修复，改动面只有测试夹具：
+
+| 项 | 内容 |
+|---|---|
+| 根因 | 该文件的作废命令辅助把**作废时间**与**作废请求的接收时间**都默认成固定常量 `2026-10-01 11:30`，而当前版本的平台接收时间由服务端取当前时点（同文件对该时点另有「落在执行时点附近」的断言）。真实时钟走过该常量后，固定作废时间去撞「作废时间不得早于当前版本的平台接收时间」、固定请求接收时间去撞「作废时间不得晚于本次请求的接收时间」，两端校验必然拒绝 |
+| 改动 | `VoidCommand` / `ExaminationVoidCommand` 的缺省时间改为同一次「发起时的当前时点」（作废时间与请求接收时间取同一值，两端相等即接受）；用例中显式传入固定常量的三处改为使用缺省口径；`First_void_takes_effect_without_content_version` 的期望值改为读命令上实际传入的作废时间。固定常量 `ReceivedTime` 保留其在提交路径上的原作用（证明服务端不采信请求声明的接收时间），并补注其不得用作作废时间 |
+| 生产代码 | 未改动。管理器的两端边界校验（`MedicalRecognitionReportManager.Submission.cs`）与 `Void_time_boundaries_are_enforced` 用例原样保留，该用例继续守「早一秒拒绝、晚一秒拒绝、两端相等接受」 |
+| 门禁 | `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj` **816 通过 / 0 失败 / 0 跳过（816）**（修复前 810 通过 / 6 失败） |
+
+该缺陷与阶段2 的矩阵无关，修复后阶段2 后续各轮的后端门禁不再带已知失败项。阶段4 自身的矩阵状态不因本次测试夹具修复而改变，其报告侧登记由阶段4 处置。
+
+## 行集收敛与弹窗发现能力轮（2026-10-02，批次25 / F22）
+
+本节记录阶段根 S2-D16／S2-D17／S2-D24 的修订与 S2-D26～S2-D28 的代码实施。起因是页面与新增弹窗同时承担"看哪些项目还没配置"，而页面上这些行没有任何动作：用户看到缺口却不能在原地补上，同一份未配置项在两处出现使发现职责归属不明。修订把发现与选择整体收进弹窗，页面成为本组织已配置项的清单。设计依据为阶段根 [design.md](design.md) 的 S2-D16、S2-D17、S2-D24、S2-D26～S2-D28 与 [Client/design.md](Client/design.md) 的页面交互定稿；矩阵为 C26、C28（改写）、C35、C36（新增），回归面为 C1-C3、C6、C8、C10-C21、C23、C27、C29-C34。
+
+### 轮次边界与基线
+
+- 起始工作区：`## main...origin/main [ahead 4]`，工作区内含前三轮（重开交互整改、页头范围展示、设计与交互修订）的未提交改动；本轮在共享工作区改代码与文档，不创建分支、不提交。
+- 数据基线：组织 `01` 的互认配置 **301** 条（全部启用）、有效标准项目 325 条，弹窗可新增集合 24 项。本轮**未产生任何写入**。
+- 交付前的失败面：本轮的行为用例在实现之后编写，未取得"改动前失败"的独立 RED（见"残余与边界"）。
+
+### 变更面
+
+| 端 | 改动 |
+|---|---|
+| 前端合并口径 | `toRecognitionProjectColumnView` 的第一遍在目录项没有同编码配置行时**直接跳过**（既不产行也不建层级），页面行集因此只含本组织已配置项；`toSelectableColumnView` 走同一实现但保留未配置行，弹窗可选集合口径不变。新增 `BATCH_CREATE_LIMIT`（1000）与 `exceedsBatchCreateLimit` |
+| 前端页面 | 空态改写为「本组织还没有互认项目配置」（行集与计数同源，"列表为空"只可能是零配置）；已生效筛选与本页路由地址的查询参数双向一致（进入按 `code`/`status` 初始化、条件变化后替换当前历史项回写、输入原文不写入），新增 `recognitionProjectsFilterUrl.ts` 承载解析与回写口径；页面级提示移入常驻的 `aria-live="polite"` 容器 |
+| 前端弹窗 | 顶部新增「标准项目编码搜索」（在本次已读取的可选集合上本地裁剪、不发起读取，清空即恢复）、底部新增「全选当前结果」（补齐当前搜索结果，不清除已有选择）；选择条数超过单批上限时本地拦截并给出条数说明、不发请求；项目行整行成为勾选命中区（名称与编码放进复选框标签）；异步提示移入常驻 live region |
+| 前端样式 | 层级格声明 `content-visibility: auto` 与固有尺寸估计（S2-D28）；弹窗内容区声明 `overscroll-behavior: contain`；可点元素声明 `touch-action: manipulation`；新增命中区与 live 容器样式 |
+| 前端用例 | 适配层：行集与计数断言改为"未配置项不进视图"、新增弹窗可选集合口径与上限判定；页面：空态与计数、深链初始化、地址栏回写与参数口径；弹窗：C35 四条（搜索本地裁剪、全选、命中区、live region 与本地拦截）；层级用例改用"整份目录都已配置"的装配 |
+
+### 门禁
+
+| 门禁 | 结果 |
+|---|---|
+| 目标两文件 | `pnpm -F dy-medical-recognition exec vitest run src/pages/recognitionProjects` **2 文件 / 153 通过**（本轮 144 → 153） |
+| 前端测试 | 全量 `vitest run` **21 文件通过 / 432 passed / 2 skipped（434）** |
+| 前端 lint / 构建 | `eslint .` 0 problems；`pnpm -F dy-medical-recognition build` exit 0 |
+| 后端测试 | `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj` **816 通过 / 0 失败 / 0 跳过（816）**（本轮未改后端） |
+| 工作区 | `git diff --check` exit 0 |
+| 变更影响 | `gitnexus impact RecognitionProjects --repo Dy.MedicalRecognition`：`impactedCount 3`、`risk LOW`、直接调用方 1（路由注册） |
+
+### 矩阵结果
+
+| 用例 | 层级 | 状态 | 证据 |
+|---|---|---|---|
+| C26 列视图全平铺与页面行集 | Component/Host | `Passed` | **Component**：四栏表头与无折叠控件、层级格单一且跨行声明正确（改用整份目录都已配置的装配）、窄视口滚动容器与最小宽度；新增「未配置的目录项目不进列视图：行集只含本组织已配置项，计数与配置行数一致」（适配层）与「目录非空但本组织没有配置时同样报本组织空态」（页面）。**Host**：见下方宿主取证 |
+| C28 状态与时间行内展示 | Component/Host | `Passed` | **Component**：启用／停用／目录停用三种徽标与目录停用原因各自正确、页面不再出现「未配置」行；每一行都是已配置行、都有可互认时间入口；行内编辑的非法输入零写与合法保存既有用例保持通过。**Host**：见下方宿主取证 |
+| C35 弹窗发现能力 | Component/Host | `Passed` | **Component**：四条用例——编码搜索在已读取集合上本地裁剪且读取次数不变、无命中时报「没有匹配的标准项目」、清空后恢复；全选当前结果补齐当前搜索结果且不清除已有选择、再点不取消；点行内名称与点复选框等价；常驻 live region 存在且本地拦截文案落在其中。**Host**：见下方宿主取证 |
+| C36 已生效筛选与路由查询参数一致 | Component/Host | `Passed` | **Component**：带 `code`／`status` 进入页面时按参数初始化（输入框与列表同条件）、输入原文不写入、提交与状态切换后回写、清空后参数不残留；参数口径（缺失与不可识别取值按不生效、其他参数原样保留）由纯函数用例固定。**Host**：见下方宿主取证 |
+
+业务统计：本轮 4 条（C26、C28 经改写复测，C35、C36 新增）全部 `Passed`；回归面 C1-C3、C6、C8、C10-C21、C23、C27、C29-C34 全部保持 `Passed`，无新增 `Blocked`／`N/A`。
+
+### 宿主验收取证（2026-10-02）
+
+链路同前（宿主登录页 → 菜单「检验检查结果互认」→「互认项目」；后端 `http://localhost:15014`，前端 dev server `http://localhost:3008`）。取证前对宿主页面执行整页重载。
+
+| 观察项 | 实测结果 |
+|---|---|
+| 页面行集 | 列表 **301** 行且每行都是已配置项（含补证新增的 `002504030040000-01001`），页脚「本组织共 301 项配置」——行数与配置条数一致；未配置项目与只含未配置项目的分组不再出现 |
+| 弹窗可选集合 | 打开新增弹窗即重读（3 次读取，与页面进入同一条路径），可新增集合 **24** 项（325 目录 − 301 配置） |
+| 弹窗编码搜索 | 输入原文未提交时集合仍 24 项；提交 `002504030` 后集合 **24 → 7** 项且 7 项编码全部包含该片段，**读取增量 0** |
+| 全选当前结果 | 点一次后「已选」由 0 变为 **7 项**（等于当前搜索结果的项目数） |
+| 行内命中区 | 点项目行内的名称文本即可切换勾选（复选框 true → false）；全程写入请求 **0** 次 |
+| 筛选与路由地址 | 输入原文不改变地址；提交后子应用路由地址变为 `…/recognition-projects?code=002504030`（列表 301 → 14、页脚「本组织共 301 项配置，筛选后 14 项」）；状态切「停用」后变为 `?code=002504030&status=2`（0 行）；清空编码后变成 `?status=2`，`code` 未残留 |
+| 可访问性与样式 | 页面与弹窗各存在 1 个常驻 `aria-live="polite"` 容器；弹窗内容区 `overscroll-behavior: contain`；层级格 `content-visibility: auto` |
+| 控制台 | 整页重载与上述交互后监听 5 秒，`error`/`warning`/`assert` 事件 `[]` |
+
+证据文件：`var/host-check-recognitionProjects-f22/` 的探针脚本与截图 `01-page-configured-only.png`。
+
+### 残余与边界
+
+- **路由参数的适用边界（重要）**：页面嵌在宿主工作区里时浏览器地址栏属于宿主外壳，本轮实测参数落在**子应用路由地址**上（`http://183.224.180.166:35000/subApps/medical-recognition/recognition-projects?code=…`），浏览器标签地址仍是 `http://183.224.180.166:35000/`；且**宿主整页刷新会把工作区标签重新挂到不带参数的路由上**，参数不跨刷新保留（实测重载后列表恢复 301 行、条件清空）。因此该项的实际价值是"子应用路由携带条件 + 直达子应用地址时可深链"，不是"浏览器地址栏可见并可分享"。S2-D27、`Client/design.md`、页面文档与 `Client/testPlan.md` 的 C36 行已按此边界改写。
+- **零配置空态与超单批上限未在宿主构造**：组织 `01` 现有 301 条配置（零配置空态不可构造），弹窗可新增集合 24 项（超 1000 条不可构造）。两个分支的证据为组件层用例（空态文案、`exceedsBatchCreateLimit` 与本地拦截文案），宿主层只覆盖到"空态容器与 live region 存在"。
+- **`content-visibility: auto` 的滚动表现未在真实长列表上复现**：本轮在宿主上只核到声明生效（`auto`）。层级格跨若干行且行高随该分组下的项目数变化，滚动条长度估算与锚定表现需要在更长列表上观察；出现可复现跳动时按 S2-D28 回退为不声明并另行登记。
+- **本轮行为用例未取得改动前 RED**：用例在实现之后编写，判别力来自对新增行为的直接断言（未配置项不进列表、空态文案、搜索不触发读取、全选结果、命中区切换、地址参数回写）与既有回归集，而非"改动前失败"的证据；与该轮之前各轮的 RED-GREEN 顺序存在偏差，如实登记。
+- **两处既有文档与实现不一致在本轮一并对齐**（不改行为）：本地编码筛选实际是**不区分大小写**的包含匹配（`recognitionProjectsApi.ts` 的判定体与其单测），而 `Client/design.md`、页面文档与 `Client/testPlan.md` 的 C31/C35 行原先写"字面包含、区分大小写"，已改为与实现一致并写明"只服务本地展示、不改变读取范围"的理由。
+- 本轮未改动后端生产代码、接口与数据库，未执行任何写入。
+
+## 关键字下推与可新增项目查询轮（2026-10-02，批次25 / F23）
+
+本节记录阶段根 S2-D21／S2-D24／S2-D26 的修订与 S2-D29 的实施：筛选关键字改为**服务端查询条件**并跨四个字段匹配，同时新建一条不分页的「可新增标准项目」查询，使页面与弹窗都不再持有全量数据。起因是查询需要编码与名称都能查、且支持分类与分组名称，而输入框只保留一个；设计依据为阶段根 [design.md](design.md) 的 S2-D21、S2-D24、S2-D26、S2-D29 与 [Server/design.md](Server/design.md) 的契约段；矩阵为 V12-V14（条件面改写）、V35（新增）、C31、C35、C36（改写）与 C37（新增）。
+
+### 口径（本轮定稿）
+
+| 决策 | 内容 |
+|---|---|
+| 关键字跨四列 | 单个关键字按字面包含同时匹配标准项目编码、名称、所属分类名称、所属分组名称，任一列命中即返回；页面与弹窗各一个输入框，语义相同 |
+| 不区分大小写 | 两侧统一 `lower()` 比较 |
+| 请求字段替换 | 配置列表请求的过滤字段由 `standardProjectCode` **替换**为 `keyword`（不并存） |
+| 新建查询 | 「可新增标准项目」查询（不分页）：`三级均启用的有效目录 − 本组织已配置`，入参同一关键字，组织只取可信上下文 |
+| 页脚计数 | 改为**当前显示条数**（「共 M 项配置」），不再报「本组织共 N 项」——列表响应无总数来源，且页面行集就是本组织的配置集合 |
+| 配置状态 | 保持本地即时裁剪，不下推（离散二选一、保留「切换即生效」） |
+| 页面读取 | 不再读标准目录（读数 3→2）；弹窗打开/重读/搜索各 1 次读取 |
+| 不分页 | S2-D7 不变 |
+
+### 变更面
+
+| 端 | 改动 |
+|---|---|
+| 契约 | `RecognitionProjectConfigurationListQueryRequest.StandardProjectCode` → `Keyword`；新增 `SelectableStandardItemListQueryRequest`（只有可选 `Keyword`）与 `QuerySelectableStandardItemListAsync`（返回与有效目录同形的层级只读模型） |
+| SQL | `QueryRecognitionProjectConfigurationList` 的过滤条件改为四列 `lower(...) like concat('%', lower(replace...$Keyword...), '%') escape '!'` 的 OR；新增语句 `QuerySelectableStandardItemList`（三级均启用 + `not exists` 排除本组织已配置 + 同一关键字口径 + 排序同有效目录） |
+| 应用层 | 配置列表透传 `Keyword`；新查询取可信组织后调仓储；仓储端口与实现新增 `QuerySelectableStandardItemListAsync(org, keyword)` |
+| 冻结清单 | 五处同步：`Stage1ArchitectureTests`（查询方法集 + 签名表）、`Stage4EndpointTests`、`Stage2EnumContractTests`（路径清单 56→**57**）、`Stage7ExclusionGuardTests`（路径计数 56→**57**）、`Stage4SqlMapTests`（语句清单）、`Stage6SqlMapTests`（既有语句数 28→**29**） |
+| 后端用例 | `Stage2QueryTests` 新增 2 条 V35；`Stage2ContractTests` 字段断言改 `Keyword` 并新增可新增查询请求形状断言；6 个测试替身补 `QuerySelectableStandardItemListAsync` |
+| 前端 | 关键字下推（`buildConfigurationListQuery` 带 `keyword`）；`filterRecognitionProjectColumnView` 只按配置状态裁剪；页面读取降到 2 次；新增 `loadSelectableItems`／`reloadSelectableItems`／`searchSelectableItems`（弹窗数据源，独立请求序号，失败只影响弹窗内提示、不写页面阻断态）；`batchKeyword` 记录弹窗生效关键字（区分「没有匹配项」与「没有可新增项」）；清空输入同时清生效条件并重读一次（等价空条件提交）；页脚「共 M 项配置」；空态按「零配置」与「有条件但没命中」区分；新增按钮只按 `canWrite` 门控；收敛判定只在无关键字的全量可新增读取上做；弹窗 `reloading` 冻结确定按钮；路由参数 `code` → `keyword` |
+
+### 门禁
+
+| 门禁 | 结果 |
+|---|---|
+| 目标两文件 | `vitest run src/pages/recognitionProjects` **2 文件 / 153 通过** |
+| 前端测试 | 全量 `vitest run` **21 文件通过 / 432 passed / 2 skipped（434）** |
+| 前端 lint / 构建 | `eslint .` **0 problems**；`pnpm -F dy-medical-recognition build` exit 0 |
+| 后端测试 | `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj` **819 通过 / 0 失败 / 0 跳过（819）** |
+| 客户端包 | `prepare-openapi` **57 path**、`generate` 成功、`typecheck` exit 0、`build` exit 0 |
+| 收尾清理后 | 目标两文件 **149 通过**、前端全量 **21 文件 / 428 passed / 2 skipped（430）**（删除两个已失去调用方的出口及其 4 条用例，见「收尾清理」） |
+| 工作区 | `git diff --check` exit 0 |
+
+### 矩阵结果
+
+| 用例 | 层级 | 状态 | 证据 |
+|---|---|---|---|
+| V12-V14（条件面改写） | Contract/SQL | `Passed` | 契约字段断言（`Keyword` 可选、`OrganizationCode` 必填、状态可选且不进查询载荷）与 SQL 语句冻结清单（含新语句）；四列 OR 与转义、不区分大小写的 SQL 形态见 `MedicalRecognitionReportQuery.xml` 的语句注释 |
+| V35 可新增标准项目查询 | Application/Contract | `Passed` | `Stage2QueryTests` 两条：组织取自可信上下文、关键字原样下传、结果按类型→分类→分组组装；无可新增项目时各层级为空、关键字空白在进入查询前被拒绝 |
+| C31 搜索动作按关键字查询 | Component | `Passed` | 输入原文是草稿、提交时下发 `keyword`、读取返回后行集即服务端结果（含按名称命中的四列口径）、空条件提交等价刷新、清空输入触发重读；请求只含 `organizationCode` 与 `keyword`，`configurationStatus` 永不下发 |
+| C35 弹窗发现能力 | Component | `Passed` | 关键字搜索发起一次可新增项目查询、不重读配置列表；无命中报「没有匹配的标准项目」；清空恢复全部；全选当前结果补齐可见项且不清除已有选择、再点不取消；整行命中区；本地拦截与 live region |
+| C36 已生效筛选与路由参数一致 | Component | `Passed` | 参数名改 `keyword` 后仍通过：进入按参数初始化、变化后替换式回写、输入原文不写入、清空不残留 |
+| C37 弹窗可选集合来自服务端查询 | Component | `Passed` | 弹窗打开即发起可新增项目查询（页面配置列表不因此重读）、可选集合按本次查询计算、失败只在弹窗内提示「数据待刷新」且页面列表与行内操作不受影响 |
+
+业务统计：本轮 6 条（V12-V14 条件面、V35、C31、C35、C36、C37）全部 `Passed`；回归面 C1-C3、C6、C8、C10-C21、C23、C26-C34 保持 `Passed`。阶段合计 **72** 条：`Passed` 67、`Blocked` 4、`N/A` 1。
+
+### 宿主链路取证（2026-10-02）
+
+在宿主 `http://183.224.180.166:35000/` 登录后经菜单「检验检查结果互认 → 互认项目」进入页面，子应用由本地 dev server（`http://localhost:3008/subApps/medical-recognition/`）经基座实际加载；受管 Chrome 经 CDP 执行交互，读取次数由页面 `fetch` 记录器计数，DOM 事实取自可访问名称与元素计数。基线为组织 `01`：配置 301 条、三级均启用的有效目录 325 条、可新增 24 条；页面的四个关键字命中数（编码 10、名称 3、分类 116、分组 8）与弹窗的四个关键字命中数（编码 7、名称 1、分组 7、分类 24）均由同口径的只读 SQL 复核一致。
+
+| 观测面 | 实测 |
+|---|---|
+| 页面基线 | 行集 301、页脚「共 301 项配置」、页头组织两行「县医共体 / 01」、输入框占位「标准项目编码/名称/分类/分组关键字」 |
+| 编码列命中 | 提交 `002501010` → 行集 10、页脚「共 10 项配置」，命中行编码均为 `002501010…`；读取 2 次（配置列表 1 + 组织范围 1） |
+| 名称列命中 | 提交 `血红蛋白` → 行集 3（血红蛋白（Hb）、平均红细胞血红蛋白含量(MCH)、平均红细胞血红蛋白浓度(MCHC)）；读取 2 次 |
+| 分类列命中 | 提交 `检验专业` → 行集 116，层级栏只剩一个分类「检验专业」；读取 2 次 |
+| 分组列命中 | 提交 `血常规检验` → 行集 8，层级栏只剩一个分组「血常规检验」；读取 2 次 |
+| 草稿不读取 | 仅输入未提交时行集保持 301、读取计数无增量 |
+| 空条件提交 | 清空后提交 → 回到 301，读取 2 次（等价刷新） |
+| 状态本地裁剪 | 切「停用」→ 行集 0（该组织 301 条全部启用），读取计数无增量 |
+| 弹窗打开 | 「新增互认项目」→ 读取 1 次且仅为 `QuerySelectableStandardItemList`（配置列表不重读），可选 24 条、四栏「类型｜分类｜分组｜项目」、`已选 0 项` |
+| 弹窗编码列 | 提交 `002504030` → 可见 7 条，可见编码全部命中；读取 1 次 |
+| 弹窗名称列 | 提交 `梅毒` → 可见 1 条；读取 1 次 |
+| 弹窗分组列 | 提交 `传染病检验` → 可见 7 条（命中列为分组名，行标签不含该串）；读取 1 次 |
+| 弹窗分类列 | 提交 `检验专业` → 可见 24 条（该分类下再无其他分组名含此串）；读取 1 次 |
+| 弹窗重读 | 「重新读取」→ 读取 1 次（仅可新增查询），读取期间确定按钮 `disabled`、完成后恢复 |
+| 选择语义 | 「全选当前结果」→ `已选 7 项`；切到不相交的名称列关键字（可见 1 条）后仍为 `已选 7 项`（子集搜索不裁剪已选）；点行内名称文本可切换该行勾选 |
+| 路由往返 | 提交后子应用地址为 `…/recognition-projects?keyword=%E8%A1%80%E5%B8%B8%E8%A7%84%E6%A3%80%E9%AA%8C`；切「停用」为 `?keyword=…&status=2`；清空关键字后该参数不残留；草稿输入不写地址 |
+| 控制台 | 交互全程只有 Vite 连接的 `debug` 消息，无 error/warning 级记录、无接口失败 |
+| 未产生写入 | 弹窗以「取消」收尾；页面行集与页脚回到 301；库内 `mrec_mutual_recognition_item` 组织 `01` 仍为 301 条且 `oper_time` 最大值早于本次取证 |
+
+证据文件：`var/host-check-recognitionProjects-f23/` 的探针脚本（`probe-baseline.js`、`install-recorder.js`、`probe-keyword-step.js`、`probe-modal-open.js`、`probe-modal-search.js`、`probe-modal-columns.js`、`probe-modal-reload.js`、`probe-url-iframe.js`、`close-modal.js`、`reset-filter.js`）与截图 `01-page-keyword-group.png`、`02-modal-keyword-category.png`（`var/` 由仓库根 `.gitignore` 排除，不入版本控制）。判定取自 DOM 计数、可访问名称与读取计数，截图只作留档。
+
+### 收尾清理（2026-10-02，同轮）
+
+| 项 | 内容 |
+|---|---|
+| 删除的出口 | `configuredStandardProjectCodes`、`excludeConfiguredStandardItems`（`recognitionProjectsApi.ts`）：S2-D29③ 把「本组织已配置」的排除收进服务端的可新增项目查询后，两个出口在页面侧已零引用，保留会在客户端与服务端各留一处判定 |
+| 删除的用例 | `recognitionProjectsApi.test.ts` 的 C3 三例（排除集合构成、编码缺失行、剔除只按编码移除）与「C3 排除集合来自全量查询结果：停用配置同样阻止重复新增」一例；关键字下推后这些用例断言的本地集合运算已不存在 |
+| C3 覆盖去向 | C3「已配置项目过滤」的排除判定指向后端 V35 与 SQL 语句 `QuerySelectableStandardItemList`（`Server/design.md`、`Client/Pages/RecognitionProjects/RecognitionProjects.md`、`Client/testPlan.md` 已同步）；客户端侧由 C37 覆盖「弹窗可选集合来自服务端查询」，C35 覆盖「弹窗搜索按服务端查询」 |
+| 影响面核对 | GitNexus `impact` 两个出口均 `LOW`（`impactedCount 2`，浅层）；索引中指向 `RecognitionProjects.tsx` 的调用边是 F23 之前的旧边，按 grep 复核页面文件对两个名字已无引用 |
+| 文档同步 | 阶段根 S2-D27（参数名 `code`→`keyword` 与「关键字筛选」措辞）、`Server/design.md`（查询请求字段 `Keyword`、可新增项目查询、V35 行）、`Client/design.md`（筛选/弹窗/页脚/读取路径/筛选口径）、`Client/Pages/RecognitionProjects/RecognitionProjects.md`、`Client/testPlan.md`（C3、C31、C35、C36 改写，C37 新增） |
+| 门禁 | 目标两文件 `vitest run src/pages/recognitionProjects` **2 文件 / 149 通过**（清理前 153）；前端全量 **21 文件 / 428 passed / 2 skipped（430）**（清理前 432 passed）；`lint` 0 problems、构建 exit 0、`git diff --check` exit 0；本次未改后端，后端 819 通过 / 0 失败 继续有效 |
+
+### 残余与边界
+
+- **宿主地址栏归基座**：子应用地址（含 `keyword`）只落在子应用路由上，基座浏览器地址栏保持 `http://183.224.180.166:35000/`；宿主整页刷新后生效条件不保留，页面回到「共 301 项配置」。该边界即 S2-D27 已登记的口径；「进入时按地址状态初始化条件」由组件层 C36 用例覆盖，未在宿主上取得独立证据（宿主不提供携带该参数的整页入口）。
+- **本轮行为用例未取得改动前 RED**：用例与实现同轮改写——`vitest` 的失败由实现先行使旧用例判红（当时记录为适配层 7 失败、页面 85/93 失败），随后按新行为重写期望；没有形成「先写新行为失败用例、再实现」的独立运行记录，与 [Testing Baseline](../../../.agents/instructions/testing-baseline.md) §1.1 的顺序要求存在差别，如实登记。
+- 本轮未改动数据库；后端只改契约、SQL 与用例。
+
 ## 结论
 
-阶段2 的 63 条业务矩阵（原 52 条 + 重开轮新增 11 条）已执行完毕：`Passed` 58 条、`Blocked` 4 条、`N/A` 1 条，`Failed`/`PendingRetest`/`NotRun` 为 0。后端离线与真实链路、Client 生成与契约、组件层、真实库元数据、宿主页面链路均有本报告列举的证据。4 条 `Blocked` 是**环境或框架边界导致规定验证面未执行**的项——组织切换后目标组织读取失败的宿主页面层（缺第二个授权组织）、事件可见性、并发停用的事件计数子面、跨组织写拒绝（缺少"第二个可信组织持有配置"的合法前置）；其受阻原因登记为决策标签（接受口径待负责人确认，不改变状态；决策标签不计入统计，4 条 `Blocked` 计入 63 条分母并单列），与 Testing Baseline §3 一致，本报告不再把它们记为通过。**2026-09-16 的批次A/B 整改后，受影响用例的宿主证据已按 Testing Baseline §5 重取**（见"批次A/B 整改后的宿主重取"），同日完成 7 轴整改后复审与收口前清理，清理后门禁为后端 **81/81**、前端 99 passed / 2 skipped、构建 0 错误、lint 0 error、`git diff --check` exit 0。**2026-09-29 的重开轮实施**新增 V28-V33 与 C26-C30 并全部取得证据（C27 曾记 `Failed`，修正后通过）；**2026-09-30 的补证轮**在重开轮终态工作区上重取了 C26、C28、V30，使新增 11 条的证据都对应同一份代码快照，该轮门禁为后端 **811 通过 / 0 失败**、前端 **415 通过 / 2 跳过**、`lint` 0 error 0 warning、构建 exit 0、`git diff --check` exit 0。阶段是否收口由收口节结论承载，本报告不代作结论。
+阶段2 的业务矩阵共 **72** 条（原 52 条 + 重开轮新增 11 条 + 筛选区交互整改 2 条 + 页头范围展示轮 2 条 + 修订轮新增 1 条 + 行集收敛与弹窗发现能力轮新增 2 条 + 关键字下推与可新增项目查询轮新增 2 条）：`Passed` 67 条、`Blocked` 4 条、`N/A` 1 条，`PendingRetest`、`NotRun`、`Failed` 均为 0。C31、C32、C33 的定义被"设计与交互修订轮（2026-10-02，批次24 / F21）"改写、C34 为同轮新增，四条已由"修订轮实施（2026-10-02，批次24 / F21）"复测回到 `Passed`，C34 的宿主面缺口另经同轮补证覆盖（失效勾选剔除）；C26、C28 的定义被"行集收敛与弹窗发现能力轮（2026-10-02，批次25 / F22）"改写并复测，C35、C36 为同轮新增，四条全部 `Passed`。后端离线与真实链路、Client 生成与契约、组件层、真实库元数据、宿主页面链路均有本报告列举的证据。4 条 `Blocked` 是**环境或框架边界导致规定验证面未执行**的项——组织切换后目标组织读取失败的宿主页面层（缺第二个授权组织）、事件可见性、并发停用的事件计数子面、跨组织写拒绝（缺少"第二个可信组织持有配置"的合法前置）；其受阻原因登记为决策标签（接受口径待负责人确认，不改变状态；决策标签不计入统计，4 条 `Blocked` 计入 63 条分母并单列），与 Testing Baseline §3 一致，本报告不再把它们记为通过。**2026-09-16 的批次A/B 整改后，受影响用例的宿主证据已按 Testing Baseline §5 重取**（见"批次A/B 整改后的宿主重取"），同日完成 7 轴整改后复审与收口前清理，清理后门禁为后端 **81/81**、前端 99 passed / 2 skipped、构建 0 错误、lint 0 error、`git diff --check` exit 0。**2026-09-29 的重开轮实施**新增 V28-V33 与 C26-C30 并全部取得证据（C27 曾记 `Failed`，修正后通过）；**2026-09-30 的补证轮**在重开轮终态工作区上重取了 C26、C28、V30，使新增 11 条的证据都对应同一份代码快照，该轮门禁为后端 **811 通过 / 0 失败**、前端 **415 通过 / 2 跳过**、`lint` 0 error 0 warning、构建 exit 0、`git diff --check` exit 0。**2026-10-02 的筛选区交互整改轮**按阶段根 S2-D21 删除筛选区重置控件并把标准项目编码筛选改为显式提交，新增 C31、C32 并通过组件层与真实宿主取证，该轮门禁为前端 **416 通过 / 2 跳过（418）**、`lint` 0 problems、构建 exit 0、`git diff --check` exit 0。**2026-10-02 的页头范围展示轮**按阶段根 S2-D22 与 S2-D23 新增只读范围查询与页头组织展示，新增 V34、C33 并通过契约层、组件层与真实宿主取证，该轮门禁为后端构建 0 错误、后端全量 **810 通过 / 6 失败**（6 条为 `Stage4WritePathTests` 的既有时间硬编码缺陷，与本轮无关，已于 2026-10-02 修复测试夹具，修复后为 816 通过 / 0 失败）、客户端包 `typecheck`/`build` exit 0、前端 **420 通过 / 2 跳过（422）**、`lint` 0 problems、构建 exit 0、`git diff --check` exit 0。**2026-10-02 的修订轮实施**按阶段根 S2-D22～S2-D25 把搜索动作改为重新读取后再本地裁剪、页头组织改为上下两行且去掉文字标签、页头只保留主按钮、新增弹窗打开即重读并在弹窗内提供「重新读取」与失效勾选剔除，C31/C32/C33 重写后复测、C34 新增，四条全部 `Passed`；该轮门禁为前端目标两文件 **144 通过**、前端全量 **423 通过 / 2 跳过（425）**、`lint` 0 problems、构建 exit 0、`git diff --check` exit 0，并在整页重载后的宿主链路上取得页头版面、筛选区控件构成、搜索重读与裁剪、在途形态与重复点击守卫、弹窗就地重读的实测证据。阶段是否收口由收口节结论承载，本报告不代作结论。**2026-10-02 的关键字下推与可新增项目查询轮**把筛选关键字改为服务端查询条件并跨「标准项目编码、名称、所属分类名称、所属分组名称」四列匹配（不区分大小写、`%`/`_` 转义），新建不分页的「可新增标准项目」查询（`有效目录 − 本组织已配置`），页面与弹窗都不再持有全量数据：页面读取降到 2 次、弹窗打开/重读/搜索各 1 次，页脚改报当前显示条数，V35 与 C37 新增、V12-V14 条件面与 C31/C35/C36 改写，六条全部 `Passed`；该轮门禁为目标两文件 **153 通过**、前端全量 **432 通过 / 2 跳过（434）**、后端全量 **819 通过 / 0 失败**、客户端包 57 path 重生成、`lint` 0 problems、构建 exit 0、`git diff --check` exit 0，并在真实宿主链路上取得关键字四列命中、页脚按当前显示条数、草稿不读取、空条件提交等价刷新、弹窗打开/重读/搜索各 1 次可新增查询、子集搜索不裁剪已选与路由参数 `keyword` 往返的实测证据。**2026-10-02 的行集收敛与弹窗发现能力轮**按阶段根 S2-D16／S2-D17／S2-D24 的修订与 S2-D26～S2-D28 把页面行集收敛为本组织已配置项（未配置项目只在新增弹窗出现）、弹窗补编码搜索与全选当前结果、已生效筛选同步到子应用路由地址、长列表按 `content-visibility: auto` 声明离屏跳过渲染，C26/C28 改写复测并新增 C35/C36，四条全部 `Passed`；该轮门禁为前端目标两文件 **153 通过**、前端全量 **432 通过 / 2 跳过（434）**、后端全量 **816 通过 / 0 失败**、`lint` 0 problems、构建 exit 0、`git diff --check` exit 0，并在整页重载后的宿主链路上取得行集与计数一致、弹窗搜索零读取增量、全选、命中区与路由参数往返的实测证据；该轮同时如实登记了路由参数在宿主内的适用边界（浏览器地址栏归宿主外壳、不跨宿主刷新保留）。
 
 本报告此前曾处于"仅文档整改"阶段，该阶段性说明已随实现与宿主验收的完成而失效：S2-D12/S2-D13 已结案（见阶段 `design.md`），不再阻断实现。
 
