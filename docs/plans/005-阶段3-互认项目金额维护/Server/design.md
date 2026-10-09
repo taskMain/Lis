@@ -6,7 +6,7 @@
 
 当前代码事实：金额相关的生成态只有 `OrganizationHospitalBranchRecognitionAmount` 实体、同族 DTO、`OrganizationHospitalBranchRecognitionAmountDto` 映射声明、`Repository/MedicalRecognitionReportAggregate/OrganizationHospitalBranchRecognitionAmount.xml`（旧聚合 scope，只有 Columns 与无 where 的 `QueryAll`）与 `Repository/Scripts/organization_hospital_branch_recognition_amount.sql`（无 `mrec_` 前缀、`varchar(100)`、无注释、无唯一索引）；`SaveOrganizationHospitalBranchRecognitionAmountCommand`、对应事件、Manager 方法、仓储方法、`QueryRecognitionAmountList` 与应用服务入口**均不存在**。`Application.Contracts/ReadModels/RecognitionAmountReadModel.cs` 是提前生成的 16 字段版本，与 UML2 调整后的字段集不一致。以上都是待实现或待修正的现状，不是已验证结论。
 
-高风险决策台账只维护在阶段根设计：两个入口与可信边界引用 S3-D1，权限口径引用 S3-D2，Command 收敛引用 S3-D3，列表字段引用 S3-D6，批量读取引用 S3-D7，不分页引用 S3-D8。本文件细化实现边界与 V1-V30，不复制台账、不把决策标签当测试结果。阶段根台账无 `Pending` 项；`DesignConfirmed` 只表示设计已确认，**不表示已实测**：S3-D15、S3-D16 与组织服务能力仍以批次 1 的实测 `restore/build`、`typecheck/build` 为闸门。
+高风险决策台账只维护在阶段根设计：两个入口与可信边界引用 S3-D1，权限口径引用 S3-D2，Command 收敛引用 S3-D3，列表字段引用 S3-D6，批量读取引用 S3-D7，不分页引用 S3-D8。本文件细化实现边界与 V1-V33，不复制台账、不把决策标签当测试结果。阶段根台账无 `Pending` 项；`DesignConfirmed` 只表示设计已确认，**不表示已实测**：S3-D15、S3-D16 与组织服务能力仍以批次 1 的实测 `restore/build`、`typecheck/build` 为闸门。
 
 ## 公共契约与分层
 
@@ -19,8 +19,10 @@
 
 **两个查询入口。** `IMedicalRecognitionReportQueryAppService` 新增两个方法，返回同一 `RecognitionAmountReadModel`：
 
-- `QueryRecognitionAmountListAsync(RecognitionAmountListQueryRequest)`：平台管理员入口，Request 提交 `OrganizationCode`（必填）、`HospitalCode`（必填）、`BranchCode`（必填）、`StandardProjectCode`（可选，字面包含）。
-- `QueryBranchRecognitionAmountListAsync(BranchRecognitionAmountListQueryRequest)`：医院管理员入口，Request 只提交 `BranchCode`（必填）与 `StandardProjectCode`（可选）；组织与医院来自可信上下文。
+- `QueryRecognitionAmountListAsync(RecognitionAmountListQueryRequest)`：平台管理员入口，Request 提交 `OrganizationCode`（必填）、`HospitalCode`（必填）、`BranchCode`（必填）、`Keyword`（可选，S3-D26）；既有 `StandardProjectCode`（可选，字面包含）保留不变，新页面不再使用。
+- `QueryBranchRecognitionAmountListAsync(BranchRecognitionAmountListQueryRequest)`：医院管理员入口，Request 只提交 `BranchCode`（必填）与 `Keyword`（可选，S3-D26）；组织与医院来自可信上下文；既有 `StandardProjectCode`（可选）保留不变，新页面不再使用。
+
+**关键字口径。** 两个查询的可选 `Keyword` 是单个查询条件，按字面包含同时匹配标准项目编码、标准项目名称、所属分类名称、所属分组名称，比较不区分大小写，用户输入的 `%` 与 `_` 按普通字符转义（S3-D26，写法与阶段 2 `QueryRecognitionProjectConfigurationList` 的过滤条件一致）；缺失或去首尾空白后为空视为未提供、不附加过滤，非空白取值整体去首尾空白后参与匹配。
 
 两个入口的**取值口径与保存一致**（S3-D1、S3-D11、S3-D18）：平台管理员入口的组织、医院、院区取自请求提交值，服务端校验三者存在、启用且父子归属正确；医院管理员入口的组织与医院取自可信上下文——登录令牌该层非空白即取令牌值，令牌该层缺失或空白时用当前登录用户档案补齐，令牌与用户档案都提供该层且不一致即拒绝，补齐后该层仍为空即拒绝（不使用默认值、不降级为空值），请求院区必须属于可信医院与可信组织，不属于即拒绝、不降级为空集合；**院区不做可信授权回落**，院区仍由请求提交并由组织路径解析校验归属（S3-D19）。**不得要求平台管理员入口的查询组织等于可信上下文组织**——那会使平台管理员无法查询其他组织、医院、院区的金额，与 SRS「互认项目金额维护」页面要求 1、UML2 的 `QueryRecognitionAmountList` 说明及本阶段 S3-D1 冲突。`RecognitionAmountReadModel` 字段固定为：`StandardProjectCode`、`StandardProjectName`、`ItemType`、`CategoryName`、`GroupName`、`OrganizationName`、`HospitalName`、`BranchName`、`ConfigurationStatus`、可空 `UnavailableReason`、可空 `CurrentAmount`、`IsAmountConfigured`、可空 `ItemTypeText`、非空 `ConfigurationStatusText`；不返回组织编码、医院编码、院区编码，不返回最后修改时间与最后修改人。两个枚举中文是只读计算属性，由服务端按枚举 `Description` 解析（`ItemTypeText` 取值未登记时为 `null`，`ConfigurationStatusText` 未登记取值按严格解析抛出），口径见 [总体计划设计](../../001-总体计划/design.md) 5.3 与本阶段 S3-D21。按标准项目编码升序，不分页。
 
@@ -47,8 +49,8 @@
 |---|---|---|---|---|
 | `SaveOrganizationHospitalBranchRecognitionAmountRequest` | 新增 Request | C/Aggregate/Requests | Host 绑定组织、医院、院区、标准项目编码与金额 | 接受操作人、状态或内部 ID |
 | `SaveBranchRecognitionAmountRequest` | 新增 Request | C/Aggregate/Requests | Host 绑定院区、标准项目编码与金额 | 接受组织、医院、操作人 |
-| `RecognitionAmountListQueryRequest` | 新增 Query Request | C/Queries | 平台管理员入口输入组织、医院、院区与可选编码 | 把输入当授权结论 |
-| `BranchRecognitionAmountListQueryRequest` | 新增 Query Request | C/Queries | 医院管理员入口输入院区与可选编码 | 接受组织与医院 |
+| `RecognitionAmountListQueryRequest` | 新增 Query Request | C/Queries | 平台管理员入口输入组织、医院、院区与可选关键字 | 把输入当授权结论 |
+| `BranchRecognitionAmountListQueryRequest` | 新增 Query Request | C/Queries | 医院管理员入口输入院区与可选关键字 | 接受组织与医院 |
 | `RecognitionAmountReadModel` | 修改并迁入 Queries | C/Queries；现位于 C/ReadModels | 两个查询入口共用的返回契约 | 作用域编码、最后修改字段、派生状态字段 |
 | `IMedicalRecognitionReportAppService` | 扩展既有写契约 | C/Aggregate | Host 的两个金额保存入口 | 通用查询 |
 | `MedicalRecognitionReportAppService` | 修改 AppService | A/Aggregate | 输入校验、可信字段解析、组织服务编排、调用 Manager | 直接仓储写入、复制领域规则 |
@@ -77,7 +79,7 @@
 
 两个入口解析完成后交给 Manager 的领域数据完全相同，入口差异只存在于 Application 的取值来源与校验顺序，因此不建立第二个 Command；S3-D3 记录了该收敛及其理由。事件不携带入口标识。
 
-**查询链**：Host → 查询 Request → `MedicalRecognitionReportQueryAppService` 解析可信组织（医院管理员入口另解析可信医院）→ `OrganizationPathResolver` 一次性批量读取并校验路径、同时取得组织/医院/院区名称 → 既有 `IMedicalRecognitionReportQueryRepository` 的新增方法 → `MedicalRecognitionReportQueryRepository` / `MedicalRecognitionReportQuery.xml`，以 `mrec_mutual_recognition_item` 为行集、按业务键 LEFT JOIN `mrec_organization_hospital_branch_recognition_amount`、关联标准目录取得名称/类型/分类/分组与三层启用状态，按标准项目编码升序 → `RecognitionAmountListItem` → Application 派生 `UnavailableReason`、填充名称与 `IsAmountConfigured`、映射 `RecognitionAmountReadModel`（两个枚举中文由读模型按枚举描述派生）。查询不得产生写入、审计事件或消息。
+**查询链**：Host → 查询 Request → `MedicalRecognitionReportQueryAppService` 解析可信组织（医院管理员入口另解析可信医院）→ `OrganizationPathResolver` 一次性批量读取并校验路径、同时取得组织/医院/院区名称 → 既有 `IMedicalRecognitionReportQueryRepository` 的新增方法 → `MedicalRecognitionReportQueryRepository` / `MedicalRecognitionReportQuery.xml`，以 `mrec_mutual_recognition_item` 为行集、按业务键 LEFT JOIN `mrec_organization_hospital_branch_recognition_amount`、关联标准目录取得名称/类型/分类/分组与三层启用状态，按可选关键字四列过滤（S3-D26），按标准项目编码升序 → `RecognitionAmountListItem` → Application 派生 `UnavailableReason`、填充名称与 `IsAmountConfigured`、映射 `RecognitionAmountReadModel`（两个枚举中文由读模型按枚举描述派生）。查询不得产生写入、审计事件或消息。
 
 内部投影携带分类/分组/项目三层启用状态供派生原因，公共返回不泄漏这三层原始字段，只返回派生后的 `UnavailableReason`。金额未配置时 `CurrentAmount` 为 `null`；不以 `0` 冒充未配置。
 
@@ -151,7 +153,7 @@ SqlMap 的 `Scope` 与每个 DataMapper 调用点统一为实体名 `Organizatio
 
 ## 验证矩阵
 
-V1-V16 覆盖金额保存与归属，V17-V22 覆盖查询，V23-V25 覆盖数据库静态与真实库面，V26-V28 覆盖契约、事件与语义修正，V29-V30 覆盖平台管理员跨组织口径与医院管理员院区范围；不合并、不挪号。
+V1-V16 覆盖金额保存与归属，V17-V22 与 V31-V33 覆盖查询（含关键字查询条目），V23-V25 覆盖数据库静态与真实库面，V26-V28 覆盖契约、事件与语义修正，V29-V30 覆盖平台管理员跨组织口径与医院管理员院区范围；不合并、不挪号。
 
 ### 测试数据边界
 
@@ -195,3 +197,6 @@ V25 单元验证事件构造与登记规则，不能替代 V27 的真实生产�
 | V28 | 实体语义与注释修正 | Static/Domain | 实体注释与 UML1 实体、SRS F10 及同族 DTO 一致；写入路径无累加运算 | 否 | 否 | 修正后的实体与仓储 |
 | V29 | 平台管理员入口跨组织保存与查询 | Application（宿主面降级） | 请求组织与可信上下文组织不同时，保存与查询仍按请求的组织、医院、院区执行；不因 token 组织不同而拒绝或静默过滤；返回的金额与名称属于该请求范围。**跨组织的真实宿主面降级（S3-D20）**：以应用层证据为准并记 `AcceptedRisk`，宿主面记 `Blocked` | 否 | 否 | 环境**无第二个组织**；应用层以替身构造第二组织路径。该降级同时意味着 **SRS F10 前置条件 2 中"按平台管理员授权选择组织"这一分支在本环境无法取得真实证据**，由该降级口径覆盖 |
 | V30 | 医院管理员入口的院区范围 | Application | 组织与医院取可信上下文；请求院区属于可信医院时允许，属于其他医院即拒绝，不降级为空集合；不引入院区级数据权限校验 | 是 | 否 | 可信医院；本医院院区与它医院院区各一个 |
+| V31 | 关键字四列匹配 | Query | `Keyword` 按字面包含同时匹配标准项目编码、名称、分类名称、分组名称，不区分大小写；`%` 与 `_` 按普通字符转义；命中返回匹配行，未命中返回空集合且成功 | 是 | 否 | 同一范围多条配置，覆盖编码命中、名称命中、分类名命中、分组名命中与不命中五类 |
+| V32 | 关键字缺失或空白 | Query | `Keyword` 缺失或去首尾空白后为空时不附加过滤，返回该范围全部行 | 是 | 否 | 同一范围多条配置；空白串与缺省两种请求 |
+| V33 | 关键字入参契约 | Contract | 两个 Query Request 各含可选 `Keyword`；既有 `StandardProjectCode` 保留不变 | 否 | 否 | 稳定契约 |

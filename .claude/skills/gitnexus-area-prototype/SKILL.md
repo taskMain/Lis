@@ -1,11 +1,11 @@
 ---
 name: gitnexus-area-prototype
-description: "Skill for the Prototype area of Lis. 76 symbols across 8 files."
+description: "Skill for the Prototype area of Lis. 76 symbols across 9 files."
 ---
 
 # Prototype
 
-76 symbols | 8 files | Cohesion: 90%
+76 symbols | 9 files | Cohesion: 88%
 
 ## When to Use
 
@@ -19,12 +19,13 @@ description: "Skill for the Prototype area of Lis. 76 symbols across 8 files."
 |------|---------|
 | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeModals.tsx` | CategoryTypeTag, CreateCategoryModal, CreateGroupModal, CreateItemModal, EditCategoryModal (+14) |
 | `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeData.ts` | categoryItemType, categoryUsage, groupName, groupUsage, isCategoryTypeFrozen (+7) |
-| `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeStore.tsx` | setCategoryValid, setGroupValid, setItemValid, usePrototypeStore, createCategory (+6) |
+| `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeProvider.tsx` | setCategoryValid, setGroupValid, setItemValid, createCategory, createGroup (+5) |
 | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantA.tsx` | StandardCatalogVariantA, render, treeData, stop, render (+3) |
 | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantAPlus.tsx` | StandardCatalogVariantAPlus, getVisibleCategories, render, visibleScope, nodeTitle (+3) |
 | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantC.tsx` | StandardCatalogVariantC, saveInPlace, render, treeData, render (+2) |
-| `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantB.tsx` | StandardCatalogVariantB, render, render, render, render (+1) |
+| `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogVariantB.tsx` | StandardCatalogVariantB, render, render, render, rows (+1) |
 | `client/apps/dy-medical-recognition/src/pages/prototype/StandardCatalogPrototype.tsx` | PrototypeBody, StandardCatalogPrototype, VariantSwitcher, onKeyDown, move |
+| `client/apps/dy-medical-recognition/src/pages/prototype/standardCatalogPrototypeStore.tsx` | usePrototypeStore |
 
 ## Entry Points
 

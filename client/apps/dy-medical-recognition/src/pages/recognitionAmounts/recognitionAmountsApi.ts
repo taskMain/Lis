@@ -126,20 +126,24 @@ export interface RecognitionAmountRow {
 }
 
 /**
- * 平台管理员入口（组织、医院、院区三级）的查询条件；三项范围值都是请求参数，与服务端契约一致。
- * 标准项目编码可选，缺省表示不按编码过滤。
+ * 平台管理员入口（组织、医院、院区三级）的查询条件；三项范围值都是请求参数，与服务端字段一致。
+ * 标准项目编码与关键字都可选，缺省表示不按该项过滤；关键字由构造入口去空白后承载。
  */
 export interface RecognitionAmountListQuery {
   organizationCode: string
   hospitalCode: string
   branchCode: string
   standardProjectCode?: string
+  /** 关键字；只承载去空白后仍有内容的值，空白与缺省都不携带该字段。 */
+  keyword?: string
 }
 
 /** 医院管理员入口的查询条件；组织与医院取可信上下文，请求**不含**这两项。 */
 export interface BranchAmountListQuery {
   branchCode: string
   standardProjectCode?: string
+  /** 关键字；只承载去空白后仍有内容的值，空白与缺省都不携带该字段。 */
+  keyword?: string
 }
 
 /** 平台管理员入口的保存载荷；组织、医院、院区、标准项目编码与金额都显式提交。 */
@@ -208,17 +212,20 @@ export function buildRecognitionAmountListQuery(input: {
   hospitalCode: string
   branchCode: string
   standardProjectCode?: string
+  keyword?: string
 }): RecognitionAmountListQuery | null {
   const organizationCode = input.organizationCode.trim()
   const hospitalCode = input.hospitalCode.trim()
   const branchCode = input.branchCode.trim()
   if (organizationCode.length === 0 || hospitalCode.length === 0 || branchCode.length === 0) return null
   const standardProjectCode = input.standardProjectCode?.trim() ?? ''
+  const keyword = input.keyword?.trim() ?? ''
   return {
     organizationCode,
     hospitalCode,
     branchCode,
     ...(standardProjectCode.length === 0 ? {} : { standardProjectCode }),
+    ...(keyword.length === 0 ? {} : { keyword }),
   }
 }
 
@@ -229,13 +236,16 @@ export function buildRecognitionAmountListQuery(input: {
 export function buildBranchAmountListQuery(input: {
   branchCode: string
   standardProjectCode?: string
+  keyword?: string
 }): BranchAmountListQuery | null {
   const branchCode = input.branchCode.trim()
   if (branchCode.length === 0) return null
   const standardProjectCode = input.standardProjectCode?.trim() ?? ''
+  const keyword = input.keyword?.trim() ?? ''
   return {
     branchCode,
     ...(standardProjectCode.length === 0 ? {} : { standardProjectCode }),
+    ...(keyword.length === 0 ? {} : { keyword }),
   }
 }
 
@@ -346,10 +356,381 @@ export function currentAmountText(row: Pick<RecognitionAmountRow, 'currentAmount
   return row.isAmountConfigured && row.currentAmount !== null ? row.currentAmount.toFixed(2) : '未配置'
 }
 
+/** 四栏层级列视图中的项目行；只承载表格项目列需要的字段。 */
+export interface RecognitionAmountColumnProjectRow {
+  /** 标准项目编码；组内按该编码升序排列。 */
+  standardProjectCode: string | null
+  standardProjectName: string | null
+  /** 当前金额（元）；`null` 表示未配置，与已配置的 `0` 严格区分。 */
+  currentAmount: number | null
+  isAmountConfigured: boolean
+  configurationStatus: ConfigurationStatusValue | null
+  configurationStatusText: string
+  unavailableReason: string | null
+}
+
+/** 分组栏：`rowSpan` 是该分组格纵向跨越的项目行数。 */
+export interface RecognitionAmountColumnGroup {
+  groupName: string | null
+  rowSpan: number
+  rows: RecognitionAmountColumnProjectRow[]
+}
+
+/** 分类栏：同名分类格纵向跨其名下全部项目行，`rowSpan` 即这些行的行数。 */
+export interface RecognitionAmountColumnCategory {
+  categoryName: string | null
+  rowSpan: number
+  groups: RecognitionAmountColumnGroup[]
+}
+
+/** 类型栏：同名类型格纵向跨其名下全部项目行，`rowSpan` 即这些行的行数。 */
+export interface RecognitionAmountColumnType {
+  itemType: MedicalItemTypeValue | null
+  itemTypeText: string
+  rowSpan: number
+  categories: RecognitionAmountColumnCategory[]
+}
+
+/** 四栏层级列视图：类型 → 分类 → 分组 → 项目行，页面按该结构渲染层级表格。 */
+export interface RecognitionAmountColumnView {
+  types: RecognitionAmountColumnType[]
+}
+
+/** 金额状态的本地取值域：全部、已配置、未配置；按字符串字面量承载，不引入枚举类型。 */
+export type AmountStatusFilter = 'all' | 'configured' | 'unconfigured'
+
+/** 互认配置状态的本地取值域：全部、启用、停用（对应数值 1、2）。 */
+export type AmountConfigurationStatusFilter = 'all' | 'enabled' | 'disabled'
+
+/**
+ * 本地裁剪条件：金额状态取 `isAmountConfigured`、互认配置状态取 `configurationStatus`，
+ * 两个条件组合时取交集；关键字由查询请求下推给服务端，不参与本地裁剪。
+ */
+export interface RecognitionAmountLocalFilter {
+  amountStatus: AmountStatusFilter
+  configurationStatus: AmountConfigurationStatusFilter
+}
+
+/**
+ * 地址栏承载的三个**已生效**条件；关键字栏承载的是提交生效的关键字，
+ * 输入原文是草稿，草稿不写入地址栏（由页面保证，本层只负责解析与回写）。
+ */
+export interface RecognitionAmountUrlFilter extends RecognitionAmountLocalFilter {
+  keyword: string
+}
+
+/** 地址栏三个参数都缺省或不可识别时的默认条件。 */
+export const EMPTY_RECOGNITION_AMOUNT_FILTER: RecognitionAmountUrlFilter = {
+  keyword: '',
+  amountStatus: 'all',
+  configurationStatus: 'all',
+}
+
+/** 金额状态筛选档位；平台管理员页与医院管理员页共用同一份定义，取值域即 `AmountStatusFilter`，档位名逐字一致。 */
+export const AMOUNT_STATUS_OPTIONS: { value: AmountStatusFilter; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'configured', label: '已配置' },
+  { value: 'unconfigured', label: '未配置' },
+]
+
+/** 互认配置状态筛选档位；两个页面共用同一份定义，取值域即 `AmountConfigurationStatusFilter`，档位名逐字一致。 */
+export const CONFIGURATION_STATUS_OPTIONS: { value: AmountConfigurationStatusFilter; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'enabled', label: '启用' },
+  { value: 'disabled', label: '停用' },
+]
+
+/** 空态文案：有生效条件但可见行未命中时展示（两个页面共用，中文逐字一致）。 */
+export const EMPTY_FILTERED_RECOGNITION_AMOUNT_TEXT = '没有符合当前筛选条件的互认项目金额'
+
+/** 空态文案：无生效条件、当前范围零配置时展示（两个页面共用，中文逐字一致）。 */
+export const EMPTY_UNFILTERED_RECOGNITION_AMOUNT_TEXT = '当前范围没有互认项目金额配置'
+
+/** 金额校验文案：行内提示与「零写请求」共用同一取值依据（本层 `parseRecognitionAmount`，两个页面共用）。 */
+export const AMOUNT_VALIDATION_MESSAGE = '金额必须是不小于 0 且最多两位小数的数字'
+
+/**
+ * 列表读取失败告警的中文文案（两个页面共用，中文逐字一致）：
+ * `refresh*` 面向写入成功后的重载失败，`load*` 面向普通读取失败；两种呈现都保留已有数据并禁用维护操作。
+ */
+export const AMOUNT_LOAD_FAILURE_TEXT = {
+  refreshTitle: '写入已成功，数据待刷新',
+  refreshDescription: '写入已经成功，但重新读取金额列表失败；已有数据保留，维护操作暂不可用。',
+  loadTitle: '互认项目金额数据待刷新',
+  loadDescription: '读取失败，已有数据保留；维护操作暂不可用，可重试读取。',
+}
+
+/** 文本比较：空值按空串参与升序，比较只按字符码位，不依赖区域设置。 */
+function compareNullableText(a: string | null, b: string | null): number {
+  const left = a ?? ''
+  const right = b ?? ''
+  return left < right ? -1 : left > right ? 1 : 0
+}
+
+/** 类型比较：数值升序，未知类型（`null`）排在已知类型之后。 */
+function compareItemTypeForView(a: MedicalItemTypeValue | null, b: MedicalItemTypeValue | null): number {
+  if (a === null) return b === null ? 0 : 1
+  if (b === null) return -1
+  return a - b
+}
+
+/** 项目行裁出表格项目列需要的字段；类型、分类与分组的归属由外层三栏承载，行内不再重复。 */
+function toColumnProjectRow(row: RecognitionAmountRow): RecognitionAmountColumnProjectRow {
+  return {
+    standardProjectCode: row.standardProjectCode,
+    standardProjectName: row.standardProjectName,
+    currentAmount: row.currentAmount,
+    isAmountConfigured: row.isAmountConfigured,
+    configurationStatus: row.configurationStatus,
+    configurationStatusText: row.configurationStatusText,
+    unavailableReason: row.unavailableReason,
+  }
+}
+
+/**
+ * 把金额行组织成「类型 → 分类 → 分组 → 项目行」的四栏层级列视图，供页面渲染表格：
+ * 组间按 `itemType`（数值升序，未知类型排在已知类型之后）、`categoryName`、`groupName` 归类排序，
+ * 组内按 `standardProjectCode` 升序；同名类型格与分类格记录跨其名下全部行的 `rowSpan`，
+ * 分组格同样记录 `rowSpan`，页面据此合并同名格。空集合返回空结构。
+ */
+export function toRecognitionAmountColumnView(rows: readonly RecognitionAmountRow[]): RecognitionAmountColumnView {
+  const typeBuckets = new Map<
+    MedicalItemTypeValue | null,
+    { itemTypeText: string; categories: Map<string | null, Map<string | null, RecognitionAmountColumnProjectRow[]>> }
+  >()
+  for (const row of rows) {
+    let typeBucket = typeBuckets.get(row.itemType)
+    if (typeBucket === undefined) {
+      // 同类型格的展示中文取该类型下首个行携带的文本。
+      typeBucket = { itemTypeText: row.itemTypeText, categories: new Map() }
+      typeBuckets.set(row.itemType, typeBucket)
+    }
+    let groups = typeBucket.categories.get(row.categoryName)
+    if (groups === undefined) {
+      groups = new Map()
+      typeBucket.categories.set(row.categoryName, groups)
+    }
+    let groupRows = groups.get(row.groupName)
+    if (groupRows === undefined) {
+      groupRows = []
+      groups.set(row.groupName, groupRows)
+    }
+    groupRows.push(toColumnProjectRow(row))
+  }
+
+  const types = [...typeBuckets.entries()]
+    .map(([itemType, typeBucket]) => {
+      const categories = [...typeBucket.categories.entries()]
+        .map(([categoryName, groups]) => {
+          const groupColumns = [...groups.entries()]
+            .map(([groupName, groupRows]) => ({
+              groupName,
+              rowSpan: groupRows.length,
+              rows: [...groupRows].sort((left, right) => compareNullableText(left.standardProjectCode, right.standardProjectCode)),
+            }))
+            .sort((left, right) => compareNullableText(left.groupName, right.groupName))
+          const categoryRowSpan = groupColumns.reduce((total, group) => total + group.rowSpan, 0)
+          return { categoryName, rowSpan: categoryRowSpan, groups: groupColumns }
+        })
+        .sort((left, right) => compareNullableText(left.categoryName, right.categoryName))
+      const typeRowSpan = categories.reduce((total, category) => total + category.rowSpan, 0)
+      return { itemType, itemTypeText: typeBucket.itemTypeText, rowSpan: typeRowSpan, categories }
+    })
+    .sort((left, right) => compareItemTypeForView(left.itemType, right.itemType))
+  return { types }
+}
+
+/**
+ * 把服务端返回的金额行按本地状态条件裁剪；两个条件取交集，`'all'` 档不施加该条件的限制。
+ * 只做本地裁剪，不发起任何请求；未知配置状态（`null`）在启用/停用档下都被排除，
+ * 在全部档下保留，与行视图模型「未知一律安全兜底」的口径一致。
+ */
+export function filterRecognitionAmountRows(
+  rows: readonly RecognitionAmountRow[],
+  filter: RecognitionAmountLocalFilter,
+): RecognitionAmountRow[] {
+  return rows.filter((row) => {
+    const amountMatches =
+      filter.amountStatus === 'all' ||
+      (filter.amountStatus === 'configured' ? row.isAmountConfigured : !row.isAmountConfigured)
+    const configurationMatches =
+      filter.configurationStatus === 'all' ||
+      (filter.configurationStatus === 'enabled'
+        ? row.configurationStatus === ENABLED_CONFIGURATION_STATUS
+        : row.configurationStatus === DISABLED_CONFIGURATION_STATUS)
+    return amountMatches && configurationMatches
+  })
+}
+
+/** 地址栏里的三个参数名：关键字、金额状态与互认配置状态。 */
+const KEYWORD_PARAM = 'keyword'
+const AMOUNT_STATUS_PARAM = 'amountStatus'
+const CONFIGURATION_STATUS_PARAM = 'configurationStatus'
+
+/**
+ * 把地址栏查询串解析为已生效条件；参数缺失或取值不可识别时该条件按默认值处理
+ * （金额状态回退 `'all'`，互认配置状态回退 `'all'`，关键字回退空串）。
+ */
+export function parseAmountFilterSearch(search: string): RecognitionAmountUrlFilter {
+  let params: URLSearchParams
+  try {
+    params = new URLSearchParams(search)
+  } catch {
+    return { ...EMPTY_RECOGNITION_AMOUNT_FILTER }
+  }
+  const amountStatusText = params.get(AMOUNT_STATUS_PARAM)
+  const amountStatus: AmountStatusFilter =
+    amountStatusText === 'configured' || amountStatusText === 'unconfigured' ? amountStatusText : 'all'
+  const configurationStatusText = params.get(CONFIGURATION_STATUS_PARAM)
+  const configurationStatus: AmountConfigurationStatusFilter =
+    configurationStatusText === 'enabled' || configurationStatusText === 'disabled' ? configurationStatusText : 'all'
+  return { keyword: params.get(KEYWORD_PARAM) ?? '', amountStatus, configurationStatus }
+}
+
+/**
+ * 在既有查询串上写入已生效条件，返回新的查询串（含前导 `?`，无参数时返回空串）。
+ * 默认档与空关键字从查询串里删除；其它参数原样保留，页面只改自己这三个。
+ */
+export function buildAmountFilterSearch(search: string, filter: RecognitionAmountUrlFilter): string {
+  let params: URLSearchParams
+  try {
+    params = new URLSearchParams(search)
+  } catch {
+    params = new URLSearchParams()
+  }
+  if (filter.keyword.length === 0) params.delete(KEYWORD_PARAM)
+  else params.set(KEYWORD_PARAM, filter.keyword)
+  if (filter.amountStatus === 'all') params.delete(AMOUNT_STATUS_PARAM)
+  else params.set(AMOUNT_STATUS_PARAM, filter.amountStatus)
+  if (filter.configurationStatus === 'all') params.delete(CONFIGURATION_STATUS_PARAM)
+  else params.set(CONFIGURATION_STATUS_PARAM, filter.configurationStatus)
+  const text = params.toString()
+  return text.length === 0 ? '' : `?${text}`
+}
+
+/** 读取当前地址栏上的已生效条件；读不到时返回默认条件（页面按无条件展示）。 */
+export function readAmountFilterFromLocation(): RecognitionAmountUrlFilter {
+  try {
+    return parseAmountFilterSearch(window.location.search)
+  } catch {
+    return { ...EMPTY_RECOGNITION_AMOUNT_FILTER }
+  }
+}
+
+/**
+ * 把已生效条件按**替换当前历史项**的方式写回地址栏；内容未变化时不触达历史 API，
+ * 避免每次渲染都写一次。地址栏不可写时静默降级，条件仍按本地状态生效。
+ */
+export function syncAmountFilterToLocation(filter: RecognitionAmountUrlFilter): void {
+  try {
+    const search = buildAmountFilterSearch(window.location.search, filter)
+    if (search === window.location.search) return
+    const url = `${window.location.pathname}${search}${window.location.hash}`
+    window.history.replaceState(window.history.state, '', url)
+  } catch {
+    // 地址栏不可写（宿主或沙箱限制）时不阻断页面：条件仍按本地状态生效。
+  }
+}
+
+/**
+ * 保存前的可信范围复核输入：页面应用范围时记录的可信范围与现读的可信范围，两侧都是可信范围。
+ *
+ * 复核次序固定为组织、医院、院区逐层；`layers` 控制本次比较哪些层级——医院管理员页比组织、
+ * 医院、院区三层，平台管理员页比院区一层。
+ */
+export interface RecognitionAmountScopeRecheckInput {
+  /** 页面应用范围时记录的可信范围；页面尚未应用范围时为 `null`。 */
+  applied: RecognitionAmountScope | null
+  /** 现读的可信范围；读取失败或读不到时为 `null`。 */
+  trusted: RecognitionAmountScope | null
+  /** 本次复核比较的层级；比较次序按组织、医院、院区的固定次序，与入参书写次序无关。 */
+  layers: readonly RecognitionAmountScopeLayer[]
+}
+
+/** 保存前的可信范围复核结论：通过时 `reason` 为 `null`，失败时是一行可直接展示的中文原因。 */
+export interface RecognitionAmountScopeRecheckResult {
+  /** 是否可以提交写入；`false` 时调用方零写请求并在行内展示 `reason`。 */
+  ok: boolean
+  /** 失败原因；单行中文文案，通过时为 `null`。 */
+  reason: string | null
+}
+
+/** 一次查询涉及的范围值；医院管理员页的组织与医院由服务端注入，对应字段为 `null`。 */
+export interface RecognitionAmountScope {
+  organizationCode: string | null
+  hospitalCode: string | null
+  branchCode: string | null
+}
+
+/** 可信范围复核比较的层级：组织、医院、院区。 */
+export type RecognitionAmountScopeLayer = 'organization' | 'hospital' | 'branch'
+
+/** 复核的固定比较次序与各层字段、中文名；数组次序即复核次序，不随入参书写次序变化。 */
+const SCOPE_LAYER_CHECKS: ReadonlyArray<{
+  layer: RecognitionAmountScopeLayer
+  name: string
+  field: keyof RecognitionAmountScope
+}> = [
+  { layer: 'organization', name: '组织', field: 'organizationCode' },
+  { layer: 'hospital', name: '医院', field: 'hospitalCode' },
+  { layer: 'branch', name: '院区', field: 'branchCode' },
+]
+
+/** 层级取值进入原因串时的呈现：`null`、空串与纯空白归一后都是缺失，写作「缺失」；有值即取值本身。 */
+function presentScopeLayerValue(value: string): string {
+  return value.length === 0 ? '缺失' : value
+}
+
+/**
+ * 保存前的可信范围复核：比较页面应用范围时记录的可信范围与现读的可信范围，任一层不一致、
+ * 组织医院层现读为空或记录侧缺值即返回失败结论与一行中文原因，调用方据此零写请求。
+ *
+ * 比较次序固定为组织 → 医院 → 院区：多层同时不一致时只给出最上层的原因，与入参 `layers`
+ * 的书写次序无关；比较两侧都取去空白后的值，避免两侧对同一编码的空白写法差异造成误报。
+ * 院区层只做一致性比对：可信院区缺失属 S3-D22 档二正常形态，`null`、空串与纯空白归一为缺失，
+ * 记录值与现读值同为缺失即通过，一侧缺失另一侧有值即「已变化」；「现读不到」只用于组织、医院
+ * 两层的现读空值。医院管理员页比组织、医院、院区三层，平台管理员页提交前只传院区一层。
+ */
+export function recheckRecognitionAmountScope(
+  input: RecognitionAmountScopeRecheckInput,
+): RecognitionAmountScopeRecheckResult {
+  if (input.applied === null) {
+    return { ok: false, reason: '页面尚未应用查询范围，本次不提交写入，请先完成查询。' }
+  }
+  if (input.trusted === null) {
+    return { ok: false, reason: '读取不到可信范围，本次不提交写入，请放弃未保存内容并切换到新可信范围。' }
+  }
+  const applied = input.applied
+  const trusted = input.trusted
+  for (const check of SCOPE_LAYER_CHECKS) {
+    if (!input.layers.includes(check.layer)) continue
+    const appliedValue = applied[check.field]?.trim() ?? ''
+    const trustedValue = trusted[check.field]?.trim() ?? ''
+    if (check.layer !== 'branch') {
+      // 组织、医院两层维持既有口径：现读空值即读不到（拦），记录侧空值即尚未应用（拦）；
+      // 院区层不进这两支——缺失按下面的一致性比对参与，两侧同为缺失即通过。
+      if (trustedValue.length === 0) {
+        return { ok: false, reason: `读取不到可信${check.name}，本次不提交写入，请放弃未保存内容并切换到新可信范围。` }
+      }
+      if (appliedValue.length === 0) {
+        return { ok: false, reason: `页面尚未应用${check.name}范围，本次不提交写入，请先完成查询。` }
+      }
+    }
+    if (appliedValue !== trustedValue) {
+      // 院区层的缺失一侧从这里给出「已变化」，缺失写作「缺失」；两侧都非空时文案与既有逐层比对一致。
+      return {
+        ok: false,
+        reason: `可信${check.name}已变化：应用时记录为「${presentScopeLayerValue(appliedValue)}」，现读为「${presentScopeLayerValue(trustedValue)}」，本次不提交写入，请放弃未保存内容并切换到新可信范围。`,
+      }
+    }
+  }
+  return { ok: true, reason: null }
+}
+
 /**
  * 读取平台管理员页的金额列表。
  * 组织、医院、院区**显式下发**（生成类型把三者在内的必填字段都生成为可选，见文件头第 4a 条）；
- * 标准项目编码按值下发，缺省不下发。
+ * 标准项目编码按值下发，缺省不下发；关键字去空白后非空才下发，空白与缺省都不携带该字段。
  */
 export async function queryRecognitionAmountRows(
   client: MedicalRecognitionClient,
@@ -361,17 +742,21 @@ export async function queryRecognitionAmountRows(
     branchCode: request.branchCode,
   }
   if (request.standardProjectCode !== undefined) body.standardProjectCode = request.standardProjectCode
+  const keyword = request.keyword?.trim()
+  if (keyword !== undefined && keyword.length > 0) body.keyword = keyword
   const values = await client.api.medicalRecognitionReportQuery.queryRecognitionAmountList.post(body)
   return toRecognitionAmountRows(values ?? [])
 }
 
-/** 读取医院管理员页的本院区金额列表；请求只下发院区与标准项目编码。 */
+/** 读取医院管理员页的本院区金额列表；请求只下发院区、标准项目编码与非空关键字。 */
 export async function queryBranchRecognitionAmountRows(
   client: MedicalRecognitionClient,
   request: BranchAmountListQuery,
 ): Promise<RecognitionAmountRow[]> {
   const body: BranchRecognitionAmountListQueryRequest = { branchCode: request.branchCode }
   if (request.standardProjectCode !== undefined) body.standardProjectCode = request.standardProjectCode
+  const keyword = request.keyword?.trim()
+  if (keyword !== undefined && keyword.length > 0) body.keyword = keyword
   const values = await client.api.medicalRecognitionReportQuery.queryBranchRecognitionAmountList.post(body)
   return toRecognitionAmountRows(values ?? [])
 }

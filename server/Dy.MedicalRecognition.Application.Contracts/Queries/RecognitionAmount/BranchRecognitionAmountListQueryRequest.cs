@@ -4,7 +4,7 @@ using Dy.MedicalRecognition.Application.Contracts.Validation;
 namespace Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
 
 /// <summary>
-/// 医院管理员入口的本院区互认项目金额列表查询条件；院区必填，标准项目编码可选，缺省表示全部。
+/// 医院管理员入口的本院区互认项目金额列表查询条件；院区必填，标准项目编码与关键字可选，缺省表示全部。
 /// </summary>
 /// <remarks>
 /// 组织与医院只取自可信上下文，请求不提交也不得覆盖，因此本请求不含组织与医院字段；
@@ -24,4 +24,10 @@ public sealed record BranchRecognitionAmountListQueryRequest
   /// </summary>
   [NonEmpty(ErrorMessage = "参数校验失败：标准项目编码不能是空白。")]
   public string? StandardProjectCode { get; init; }
+  /// <summary>
+  /// 关键字字面包含匹配条件，同时匹配标准项目编码、标准项目名称、所属分类名称与所属分组名称，任一列命中即返回；
+  /// 比较不区分大小写，`%`、`_` 按普通字符处理，不作为通配符。
+  /// 缺失或去首尾空白后为空视为未提供，不附加过滤，因此不声明必填、也不拒绝空白文本。
+  /// </summary>
+  public string? Keyword { get; init; }
 }

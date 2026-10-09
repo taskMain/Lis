@@ -37,9 +37,17 @@ Start here when exploring this area:
 | `IEnumMetadataAppService` | Interface | `server/Dy.MedicalRecognition.Application.Contracts/Queries/EnumMetadata/IEnumMetadataAppService.cs` | 5 |
 | `MedicalRecognitionEnumDescriptorRegistry` | Class | `server/Dy.MedicalRecognition.Application/Queries/EnumMetadata/MedicalRecognitionEnumDescriptorRegistry.cs` | 13 |
 | `ToMetadata` | Method | `server/Dy.MedicalRecognition.Application/Queries/EnumMetadata/EnumMetadataAppService.cs` | 41 |
-| `ToReadOnly` | Method | `server/Dy.MedicalRecognition.Application/Queries/EnumMetadata/MedicalRecognitionEnumDescriptorRegistry.cs` | 32 |
+| `ToReadOnly` | Method | `server/Dy.MedicalRecognition.Application/Queries/EnumMetadata/MedicalRecognitionEnumDescriptorRegistry.cs` | 49 |
 | `Get` | Method | `server/Dy.MedicalRecognition.Application.Contracts/Queries/EnumMetadata/EnumDescriptorText.cs` | 31 |
 | `GetOrNull` | Method | `server/Dy.MedicalRecognition.Application.Contracts/Queries/EnumMetadata/EnumDescriptorText.cs` | 50 |
+
+## Execution Flows
+
+| Flow | Type | Steps |
+|------|------|-------|
+| `QueryMedicalReportVersionDetailAsync → GetOrNull` | cross_community | 5 |
+| `QueryMedicalReportVersionListAsync → GetOrNull` | cross_community | 4 |
+| `QueryRecognitionMatchRecordAsync → GetOrNull` | cross_community | 4 |
 
 ## How to Explore
 

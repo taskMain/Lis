@@ -524,7 +524,7 @@ public sealed class Stage2QueryTests
       throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
 
     /// <inheritdoc/>
-    public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode) =>
+    public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode, string? keyword) =>
       throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
 
     /// <inheritdoc/>

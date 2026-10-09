@@ -221,10 +221,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
   /// 因此平台管理员可以查询其他组织的金额；权限由权限系统负责，不在服务端做组织相等校验、也不静默过滤。
   /// 行集由该组织已建立的互认配置驱动，未配置金额的行按“未配置”返回；名称与归属由组织路径解析一次性批量读取取得。
   /// </remarks>
-  /// <param name="request">金额列表查询条件，携带请求的组织、医院、院区与可选标准项目编码。</param>
+  /// <param name="request">金额列表查询条件，携带请求的组织、医院、院区与可选的标准项目编码、关键字。</param>
   /// <returns>金额只读模型集合；该组织未建立互认配置时返回空集合。</returns>
   /// <exception cref="ArgumentNullException">查询条件为 null 时抛出，此时无法判定调用方意图的筛选范围。</exception>
-  /// <exception cref="ValidationException">组织、医院或院区缺失或为空白文本，或标准项目编码为空白文本时抛出；空白文本不代表“不过滤”，而是无效的筛选条件。</exception>
+  /// <exception cref="ValidationException">组织、医院或院区缺失或为空白文本，或标准项目编码为空白文本时抛出；空白文本不代表“不过滤”，而是无效的筛选条件。关键字缺失或去首尾空白后为空不抛出，按未提供处理。</exception>
   /// <exception cref="InvalidOperationException">请求的组织、医院或院区不存在、已停用或父子归属不匹配时抛出；此时不返回该范围的数据，也不降级为空集合。</exception>
   public async Task<IEnumerable<RecognitionAmountReadModel>> QueryRecognitionAmountListAsync(RecognitionAmountListQueryRequest request)
   {
@@ -236,8 +236,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
       "业务拒绝：医院不存在、已停用或不属于所选组织。",
       "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
 
+    // 关键字先归一再进入查询语句：语句的可选过滤只识别空值，收到空白文本会按字面内容匹配。
+    string? keyword = NullIfBlank(request.Keyword);
     IEnumerable<RecognitionAmountListItem> items =
-      await repository.QueryRecognitionAmountListAsync(path.OrganizationCode, path.HospitalCode, path.BranchCode, request.StandardProjectCode);
+      await repository.QueryRecognitionAmountListAsync(path.OrganizationCode, path.HospitalCode, path.BranchCode, request.StandardProjectCode, keyword);
     return items.Select(item => Map(item, path));
   }
 
@@ -251,10 +253,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
   /// 请求院区必须存在、启用且属于可信医院与可信组织，不属于即拒绝，不返回其他医院的数据、也不降级为空集合；
   /// 院区层不参与可信回落。其余查询与映射与平台管理员入口完全相同，两个入口共用同一投影与同一原因派生。
   /// </remarks>
-  /// <param name="request">金额列表查询条件，只携带请求院区与可选标准项目编码。</param>
+  /// <param name="request">金额列表查询条件，只携带请求院区与可选的标准项目编码、关键字。</param>
   /// <returns>金额只读模型集合；该组织未建立互认配置时返回空集合。</returns>
   /// <exception cref="ArgumentNullException">查询条件为 null 时抛出，此时无法判定调用方意图的筛选范围。</exception>
-  /// <exception cref="ValidationException">院区缺失或为空白文本，或标准项目编码为空白文本时抛出；空白文本不代表“不过滤”，而是无效的筛选条件。</exception>
+  /// <exception cref="ValidationException">院区缺失或为空白文本，或标准项目编码为空白文本时抛出；空白文本不代表“不过滤”，而是无效的筛选条件。关键字缺失或去首尾空白后为空不抛出，按未提供处理。</exception>
   /// <exception cref="InvalidOperationException">
   /// 可信上下文中取不到组织或医院时抛出，此时不使用默认值、不降级为空值；
   /// 请求院区不存在、已停用或不属于可信医院时同样抛出，此时不返回其他医院的数据、也不降级为空集合。
@@ -272,8 +274,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
       "业务拒绝：医院不存在、已停用或不属于所选组织。",
       "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
 
+    // 关键字先归一再进入查询语句，口径与平台管理员入口一致。
+    string? keyword = NullIfBlank(request.Keyword);
     IEnumerable<RecognitionAmountListItem> items =
-      await repository.QueryRecognitionAmountListAsync(path.OrganizationCode, path.HospitalCode, path.BranchCode, request.StandardProjectCode);
+      await repository.QueryRecognitionAmountListAsync(path.OrganizationCode, path.HospitalCode, path.BranchCode, request.StandardProjectCode, keyword);
     return items.Select(item => Map(item, path));
   }
 

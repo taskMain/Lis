@@ -286,9 +286,10 @@ internal sealed class FakeStatisticsQueryRepository : IMedicalRecognitionReportQ
   /// <param name="hospitalCode">医院编码。</param>
   /// <param name="branchCode">院区编码。</param>
   /// <param name="standardProjectCode">标准项目编码筛选。</param>
+  /// <param name="keyword">关键字筛选。</param>
   /// <returns>不返回结果。</returns>
   /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
-  public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode) => throw new NotSupportedException(UnusedMember);
+  public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode, string? keyword) => throw new NotSupportedException(UnusedMember);
 
   /// <summary>本替身不覆盖：报告列表计数。</summary>
   /// <param name="filter">报告列表筛选条件。</param>

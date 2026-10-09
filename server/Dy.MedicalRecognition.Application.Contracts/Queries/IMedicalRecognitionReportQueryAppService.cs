@@ -53,26 +53,26 @@ public partial interface IMedicalRecognitionReportQueryAppService : IApplication
   /// <exception cref="InvalidOperationException">无法解析可信当前组织，或组织不存在、已停用、名称读取失败时抛出。</exception>
   Task<TrustedOrganizationScopeReadModel> QueryTrustedOrganizationScopeAsync();
 
-  /// <summary>按请求的组织、医院、院区与可选标准项目编码查询互认项目金额列表（平台管理员入口）。</summary>
+  /// <summary>按请求的组织、医院、院区与可选标准项目编码、关键字查询互认项目金额列表（平台管理员入口）。</summary>
   /// <remarks>
   /// 组织、医院、院区按请求使用，服务端校验其存在、启用与父子归属，不要求等于可信上下文组织；
   /// 行集由该组织已建立的互认配置驱动，未配置金额的行按未配置返回而不是零元。
   /// </remarks>
-  /// <param name="request">组织、医院、院区必填，标准项目编码可选。</param>
+  /// <param name="request">组织、医院、院区必填，标准项目编码与关键字可选；关键字按字面包含同时匹配标准项目编码、标准项目名称、所属分类名称与所属分组名称，不区分大小写，`%`、`_` 按普通字符处理，缺失或去首尾空白后为空按未提供处理。</param>
   /// <returns>金额只读模型集合；该组织未建立互认配置时返回空集合。</returns>
   /// <exception cref="ArgumentNullException">查询条件为 null 时抛出（请求校验先于一切判定，null 请求没有可校验的属性）。</exception>
-  /// <exception cref="System.ComponentModel.DataAnnotations.ValidationException">组织、医院或院区缺失或为空白，或标准项目编码为空白时抛出。</exception>
+  /// <exception cref="System.ComponentModel.DataAnnotations.ValidationException">组织、医院或院区缺失或为空白，或标准项目编码为空白时抛出；关键字缺失或去首尾空白后为空不抛出，按未提供处理。</exception>
   /// <exception cref="InvalidOperationException">组织、医院或院区不存在、已停用或父子归属不匹配时抛出；此时不返回该范围的数据，也不降级为空集合。</exception>
   Task<IEnumerable<RecognitionAmountReadModel>> QueryRecognitionAmountListAsync(RecognitionAmountListQueryRequest request);
 
-  /// <summary>按可信上下文组织与医院、请求院区及可选标准项目编码查询本院区互认项目金额列表（医院管理员入口）。</summary>
+  /// <summary>按可信上下文组织与医院、请求院区及可选标准项目编码、关键字查询本院区互认项目金额列表（医院管理员入口）。</summary>
   /// <remarks>
   /// 组织与医院只取自可信上下文，缺失即拒绝；请求院区必须属于可信医院，不属于即拒绝，不返回其他医院的数据、也不降级为空集合。
   /// </remarks>
-  /// <param name="request">院区必填，标准项目编码可选；请求不提交组织与医院。</param>
+  /// <param name="request">院区必填，标准项目编码与关键字可选；请求不提交组织与医院。关键字按字面包含同时匹配标准项目编码、标准项目名称、所属分类名称与所属分组名称，不区分大小写，`%`、`_` 按普通字符处理，缺失或去首尾空白后为空按未提供处理。</param>
   /// <returns>金额只读模型集合；该组织未建立互认配置时返回空集合。</returns>
   /// <exception cref="ArgumentNullException">查询条件为 null 时抛出（请求校验先于一切判定，null 请求没有可校验的属性）。</exception>
-  /// <exception cref="System.ComponentModel.DataAnnotations.ValidationException">院区缺失或为空白，或标准项目编码为空白时抛出。</exception>
+  /// <exception cref="System.ComponentModel.DataAnnotations.ValidationException">院区缺失或为空白，或标准项目编码为空白时抛出；关键字缺失或去首尾空白后为空不抛出，按未提供处理。</exception>
   /// <exception cref="InvalidOperationException">无法解析可信组织或可信医院，或请求院区不存在、已停用、不属于可信医院时抛出。</exception>
   Task<IEnumerable<RecognitionAmountReadModel>> QueryBranchRecognitionAmountListAsync(BranchRecognitionAmountListQueryRequest request);
 }

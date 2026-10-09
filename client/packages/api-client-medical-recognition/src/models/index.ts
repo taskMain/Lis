@@ -10,6 +10,10 @@ export interface BranchRecognitionAmountListQueryRequest extends AdditionalDataH
      */
     branchCode?: string | null;
     /**
+     * The keyword property
+     */
+    keyword?: string | null;
+    /**
      * The standardProjectCode property
      */
     standardProjectCode?: string | null;
@@ -1409,6 +1413,7 @@ export function createUpdateMutualRecognitionItemConfigurationRequestFromDiscrim
 export function deserializeIntoBranchRecognitionAmountListQueryRequest(branchRecognitionAmountListQueryRequest: Partial<BranchRecognitionAmountListQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "branchCode": n => { branchRecognitionAmountListQueryRequest.branchCode = n.getStringValue(); },
+        "keyword": n => { branchRecognitionAmountListQueryRequest.keyword = n.getStringValue(); },
         "standardProjectCode": n => { branchRecognitionAmountListQueryRequest.standardProjectCode = n.getStringValue(); },
     }
 }
@@ -2381,6 +2386,7 @@ export function deserializeIntoRecognitionAmountListQueryRequest(recognitionAmou
     return {
         "branchCode": n => { recognitionAmountListQueryRequest.branchCode = n.getStringValue(); },
         "hospitalCode": n => { recognitionAmountListQueryRequest.hospitalCode = n.getStringValue(); },
+        "keyword": n => { recognitionAmountListQueryRequest.keyword = n.getStringValue(); },
         "organizationCode": n => { recognitionAmountListQueryRequest.organizationCode = n.getStringValue(); },
         "standardProjectCode": n => { recognitionAmountListQueryRequest.standardProjectCode = n.getStringValue(); },
     }
@@ -4356,6 +4362,10 @@ export interface RecognitionAmountListQueryRequest extends AdditionalDataHolder,
      */
     hospitalCode?: string | null;
     /**
+     * The keyword property
+     */
+    keyword?: string | null;
+    /**
      * The organizationCode property
      */
     organizationCode?: string | null;
@@ -5734,6 +5744,7 @@ export interface SelectableStandardItemListQueryRequest extends AdditionalDataHo
 export function serializeBranchRecognitionAmountListQueryRequest(writer: SerializationWriter, branchRecognitionAmountListQueryRequest: Partial<BranchRecognitionAmountListQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!branchRecognitionAmountListQueryRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("branchCode", branchRecognitionAmountListQueryRequest.branchCode);
+    writer.writeStringValue("keyword", branchRecognitionAmountListQueryRequest.keyword);
     writer.writeStringValue("standardProjectCode", branchRecognitionAmountListQueryRequest.standardProjectCode);
     writer.writeAdditionalData(branchRecognitionAmountListQueryRequest.additionalData);
 }
@@ -6768,6 +6779,7 @@ export function serializeRecognitionAmountListQueryRequest(writer: Serialization
     if (!recognitionAmountListQueryRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("branchCode", recognitionAmountListQueryRequest.branchCode);
     writer.writeStringValue("hospitalCode", recognitionAmountListQueryRequest.hospitalCode);
+    writer.writeStringValue("keyword", recognitionAmountListQueryRequest.keyword);
     writer.writeStringValue("organizationCode", recognitionAmountListQueryRequest.organizationCode);
     writer.writeStringValue("standardProjectCode", recognitionAmountListQueryRequest.standardProjectCode);
     writer.writeAdditionalData(recognitionAmountListQueryRequest.additionalData);

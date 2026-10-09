@@ -5,7 +5,7 @@ description: "Skill for the Hooks area of Lis. 9 symbols across 3 files."
 
 # Hooks
 
-9 symbols | 3 files | Cohesion: 84%
+9 symbols | 3 files | Cohesion: 76%
 
 ## When to Use
 
@@ -47,16 +47,16 @@ Start here when exploring this area:
 
 | Flow | Type | Steps |
 |------|------|-------|
+| `BranchReportManagement → Post` | cross_community | 5 |
 | `CategoryModal → Post` | cross_community | 5 |
 | `CreateItemModal → Post` | cross_community | 5 |
 | `GroupModal → Post` | cross_community | 5 |
 | `StandardCatalog → Post` | cross_community | 5 |
+| `BranchReportManagement → UseApiClientContext` | cross_community | 4 |
 | `CategoryModal → UseApiClientContext` | cross_community | 4 |
 | `CreateItemModal → UseApiClientContext` | cross_community | 4 |
 | `GroupModal → UseApiClientContext` | cross_community | 4 |
 | `StandardCatalog → UseApiClientContext` | cross_community | 4 |
-| `RecognitionProjects → Post` | cross_community | 4 |
-| `RecognitionProjects → UseApiClientContext` | cross_community | 3 |
 
 ## How to Explore
 

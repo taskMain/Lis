@@ -63,13 +63,14 @@ public sealed partial class MedicalRecognitionReportQueryRepository : IMedicalRe
     }, scope: SqlScope);
 
   /// <inheritdoc/>
-  public async Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode) =>
+  public async Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode, string? keyword) =>
     await dataMapper.QueryAsync<RecognitionAmountListItem>(new
     {
       OrganizationCode = organizationCode,
       HospitalCode = hospitalCode,
       BranchCode = branchCode,
-      StandardProjectCode = standardProjectCode
+      StandardProjectCode = standardProjectCode,
+      Keyword = keyword
     }, scope: SqlScope);
 
   /// <summary>

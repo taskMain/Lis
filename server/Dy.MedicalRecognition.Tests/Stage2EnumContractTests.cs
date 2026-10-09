@@ -21,6 +21,9 @@ namespace Dy.MedicalRecognition.Tests;
 /// 覆盖阶段 1 与阶段 2 共用的三个枚举（<see cref="MedicalItemType"/>、<see cref="ConfigurationStatus"/>、<see cref="MedicalStandardUsageStatus"/>）。
 /// 全部为静态证据（源码、程序集、冻结的 OpenAPI 输入、生成物），不依赖数据库与宿主。
 /// 源码类判据按 Roslyn 语法树判定（不做文本或正则匹配），共享工具见 <see cref="SourceSyntaxGuard"/>。
+/// 除枚举回归外，本文件同时冻结累计生成的端点路径完整集合（跨阶段累计，见
+/// <c>Frozen_openapi_keeps_the_expected_path_set_and_no_unnormalized_shapes</c>）；
+/// 阶段 3 金额查询可选关键字的输入面与生成端判据按阶段归属放在 <see cref="Stage3ApiContractTests"/>。
 /// </remarks>
 public sealed class Stage2EnumContractTests
 {

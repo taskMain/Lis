@@ -1,81 +1,84 @@
 ---
 name: gitnexus-area-queries
-description: "Skill for the Queries area of Lis. 37 symbols across 7 files."
+description: "Skill for the Queries area of Lis. 95 symbols across 8 files."
 ---
 
 # Queries
 
-37 symbols | 7 files | Cohesion: 82%
+95 symbols | 8 files | Cohesion: 80%
 
 ## When to Use
 
 - Working with code in `server/`
-- Understanding how MedicalRecognitionReportQueryRepository, MedicalRecognitionReportQueryAppService, QueryBranchRecognitionAmountListAsync work
+- Understanding how MedicalRecognitionReportQueryAppService, QueryMedicalReportVersionDetailAsync, QueryMedicalReportVersionListAsync work
 - Modifying queries-related functionality
 
 ## Key Files
 
 | File | Symbols |
 |------|---------|
-| `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.cs` | Map, QueryBranchRecognitionAmountListAsync, QueryEffectiveMedicalStandardCatalogAsync, QueryMedicalStandardCategoryListAsync, QueryMedicalStandardGroupListAsync (+2) |
-| `server/Dy.MedicalRecognition.Domain/Queries/IMedicalRecognitionReportQueryRepository.cs` | QueryRecognitionAmountListAsync, QueryEffectiveMedicalStandardCatalogAsync, QueryMedicalStandardCategoryListAsync, QueryMedicalStandardGroupListAsync, QueryMedicalStandardItemListAsync (+1) |
-| `server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs` | QueryRecognitionAmountListAsync, QueryEffectiveMedicalStandardCatalogAsync, QueryMedicalStandardCategoryListAsync, QueryMedicalStandardGroupListAsync, QueryMedicalStandardItemListAsync (+1) |
-| `server/Dy.MedicalRecognition.Tests/Stage2QueryTests.cs` | QueryRecognitionAmountListAsync, QueryEffectiveMedicalStandardCatalogAsync, QueryMedicalStandardCategoryListAsync, QueryMedicalStandardGroupListAsync, QueryMedicalStandardItemListAsync (+1) |
-| `server/Dy.MedicalRecognition.Tests/Stage3QueryTests.cs` | QueryRecognitionAmountListAsync, QueryEffectiveMedicalStandardCatalogAsync, QueryMedicalStandardCategoryListAsync, QueryMedicalStandardGroupListAsync, QueryMedicalStandardItemListAsync (+1) |
-| `server/Dy.MedicalRecognition.Tests/Stage3TrustedScopeTests.cs` | QueryRecognitionAmountListAsync, QueryEffectiveMedicalStandardCatalogAsync, QueryMedicalStandardCategoryListAsync, QueryMedicalStandardGroupListAsync, QueryMedicalStandardItemListAsync |
-| `server/Dy.MedicalRecognition.Application.Contracts/Queries/IMedicalRecognitionReportQueryAppService.cs` | IMedicalRecognitionReportQueryAppService |
+| `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs` | BuildUsageDetailPage, MapAdoptionDetail, MapMatchRecordItem, MapNonAdoptionDetail, MapReceiverOrganization (+31) |
+| `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.StatisticsExport.cs` | AppendExportTypeTailCells, BuildSourceDetailRow, BuildSourceSummaryRow, BuildUsageDetailFilter, BuildUsageDetailRow (+19) |
+| `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Reports.cs` | EnsureReportInTrustedScopeAsync, NullIfBlank, QueryMedicalReportVersionDetailAsync, QueryMedicalReportVersionListAsync, ReadCommonAsync (+16) |
+| `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Citation.cs` | BuildCitationDetailAsync, BuildPdfDownloadUrl, GroupExaminationItemsByVersion, GroupLaboratoryResultsByVersion, MapCitationItem (+4) |
+| `server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs` | MapConfigurationStatusToIsValid, QueryRecognitionProjectConfigurationListAsync |
+| `server/Dy.MedicalRecognition.Application/Queries/PageQueryWindow.cs` | Create |
+| `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.cs` | MedicalRecognitionReportQueryAppService |
+| `server/Dy.MedicalRecognition.Application.Contracts/Queries/IMedicalRecognitionReportQueryAppService.Citation.cs` | IMedicalRecognitionReportQueryAppService |
 
 ## Entry Points
 
 Start here when exploring this area:
 
-- **`MedicalRecognitionReportQueryRepository`** (Class) — `server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs:14`
-- **`MedicalRecognitionReportQueryAppService`** (Class) — `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.cs:14`
-- **`QueryBranchRecognitionAmountListAsync`** (Method) — `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.cs:192`
-- **`QueryRecognitionAmountListAsync`** (Method) — `server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs:60`
-- **`QueryRecognitionAmountListAsync`** (Method) — `server/Dy.MedicalRecognition.Tests/Stage2QueryTests.cs:375`
+- **`MedicalRecognitionReportQueryAppService`** (Class) — `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.cs:20`
+- **`QueryMedicalReportVersionDetailAsync`** (Method) — `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Reports.cs:151`
+- **`QueryMedicalReportVersionListAsync`** (Method) — `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Reports.cs:108`
+- **`QueryRecognitionMatchRecordAsync`** (Method) — `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs:431`
+- **`QueryRecognitionUsageDetailsAsync`** (Method) — `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs:87`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
-| `MedicalRecognitionReportQueryRepository` | Class | `server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs` | 14 |
-| `MedicalRecognitionReportQueryAppService` | Class | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.cs` | 14 |
-| `IMedicalRecognitionReportQueryRepository` | Interface | `server/Dy.MedicalRecognition.Domain/Queries/IMedicalRecognitionReportQueryRepository.cs` | 6 |
-| `IMedicalRecognitionReportQueryAppService` | Interface | `server/Dy.MedicalRecognition.Application.Contracts/Queries/IMedicalRecognitionReportQueryAppService.cs` | 5 |
-| `QueryBranchRecognitionAmountListAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.cs` | 192 |
-| `QueryRecognitionAmountListAsync` | Method | `server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs` | 60 |
-| `QueryRecognitionAmountListAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage2QueryTests.cs` | 375 |
-| `QueryRecognitionAmountListAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage3QueryTests.cs` | 744 |
-| `QueryRecognitionAmountListAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage3TrustedScopeTests.cs` | 351 |
-| `QueryEffectiveMedicalStandardCatalogAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.cs` | 106 |
-| `QueryEffectiveMedicalStandardCatalogAsync` | Method | `server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs` | 46 |
-| `QueryEffectiveMedicalStandardCatalogAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage2QueryTests.cs` | 371 |
-| `QueryEffectiveMedicalStandardCatalogAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage3QueryTests.cs` | 764 |
-| `QueryEffectiveMedicalStandardCatalogAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage3TrustedScopeTests.cs` | 371 |
-| `QueryMedicalStandardCategoryListAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.cs` | 64 |
-| `QueryMedicalStandardCategoryListAsync` | Method | `server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs` | 34 |
-| `QueryMedicalStandardCategoryListAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage2QueryTests.cs` | 359 |
-| `QueryMedicalStandardCategoryListAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage3QueryTests.cs` | 752 |
-| `QueryMedicalStandardCategoryListAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage3TrustedScopeTests.cs` | 359 |
-| `QueryMedicalStandardGroupListAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.cs` | 78 |
+| `MedicalRecognitionReportQueryAppService` | Class | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.cs` | 20 |
+| `IMedicalRecognitionReportQueryAppService` | Interface | `server/Dy.MedicalRecognition.Application.Contracts/Queries/IMedicalRecognitionReportQueryAppService.Citation.cs` | 13 |
+| `QueryMedicalReportVersionDetailAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Reports.cs` | 151 |
+| `QueryMedicalReportVersionListAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Reports.cs` | 108 |
+| `QueryRecognitionMatchRecordAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs` | 431 |
+| `QueryRecognitionUsageDetailsAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs` | 87 |
+| `QueryRecognitionUsageSummaryAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs` | 36 |
+| `QuerySourceRecognitionDetailsAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs` | 194 |
+| `QuerySourceRecognitionSummaryAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs` | 143 |
+| `QueryBranchRecognitionUsageDetailsAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs` | 290 |
+| `QueryBranchRecognitionUsageSummaryAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs` | 244 |
+| `QueryBranchSourceRecognitionDetailsAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs` | 388 |
+| `QueryBranchSourceRecognitionSummaryAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs` | 340 |
+| `QueryMedicalReportListAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Reports.cs` | 27 |
+| `QueryBranchMedicalReportListAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Reports.cs` | 68 |
+| `GetBranchStatisticsExportAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.StatisticsExport.cs` | 116 |
+| `GetStatisticsExportAsync` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.StatisticsExport.cs` | 48 |
+| `MapConfigurationStatusToIsValid` | Method | `server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs` | 87 |
+| `QueryRecognitionProjectConfigurationListAsync` | Method | `server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs` | 55 |
+| `AppendExportTypeTailCells` | Method | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.StatisticsExport.cs` | 701 |
 
 ## Execution Flows
 
 | Flow | Type | Steps |
 |------|------|-------|
-| `QueryBranchRecognitionAmountListAsync → TrimCode` | cross_community | 5 |
-| `QueryBranchRecognitionAmountListAsync → TrustedScope` | cross_community | 4 |
-| `QueryBranchRecognitionAmountListAsync → TargetOrganization` | cross_community | 4 |
-| `QueryBranchRecognitionAmountListAsync → TrimCode` | cross_community | 4 |
-| `QueryBranchRecognitionAmountListAsync → AddTarget` | cross_community | 4 |
-| `QueryBranchRecognitionAmountListAsync → FindBranch` | cross_community | 3 |
-| `QueryBranchRecognitionAmountListAsync → FindHospital` | cross_community | 3 |
-| `QueryBranchRecognitionAmountListAsync → FindOrganization` | cross_community | 3 |
+| `GetBranchStatisticsExportAsync → AppendExportTypeTailCells` | cross_community | 6 |
+| `GetBranchStatisticsExportAsync → WriteExportCell` | cross_community | 6 |
+| `GetBranchStatisticsExportAsync → StatisticsExportFileReadModel` | cross_community | 6 |
+| `GetStatisticsExportAsync → AppendExportTypeTailCells` | cross_community | 6 |
+| `GetStatisticsExportAsync → WriteExportCell` | cross_community | 6 |
+| `GetStatisticsExportAsync → StatisticsExportFileReadModel` | cross_community | 6 |
+| `QueryMedicalReportVersionDetailAsync → GetOrNull` | cross_community | 5 |
+| `GetBranchStatisticsExportAsync → GetUsageDetailHeaders` | cross_community | 5 |
+| `GetBranchStatisticsExportAsync → BuildUsageSummaryRow` | cross_community | 5 |
+| `GetStatisticsExportAsync → GetUsageDetailHeaders` | cross_community | 5 |
 
 ## How to Explore
 
-1. `context({name: "MedicalRecognitionReportQueryRepository"})` — see callers and callees
+1. `context({name: "MedicalRecognitionReportQueryAppService"})` — see callers and callees
 2. `query({search_query: "queries"})` — find related execution flows
 3. Read key files listed above for implementation details
 4. `explain({target: "<file or symbol>"})` — persisted taint findings (source→sink data flows), when indexed with `--pdg`

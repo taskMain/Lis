@@ -179,20 +179,26 @@ Query('QueryRecognitionAmountList')[
     医院编码(HospitalCode String)
     院区编码(BranchCode String)
     标准项目编码(StandardProjectCode String?)
+    关键字(Keyword String?)
 ]
 note right of QueryRecognitionAmountList
   平台管理员入口：组织、医院、院区均取自请求。
   服务端校验该组织、医院、院区存在、启用且父子归属正确。
+  可选关键字按字面包含匹配标准项目编码、名称、分类名称、分组名称，
+  不区分大小写，% 与 _ 按普通字符转义；缺失或去首尾空白后为空
+  视为未提供，不附加过滤（S3-D26）。
 end note
 Query('QueryBranchRecognitionAmountList')[
     查询本院区互认项目金额
     --入参--
     院区编码(BranchCode String)
     标准项目编码(StandardProjectCode String?)
+    关键字(Keyword String?)
 ]
 note right of QueryBranchRecognitionAmountList
   医院管理员入口：组织与医院取自可信上下文，请求只提交院区。
   服务端校验该院区存在、启用且属于可信医院。
+  可选关键字口径与 QueryRecognitionAmountList 相同（S3-D26）。
 end note
 
 ReadModel('MedicalReportListReadModel')[

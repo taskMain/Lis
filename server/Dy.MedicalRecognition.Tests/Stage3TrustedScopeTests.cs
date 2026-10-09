@@ -235,7 +235,7 @@ public sealed class Stage3TrustedScopeTests
 
     await appService.QueryBranchRecognitionAmountListAsync(new BranchRecognitionAmountListQueryRequest { BranchCode = TokenBranch });
 
-    Assert.Equal((TokenOrganization, TokenHospital, TokenBranch, (string?)null), repository.ReceivedQuery);
+    Assert.Equal((TokenOrganization, TokenHospital, TokenBranch, (string?)null, (string?)null), repository.ReceivedQuery);
   }
 
   /// <summary>
@@ -251,7 +251,7 @@ public sealed class Stage3TrustedScopeTests
 
     await appService.QueryBranchRecognitionAmountListAsync(new BranchRecognitionAmountListQueryRequest { BranchCode = TokenBranch });
 
-    Assert.Equal((TokenOrganization, TokenHospital, TokenBranch, (string?)null), repository.ReceivedQuery);
+    Assert.Equal((TokenOrganization, TokenHospital, TokenBranch, (string?)null, (string?)null), repository.ReceivedQuery);
     Assert.Equal(1, userService.GetUserByIdCallCount);
   }
 
@@ -344,17 +344,17 @@ public sealed class Stage3TrustedScopeTests
   /// </summary>
   private sealed class AmountQueryRepository : IMedicalRecognitionReportQueryRepository
   {
-    /// <summary>本次金额查询收到的业务键；未进入查询端口时为 null。</summary>
-    public (string OrganizationCode, string HospitalCode, string BranchCode, string? StandardProjectCode)? ReceivedQuery { get; private set; }
+    /// <summary>本次金额查询收到的业务键与关键字；未进入查询端口时为 null。</summary>
+    public (string OrganizationCode, string HospitalCode, string BranchCode, string? StandardProjectCode, string? Keyword)? ReceivedQuery { get; private set; }
 
     /// <summary>进入金额查询端口的次数。</summary>
     public int CallCount { get; private set; }
 
     /// <inheritdoc/>
-    public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode)
+    public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode, string? keyword)
     {
       CallCount++;
-      ReceivedQuery = (organizationCode, hospitalCode, branchCode, standardProjectCode);
+      ReceivedQuery = (organizationCode, hospitalCode, branchCode, standardProjectCode, keyword);
       return Task.FromResult<IEnumerable<RecognitionAmountListItem>>([]);
     }
 

@@ -9,24 +9,33 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   CONFIGURATION_STATUSES,
+  EMPTY_RECOGNITION_AMOUNT_FILTER,
+  buildAmountFilterSearch,
   buildBranchAmountListQuery,
   buildBranchAmountSavePayload,
   buildRecognitionAmountListQuery,
   buildRecognitionAmountSavePayload,
   configurationStatusText,
   currentAmountText,
+  filterRecognitionAmountRows,
   isConfigurationStatusValue,
   isMedicalItemTypeValue,
   medicalItemTypeText,
+  parseAmountFilterSearch,
   parseRecognitionAmount,
   queryBranchRecognitionAmountRows,
   queryRecognitionAmountRows,
+  readAmountFilterFromLocation,
+  recheckRecognitionAmountScope,
   saveBranchRecognitionAmount,
   saveOrganizationHospitalBranchRecognitionAmount,
+  syncAmountFilterToLocation,
+  toRecognitionAmountColumnView,
   toRecognitionAmountRows,
   type MedicalRecognitionClient,
-  type RecognitionAmountRow,
   type RecognitionAmountReadModelLike,
+  type RecognitionAmountRow,
+  type RecognitionAmountScope,
 } from './recognitionAmountsApi'
 
 /**
@@ -451,8 +460,9 @@ describe('适配层枚举与文案出口的唯一性', () => {
   })
 
   /**
-   * 越界与错误类型必须落到「未知」而不是空文本，也不能被对象下标强制转换伪造成已知文案：
-   * 字符串 `'1'` 与数字 `1` 在 `Record` 下标下都能取到「检查」，因此文案出口按取值域判定而不是按「是否等于 null」。
+   * 越界与错误类型一律归入「未知」，兜底取值不产出空文本，也不允许被对象下标强制转换伪造成已知文案：
+   * 字符串 `'1'` 与数字 `1` 在 `Record` 下标下都能取到「检查」，因此文案出口按取值域判定，
+   * `null` 与其它越界取值同属取值域之外的兜底取值。
    */
   it('越界取值与字符串下标都显示未知，不伪造已知文案', () => {
     expect(medicalItemTypeText(7 as never)).toBe('未知类型')
@@ -473,5 +483,483 @@ describe('适配层枚举与文案出口的唯一性', () => {
   it('行视图模型类型只暴露可空归一后的取值', () => {
     const row: RecognitionAmountRow = toRecognitionAmountRows([readModel({ itemType: 0, configurationStatus: 1 })])[0]
     expect(row.configurationStatus).toBe(1)
+  })
+})
+
+describe('关键字下推：去空白后为空不携带，非空按去空白后的值携带', () => {
+  const platformBase = { organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' }
+
+  it('平台管理员页查询的关键字非空才携带，空白与缺省都不携带该字段', () => {
+    expect(buildRecognitionAmountListQuery({ ...platformBase, keyword: ' 血常规 ' })).toEqual({
+      organizationCode: 'ORG-A',
+      hospitalCode: 'HOS-1',
+      branchCode: 'BRA-1',
+      keyword: '血常规',
+    })
+    expect(buildRecognitionAmountListQuery({ ...platformBase, keyword: '' })).not.toHaveProperty('keyword')
+    expect(buildRecognitionAmountListQuery({ ...platformBase, keyword: '   ' })).not.toHaveProperty('keyword')
+    expect(buildRecognitionAmountListQuery(platformBase)).not.toHaveProperty('keyword')
+  })
+
+  it('医院管理员页查询的关键字同样只在非空时携带，院区校验与标准项目编码行为不变', () => {
+    expect(buildBranchAmountListQuery({ branchCode: ' BRA-1 ', standardProjectCode: ' A01 ', keyword: ' 血常规 ' })).toEqual({
+      branchCode: 'BRA-1',
+      standardProjectCode: 'A01',
+      keyword: '血常规',
+    })
+    expect(buildBranchAmountListQuery({ branchCode: 'BRA-1', keyword: '  ' })).toEqual({ branchCode: 'BRA-1' })
+    expect(buildBranchAmountListQuery({ branchCode: '  ', keyword: '血常规' })).toBeNull()
+    expect(buildBranchAmountListQuery({ branchCode: 'BRA-1' })).not.toHaveProperty('keyword')
+  })
+
+  it('平台管理员页查询请求体有值才写关键字', async () => {
+    const client = stubClient()
+    const request = buildRecognitionAmountListQuery({ ...platformBase, keyword: ' 血常规 ' })
+
+    await queryRecognitionAmountRows(client, request!)
+    expect(bodyOf(client.api.medicalRecognitionReportQuery.queryRecognitionAmountList.post)).toEqual({
+      organizationCode: 'ORG-A',
+      hospitalCode: 'HOS-1',
+      branchCode: 'BRA-1',
+      keyword: '血常规',
+    })
+  })
+
+  it('平台管理员页查询不带关键字时请求体没有该字段', async () => {
+    const client = stubClient()
+
+    await queryRecognitionAmountRows(client, buildRecognitionAmountListQuery(platformBase)!)
+    expect(bodyOf(client.api.medicalRecognitionReportQuery.queryRecognitionAmountList.post)).not.toHaveProperty('keyword')
+  })
+
+  it('医院管理员页查询请求体同样只在有值时写关键字', async () => {
+    const withKeyword = stubClient()
+    await queryBranchRecognitionAmountRows(withKeyword, buildBranchAmountListQuery({ branchCode: 'BRA-1', keyword: ' 血常规 ' })!)
+    expect(bodyOf(withKeyword.api.medicalRecognitionReportQuery.queryBranchRecognitionAmountList.post)).toEqual({
+      branchCode: 'BRA-1',
+      keyword: '血常规',
+    })
+
+    const withoutKeyword = stubClient()
+    await queryBranchRecognitionAmountRows(withoutKeyword, buildBranchAmountListQuery({ branchCode: 'BRA-1' })!)
+    expect(bodyOf(withoutKeyword.api.medicalRecognitionReportQuery.queryBranchRecognitionAmountList.post)).toEqual({ branchCode: 'BRA-1' })
+
+    const blankKeyword = stubClient()
+    await queryBranchRecognitionAmountRows(blankKeyword, { branchCode: 'BRA-1', keyword: '   ' })
+    expect(bodyOf(blankKeyword.api.medicalRecognitionReportQuery.queryBranchRecognitionAmountList.post)).not.toHaveProperty('keyword')
+  })
+})
+
+describe('四栏层级列视图：类型 → 分类 → 分组 → 项目行', () => {
+  const amountRow = (overrides: Partial<RecognitionAmountReadModelLike>): RecognitionAmountRow =>
+    toRecognitionAmountRows([readModel(overrides)])[0]
+
+  it('按类型、分类、分组归类排序，类型格与分类格记录跨其名下全部行的行数', () => {
+    const view = toRecognitionAmountColumnView([
+      amountRow({ standardProjectCode: 'B02', itemType: 1, categoryName: 'CHECK-CAT', groupName: 'G2' }),
+      amountRow({ standardProjectCode: 'A03', itemType: 0, categoryName: 'LAB-CAT', groupName: 'G2' }),
+      amountRow({ standardProjectCode: 'A01', itemType: 0, categoryName: 'LAB-CAT', groupName: 'G1' }),
+      amountRow({ standardProjectCode: 'A02', itemType: 0, categoryName: 'LAB-CAT', groupName: 'G1' }),
+      amountRow({ standardProjectCode: 'A00', itemType: 0, categoryName: 'B-CAT', groupName: 'G9' }),
+    ])
+
+    expect(view.types.map((type) => type.itemType)).toEqual([0, 1])
+    const [labType, checkType] = view.types
+    expect(labType.itemTypeText).toBe('检验')
+    expect(labType.rowSpan).toBe(4)
+    expect(checkType.itemTypeText).toBe('检查')
+    expect(checkType.rowSpan).toBe(1)
+
+    expect(labType.categories.map((category) => category.categoryName)).toEqual(['B-CAT', 'LAB-CAT'])
+    expect(labType.categories[0].rowSpan).toBe(1)
+    expect(labType.categories[1].rowSpan).toBe(3)
+
+    const labCategory = labType.categories[1]
+    expect(labCategory.groups.map((group) => group.groupName)).toEqual(['G1', 'G2'])
+    expect(labCategory.groups[0].rowSpan).toBe(2)
+    expect(labCategory.groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A01', 'A02'])
+    expect(labCategory.groups[1].rowSpan).toBe(1)
+    expect(labCategory.groups[1].rows.map((row) => row.standardProjectCode)).toEqual(['A03'])
+
+    const checkCategory = checkType.categories[0]
+    expect(checkCategory.rowSpan).toBe(1)
+    expect(checkCategory.groups[0].groupName).toBe('G2')
+    expect(checkCategory.groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['B02'])
+  })
+
+  it('未知类型排在已知类型之后，组内按标准项目编码升序', () => {
+    const view = toRecognitionAmountColumnView([
+      amountRow({ standardProjectCode: 'A05', itemType: 7, categoryName: 'CAT', groupName: 'G' }),
+      amountRow({ standardProjectCode: 'A02', itemType: 0, categoryName: 'CAT', groupName: 'G' }),
+      amountRow({ standardProjectCode: 'A01', itemType: 0, categoryName: 'CAT', groupName: 'G' }),
+    ])
+
+    expect(view.types.map((type) => type.itemType)).toEqual([0, null])
+    expect(view.types[0].itemTypeText).toBe('检验')
+    expect(view.types[1].itemTypeText).toBe('未知类型')
+    expect(view.types[0].categories[0].groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A01', 'A02'])
+    expect(view.types[1].categories[0].groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A05'])
+  })
+
+  it('分类名与分组名为空时按空串参与升序，空值排在同类型同级的最前', () => {
+    const view = toRecognitionAmountColumnView([
+      amountRow({ standardProjectCode: 'A04', categoryName: 'B分类', groupName: 'G2' }),
+      amountRow({ standardProjectCode: 'A03', categoryName: 'B分类', groupName: null }),
+      amountRow({ standardProjectCode: 'A02', categoryName: null, groupName: 'G1' }),
+      amountRow({ standardProjectCode: 'A01', categoryName: null, groupName: null }),
+    ])
+
+    const [labType] = view.types
+    // 分类级：`null` 按空串升序，排在非空分类之前；同为 `null` 的行归入同一分类格。
+    expect(labType.categories.map((category) => category.categoryName)).toEqual([null, 'B分类'])
+    expect(labType.rowSpan).toBe(4)
+
+    // 分组级：同一分类内 `null` 分组同样按空串升序排在最前。
+    const nullCategory = labType.categories[0]
+    expect(nullCategory.groups.map((group) => group.groupName)).toEqual([null, 'G1'])
+    expect(nullCategory.groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A01'])
+    expect(nullCategory.groups[1].rows.map((row) => row.standardProjectCode)).toEqual(['A02'])
+
+    const bCategory = labType.categories[1]
+    expect(bCategory.groups.map((group) => group.groupName)).toEqual([null, 'G2'])
+    expect(bCategory.groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A03'])
+    expect(bCategory.groups[1].rows.map((row) => row.standardProjectCode)).toEqual(['A04'])
+  })
+
+  it('项目行承载编码、名称、当前金额、已配置标记、配置状态值与其中文、不可用原因', () => {
+    const view = toRecognitionAmountColumnView([
+      amountRow({ standardProjectCode: 'A01', currentAmount: node(12.5), isAmountConfigured: true, configurationStatus: 2, unavailableReason: '所属分组已停用' }),
+    ])
+
+    expect(view.types).toHaveLength(1)
+    const [row] = view.types[0].categories[0].groups[0].rows
+    expect(Object.keys(row)).toEqual([
+      'standardProjectCode',
+      'standardProjectName',
+      'currentAmount',
+      'isAmountConfigured',
+      'configurationStatus',
+      'configurationStatusText',
+      'unavailableReason',
+    ])
+    expect(row).toMatchObject({
+      standardProjectCode: 'A01',
+      standardProjectName: '血常规',
+      currentAmount: 12.5,
+      isAmountConfigured: true,
+      configurationStatus: 2,
+      configurationStatusText: '停用',
+      unavailableReason: '所属分组已停用',
+    })
+  })
+
+  it('空集合返回空结构', () => {
+    expect(toRecognitionAmountColumnView([])).toEqual({ types: [] })
+  })
+})
+
+describe('本地状态裁剪：金额状态与互认配置状态取交集，只裁剪不发请求', () => {
+  const rows = toRecognitionAmountRows([
+    readModel({ standardProjectCode: 'A01', isAmountConfigured: true, currentAmount: node(10), configurationStatus: 1 }),
+    readModel({ standardProjectCode: 'A02', isAmountConfigured: false, currentAmount: null, configurationStatus: 1 }),
+    readModel({ standardProjectCode: 'A03', isAmountConfigured: true, currentAmount: node(20), configurationStatus: 2 }),
+    readModel({ standardProjectCode: 'A04', isAmountConfigured: false, currentAmount: null, configurationStatus: 2 }),
+    readModel({ standardProjectCode: 'A05', isAmountConfigured: false, currentAmount: null, configurationStatus: 9 }),
+  ])
+  const codesOf = (filter: { amountStatus: 'all' | 'configured' | 'unconfigured'; configurationStatus: 'all' | 'enabled' | 'disabled' }): Array<string | null> =>
+    filterRecognitionAmountRows(rows, filter).map((row) => row.standardProjectCode)
+
+  it('金额状态三档：全部保留全部行，已配置与未配置各自只留对应行', () => {
+    expect(codesOf({ amountStatus: 'all', configurationStatus: 'all' })).toEqual(['A01', 'A02', 'A03', 'A04', 'A05'])
+    expect(codesOf({ amountStatus: 'configured', configurationStatus: 'all' })).toEqual(['A01', 'A03'])
+    expect(codesOf({ amountStatus: 'unconfigured', configurationStatus: 'all' })).toEqual(['A02', 'A04', 'A05'])
+  })
+
+  it('互认配置状态三档：启用与停用按行上的配置状态数值取值', () => {
+    expect(codesOf({ amountStatus: 'all', configurationStatus: 'all' })).toEqual(['A01', 'A02', 'A03', 'A04', 'A05'])
+    expect(codesOf({ amountStatus: 'all', configurationStatus: 'enabled' })).toEqual(['A01', 'A02'])
+    expect(codesOf({ amountStatus: 'all', configurationStatus: 'disabled' })).toEqual(['A03', 'A04'])
+  })
+
+  it('两个条件取交集', () => {
+    expect(codesOf({ amountStatus: 'configured', configurationStatus: 'enabled' })).toEqual(['A01'])
+    expect(codesOf({ amountStatus: 'configured', configurationStatus: 'disabled' })).toEqual(['A03'])
+    expect(codesOf({ amountStatus: 'unconfigured', configurationStatus: 'enabled' })).toEqual(['A02'])
+    expect(codesOf({ amountStatus: 'unconfigured', configurationStatus: 'disabled' })).toEqual(['A04'])
+  })
+
+  it('配置状态未知的行在全部档下保留、在启用与停用档下都不出现', () => {
+    expect(codesOf({ amountStatus: 'all', configurationStatus: 'all' })).toContain('A05')
+    expect(codesOf({ amountStatus: 'all', configurationStatus: 'enabled' })).not.toContain('A05')
+    expect(codesOf({ amountStatus: 'all', configurationStatus: 'disabled' })).not.toContain('A05')
+  })
+
+  it('裁剪保持原有行序，不改变行本身', () => {
+    expect(filterRecognitionAmountRows(rows, { amountStatus: 'all', configurationStatus: 'all' })).toEqual(rows)
+  })
+})
+
+describe('地址栏三个查询参数：解析与回写', () => {
+  const appliedFilter = { keyword: 'CBC', amountStatus: 'configured', configurationStatus: 'disabled' } as const
+
+  it('按三个参数初始化，参数缺失或取值不可识别时该条件回退默认值', () => {
+    expect(parseAmountFilterSearch('keyword=%E8%A1%80%E5%B8%B8%E8%A7%84&amountStatus=unconfigured&configurationStatus=enabled')).toEqual({
+      keyword: '血常规',
+      amountStatus: 'unconfigured',
+      configurationStatus: 'enabled',
+    })
+    expect(parseAmountFilterSearch('amountStatus=whatever&configurationStatus=7&keyword=')).toEqual({
+      ...EMPTY_RECOGNITION_AMOUNT_FILTER,
+    })
+    expect(parseAmountFilterSearch('')).toEqual({ ...EMPTY_RECOGNITION_AMOUNT_FILTER })
+  })
+
+  it('回写只写非默认档与非空关键字，其它参数原样保留', () => {
+    expect(buildAmountFilterSearch('?tab=summary', { ...EMPTY_RECOGNITION_AMOUNT_FILTER })).toBe('?tab=summary')
+    expect(buildAmountFilterSearch('', { ...EMPTY_RECOGNITION_AMOUNT_FILTER })).toBe('')
+    expect(buildAmountFilterSearch('?tab=summary', appliedFilter)).toBe(
+      '?tab=summary&keyword=CBC&amountStatus=configured&configurationStatus=disabled',
+    )
+  })
+
+  it('回写后可以按同一口径解析回来（关键字含中文也按原值往返）', () => {
+    const search = buildAmountFilterSearch('?tab=summary', { ...appliedFilter, keyword: '血常规' })
+    expect(parseAmountFilterSearch(search.startsWith('?') ? search.slice(1) : search)).toEqual({
+      keyword: '血常规',
+      amountStatus: 'configured',
+      configurationStatus: 'disabled',
+    })
+  })
+
+  it('读取当前地址栏上的已生效条件', () => {
+    window.history.replaceState(null, '', '/subApps/medical-recognition/amounts?tab=summary&keyword=CBC&amountStatus=configured&configurationStatus=disabled')
+
+    expect(readAmountFilterFromLocation()).toEqual({
+      keyword: 'CBC',
+      amountStatus: 'configured',
+      configurationStatus: 'disabled',
+    })
+  })
+
+  it('地址栏没有这三个参数时读到默认条件', () => {
+    window.history.replaceState(null, '', '/subApps/medical-recognition/amounts')
+
+    expect(readAmountFilterFromLocation()).toEqual({ ...EMPTY_RECOGNITION_AMOUNT_FILTER })
+  })
+
+  it('条件变化时用替换当前历史项的方式回写地址栏，其它参数原样保留', () => {
+    window.history.replaceState(null, '', '/subApps/medical-recognition/amounts?tab=summary')
+    const replaceState = vi.spyOn(window.history, 'replaceState')
+
+    syncAmountFilterToLocation({ ...appliedFilter })
+
+    expect(replaceState).toHaveBeenCalledTimes(1)
+    const url = String(replaceState.mock.calls[0][2])
+    expect(url).toContain('tab=summary')
+    expect(url).toContain('keyword=CBC')
+    expect(url).toContain('amountStatus=configured')
+    expect(url).toContain('configurationStatus=disabled')
+    replaceState.mockRestore()
+  })
+
+  it('内容未变化时不触达历史 API', () => {
+    window.history.replaceState(null, '', '/subApps/medical-recognition/amounts?tab=summary&keyword=CBC&amountStatus=configured&configurationStatus=disabled')
+    const replaceState = vi.spyOn(window.history, 'replaceState')
+
+    syncAmountFilterToLocation({ ...appliedFilter })
+
+    expect(replaceState).not.toHaveBeenCalled()
+    replaceState.mockRestore()
+  })
+
+  it('默认条件不往地址栏写自己这三个参数', () => {
+    window.history.replaceState(null, '', '/subApps/medical-recognition/amounts?tab=summary')
+
+    syncAmountFilterToLocation({ ...EMPTY_RECOGNITION_AMOUNT_FILTER })
+
+    expect(window.location.search).toBe('?tab=summary')
+  })
+})
+
+describe('保存前的可信范围复核：不一致即失败，院区层按缺失值参与比对', () => {
+  const platformScope = (overrides: Partial<RecognitionAmountScope> = {}): RecognitionAmountScope => ({
+    organizationCode: 'ORG-A',
+    hospitalCode: 'HOS-1',
+    branchCode: 'BRA-1',
+    ...overrides,
+  })
+  const platformLayers = ['organization', 'hospital', 'branch'] as const
+
+  it('组织、医院、院区逐层一致时给出通过结论', () => {
+    expect(recheckRecognitionAmountScope({ applied: platformScope(), trusted: platformScope(), layers: platformLayers })).toEqual({
+      ok: true,
+      reason: null,
+    })
+  })
+
+  it('layers 为空数组表示本次不比较任何层级：两侧范围都存在即通过', () => {
+    // 空集语义：本次不比较任何层级，逐层比较一次都不进入，两侧范围都存在时直接给出通过结论。
+    expect(recheckRecognitionAmountScope({ applied: platformScope(), trusted: platformScope(), layers: [] })).toEqual({
+      ok: true,
+      reason: null,
+    })
+
+    // 同一空集下两侧层级取值不一致也不构成失败：没有任何层级参与比较，就没有可比出的差异。
+    const mismatched = recheckRecognitionAmountScope({
+      applied: platformScope({ organizationCode: 'ORG-B' }),
+      trusted: platformScope(),
+      layers: [],
+    })
+    expect(mismatched).toEqual({ ok: true, reason: null })
+  })
+
+  it('可信范围读不到时给出失败结论与一行中文原因', () => {
+    const result = recheckRecognitionAmountScope({ applied: platformScope(), trusted: null, layers: platformLayers })
+
+    expect(result.ok).toBe(false)
+    expect(result.reason).toContain('读取')
+    expect(result.reason).not.toContain('\n')
+  })
+
+  it('页面尚未应用范围时给出失败结论', () => {
+    const result = recheckRecognitionAmountScope({ applied: null, trusted: platformScope(), layers: platformLayers })
+
+    expect(result.ok).toBe(false)
+    expect(result.reason).toContain('尚未应用')
+  })
+
+  it('组织、医院、院区任一层不一致都失败，原因指出具体层级', () => {
+    const organizationMismatch = recheckRecognitionAmountScope({
+      applied: platformScope({ organizationCode: 'ORG-B' }),
+      trusted: platformScope(),
+      layers: platformLayers,
+    })
+    expect(organizationMismatch.ok).toBe(false)
+    expect(organizationMismatch.reason).toContain('组织')
+
+    const hospitalMismatch = recheckRecognitionAmountScope({
+      applied: platformScope({ hospitalCode: 'HOS-2' }),
+      trusted: platformScope(),
+      layers: platformLayers,
+    })
+    expect(hospitalMismatch.ok).toBe(false)
+    expect(hospitalMismatch.reason).toContain('医院')
+
+    const branchMismatch = recheckRecognitionAmountScope({
+      applied: platformScope({ branchCode: 'BRA-2' }),
+      trusted: platformScope(),
+      layers: platformLayers,
+    })
+    expect(branchMismatch.ok).toBe(false)
+    expect(branchMismatch.reason).toContain('院区')
+  })
+
+  it('多层同时不一致时按组织、医院、院区的固定次序给出第一个原因', () => {
+    const result = recheckRecognitionAmountScope({
+      applied: platformScope({ organizationCode: 'ORG-B', hospitalCode: 'HOS-2', branchCode: 'BRA-2' }),
+      trusted: platformScope(),
+      layers: platformLayers,
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.reason).toContain('组织')
+  })
+
+  it('医院管理员页只比较院区：组织与医院没有已应用值也不阻断', () => {
+    const applied: RecognitionAmountScope = { organizationCode: null, hospitalCode: null, branchCode: 'BRA-1' }
+
+    expect(recheckRecognitionAmountScope({ applied, trusted: platformScope(), layers: ['branch'] })).toEqual({
+      ok: true,
+      reason: null,
+    })
+    const fullLayers = recheckRecognitionAmountScope({ applied, trusted: platformScope(), layers: platformLayers })
+    expect(fullLayers.ok).toBe(false)
+    expect(fullLayers.reason).toContain('组织')
+  })
+
+  it('医院管理员页院区不一致时同样失败', () => {
+    const result = recheckRecognitionAmountScope({
+      applied: { organizationCode: null, hospitalCode: null, branchCode: 'BRA-2' },
+      trusted: platformScope(),
+      layers: ['branch'],
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.reason).toContain('院区')
+  })
+
+  it('院区层：记录与现读同为缺失即通过（可信院区缺失属 S3-D22 档二正常形态）', () => {
+    // 两侧都为 null：缺失归一后相等，给出通过结论（旧口径在这里把现读侧给成读不到）。
+    const bothNull = recheckRecognitionAmountScope({
+      applied: platformScope({ branchCode: null }),
+      trusted: platformScope({ branchCode: null }),
+      layers: ['branch'],
+    })
+    expect(bothNull).toEqual({ ok: true, reason: null })
+
+    // 空串与纯空白同样归一为缺失：记录侧写空、现读侧写 null 也相等。
+    const blankAndNull = recheckRecognitionAmountScope({
+      applied: platformScope({ branchCode: '  ' }),
+      trusted: platformScope({ branchCode: '' }),
+      layers: ['branch'],
+    })
+    expect(blankAndNull).toEqual({ ok: true, reason: null })
+  })
+
+  it('院区层：记录有值而现读缺失时失败，原因为已变化', () => {
+    const result = recheckRecognitionAmountScope({
+      applied: platformScope(),
+      trusted: platformScope({ branchCode: null }),
+      layers: ['branch'],
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.reason).toContain('已变化')
+    expect(result.reason).toContain('院区')
+    // 院区层不再以「读不到」「尚未应用」收场：缺失只按一致性比对给出结论。
+    expect(result.reason).not.toContain('读取')
+    expect(result.reason).not.toContain('尚未应用')
+  })
+
+  it('院区层：记录缺失而现读有值时失败，原因为已变化', () => {
+    const result = recheckRecognitionAmountScope({
+      applied: platformScope({ branchCode: null }),
+      trusted: platformScope(),
+      layers: ['branch'],
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.reason).toContain('已变化')
+    expect(result.reason).toContain('院区')
+    expect(result.reason).not.toContain('尚未应用')
+    expect(result.reason).not.toContain('读取')
+  })
+
+  it('组织层：现读为空仍返回读取不到的结论（与医院层同一口径）', () => {
+    const result = recheckRecognitionAmountScope({
+      applied: platformScope(),
+      trusted: platformScope({ organizationCode: '  ' }),
+      layers: platformLayers,
+    })
+
+    expect(result.ok).toBe(false)
+    expect(result.reason).toContain('读取')
+  })
+
+  it('比较两侧都取去空白后的值，医院层现读缺值仍按读不到处理', () => {
+    const trimmedEqual = recheckRecognitionAmountScope({
+      applied: platformScope({ branchCode: ' BRA-1 ' }),
+      trusted: platformScope(),
+      layers: platformLayers,
+    })
+    expect(trimmedEqual).toEqual({ ok: true, reason: null })
+
+    const trustedBlank = recheckRecognitionAmountScope({
+      applied: platformScope(),
+      trusted: platformScope({ hospitalCode: '  ' }),
+      layers: platformLayers,
+    })
+    expect(trustedBlank.ok).toBe(false)
+    expect(trustedBlank.reason).toContain('读取')
   })
 })

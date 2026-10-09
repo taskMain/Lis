@@ -53,7 +53,7 @@ internal sealed class StubReportQueryRepository : IMedicalRecognitionReportQuery
   public Task<IEnumerable<EffectiveMedicalStandardCatalogItem>> QuerySelectableStandardItemListAsync(string organizationCode, string? keyword) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
-  public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode) => throw new NotSupportedException(UnusedMember);
+  public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode, string? keyword) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
   public Task<long> CountMedicalReportListAsync(MedicalReportListFilter filter) => throw new NotSupportedException(UnusedMember);
@@ -291,7 +291,7 @@ internal sealed class SyntheticReportPorts : IMedicalRecognitionReportQueryRepos
   public Task<IEnumerable<EffectiveMedicalStandardCatalogItem>> QuerySelectableStandardItemListAsync(string organizationCode, string? keyword) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
-  public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode) => throw new NotSupportedException(UnusedMember);
+  public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode, string? keyword) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
   public Task<long> CountMedicalReportListAsync(MedicalReportListFilter filter) => throw new NotSupportedException(UnusedMember);

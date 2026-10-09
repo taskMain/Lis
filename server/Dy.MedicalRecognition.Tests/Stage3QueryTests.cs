@@ -16,10 +16,10 @@ using Xunit;
 namespace Dy.MedicalRecognition.Tests;
 
 /// <summary>
-/// 阶段 3 互认项目金额列表查询的应用层与静态守卫校验（矩阵 V17、V18、V19、V20、V21、V22、V26、V29、V30）：
+/// 阶段 3 互认项目金额列表查询的应用层与静态守卫校验（矩阵 V17、V18、V19、V20、V21、V22、V26、V29、V30、V31、V32、V33）：
 /// 行集由互认配置驱动且未配置金额不用零元冒充、返回字段集合、名称与归属读取次数与行数无关、
-/// 排序与空结果、三层停用原因优先级、医院管理员入口的院区范围拒绝、平台管理员入口按请求组织执行，
-/// 以及两个入口"先校验公共请求、不声明工作单元"的静态约定。
+/// 排序与空结果、三层停用原因优先级、医院管理员入口的院区范围拒绝、平台管理员入口按请求组织执行、
+/// 关键字四列过滤与可选入参形状，以及两个入口“先校验公共请求、不声明工作单元”的静态约定。
 /// </summary>
 /// <remarks>
 /// 查询端口与外部组织服务使用手写替身，不连接数据库、不发起真实 HTTP 调用。
@@ -262,15 +262,155 @@ public sealed class Stage3QueryTests
     }
   }
 
+  /// <summary>
+  /// V33：两个金额查询请求各声明可空的可选关键字入参，既有标准项目编码入参原样保留。
+  /// </summary>
+  /// <remarks>
+  /// 关键字缺失或去首尾空白后为空都视为未提供、不附加过滤，因此声明上必须是可空引用且不带必填特性；
+  /// 一旦加上必填声明，空白关键字会先被请求校验拒绝，“空白视为未提供”就无从成立。
+  /// </remarks>
+  [Fact]
+  public void Amount_query_requests_declare_optional_keyword_and_keep_standard_project_code()
+  {
+    foreach (Type requestType in new[] { typeof(RecognitionAmountListQueryRequest), typeof(BranchRecognitionAmountListQueryRequest) })
+    {
+      PropertyInfo? keyword = requestType.GetProperty("Keyword", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+      Assert.NotNull(keyword);
+      Assert.Equal(typeof(string), keyword!.PropertyType);
+      Assert.Equal(NullabilityState.Nullable, new NullabilityInfoContext().Create(keyword).ReadState);
+      Assert.Null(keyword.GetCustomAttribute<System.ComponentModel.DataAnnotations.RequiredAttribute>());
+
+      PropertyInfo? standardProjectCode = requestType.GetProperty("StandardProjectCode", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+      Assert.NotNull(standardProjectCode);
+      Assert.Equal(typeof(string), standardProjectCode!.PropertyType);
+      Assert.Equal(NullabilityState.Nullable, new NullabilityInfoContext().Create(standardProjectCode).ReadState);
+    }
+  }
+
+  /// <summary>
+  /// V31 的语句级判据：金额列表语句按关键字同时匹配标准项目编码、标准项目名称、分类名称与分组名称四列，
+  /// 比较不区分大小写，`%` 与 `_` 按普通字符转义；条件以 and 拼在 where 内，缺失时不改变行集。
+  /// </summary>
+  /// <remarks>
+  /// 任一列被删、转义被去掉、大小写被放开或 or 被改成 and，都不会让编译或应用层用例失败，
+  /// 只表现为真实库上“传了关键字仍返回不该返回的行”，因此按语句文本冻结判据并附变异证据。
+  /// </remarks>
+  [Fact]
+  public void Amount_query_statement_filters_four_columns_by_keyword_with_literal_escaping()
+  {
+    System.Xml.Linq.XDocument document = System.Xml.Linq.XDocument.Load(FindRepositoryFile("MedicalRecognitionReportQuery.xml"));
+    System.Xml.Linq.XNamespace ns = "http://dysoft.vip/schemas/EarthraceSqlMap.xsd";
+    System.Xml.Linq.XElement statement = document.Descendants(ns + "Statement")
+      .Single(element => (string?)element.Attribute("Id") == "QueryRecognitionAmountList");
+    // 取唯一的过滤片段：按 Single 判定，片段缺失或被复制成两段时同样判失败。
+    System.Xml.Linq.XElement keywordFilter = Assert.Single(
+      statement.Descendants(ns + "IsNotEmpty"),
+      element => (string?)element.Attribute("Property") == "Keyword");
+
+    Assert.Equal("and", (string?)keywordFilter.Attribute("Prepend"));
+    Assert.True(
+      AmountQueryKeywordFilterMatchesFourColumns(keywordFilter.Value),
+      "金额列表语句的关键字过滤未按四列字面包含匹配声明。");
+
+    // 变异证据：去掉转义、放开分组名称列的大小写、把 or 改成 and，同一条判据都必须判红。
+    Assert.False(AmountQueryKeywordFilterMatchesFourColumns(
+      keywordFilter.Value.Replace("escape '!'", string.Empty, StringComparison.Ordinal)));
+    Assert.False(AmountQueryKeywordFilterMatchesFourColumns(
+      keywordFilter.Value.Replace("lower(g.name)", "g.name", StringComparison.Ordinal)));
+    Assert.False(AmountQueryKeywordFilterMatchesFourColumns(
+      keywordFilter.Value.Replace(" or ", " and ", StringComparison.Ordinal)));
+
+    // 既有标准项目编码过滤原样保留：该入参本轮不改语义。
+    Assert.Single(
+      statement.Descendants(ns + "IsNotEmpty"),
+      element => (string?)element.Attribute("Property") == "StandardProjectCode");
+  }
+
+  /// <summary>
+  /// V31 的绑定判据：金额列表仓储方法必须把关键字绑定进查询参数对象。
+  /// </summary>
+  /// <remarks>
+  /// 漏绑关键字不会让编译、查询端口或语句文本判据失败：语句里的可选过滤因参数恒为空值而永不生效，
+  /// 只在真实库上表现为“传了关键字仍返回全部行”，因此按语法节点把绑定关系冻结在仓储方法上。
+  /// </remarks>
+  [Fact]
+  public void Amount_query_repository_binds_the_keyword_parameter()
+  {
+    CompilationUnitSyntax root = SourceSyntaxGuard.Read(
+      "server", "Dy.MedicalRecognition.Repository", "Queries", "MedicalRecognitionReportQueryRepository.cs");
+    MethodDeclarationSyntax method = SourceSyntaxGuard.FindSingleMethod(root, "QueryRecognitionAmountListAsync");
+    Assert.True(AmountQueryRepositoryBindsKeyword(method), "金额列表仓储方法未把关键字绑定进查询参数对象。");
+
+    // 变异证据一：绑定被删掉后判据必须判红。
+    CompilationUnitSyntax withoutBinding = SourceSyntaxGuard.Parse(
+      root.ToString().Replace("Keyword = keyword", string.Empty, StringComparison.Ordinal));
+    Assert.False(
+      AmountQueryRepositoryBindsKeyword(SourceSyntaxGuard.FindSingleMethod(withoutBinding, "QueryRecognitionAmountListAsync")),
+      "判据对缺少关键字绑定的方法仍判为通过。");
+
+    // 变异证据二：绑定到错误来源（标准项目编码）后判据必须判红。
+    CompilationUnitSyntax wrongSource = SourceSyntaxGuard.Parse(
+      root.ToString().Replace("Keyword = keyword", "Keyword = standardProjectCode", StringComparison.Ordinal));
+    Assert.False(
+      AmountQueryRepositoryBindsKeyword(SourceSyntaxGuard.FindSingleMethod(wrongSource, "QueryRecognitionAmountListAsync")),
+      "判据对绑定到错误来源的方法仍判为通过。");
+  }
+
+  /// <summary>
+  /// V32（请求校验面）：空白或缺失的关键字都通过请求校验，由应用层按“未提供”处理，不在请求层拒绝。
+  /// </summary>
+  /// <remarks>
+  /// 标准项目编码仍保持“传入即非空白”的旧口径，两个可选条件的空白语义因此必须分别声明，不能互相套用。
+  /// </remarks>
+  [Fact]
+  public void Amount_query_requests_accept_blank_keyword()
+  {
+    Assert.Null(Record.Exception(() => Application.Contracts.Validation.MedicalRecognitionRequestValidator.Validate(PlatformRequest(keyword: null))));
+    Assert.Null(Record.Exception(() => Application.Contracts.Validation.MedicalRecognitionRequestValidator.Validate(PlatformRequest(keyword: "   "))));
+    Assert.Null(Record.Exception(() => Application.Contracts.Validation.MedicalRecognitionRequestValidator.Validate(BranchRequest(keyword: null))));
+    Assert.Null(Record.Exception(() => Application.Contracts.Validation.MedicalRecognitionRequestValidator.Validate(BranchRequest(keyword: "   "))));
+  }
+
+  /// <summary>
+  /// V32（应用层）：关键字缺失或去首尾空白后为空时按未提供处理，非空白关键字去首尾空白后传给查询端口。
+  /// </summary>
+  /// <remarks>
+  /// 两个金额查询入口共用同一归一化口径：空白关键字原样下发时，语句里的可选过滤会把它当成字面内容匹配，
+  /// “空白关键字返回该范围全部行”就无法成立。本用例对两个入口分别断言查询端口收到的关键字。
+  /// </remarks>
+  /// <param name="keyword">请求提交的关键字。</param>
+  /// <param name="expectedRepositoryKeyword">期望查询端口收到的关键字。</param>
+  [Theory]
+  [InlineData(null, null)]
+  [InlineData("", null)]
+  [InlineData("   ", null)]
+  [InlineData("\t\n", null)]
+  [InlineData("血", "血")]
+  [InlineData("  血  ", "血")]
+  public async Task Amount_query_entrypoints_normalize_keyword_before_reaching_the_query_port(string? keyword, string? expectedRepositoryKeyword)
+  {
+    UseTrustedContext();
+
+    FakeQueryRepository platformRepository = new([BuildItem()]);
+    MedicalRecognitionReportQueryAppService platformService = CreateService(platformRepository, CreateTrustedOrganizationService());
+    await platformService.QueryRecognitionAmountListAsync(PlatformRequest(keyword: keyword));
+    Assert.Equal(expectedRepositoryKeyword, platformRepository.ReceivedQuery?.Keyword);
+
+    FakeQueryRepository branchRepository = new([BuildItem()]);
+    MedicalRecognitionReportQueryAppService branchService = CreateService(branchRepository, CreateTrustedOrganizationService());
+    await branchService.QueryBranchRecognitionAmountListAsync(BranchRequest(keyword: keyword));
+    Assert.Equal(expectedRepositoryKeyword, branchRepository.ReceivedQuery?.Keyword);
+  }
+
   /// <summary>V18/V26：两个金额查询请求的字段集合与设计一致，且都不携带操作人、操作时间、内部标识或授权结论字段。</summary>
   [Fact]
   public void Amount_query_requests_expose_only_the_designed_members()
   {
     Assert.Equal(
-      ["BranchCode", "HospitalCode", "OrganizationCode", "StandardProjectCode"],
+      ["BranchCode", "HospitalCode", "Keyword", "OrganizationCode", "StandardProjectCode"],
       typeof(RecognitionAmountListQueryRequest).GetProperties().Select(property => property.Name).OrderBy(name => name, StringComparer.Ordinal));
     Assert.Equal(
-      ["BranchCode", "StandardProjectCode"],
+      ["BranchCode", "Keyword", "StandardProjectCode"],
       typeof(BranchRecognitionAmountListQueryRequest).GetProperties().Select(property => property.Name).OrderBy(name => name, StringComparer.Ordinal));
 
     // 医院管理员入口的请求不得提交组织与医院，也不得提交授权结论。
@@ -367,7 +507,7 @@ public sealed class Stage3QueryTests
     Assert.Equal("示例组织", item.OrganizationName);
     Assert.Equal("示例医院", item.HospitalName);
     Assert.Equal("示例院区", item.BranchName);
-    Assert.Equal((TrustedOrganization, TrustedHospital, TrustedBranch, (string?)null), repository.ReceivedQuery);
+    Assert.Equal((TrustedOrganization, TrustedHospital, TrustedBranch, (string?)null, (string?)null), repository.ReceivedQuery);
     Assert.Equal(1, repository.CallCount);
   }
 
@@ -450,7 +590,7 @@ public sealed class Stage3QueryTests
       PlatformRequest(organizationCode: OtherOrganization, hospitalCode: OtherHospital, branchCode: OtherBranch)));
 
     // 查询端口收到的组织编码必须是请求值，不是可信上下文值：收到可信值说明被静默改写成"只查自己"。
-    Assert.Equal((OtherOrganization, OtherHospital, OtherBranch, (string?)null), repository.ReceivedQuery);
+    Assert.Equal((OtherOrganization, OtherHospital, OtherBranch, (string?)null, (string?)null), repository.ReceivedQuery);
     Assert.Equal("另一个组织", item.OrganizationName);
     Assert.Equal("另一个组织的医院", item.HospitalName);
     Assert.Equal("另一个组织的院区", item.BranchName);
@@ -526,28 +666,33 @@ public sealed class Stage3QueryTests
   /// <param name="hospitalCode">请求医院编码。</param>
   /// <param name="branchCode">请求院区编码。</param>
   /// <param name="standardProjectCode">可选标准项目编码。</param>
+  /// <param name="keyword">可选关键字。</param>
   /// <returns>可直接交给查询入口的请求。</returns>
   private static RecognitionAmountListQueryRequest PlatformRequest(
     string organizationCode = TrustedOrganization,
     string hospitalCode = TrustedHospital,
     string branchCode = TrustedBranch,
-    string? standardProjectCode = null) => new()
+    string? standardProjectCode = null,
+    string? keyword = null) => new()
     {
       OrganizationCode = organizationCode,
       HospitalCode = hospitalCode,
       BranchCode = branchCode,
-      StandardProjectCode = standardProjectCode
+      StandardProjectCode = standardProjectCode,
+      Keyword = keyword
     };
 
   /// <summary>构造医院管理员入口的金额列表查询条件；该请求不含组织与医院。</summary>
   /// <param name="standardProjectCode">可选标准项目编码。</param>
   /// <param name="branchCode">请求院区编码。</param>
+  /// <param name="keyword">可选关键字。</param>
   /// <returns>可直接交给查询入口的请求。</returns>
   private static BranchRecognitionAmountListQueryRequest BranchRequest(
-    string? standardProjectCode = null, string branchCode = TrustedBranch) => new()
+    string? standardProjectCode = null, string branchCode = TrustedBranch, string? keyword = null) => new()
     {
       BranchCode = branchCode,
-      StandardProjectCode = standardProjectCode
+      StandardProjectCode = standardProjectCode,
+      Keyword = keyword
     };
 
   /// <summary>构造只含可信组织路径的替身：一个组织、一家医院、一个院区，三层都启用。</summary>
@@ -692,6 +837,58 @@ public sealed class Stage3QueryTests
   }
 
   /// <summary>
+  /// 判断金额查询语句的关键字过滤片段是否按四列字面包含匹配：四列都用 lower 包裹、
+  /// 都拼接同一段转义后的关键字模式并声明转义符，四个条件之间用 or 连接。
+  /// </summary>
+  /// <param name="fragment">关键字过滤片段的文本。</param>
+  /// <returns>四列与连接方式全部符合时为 <see langword="true"/>。</returns>
+  private static bool AmountQueryKeywordFilterMatchesFourColumns(string fragment)
+  {
+    string sql = NormalizeSqlText(fragment);
+    const string literalContainment =
+      "like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'";
+
+    foreach (string column in new[] { "lower(m.standard_project_code)", "lower(i.name)", "lower(c.name)", "lower(g.name)" })
+    {
+      if (!sql.Contains($"{column} {literalContainment}", StringComparison.Ordinal)) return false;
+    }
+
+    // 四个条件恰好由三个 or 连接，任一列命中即返回该行。
+    return CountOccurrences(sql, " or ") == 3;
+  }
+
+  /// <summary>
+  /// 判断金额列表仓储方法是否把查询参数对象里的关键字绑定到方法的关键字入参。
+  /// </summary>
+  /// <param name="method">仓储方法声明节点。</param>
+  /// <returns>存在 <c>Keyword = keyword</c> 形式的绑定时为 <see langword="true"/>。</returns>
+  private static bool AmountQueryRepositoryBindsKeyword(MethodDeclarationSyntax method) =>
+    method.DescendantNodes().OfType<AnonymousObjectCreationExpressionSyntax>()
+      .Any(parameters => parameters.Initializers.Any(initializer =>
+        initializer.NameEquals?.Name.Identifier.ValueText == "Keyword" &&
+        initializer.Expression is IdentifierNameSyntax identifier &&
+        identifier.Identifier.ValueText == "keyword"));
+
+  /// <summary>
+  /// 统计文本中某一段连续出现的次数，用于冻结“或”连接的条件个数。
+  /// </summary>
+  /// <param name="text">待统计的文本。</param>
+  /// <param name="token">要统计的片段。</param>
+  /// <returns>片段出现次数。</returns>
+  private static int CountOccurrences(string text, string token)
+  {
+    int count = 0;
+    int index = text.IndexOf(token, StringComparison.Ordinal);
+    while (index >= 0)
+    {
+      count++;
+      index = text.IndexOf(token, index + token.Length, StringComparison.Ordinal);
+    }
+
+    return count;
+  }
+
+  /// <summary>
   /// 把 SQL 文本中的换行与连续空白归一为单个空格，使冻结判据只对语句内容敏感、不对映射文件排版敏感。
   /// </summary>
   /// <param name="text">SQL 文本或语句片段。</param>
@@ -736,17 +933,17 @@ public sealed class Stage3QueryTests
     /// <summary>金额查询返回的投影集合。</summary>
     public IEnumerable<RecognitionAmountListItem> Items { get; }
 
-    /// <summary>本次金额查询收到的业务键；未进入查询端口时为 null。</summary>
-    public (string OrganizationCode, string HospitalCode, string BranchCode, string? StandardProjectCode)? ReceivedQuery { get; private set; }
+    /// <summary>本次金额查询收到的业务键与关键字；未进入查询端口时为 null。</summary>
+    public (string OrganizationCode, string HospitalCode, string BranchCode, string? StandardProjectCode, string? Keyword)? ReceivedQuery { get; private set; }
 
     /// <summary>进入金额查询端口的次数。</summary>
     public int CallCount { get; private set; }
 
     /// <inheritdoc/>
-    public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode)
+    public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode, string? keyword)
     {
       CallCount++;
-      ReceivedQuery = (organizationCode, hospitalCode, branchCode, standardProjectCode);
+      ReceivedQuery = (organizationCode, hospitalCode, branchCode, standardProjectCode, keyword);
       return Task.FromResult(Items);
     }
 

@@ -1,86 +1,86 @@
 ---
 name: gitnexus-area-dy-medicalrecognition-tests
-description: "Skill for the Dy.MedicalRecognition.Tests area of Lis. 344 symbols across 35 files."
+description: "Skill for the Dy.MedicalRecognition.Tests area of Lis. 1049 symbols across 69 files."
 ---
 
 # Dy.MedicalRecognition.Tests
 
-344 symbols | 35 files | Cohesion: 89%
+1049 symbols | 69 files | Cohesion: 84%
 
 ## When to Use
 
 - Working with code in `server/`
-- Understanding how MutualRecognitionItem, CreateMutualRecognitionItemAsync, DisableMutualRecognitionItemAsync work
+- Understanding how PlatformPatient, RecognitionMatchRecord, RecognitionMatchItem work
 - Modifying dy.medicalrecognition.tests-related functionality
 
 ## Key Files
 
 | File | Symbols |
 |------|---------|
-| `server/Dy.MedicalRecognition.Tests/Stage2WritePathTests.cs` | ApplyConditionalStateChange, DisableMutualRecognitionItemAsync, EnableMutualRecognitionItemAsync, GetMedicalStandardItemByCodeAsync, GetMutualRecognitionItemByIdAsync (+59) |
-| `server/Dy.MedicalRecognition.Tests/Stage3WritePathTests.cs` | DisableMutualRecognitionItemAsync, EnableMutualRecognitionItemAsync, GetMedicalStandardItemByCodeAsync, GetMutualRecognitionItemByIdAsync, UpdateMutualRecognitionItemConfigurationAsync (+51) |
-| `server/Dy.MedicalRecognition.Tests/Stage3QueryTests.cs` | QueryRecognitionProjectConfigurationListAsync, CountingOrganizationAppService, AddOtherOrganization, AddTrustedOrganization, Amount_list_follows_category_group_item_priority (+30) |
-| `server/Dy.MedicalRecognition.Tests/Stage3TrustedScopeTests.cs` | QueryRecognitionProjectConfigurationListAsync, AmountQueryRepository, Branch_query_entrypoint_passes_the_profile_filled_scope_to_the_repository, BuildTwoHospitalService, BuildUserService (+16) |
-| `server/Dy.MedicalRecognition.Tests/Stage3OrganizationPathTests.cs` | BuildBranch, BuildHospital, BuildOrganization, BuildPathService, External_read_counts_do_not_grow_with_the_number_of_target_rows (+15) |
-| `server/Dy.MedicalRecognition.Tests/Stage1SqlMapProbeTests.cs` | FindHostOutputDirectory, Flatten, GetRegisteredKeys, Invoke, LoadAssembly (+13) |
-| `server/Dy.MedicalRecognition.Tests/Stage2QueryTests.cs` | QueryRecognitionProjectConfigurationListAsync, BuildItem, Configuration_list_has_no_unavailable_reason_when_catalog_layers_are_enabled, Configuration_status_filter_maps_to_the_enabled_column, Query (+11) |
-| `server/Dy.MedicalRecognition.Tests/Stage2EnumMetadataQueryTests.cs` | Frozen_openapi_exposes_enum_metadata_endpoint_and_read_model_texts, Generated_client_exposes_enum_metadata_api_and_text_fields, ExtensionValues, OpenApi_enum_contract_matches_the_enum_source_declarations, Enum_metadata_registry_consumption_check_rejects_reflection_or_direct_descriptor_use (+8) |
-| `server/Dy.MedicalRecognition.Tests/Stage3SqlMapTests.cs` | Amount_ddl_freezes_physical_table_columns_types_and_negatives, Amount_ddl_freezes_table_column_and_index_comments, ExtractCreateTableColumnLines, FindRepositoryFile, Amount_sql_map_freezes_scope_statement_ids_and_removes_unused_query (+7) |
-| `server/Dy.MedicalRecognition.Tests/Stage1ArchitectureTests.cs` | Backend_source_does_not_control_transactions_manually, FindProviderNeutralityViolations, IsProviderNeutralityGovernedFile, Public_types_and_shared_sql_stay_database_provider_neutral, Test_runner_disables_assembly_and_collection_parallelization (+5) |
+| `server/Dy.MedicalRecognition.Tests/Stage5WritePathTests.cs` | MatchFixture, AddLaboratoryReportFacts, AssertNothingWritten, BuildRequest, Candidate_selection_breaks_ties_by_report_version_id_ascending (+114) |
+| `server/Dy.MedicalRecognition.Tests/Stage6StatisticsQueryTests.cs` | Branch_export_injects_local_branch_filter_when_provided, Branch_export_injects_local_source_branch_filter_when_provided, Branch_export_injects_trusted_receiver_scope_and_resolves_source_group, Branch_export_locks_source_side_to_the_trusted_scope, Branch_source_details_inject_trusted_source_scope_and_push_receiver_filters (+93) |
+| `server/Dy.MedicalRecognition.Tests/Stage2WritePathTests.cs` | Batch_create_request_declares_collection_and_positive_duration_rules, Batch_create_request_rejects_code_collections_above_the_declared_limit, Duration_days_must_be_a_positive_integer_on_create_and_update_requests, AddConfiguration, Batch_create_never_partially_writes_on_any_rejection (+82) |
+| `server/Dy.MedicalRecognition.Tests/Stage4WritePathTests.cs` | Abnormal_flag_accepts_the_four_defined_values, BacteriaResult, Bacteria_result_required_fields_reject_the_report, CommonVersion, CreateManager (+68) |
+| `server/Dy.MedicalRecognition.Tests/Stage5SqlMapTests.cs` | DesignPath, EntityColumnOrderViolations, EntityMapPath, EntityMapStatement, Recognition_sql_maps_freeze_scopes_and_statement_ids (+55) |
+| `server/Dy.MedicalRecognition.Tests/Stage3WritePathTests.cs` | Amount_request_accepts_zero_and_regular_amount, GetOrganizationHospitalBranchRecognitionAmountByBusinessKeyAsync, AddMutualRecognitionConfiguration, AddSavedAmount, Amount_request_declares_required_amount (+47) |
+| `server/Dy.MedicalRecognition.Tests/Stage3QueryTests.cs` | Amount_query_requests_expose_only_the_designed_members, AssertInvalid, CountingOrganizationAppService, AddOtherOrganization, AddTrustedOrganization (+37) |
+| `server/Dy.MedicalRecognition.Tests/Stage5QueryTests.cs` | CitationFixture, All_adopted_items_with_invalidated_versions_report_the_version_reason_alone, AssertNothingWritten, BuildRequest, BuildSeed (+30) |
+| `server/Dy.MedicalRecognition.Tests/Stage5ConstraintTests.cs` | Host_keeps_the_frozen_handwritten_controller_set, Shared_syntax_guard_is_reused_without_a_second_declaration, TransactionDeclarations, TransactionDeclarationsOf, Transaction_declarations_match_the_frozen_distribution (+24) |
+| `server/Dy.MedicalRecognition.Tests/Stage5RequestAndReadModelContractTests.cs` | BusinessFieldNames, Citation_detail_request_omits_platform_patient_and_match_locators, DeclaredPropertyNames, Four_requests_carry_no_trusted_scope_or_operator_field, Four_requests_expose_exactly_the_v81_field_set (+24) |
 
 ## Entry Points
 
 Start here when exploring this area:
 
-- **`MutualRecognitionItem`** (Class) — `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/MutualRecognitionItem.cs:5`
-- **`CreateMutualRecognitionItemAsync`** (Method) — `server/Dy.MedicalRecognition.Application/MedicalRecognitionReportAggregate/MedicalRecognitionReportAppService.cs:293`
-- **`DisableMutualRecognitionItemAsync`** (Method) — `server/Dy.MedicalRecognition.Application/MedicalRecognitionReportAggregate/MedicalRecognitionReportAppService.cs:365`
-- **`EnableMutualRecognitionItemAsync`** (Method) — `server/Dy.MedicalRecognition.Application/MedicalRecognitionReportAggregate/MedicalRecognitionReportAppService.cs:342`
-- **`UpdateMutualRecognitionItemConfigurationAsync`** (Method) — `server/Dy.MedicalRecognition.Application/MedicalRecognitionReportAggregate/MedicalRecognitionReportAppService.cs:318`
+- **`PlatformPatient`** (Class) — `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/PlatformPatient.cs:8`
+- **`RecognitionMatchRecord`** (Class) — `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/RecognitionMatchRecord.cs:8`
+- **`RecognitionMatchItem`** (Class) — `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/RecognitionMatchItem.cs:8`
+- **`RecognitionProcessingResult`** (Class) — `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/RecognitionProcessingResult.cs:8`
+- **`RecognitionReference`** (Class) — `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/RecognitionReference.cs:8`
 
 ## Key Symbols
 
 | Symbol | Type | File | Line |
 |--------|------|------|------|
-| `MutualRecognitionItem` | Class | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/MutualRecognitionItem.cs` | 5 |
-| `CreateMutualRecognitionItemAsync` | Method | `server/Dy.MedicalRecognition.Application/MedicalRecognitionReportAggregate/MedicalRecognitionReportAppService.cs` | 293 |
-| `DisableMutualRecognitionItemAsync` | Method | `server/Dy.MedicalRecognition.Application/MedicalRecognitionReportAggregate/MedicalRecognitionReportAppService.cs` | 365 |
-| `EnableMutualRecognitionItemAsync` | Method | `server/Dy.MedicalRecognition.Application/MedicalRecognitionReportAggregate/MedicalRecognitionReportAppService.cs` | 342 |
-| `UpdateMutualRecognitionItemConfigurationAsync` | Method | `server/Dy.MedicalRecognition.Application/MedicalRecognitionReportAggregate/MedicalRecognitionReportAppService.cs` | 318 |
-| `CreateMutualRecognitionItemDisabledEvent` | Method | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/Commands/DisableMutualRecognitionItemCommand.cs` | 40 |
-| `CreateMutualRecognitionItemEnabledEvent` | Method | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/Commands/EnableMutualRecognitionItemCommand.cs` | 39 |
-| `CreateMutualRecognitionItemConfigurationUpdatedEvent` | Method | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/Commands/UpdateMutualRecognitionItemConfigurationCommand.cs` | 42 |
-| `DisableMutualRecognitionItemAsync` | Method | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/MedicalRecognitionReportManager.cs` | 328 |
-| `EnableMutualRecognitionItemAsync` | Method | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/MedicalRecognitionReportManager.cs` | 299 |
-| `UpdateMutualRecognitionItemConfigurationAsync` | Method | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/MedicalRecognitionReportManager.cs` | 276 |
-| `DisableMutualRecognitionItemAsync` | Method | `server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.cs` | 131 |
-| `EnableMutualRecognitionItemAsync` | Method | `server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.cs` | 125 |
-| `GetMedicalStandardItemByCodeAsync` | Method | `server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.cs` | 86 |
-| `GetMutualRecognitionItemByIdAsync` | Method | `server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.cs` | 113 |
-| `UpdateMutualRecognitionItemConfigurationAsync` | Method | `server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.cs` | 119 |
-| `DisableMutualRecognitionItemAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage2WritePathTests.cs` | 1439 |
-| `EnableMutualRecognitionItemAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage2WritePathTests.cs` | 1429 |
-| `GetMedicalStandardItemByCodeAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage2WritePathTests.cs` | 1361 |
-| `GetMutualRecognitionItemByIdAsync` | Method | `server/Dy.MedicalRecognition.Tests/Stage2WritePathTests.cs` | 1380 |
+| `PlatformPatient` | Class | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/PlatformPatient.cs` | 8 |
+| `RecognitionMatchRecord` | Class | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/RecognitionMatchRecord.cs` | 8 |
+| `RecognitionMatchItem` | Class | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/RecognitionMatchItem.cs` | 8 |
+| `RecognitionProcessingResult` | Class | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/RecognitionProcessingResult.cs` | 8 |
+| `RecognitionReference` | Class | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/RecognitionReference.cs` | 8 |
+| `OrganizationHospitalBranchRecognitionAmount` | Class | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/OrganizationHospitalBranchRecognitionAmount.cs` | 8 |
+| `LocalReportPdfFileStore` | Class | `server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/LocalReportPdfFileStore.cs` | 13 |
+| `MedicalRecognitionReportQueryAppService` | Class | `server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Citation.cs` | 20 |
+| `Stage5SqlMapTests` | Class | `server/Dy.MedicalRecognition.Tests/Stage5SqlMapTests.cs` | 23 |
+| `MedicalRecognitionReportQueryRepository` | Class | `server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.cs` | 15 |
+| `MedicalRecognitionReportRepository` | Class | `server/Dy.MedicalRecognition.Repository/MedicalRecognitionReportAggregate/MedicalRecognitionReportRepository.cs` | 18 |
+| `MedicalRecognitionReportAppService` | Class | `server/Dy.MedicalRecognition.Application/MedicalRecognitionReportAggregate/MedicalRecognitionReportAppService.Matching.cs` | 24 |
+| `IReportPdfFileStore` | Interface | `server/Dy.MedicalRecognition.Application.Contracts/MedicalRecognitionReportAggregate/IReportPdfFileStore.cs` | 9 |
+| `IMedicalRecognitionReportQueryRepository` | Interface | `server/Dy.MedicalRecognition.Domain/Queries/Ports/IMedicalRecognitionReportQueryRepository.Citation.cs` | 10 |
+| `IMedicalRecognitionReportRepository` | Interface | `server/Dy.MedicalRecognition.Domain/MedicalRecognitionReportAggregate/Ports/IMedicalRecognitionReportRepository.Matching.cs` | 10 |
+| `Branch_export_injects_local_branch_filter_when_provided` | Method | `server/Dy.MedicalRecognition.Tests/Stage6StatisticsQueryTests.cs` | 2440 |
+| `Branch_export_injects_local_source_branch_filter_when_provided` | Method | `server/Dy.MedicalRecognition.Tests/Stage6StatisticsQueryTests.cs` | 2493 |
+| `Branch_export_injects_trusted_receiver_scope_and_resolves_source_group` | Method | `server/Dy.MedicalRecognition.Tests/Stage6StatisticsQueryTests.cs` | 2405 |
+| `Branch_export_locks_source_side_to_the_trusted_scope` | Method | `server/Dy.MedicalRecognition.Tests/Stage6StatisticsQueryTests.cs` | 2465 |
+| `Branch_source_details_inject_trusted_source_scope_and_push_receiver_filters` | Method | `server/Dy.MedicalRecognition.Tests/Stage6StatisticsQueryTests.cs` | 1600 |
 
 ## Execution Flows
 
 | Flow | Type | Steps |
 |------|------|-------|
-| `SaveBranchRecognitionAmountAsync → TrimCode` | cross_community | 5 |
-| `SaveBranchRecognitionAmountAsync → TargetOrganization` | cross_community | 4 |
-| `SaveBranchRecognitionAmountAsync → TrimCode` | cross_community | 4 |
-| `SaveBranchRecognitionAmountAsync → AddTarget` | cross_community | 4 |
-| `SaveBranchRecognitionAmountAsync → TrustedScope` | cross_community | 4 |
-| `SaveOrganizationHospitalBranchRecognitionAmountAsync → GetMutualRecognitionItemByOrganizationAndProjectAsync` | cross_community | 4 |
-| `SaveOrganizationHospitalBranchRecognitionAmountAsync → GetMutualRecognitionItemByOrganizationAndProjectAsync` | cross_community | 4 |
-| `SaveOrganizationHospitalBranchRecognitionAmountAsync → GetMutualRecognitionItemByOrganizationAndProjectAsync` | cross_community | 4 |
-| `SaveOrganizationHospitalBranchRecognitionAmountAsync → GetMutualRecognitionItemByOrganizationAndProjectAsync` | cross_community | 4 |
-| `SaveOrganizationHospitalBranchRecognitionAmountAsync → TargetOrganization` | cross_community | 4 |
+| `SubmitRecognitionProcessingResultsAsync → IsSimple` | intra_community | 4 |
+| `SubmitCompleteExaminationReportAsync → IsSimple` | cross_community | 4 |
+| `SubmitCompleteLaboratoryReportAsync → IsSimple` | cross_community | 4 |
+| `SaveBranchRecognitionAmountAsync → IsSimple` | cross_community | 4 |
+| `SaveOrganizationHospitalBranchRecognitionAmountAsync → IsSimple` | cross_community | 4 |
+| `QueryBranchMedicalReportListAsync → IsSimple` | cross_community | 4 |
+| `QueryMedicalReportListAsync → IsSimple` | cross_community | 4 |
+| `QueryMedicalReportVersionDetailAsync → IsSimple` | cross_community | 4 |
+| `QueryMedicalReportVersionListAsync → IsSimple` | cross_community | 4 |
+| `QueryBranchRecognitionUsageDetailsAsync → IsSimple` | cross_community | 4 |
 
 ## How to Explore
 
-1. `context({name: "MutualRecognitionItem"})` — see callers and callees
+1. `context({name: "PlatformPatient"})` — see callers and callees
 2. `query({search_query: "dy.medicalrecognition.tests"})` — find related execution flows
 3. Read key files listed above for implementation details
 4. `explain({target: "<file or symbol>"})` — persisted taint findings (source→sink data flows), when indexed with `--pdg`

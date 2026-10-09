@@ -1,7 +1,19 @@
 .recognition-amounts-page { min-width: 0; max-width: 100%; }
 .recognition-amounts-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .recognition-amounts-header h2.ant-typography { margin: 0; }
+/* 页头右侧的三级范围：上行名称、下行编码，整体右对齐；名称行只在名称就绪后出现。 */
+.recognition-amounts-header-scope { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: right; }
+.recognition-amounts-scope-names { display: flex; gap: 12px; font-weight: 600; }
+.recognition-amounts-scope-codes { display: flex; gap: 12px; color: rgba(0, 0, 0, 0.45); font-size: 12px; font-variant-numeric: tabular-nums; }
 .recognition-amounts-scope { margin-bottom: 16px; }
+/* 筛选区：关键字输入框与搜索主按钮在前，两个状态 Segmented 随后，换行时机由容器宽度决定。 */
+.recognition-amounts-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.recognition-amounts-keyword { width: 260px; }
+/* 层级格纵向跨多行：离屏时跳过渲染并声明固有尺寸估计，行高按常见单行层级格估算。 */
+.recognition-amounts-level-cell { content-visibility: auto; contain-intrinsic-size: auto 48px; }
+.recognition-amounts-project { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }
+.recognition-amounts-project-code { color: rgba(0, 0, 0, 0.45); }
 .recognition-amounts-number { font-variant-numeric: tabular-nums; }
+.recognition-amounts-count { margin-top: 8px; text-align: right; color: rgba(0, 0, 0, 0.45); }
 .recognition-amounts-failure { margin-bottom: 12px; }
 .recognition-amounts-prompt { margin-bottom: 12px; }

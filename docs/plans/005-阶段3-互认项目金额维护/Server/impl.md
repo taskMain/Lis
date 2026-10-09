@@ -13,6 +13,7 @@
 | 3 | 金额查询：契约、内部投影、查询仓储与查询 SQL | 后端主责：`Application.Contracts/Queries`、`Domain/Queries`、`Repository/Queries` | 批次 1；可与批次 2 并行设计 | V17-V22、V26、V29（应用层证据；真实宿主面按 S3-D20 记 `Blocked`）、V30 | 已完成：查询由互认配置驱动、金额表按业务键 LEFT JOIN；只读模型按 S3-D21 交付 `ItemTypeText`/`ConfigurationStatusText`；V29 的跨组织真实宿主面按 S3-D20 接受 |
 | 4 | 最终 DDL 与 SqlMap 映射核对 | 后端主责：`Repository/Scripts/`、`Repository/` | 设计确认；独立脚本可先交付；建表由负责人执行 | V23-V24 | 已完成：脚本已交付并由负责人执行建表；SqlMap 与实体映射经静态核对与真实读写验证（金额表当前 11 行） |
 | 5 | 真实数据库与宿主验收 | 测试主责：阶段 `testReport.md` | 批次 4 完成建表、批次 1 组织服务实测可用、宿主身份与菜单就绪 | V1-V3、V7、V11、V15-V17、V20-V21、V23-V24、V27 | 已完成：两身份、两院区的真实写入与只读回读一致；8 条不可构造项按环境边界登记 |
+| 6 | 重开轮关键字下推（票 10 第一棒）：两个金额查询 Request 各增可选 `Keyword`，查询端口与仓储实现增参数并绑定，`QueryRecognitionAmountList` 语句增四列关键字过滤，应用层把空白关键字归一为未提供 | 后端主责：`Application.Contracts/Queries`、`Domain/Queries`、`Repository/Queries`、`Application/Queries` | 批次 3；阶段根设计 S3-D26 已确认 | V31-V33（全层级） | 已完成：两轮断言级失败基线、全量测试 833 通过 0 失败（回改复审后的终值）、`git diff --check` 干净、运行时 OpenAPI 两个请求 schema 只多出可选 `keyword` 且 path 集合与冻结快照一致（57 = 57）；V31、V32 的真实库与真实入口面已于 2026-10-09 环境恢复后复测并记 `Passed`，证据与命令见阶段根 [testReport.md](../testReport.md) 的「重开轮：两金额页统一（票 10 后端第一棒）」节与结果表该两行 |
 
 矩阵编号可跨静态与真实验证批次引用，但按完整用例只统计一次；只完成部分层级不得把整条用例记为通过。
 

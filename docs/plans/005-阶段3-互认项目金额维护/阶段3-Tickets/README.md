@@ -1,6 +1,6 @@
 # 阶段 3 任务票约定
 
-本目录是阶段 3「互认项目金额维护」的执行任务票，来源为阶段设计（`design.md`、`Server/design.md`、`Client/design.md`）、实施批次（`impl.md`、`Server/impl.md`、`Client/impl.md`）与验证矩阵（`Server/design.md` 的验证矩阵章 V1-V30、`Client/testPlan.md` 的 C1-C26）。票面只做执行分解，不自定业务语义。
+本目录是阶段 3「互认项目金额维护」的执行任务票，来源为阶段设计（`design.md`、`Server/design.md`、`Client/design.md`）、实施批次（`impl.md`、`Server/impl.md`、`Client/impl.md`）与验证矩阵（`Server/design.md` 的验证矩阵章 V1-V33、`Client/testPlan.md` 的 C1-C36）。票面只做执行分解，不自定业务语义。
 
 ## 票一览
 
@@ -15,6 +15,7 @@
 | 07 | 两个页面与路由 | 05、06 |
 | 08 | 后端真实数据库验收 | 04 |
 | 09 | 宿主链路验收与阶段报告 | 04、07 |
+| 10 | 两金额页与互认项目页统一重开轮 | 05、06（重开轮另需 S3-D26 的关键字契约，见票内说明） |
 
 ## 约定
 
@@ -44,3 +45,4 @@
 | 页面与组件的组件层 | `Client/testPlan.md` 的 `Component` | 07 |
 | 真实数据库与真实生产入口层 | `Static/DB`、`Framework/Integration`；矩阵「真实数据库」列为是 | 08 |
 | 宿主面 | `Client/testPlan.md` 的 `Host` | 09 |
+| 组件层与后端 V31-V33 全层级 | `Client/testPlan.md` 的 `Component`；`Server/design.md` 的 `Contract`、`Query` | 10 |

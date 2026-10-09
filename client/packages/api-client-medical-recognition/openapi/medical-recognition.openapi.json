@@ -4327,6 +4327,12 @@
               "null",
               "string"
             ]
+          },
+          "keyword": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -6583,6 +6589,12 @@
             "type": "string"
           },
           "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "keyword": {
             "type": [
               "null",
               "string"
