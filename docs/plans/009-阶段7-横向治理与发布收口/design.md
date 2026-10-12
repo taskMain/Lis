@@ -38,7 +38,7 @@
 
 ### 4. 同步原阶段文件
 
-本阶段实际改动了某阶段代码或口径时，同步该阶段文档到最终状态：design 改为最终口径（不保留历史方案、不新增「本轮修改」章节）、testReport 补记证据与残余。S7-D8 的同步范围全量清单：阶段 4 根 design（S4-D12 等处）、阶段 4 Server/design（字段脱敏段与矩阵 V74）、阶段 4 Client/design、阶段 4 规格与相关 Ticket、阶段 4 根 testReport；阶段 4 代码（Application 层版本详情投影的掩码处理与读模型注释、Stage4QueryTests/Stage4ContractTests 断言）与前端测试期望（ReportManagement.test.tsx、reportsApi.test.ts）；阶段 6 S6-D9「已接受偏差」表述的关闭回写（登记 V19）。患者脱敏与联系电话展示口径已修订（2026-09-21，SRS 修订历史记录 V0.10），随本设计确认定稿。未改动的阶段不顺带重写。每个同步动作对应本阶段矩阵一个用例编号（V17-V20、C20），证据写入本阶段 testReport；同步不改变各阶段既有历史证据，只更新现行设计与状态。
+本阶段实际改动了某阶段代码或口径时，同步该阶段文档到最终状态：design 改为最终口径（不保留历史方案、不新增「本轮修改」章节）、testReport 补记证据与残余。S7-D8 的同步范围全量清单：阶段 4 根 design（S4-D12 等处）、阶段 4 Server/design（字段脱敏段与矩阵 V74）、阶段 4 Client/design、阶段 4 相关 Ticket、阶段 4 根 testReport；阶段 4 代码（Application 层版本详情投影的掩码处理与读模型注释、Stage4QueryTests/Stage4ContractTests 断言）与前端测试期望（ReportManagement.test.tsx、reportsApi.test.ts）；阶段 6 S6-D9「已接受偏差」表述的关闭回写（登记 V19）。患者脱敏与联系电话展示口径已修订（2026-09-21，SRS 修订历史记录 V0.10），随本设计确认定稿。未改动的阶段不顺带重写。每个同步动作对应本阶段矩阵一个用例编号（V17-V20、C20），证据写入本阶段 testReport；同步不改变各阶段既有历史证据，只更新现行设计与状态。
 
 ## 排除项核对清单
 

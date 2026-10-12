@@ -444,6 +444,6 @@ V56「检查项目与部位可选人员成对规则」：检查项目与检查�
 | 未改动 | 生产代码、管理器的两端边界校验、`Void_time_boundaries_are_enforced` 用例（继续守「早一秒拒绝、晚一秒拒绝、两端相等接受」）均原样保留；矩阵条目状态不因本次修复改变 |
 | 证据 | `dotnet test server/Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj` **816 通过 / 0 失败 / 0 跳过（816）** |
 
-该文件另有一条既有审查记录仍然成立、本次未处置：[阶段4-代码与规范符合性审查结果](阶段4-审查相关/阶段4-代码与规范符合性审查结果.md) 的低风险项「依赖当前时间：`Stage4WritePathTests.cs:94-97` 使用 `Math.Abs((version.ReceivedTime - DateTime.Now).TotalMinutes) < 5`，属 `testing-baseline.md` 第 2 节禁止的依赖当前时间写法，建议改为可控时钟」。本次修复只把作废事实的时间锚到同一时点，未改变该断言的写法。
+既往代码与规范符合性审查中有一条低风险项仍然成立、本次未处置：「依赖当前时间：`Stage4WritePathTests.cs:94-97` 使用 `Math.Abs((version.ReceivedTime - DateTime.Now).TotalMinutes) < 5`，属 `testing-baseline.md` 第 2 节禁止的依赖当前时间写法，建议改为可控时钟」。本次修复只把作废事实的时间锚到同一时点，未改变该断言的写法。
 
 阶段 2 侧的同一条登记见 [阶段 2 测试报告](../004-阶段2-标准项目互认配置/testReport.md) 的「阶段 4 测试夹具时间缺陷修复（2026-10-02，同轮附带）」。

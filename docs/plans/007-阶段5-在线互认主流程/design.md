@@ -1,6 +1,6 @@
 # 阶段 5 在线互认主流程（F04+F05+F06+F07）
 
-阶段设计见 [Server/design.md](Server/design.md)；批次与矩阵编号见 [impl.md](impl.md) 与 [Server/impl.md](Server/impl.md)；测试结果见 [testReport.md](testReport.md)。规格见 [阶段5-规格.md](阶段5-规格.md)。
+阶段设计见 [Server/design.md](Server/design.md)；批次与矩阵编号见 [impl.md](impl.md) 与 [Server/impl.md](Server/impl.md)；测试结果见 [testReport.md](testReport.md)。
 
 ## 目标与范围
 

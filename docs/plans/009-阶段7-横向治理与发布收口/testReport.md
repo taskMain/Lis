@@ -154,7 +154,7 @@ V6 判定：`Passed`——拒绝面（历史版本查询路由 404 ×2）与内�
 
 **复用既有实现**：`MaskPhoneNumber` 原本承担两项职责——打星号，以及把空白归一为 `null`。同文件既有 `NullIfBlank`（`MedicalRecognitionReportQueryAppService.Reports.cs` 的私有静态方法）实现完全相同的去首尾空白与空串归 `null`，故改调用 `NullIfBlank` 即保住「来源未提供联系电话时返回空值、不补造字符串」判据（V74），未新增任何归一化辅助方法。对应空值用例 `Stage4QueryTests.Missing_phone_number_stays_null` 保持有效且未改动，其仍为 `Passed`。
 
-**V18 阶段 4 文档同步（`Passed`）**：阶段 4 `design.md`（正文与 S4-D12 决策台账行）、`Server/design.md`（患者字段展示段、矩阵 V74 行）、`Client/design.md`（患者信息展示段）、`阶段4-规格.md`（用户故事 31、Implementation Decisions、接缝 3、S4-D12 决策索引）、`阶段4-Tickets/08-管理端报告列表查询与PDF下载.md`（What to build 与验收项）均已改到最终口径，按 [Planning And Evidence](../../.agents/instructions/planning-and-evidence.md) §4 只写最终状态，未新增「本轮修改」类章节、未保留新旧对照。S4-D12 依据列与现行 `docs/需求规约SRS.md`「通用界面要求」第 2、3 条（:2341、:2343：「页面中的患者姓名、证件号码、联系电话等敏感信息按业务原值展示；MVP 不实现患者脱敏」）及 S7-D8 出处一致。
+**V18 阶段 4 文档同步（`Passed`）**：阶段 4 `design.md`（正文与 S4-D12 决策台账行）、`Server/design.md`（患者字段展示段、矩阵 V74 行）、`Client/design.md`（患者信息展示段）、阶段 4 用户故事 31、Implementation Decisions、接缝 3 与 S4-D12 决策索引（S4-D12 全文即 006 根 `design.md` 台账行，过程规格文档已删除）、`阶段4-Tickets/08-管理端报告列表查询与PDF下载.md`（What to build 与验收项）均已改到最终口径，按 [Planning And Evidence](../../.agents/instructions/planning-and-evidence.md) §4 只写最终状态，未新增「本轮修改」类章节、未保留新旧对照。S4-D12 依据列与现行 `docs/需求规约SRS.md`「通用界面要求」第 2、3 条（:2341、:2343：「页面中的患者姓名、证件号码、联系电话等敏感信息按业务原值展示；MVP 不实现患者脱敏」）及 S7-D8 出处一致。
 
 **阶段 4 根 `testReport.md` 未改写**：该文件中的 `*******1111`、`*******1234`/`*******3333` 等记录属既有历史证据，按 Planning And Evidence §4「不得改写已经形成的历史证据」与设计 §4「同步不改变各阶段既有历史证据，只更新现行设计与状态」保持原样；本轮 V17 的真实链路重取证据以本报告「票03」节补记。
 

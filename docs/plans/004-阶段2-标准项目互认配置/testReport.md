@@ -784,7 +784,7 @@ LisCenter 的枚举中文来源方式（后端 `xxxText` + `EnumMetadata` 查询
 - 错误口径沿用项目既有链路：后端遇错直接抛出（`ValidationException` 或 `InvalidOperationException`），由框架与宿主统一处理；不新增异常类型、不做异常翻译、不加包装。可提前发现的问题（组织内重复配置）在写入前查重拦截，不依赖唯一索引报错；数据库异常按原样向外传播。
 - 本轮不做并发专门设计，不新增锁、版本字段或重试；并发窗口内的唯一冲突按整批拒绝表达，已写入的行由入口事务回滚。
 - 批量入参条数上限在请求层与领域层各有一道：请求层 `[MaxLength(1000)]` 先拒绝（超出即不进领域层，超大集合不会先被反序列化），领域层同一上限作纵深防御。该改动使实时 OpenAPI 的 `standardProjectCodes` 增加 `maxItems: 1000`，包内冻结快照与 Kiota 生成物已随之重跑同步。
-- 一次性交互原型 `client/apps/dy-medical-recognition/src/pages/recognitionProjects/prototype-recognition-projects-redesign.html` 按任务交接的约定在本轮实施与宿主验收完成后删除；设计以 `Client/design.md` 为准，原型不构成规格。
+- 一次性交互原型 `client/apps/dy-medical-recognition/src/pages/recognitionProjects/prototype-recognition-projects-redesign.html` 按本轮约定在实施与宿主验收完成后删除；设计以 `Client/design.md` 为准，原型不构成规格。
 
 ### 门禁终值（本轮各端最后一次复跑）
 
