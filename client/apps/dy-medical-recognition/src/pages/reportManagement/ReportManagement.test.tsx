@@ -19,6 +19,8 @@
  * （接口失败时的业务拒绝文案由宿主展示）与真实后端链路（C27–C31）。
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -427,7 +429,8 @@ async function pickScopeOption(level: '组织' | '医院' | '院区', value: str
 /** 选组织即触发级联回填（医院、院区各取第一项），页面据此拿到三级完整范围。 */
 const selectOrganization = () => pickScopeOption('组织', 'ORG-A')
 
-const refreshButton = () => screen.getByLabelText('重新读取报告列表')
+/** 查询主按钮（提交式筛选的唯一重读入口）；读取在途时呈加载态。 */
+const searchButton = () => screen.getByRole('button', { name: '查询' })
 const dataRows = () => screen.getAllByRole('row').filter((node) => node.classList.contains('ant-table-row'))
 const columnHeaders = () => screen.getAllByRole('columnheader').map((node) => node.textContent)
 const viewDetail = (reportNo: string) => screen.getByLabelText(`查看报告详情：${reportNo}`)
@@ -492,7 +495,7 @@ async function renderLoaded(
   await act(async () => {
     pending.resolve(listResponse(items, page.pageIndex ?? 1, page.pageSize ?? 10, page.totalCount ?? items.length))
   })
-  await waitFor(() => expect(refreshButton()).toBeEnabled())
+  await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
 }
 
 /** 展开某份报告的详情并让版本列表与首个版本内容成功交付。 */
@@ -540,7 +543,7 @@ beforeEach(() => {
 })
 
 describe('C11 首次进入自动加载第一页与筛选区形态', () => {
-  it('范围未选全时不发起请求，空态提示区分「范围未选全」与「筛选无匹配」', async () => {
+  it('范围未选全时不发起请求，空态提示区分「范围未选全」与「筛选无匹配」；页头无刷新按钮', async () => {
     renderPage()
 
     expect(scopeSelect('组织')).toBeInTheDocument()
@@ -549,10 +552,12 @@ describe('C11 首次进入自动加载第一页与筛选区形态', () => {
     // 范围不完整：适配层会拒绝构造请求，页面据此不下发部分范围查询，也不退化为全局查询。
     expect(query()).not.toHaveBeenCalled()
     expect(screen.getByText('请选择组织、医院与院区后查看报告')).toBeInTheDocument()
-    expect(refreshButton()).toBeDisabled()
+    // 页头刷新按钮已移除：查询是重读唯一入口（T02 提交式筛选）。
+    expect(screen.queryByLabelText('重新读取报告列表')).toBeNull()
+    expect(screen.getByRole('button', { name: '查询' })).toBeInTheDocument()
   })
 
-  it('选定三级范围后自动加载第 1 页，表格列与设计一致', async () => {
+  it('选定三级范围后自动加载第 1 页，表格列与设计一致（来源方合并列）', async () => {
     await renderLoaded([generatedRow()])
 
     // 初始请求的筛选条件为空、分页为第 1 页与默认页容量 10；三级范围由范围键携带。
@@ -563,9 +568,7 @@ describe('C11 首次进入自动加载第一页与筛选区形态', () => {
       '报告单号',
       '报告类型',
       '报告时间',
-      '来源组织',
-      '医院',
-      '院区',
+      '来源方',
       '患者姓名',
       '证件号码',
       '当前版本序号',
@@ -578,8 +581,76 @@ describe('C11 首次进入自动加载第一页与筛选区形态', () => {
   })
 })
 
-describe('C12 筛选组合与筛选变化回第一页', () => {
-  it('筛选变化回到第 1 页并保留当前页容量', async () => {
+describe('TC-T02-08 提交式筛选', () => {
+  it('筛选改动只进草稿零请求；点查询按已生效条件与第 1 页读取', async () => {
+    await renderLoaded([generatedRow()])
+    expect(query()).toHaveBeenCalledTimes(1)
+
+    const pending = deferred<unknown>()
+    query().mockReturnValueOnce(pending.promise)
+    await change(screen.getByLabelText('报告单号筛选'), 'R-9')
+    await change(screen.getByLabelText('患者姓名筛选'), ' 张三 ')
+    // 草稿改动不发起请求。
+    expect(query()).toHaveBeenCalledTimes(1)
+
+    click(searchButton())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    expectPageFilters(1, { reportNo: 'R-9', patientName: ' 张三 ' }, { pageIndex: 1, pageSize: 10 })
+    await act(async () => { pending.resolve(listResponse([generatedRow()], 1, 10, 1)) })
+  })
+
+  it('重置清空草稿并恢复默认条件，按空条件回到第 1 页读取', async () => {
+    await renderLoaded([generatedRow()])
+
+    const filtered = deferred<unknown>()
+    query().mockReturnValueOnce(filtered.promise)
+    await change(screen.getByLabelText('报告单号筛选'), 'R-9')
+    click(searchButton())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await act(async () => { filtered.resolve(listResponse([], 1, 10, 0)) })
+
+    const reset = deferred<unknown>()
+    query().mockReturnValueOnce(reset.promise)
+    click(screen.getByRole('button', { name: '重置' }))
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    expectPageFilters(2, {}, { pageIndex: 1, pageSize: 10 })
+    // 草稿控件一并清空。
+    expect(screen.getByLabelText('报告单号筛选')).toHaveValue('')
+    await act(async () => { reset.resolve(listResponse([generatedRow()], 1, 10, 1)) })
+  })
+
+  it('查询区为 inline Form，查询与重置在行内最后一个 Form.Item 内并排（TC-T02-16）', async () => {
+    await renderLoaded([generatedRow()])
+
+    const form = document.querySelector('.report-management-filters form')
+    expect(form).not.toBeNull()
+    expect(form).toHaveClass('ant-form-inline')
+    const search = searchButton()
+    expect(search).toHaveClass('ant-btn-primary')
+    expect(search.querySelector('.anticon-search')).not.toBeNull()
+    expect(search.textContent).toBe('查询')
+    expect(search.getAttribute('type')).toBe('submit')
+    const reset = screen.getByRole('button', { name: '重置' })
+    expect(reset).not.toHaveClass('ant-btn-primary')
+    const sharedItem = search.closest('.ant-form-item')
+    expect(sharedItem).not.toBeNull()
+    expect(sharedItem).toBe(reset.closest('.ant-form-item'))
+  })
+
+  it('来源方一列三行式：组织、医院、灰色小字院区，无来源组织/医院/院区独立列（TC-T02-13）', async () => {
+    await renderLoaded([generatedRow()])
+
+    const table = screen.getByRole('table')
+    const cell = within(table).getByText('组织一').closest('td')
+    expect(cell).not.toBeNull()
+    expect(within(cell ?? document.body).getByText('医院一')).toBeInTheDocument()
+    const branchText = within(cell ?? document.body).getByText('院区一')
+    expect(branchText).toHaveStyle({ fontSize: '12px' })
+  })
+})
+
+describe('C12 筛选组合与提交回第一页', () => {
+  it('翻页保持页容量；提交筛选回到第 1 页并保留当前页容量', async () => {
     await renderLoaded([generatedRow()], { totalCount: 60 })
 
     // 切到第 2 页，确认翻页保持页容量。
@@ -591,32 +662,32 @@ describe('C12 筛选组合与筛选变化回第一页', () => {
     expectPageFilters(1, {}, { pageIndex: 2, pageSize: 10 })
     await act(async () => { secondPage.resolve(listResponse([generatedRow()], 2, 10, 60)) })
 
-    // 筛选变化只重置页码，页容量保持 10。
+    // 提交筛选只重置页码，页容量保持 10。
     const filtered = deferred<unknown>()
     query().mockReturnValueOnce(filtered.promise)
     await change(screen.getByLabelText('报告单号筛选'), 'R-9')
+    click(searchButton())
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
 
     expectPageFilters(2, { reportNo: 'R-9' }, { pageIndex: 1, pageSize: 10 })
     await act(async () => { filtered.resolve(listResponse([], 1, 10, 0)) })
   })
 
-  it('报告单号、报告类型与患者条件都进入同一次请求体', async () => {
+  it('报告单号与患者条件改动进草稿，一次提交进入同一次请求体', async () => {
     await renderLoaded([generatedRow()])
 
     const pending = deferred<unknown>()
     query().mockReturnValueOnce(pending.promise)
     await change(screen.getByLabelText('报告单号筛选'), 'R-9')
+    await change(screen.getByLabelText('患者姓名筛选'), ' 张三 ')
+    expect(query()).toHaveBeenCalledTimes(1)
+
+    click(searchButton())
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
 
-    const withPatient = deferred<unknown>()
-    query().mockReturnValueOnce(withPatient.promise)
-    await change(screen.getByLabelText('患者姓名筛选'), ' 张三 ')
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
-
     // 患者姓名按用户输入原样提交，由服务端规范化。
-    expectPageFilters(2, { reportNo: 'R-9', patientName: ' 张三 ' }, { pageIndex: 1, pageSize: 10 })
-    await act(async () => { withPatient.resolve(listResponse([], 1, 10, 0)) })
+    expectPageFilters(1, { reportNo: 'R-9', patientName: ' 张三 ' }, { pageIndex: 1, pageSize: 10 })
+    await act(async () => { pending.resolve(listResponse([], 1, 10, 0)) })
   })
 
   it('患者证件号码按用户输入原样提交，不做本地大小写或空白改写', async () => {
@@ -625,6 +696,7 @@ describe('C12 筛选组合与筛选变化回第一页', () => {
     const pending = deferred<unknown>()
     query().mockReturnValueOnce(pending.promise)
     await change(screen.getByLabelText('患者证件号码筛选'), ' 11010119900101123x ')
+    click(searchButton())
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
 
     expectPageFilters(1, { identityDocumentNo: ' 11010119900101123x ' }, { pageIndex: 1, pageSize: 10 })
@@ -633,22 +705,21 @@ describe('C12 筛选组合与筛选变化回第一页', () => {
 })
 
 describe('C13 时间范围取值', () => {
-  it('日期范围以起止日期提交，页面不拼接时分秒也不写本地时区偏移', async () => {
+  it('日期范围改动进草稿，点查询后以起止日期提交，页面不拼接时分秒也不写本地时区偏移', async () => {
     await renderLoaded([generatedRow()])
 
     const pending = deferred<unknown>()
     query().mockReturnValueOnce(pending.promise)
     await change(screen.getByLabelText('报告时间起始日'), '2026-09-01')
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    await act(async () => { pending.resolve(listResponse([generatedRow()], 1, 10, 1)) })
-
-    const endPending = deferred<unknown>()
-    query().mockReturnValueOnce(endPending.promise)
     await change(screen.getByLabelText('报告时间结束日'), '2026-09-30')
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    // 草稿改动不发起请求。
+    expect(query()).toHaveBeenCalledTimes(1)
 
-    expectPageFilters(2, { reportDateFrom: '2026-09-01', reportDateTo: '2026-09-30' }, { pageIndex: 1, pageSize: 10 })
-    await act(async () => { endPending.resolve(listResponse([generatedRow()], 1, 10, 1)) })
+    click(searchButton())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+
+    expectPageFilters(1, { reportDateFrom: '2026-09-01', reportDateTo: '2026-09-30' }, { pageIndex: 1, pageSize: 10 })
+    await act(async () => { pending.resolve(listResponse([generatedRow()], 1, 10, 1)) })
   })
 })
 
@@ -664,30 +735,30 @@ describe('C14 空结果', () => {
 })
 
 describe('C15 列表加载失败与重试', () => {
-  it('保留已有数据、结束加载态、提供重试，且不出现本地错误提示', async () => {
+  it('查询失败不渲染错误横幅：旧数据保留、结束加载态，点查询可重试成功（D-06、TC-T02-11）', async () => {
     await renderLoaded([generatedRow()])
 
     const failing = deferred<unknown>()
     query().mockReturnValueOnce(failing.promise)
-    click(refreshButton())
+    click(searchButton())
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    // 加载中刷新入口不可用。
-    expect(refreshButton()).toBeDisabled()
     await act(async () => { failing.reject(new Error('读取失败')) })
 
-    await screen.findByText('报告列表数据待刷新')
-    // 已有数据保留，加载态结束。
+    // D-06：读取失败不渲染错误横幅（错误由宿主统一提示），已有数据保留。
     expect(screen.getByText('R-1')).toBeInTheDocument()
-    await waitFor(() => expect(refreshButton()).toBeEnabled())
+    expect(screen.queryByText('报告列表数据待刷新')).not.toBeInTheDocument()
+    expect(screen.queryByText(/待刷新|读取失败/)).not.toBeInTheDocument()
     // 不弹本地错误提示。
     expect(screen.queryByText(/接口错误|请求失败|网络错误/)).not.toBeInTheDocument()
 
+    // 重试经查询按钮：重读成功后按新结果呈现。
     const retry = deferred<unknown>()
     query().mockReturnValueOnce(retry.promise)
-    click(screen.getByRole('button', { name: /重\s*试/ }))
+    click(searchButton())
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
-    await act(async () => { retry.resolve(listResponse([generatedRow()], 1, 10, 1)) })
-    await waitFor(() => expect(screen.queryByText('报告列表数据待刷新')).not.toBeInTheDocument())
+    await act(async () => { retry.resolve(listResponse([generatedRow({ reportNo: 'R-2' })], 1, 10, 1)) })
+    await screen.findByText('R-2')
+    expect(screen.queryByText(/待刷新|读取失败/)).not.toBeInTheDocument()
   })
 })
 
@@ -874,19 +945,21 @@ describe('C20 详情内 PDF 下载', () => {
     await act(async () => { pending.resolve() })
   })
 
-  it('下载失败保留当前详情与版本选择、不重载列表、不误报成功', async () => {
+  it('下载失败不渲染错误横幅：详情与版本选择保留、不重载列表、下载入口恢复（D-06）', async () => {
     await renderLoaded([generatedRow()])
     await openDetail('R-1', [versionRow()], laboratoryDetail())
 
     download().mockRejectedValueOnce(new Error('下载失败'))
     click(screen.getByLabelText('下载第 2 版 PDF'))
 
-    await screen.findByText('报告 PDF 下载未完成')
+    // D-06：下载失败同样不渲染错误横幅（错误由宿主统一提示）；失败落地的观测点是下载入口恢复可用。
+    await waitFor(() => expect(screen.getByLabelText('下载第 2 版 PDF')).toBeEnabled())
+    expect(screen.queryByText('报告 PDF 下载未完成')).not.toBeInTheDocument()
+    expect(screen.queryByText(/待刷新|下载未完成/)).not.toBeInTheDocument()
     // 详情与版本选择保留、列表不重载、无本地错误提示。
     expect(screen.getByText('报告公共信息')).toBeInTheDocument()
     expect(query()).toHaveBeenCalledTimes(1)
     expect(screen.queryByText(/接口错误|请求失败/)).not.toBeInTheDocument()
-    await waitFor(() => expect(screen.getByLabelText('下载第 2 版 PDF')).toBeEnabled())
   })
 })
 
@@ -932,47 +1005,63 @@ describe('C22 枚举文本展示', () => {
 })
 
 describe('C9 范围切换重置', () => {
-  it('切换院区时清空旧数据与未提交筛选并回到第 1 页', async () => {
+  it('切换院区时清空旧数据与未提交筛选（草稿）并回到第 1 页', async () => {
     await renderLoaded([generatedRow()])
 
-    // 先设置一个筛选并让它在位。
-    const filtered = deferred<unknown>()
-    query().mockReturnValueOnce(filtered.promise)
+    // 只设置草稿，不提交：范围切换把草稿与已生效条件一并清空。
     await change(screen.getByLabelText('报告单号筛选'), 'R-9')
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    await act(async () => { filtered.resolve(listResponse([generatedRow()], 1, 10, 1)) })
-    await screen.findByText('R-1')
+    expect(query()).toHaveBeenCalledTimes(1)
 
     // 切换院区：旧数据与旧筛选一并清空，请求回到第 1 页。
     const switched = deferred<unknown>()
     query().mockReturnValueOnce(switched.promise)
     await pickScopeOption('院区', 'BRA-2')
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
 
-    expectPageFilters(2, {}, { pageIndex: 1, pageSize: 10 })
+    expectPageFilters(1, {}, { pageIndex: 1, pageSize: 10 })
     expect(screen.getByLabelText('报告单号筛选')).toHaveValue('')
     expect(screen.queryByText('R-1')).not.toBeInTheDocument()
     await act(async () => { switched.resolve(listResponse([], 1, 10, 0)) })
   })
 })
 
-describe('C10 过期响应丢弃', () => {
-  it('连续操作时只采纳最后一次请求结果，过期响应被丢弃', async () => {
+describe('C10 过期响应丢弃与提交在途门禁', () => {
+  it('查询提交在途时按钮进入加载并禁用，再次点击不重复发请求', async () => {
     await renderLoaded([generatedRow()])
 
     const first = deferred<unknown>()
     query().mockReturnValueOnce(first.promise)
     await change(screen.getByLabelText('报告单号筛选'), 'R-1')
+    click(searchButton())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    // 提交时在途即 loading（与列表页统一）：按钮进入加载态。
+    await waitFor(() => expect(searchButton()).toHaveClass('ant-btn-loading'))
+
+    // 在途期间再次点击不发新请求（antd loading 在途阻止点击提交）。
+    await change(screen.getByLabelText('报告单号筛选'), 'R-2')
+    click(searchButton())
+    expect(query()).toHaveBeenCalledTimes(2)
+
+    // 响应到达后加载态结束。
+    await act(async () => { first.resolve(listResponse([generatedRow({ reportNo: 'R-2' })], 1, 10, 1)) })
+    await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
+    await screen.findByText('R-2')
+  })
+
+  it('交叠请求只采纳最后一次：查询在途时切换范围，迟到的旧响应被丢弃', async () => {
+    await renderLoaded([generatedRow()])
+
+    const first = deferred<unknown>()
+    query().mockReturnValueOnce(first.promise)
+    await change(screen.getByLabelText('报告单号筛选'), 'R-1')
+    click(searchButton())
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
 
+    // 查询按钮在途已禁用，交叠改为经范围切换构造（范围切换不受按钮门禁）：
     const second = deferred<unknown>()
     query().mockReturnValueOnce(second.promise)
-    await change(screen.getByLabelText('报告单号筛选'), 'R-2')
+    await pickScopeOption('院区', 'BRA-2')
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
-
-    // 两次筛选各自成一次请求：页面在筛选变化时只重发一次，不做防抖合并；筛选变化回到第 1 页。
-    expectPageFilters(1, { reportNo: 'R-1' }, { pageIndex: 1, pageSize: 10 })
-    expectPageFilters(2, { reportNo: 'R-2' }, { pageIndex: 1, pageSize: 10 })
 
     // 先让最新结果到达，再让过期结果到达：过期结果不得覆盖页面数据。
     await act(async () => { second.resolve(listResponse([generatedRow({ reportNo: 'R-2' })], 1, 10, 1)) })
@@ -981,5 +1070,24 @@ describe('C10 过期响应丢弃', () => {
 
     expect(screen.getByText('R-2')).toBeInTheDocument()
     expect(screen.queryByText('R-1')).not.toBeInTheDocument()
+  })
+})
+
+describe('TC-T02-14 页面标题层级', () => {
+  it('页面大标题为 level 3', async () => {
+    await renderLoaded([generatedRow()])
+
+    expect(screen.getByRole('heading', { name: '报告管理与历史版本', level: 3 })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '报告管理与历史版本', level: 2 })).toBeNull()
+  })
+
+  it('标题 margin 归零：配套 CSS 的归零选择器随标题层级改为 h3', async () => {
+    await renderLoaded([generatedRow()])
+
+    // jsdom 无布局：margin 归零按配套 CSS 的静态规则断言（Testing Baseline §1.4 静态证据）。
+    const css = readFileSync(resolve(process.cwd(), 'src/pages/reportManagement/ReportManagement.css'), 'utf8')
+    const rule = css.match(/\.report-management-header\s+h3\.ant-typography\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(rule).toContain('margin: 0')
+    expect(css).not.toMatch(/\.report-management-header\s+h2\.ant-typography/)
   })
 })

@@ -46,6 +46,11 @@ const trustedScopeRef = vi.hoisted(() => ({
   hospitalReady: true,
 }))
 
+vi.mock('@dy/auth-react', () => ({
+  /** 与真实包同形的最小替身：token 在值（范围条据此读取三级编码）；本文件无 token 变化场景。 */
+  useAuth: () => ({ isAuthenticated: true, token: 'token-1', login: () => {}, logout: () => {} }),
+}))
+
 vi.mock('../recognitionProjects/recognitionProjectsOrganizationScope', () => ({
   useTrustedOrganizationScope: () => (trustedScopeRef.organizationReady
     ? { kind: 'ready', organizationCode: 'ORG-A' }
@@ -205,34 +210,39 @@ describe('接收医院互认使用统计（平台页）', () => {
     expect(detailsBuilt).toMatchObject({ version: 'platform', detailType: 1, pageIndex: 1, pageSize: 10 })
   })
 
-  it('两组范围与科室、项目条件随查询提交（C10）', async () => {
+  it('两组范围与科室、项目条件改动进草稿零请求，点查询按已生效条件提交（TC-T02-08、09）', async () => {
     renderPage(<RecognitionUsageStatistics />)
+    await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
 
     const receiverGroup = within(screen.getByRole('group', { name: '接收组范围' }))
     fireEvent.change(receiverGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS-2' } })
-    await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenLastCalledWith(
-      clientRef.current,
-      expect.objectContaining({ version: 'platform', receiverHospitalCode: 'HOS-2' }),
-    ))
-
     const sourceGroup = within(screen.getByRole('group', { name: '来源组范围' }))
     fireEvent.change(sourceGroup.getByRole('combobox', { name: '组织' }), { target: { value: 'ORG-B' } })
-    await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenLastCalledWith(
-      clientRef.current,
-      expect.objectContaining({ version: 'platform', sourceOrganizationCode: 'ORG-B' }),
-    ))
-
     fireEvent.change(screen.getByLabelText('互认科室筛选'), { target: { value: 'DEPT-9' } })
-    await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenLastCalledWith(
-      clientRef.current,
-      expect.objectContaining({ recognitionDeptId: 'DEPT-9' }),
-    ))
-
     fireEvent.change(screen.getByLabelText('标准项目编码筛选'), { target: { value: 'A01' } })
+
+    // 草稿改动零请求。
+    expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1)
+    expect(usageApi.queryUsageDetailsPage).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: '查询' }))
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenLastCalledWith(
       clientRef.current,
-      expect.objectContaining({ standardProjectCode: 'A01' }),
+      expect.objectContaining({
+        version: 'platform',
+        receiverHospitalCode: 'HOS-2',
+        sourceOrganizationCode: 'ORG-B',
+        recognitionDeptId: 'DEPT-9',
+        standardProjectCode: 'A01',
+      }),
     ))
+    // 一次提交同时重读汇总与明细。
+    await waitFor(() => expect(usageApi.queryUsageDetailsPage).toHaveBeenLastCalledWith(
+      clientRef.current,
+      expect.objectContaining({ version: 'platform', receiverHospitalCode: 'HOS-2', recognitionDeptId: 'DEPT-9' }),
+    ))
+    expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(2)
+    expect(usageApi.queryUsageDetailsPage).toHaveBeenCalledTimes(2)
   })
 
   it('导出汇总与导出明细分别沿用当前条件构造服务端同名下载名（C15）', async () => {
@@ -265,13 +275,16 @@ describe('接收医院互认使用统计（平台页）', () => {
     await waitFor(() => expect(usageApi.queryRecognitionMatchRecord).toHaveBeenCalledWith(clientRef.current, 'RECORD-1'))
   })
 
-  it('日期被清空后条件不完整：适配层查询出口零新增调用（C10 阻断面）', async () => {
+  it('日期被清空后条件不完整：草稿零请求，点查询后适配层查询出口零新增调用（C10 阻断面）', async () => {
     renderPage(<RecognitionUsageStatistics />)
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
 
     fireEvent.change(screen.getByLabelText('统计开始日期'), { target: { value: '' } })
+    // 草稿改动零请求。
+    expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1)
 
-    // 页面出口构造 built 失败返回 null：主体零发请求，适配层两个查询出口均不新增调用。
+    // 点查询：页面出口构造 built 失败返回 null，主体零发请求，适配层两个查询出口均不新增调用。
+    fireEvent.click(screen.getByRole('button', { name: '查询' }))
     await waitFor(() => expect(screen.getByText('当前筛选条件没有汇总数据')).toBeInTheDocument())
     expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1)
     expect(usageApi.queryUsageDetailsPage).toHaveBeenCalledTimes(1)
@@ -279,42 +292,43 @@ describe('接收医院互认使用统计（平台页）', () => {
 })
 
 describe('本院互认使用统计（本院页）', () => {
-  it('可信范围固定展示；built 查询为本院版且不含本侧组织与医院；本侧院区默认全院（C20）', async () => {
+  it('本院页无院区选择器：请求院区参数恒为登录院区，built 查询不含本侧组织与医院（TC-T02-05）', async () => {
     renderPage(<BranchRecognitionUsageStatistics />)
 
-    expect(await screen.findByText(/可信范围（只读）：组织 ORG-A，医院 HOS-1/)).toBeInTheDocument()
+    // 页头范围区由共用范围条承载：本用例环境的真实 LoginUserManager 无登录编码，三级按「未知」占位，
+    // 直拼编码的旧只读副文案不再出现（TC-T02-02）。
+    expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
+    expect(screen.queryByText(/可信范围（只读）/)).not.toBeInTheDocument()
+    // D-05：本院页不再渲染本院院区选择。
+    expect(screen.queryByRole('group', { name: '本院院区' })).toBeNull()
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalled())
 
     const built = usageApi.queryUsageSummaryPage.mock.calls[0][1]
-    expect(built).toMatchObject({ version: 'branch' })
+    expect(built).toMatchObject({ version: 'branch', branchCode: 'BRA-1' })
     expect(built).not.toHaveProperty('organizationCode')
     expect(built).not.toHaveProperty('hospitalCode')
-    // 本侧院区不选择即全院：院区条件未提供（请求不提交该层过滤）。
-    expect((built as { branchCode?: string }).branchCode).toBeUndefined()
 
     const detailsBuilt = usageApi.queryUsageDetailsPage.mock.calls[0][1]
-    expect(detailsBuilt).toMatchObject({ version: 'branch' })
+    expect(detailsBuilt).toMatchObject({ version: 'branch', branchCode: 'BRA-1' })
     expect(detailsBuilt).not.toHaveProperty('organizationCode')
     expect(detailsBuilt).not.toHaveProperty('hospitalCode')
   })
 
-  it('本院院区与来源组医院、院区选择随查询提交，组织字段仍不提交（C20）', async () => {
+  it('对侧（来源）医院、院区选择改动进草稿零请求，点查询按登录院区与对侧条件提交（TC-T02-05、08）', async () => {
     renderPage(<BranchRecognitionUsageStatistics />)
-    await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalled())
-
-    const ownGroup = within(screen.getByRole('group', { name: '本院院区' }))
-    expect(ownGroup.getAllByRole('combobox')).toHaveLength(1)
-    fireEvent.change(ownGroup.getByRole('combobox', { name: '院区' }), { target: { value: 'BRA-2' } })
-    await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenLastCalledWith(
-      clientRef.current,
-      expect.objectContaining({ version: 'branch', branchCode: 'BRA-2' }),
-    ))
+    await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
 
     const sourceGroup = within(screen.getByRole('group', { name: '来源医院范围' }))
+    expect(sourceGroup.getAllByRole('combobox')).toHaveLength(2)
     fireEvent.change(sourceGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS-2' } })
+    fireEvent.change(sourceGroup.getByRole('combobox', { name: '院区' }), { target: { value: 'BRA-2' } })
+    // 草稿改动零请求。
+    expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByRole('button', { name: '查询' }))
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenLastCalledWith(
       clientRef.current,
-      expect.objectContaining({ version: 'branch', sourceHospitalCode: 'HOS-2' }),
+      expect.objectContaining({ version: 'branch', branchCode: 'BRA-1', sourceHospitalCode: 'HOS-2', sourceBranchCode: 'BRA-2' }),
     ))
 
     const lastBuilt = usageApi.queryUsageSummaryPage.mock.calls.at(-1)?.[1] as Record<string, unknown>
@@ -328,8 +342,9 @@ describe('本院互认使用统计（本院页）', () => {
     trustedScopeRef.hospitalReady = false
     renderPage(<BranchRecognitionUsageStatistics />)
 
-    expect(await screen.findByRole('heading', { name: '本院互认使用统计' })).toBeInTheDocument()
-    expect(screen.getByText('可信范围不可用')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '本院互认使用统计', level: 3 })).toBeInTheDocument()
+    expect(screen.getByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveClass('ant-alert-error')
     expect(screen.queryByRole('combobox')).toBeNull()
     expect(usageApi.queryUsageSummaryPage).not.toHaveBeenCalled()
     expect(usageApi.queryUsageDetailsPage).not.toHaveBeenCalled()

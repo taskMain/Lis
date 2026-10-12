@@ -253,7 +253,7 @@ export interface PlatformUsageDetailsQuery {
   standardProjectCode?: string
 }
 
-/** 医院管理员入口的接收侧明细条件：本侧院区可选，为空按可信医院全院查询。 */
+/** 医院管理员入口的接收侧明细条件：本侧院区恒为登录院区，缺失或空白在构造时拒绝（不构造请求）。 */
 export interface BranchUsageDetailsQuery {
   version: 'branch'
   startTime: string
@@ -341,26 +341,34 @@ const USAGE_SCOPE_TEXT_KEYS = [
   'standardProjectCode',
 ] as const
 
-/** 构造接收侧汇总查询：日期缺失或形态非法、汇总维度越界、项目类型越界或分页越界时返回 `null`，调用方据此零发请求。 */
+/**
+ * 构造接收侧汇总查询：日期缺失或形态非法、汇总维度越界、项目类型越界、分页越界，
+ * 或本院版登录院区缺失/空白（权限配置错误）时返回 `null`，调用方据此零发请求。
+ */
 export function buildUsageSummaryQuery(query: UsageSummaryQuery, page: StatisticsPageInput): BuiltUsageSummaryQuery | null {
   if (!isStatisticsPageInput(page)) return null
+  // 本院版院区恒为登录院区：缺失拒绝构造（与金额、报告适配层同款）；平台页院区是可选筛选，不在此校验。
+  if (query.version === 'branch' && (query.branchCode ?? '').trim().length === 0) return null
   if (toStatisticsRequestDate(query.startTime) === null || toStatisticsRequestDate(query.endTime) === null) return null
   if (!isStatisticsGroupDimensionValue(query.groupDimension)) return null
   if (query.itemType !== undefined && !isMedicalItemTypeValue(query.itemType)) return null
   return normalizeStatisticsTexts({ ...query, ...page }, [...USAGE_SCOPE_TEXT_KEYS])
 }
 
-/** 构造接收侧明细查询；明细类型必填且取值必须在取值域内，其余口径同汇总构造。 */
+/** 构造接收侧明细查询；明细类型必填且取值必须在取值域内，其余口径同汇总构造（含本院版登录院区缺失拒绝）。 */
 export function buildUsageDetailsQuery(query: UsageDetailsQuery, page: StatisticsPageInput): BuiltUsageDetailsQuery | null {
   if (!isStatisticsPageInput(page)) return null
+  if (query.version === 'branch' && (query.branchCode ?? '').trim().length === 0) return null
   if (toStatisticsRequestDate(query.startTime) === null || toStatisticsRequestDate(query.endTime) === null) return null
   if (!isUsageDetailTypeValue(query.detailType)) return null
   if (query.itemType !== undefined && !isMedicalItemTypeValue(query.itemType)) return null
   return normalizeStatisticsTexts({ ...query, ...page }, [...USAGE_SCOPE_TEXT_KEYS])
 }
 
-/** 构造接收侧导出条件：导出无分页对象；日期、导出类型、汇总维度与项目类型全部校验，任一非法返回 `null`。 */
+/** 构造接收侧导出条件：导出无分页对象；日期、导出类型、汇总维度与项目类型全部校验，任一非法或本院版登录院区缺失/空白返回 `null`。 */
 export function buildUsageExportQuery(query: UsageExportQuery): UsageExportQuery | null {
+  // 本院版导出同走零请求口径：登录院区缺失时不构造导出请求（导出也是业务请求）。
+  if (query.version === 'branch' && (query.branchCode ?? '').trim().length === 0) return null
   if (toStatisticsRequestDate(query.startTime) === null || toStatisticsRequestDate(query.endTime) === null) return null
   if (!isUsageExportTypeValue(query.exportType)) return null
   if (!isStatisticsGroupDimensionValue(query.groupDimension)) return null
@@ -443,7 +451,7 @@ function toPlatformUsageDetailsBody(query: PlatformUsageDetailsQuery & Statistic
   return body
 }
 
-/** 本院版明细请求体：本侧院区可选（为空按可信医院全院查询），不提交本侧组织与医院。 */
+/** 本院版明细请求体：本侧院区由构造层保证非空，不提交本侧组织与医院。 */
 function toBranchUsageDetailsBody(query: BranchUsageDetailsQuery & StatisticsPageInput): BranchRecognitionUsageDetailsQueryRequest {
   const body: BranchRecognitionUsageDetailsQueryRequest = {
     startTime: requireStatisticsDate(query.startTime, '开始日期'),

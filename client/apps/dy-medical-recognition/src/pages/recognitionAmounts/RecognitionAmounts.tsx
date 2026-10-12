@@ -6,10 +6,13 @@
  * 文件的 `RecognitionAmountsPlatformBoard` 承载。页面不实现角色判断、不做权限二次确认，也不下推
  * 枚举筛选。医院管理员页的列表主体在其实现文件内承载，本文件不再保留共用主体。
  */
-import { Alert, Button, Empty, Input, Modal, Segmented, Table, Tag, Typography, type TableColumnsType } from 'antd'
+import { Alert, Button, Empty, Form, Input, message, Modal, Segmented, Space, Table, Tag, Typography, type TableColumnsType } from 'antd'
+import { SearchOutlined } from '@ant-design/icons'
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { useAuth } from '@dy/auth-react'
 import { BaseScopeSelector, type BaseScopeSelectorChangeMeta, type BaseScopeValue } from '@dy/components-base'
+import { CurrentScopeBar } from '../../components/CurrentScopeBar'
+import { ScopeUnavailablePanel } from '../../components/ScopeUnavailablePanel'
 import { useApiClientContext } from '../../contexts/ApiClientContext'
 import { readTrustedBranchCode, readTrustedHospitalCode } from '../reportManagement/reportsTrustedScope'
 import { readTrustedOrganizationCode } from '../recognitionProjects/recognitionProjectsOrganizationScope'
@@ -41,17 +44,22 @@ import './RecognitionAmounts.css'
 
 /**
  * 列表读取失败态。`refreshAfterWrite` 表示写入**已经成功**、随后的重载失败：
- * 呈现与阻断规则与读取失败一致，但不得改判为保存失败。
+ * 两种失败都保留已有数据并禁用写入，但只有 `refreshAfterWrite` 渲染「写入已成功，数据待刷新」
+ * 门禁横幅；纯读取失败（`load`）不渲染横幅（D-06），错误由宿主统一提示，重试经查询按钮。
  */
 export type AmountLoadFailure = null | 'load' | 'refreshAfterWrite'
 
 /** 金额必填提示；格式判据本身取适配层出口，页面不另写金额规则。 */
 const AMOUNT_REQUIRED_MESSAGE = '金额必填'
 
+/** 金额保存成功提示（TC-T02-07）：写失败与读取失败都由宿主统一提示，这里只反馈「前端已确认的成功」。 */
+const AMOUNT_SAVE_SUCCESS_MESSAGE = '金额保存成功'
+
 /**
- * C34 提交前现值复核失败时的行内原因（S3-D28；Client/testPlan.md 第 42 行双场景共用一句）：
- * 一句话覆盖「已变化」与「现读不到」两种情形，随后给出零写结论与后续动作（切换到新可信范围）。
- * 该行由页面书写并就地展示；适配层交付的原因串服务于复核出口的用例，不随本页展示。
+ * C34 提交前现值复核失败时的拦截提示（S3-D28；Client/testPlan.md 第 42 行双场景共用一句，
+ * TC-T02-07 起经 message.error 承载）：一句话覆盖「已变化」与「现读不到」两种情形，随后给出
+ * 零写结论与后续动作（切换到新可信范围）。该句由页面书写；适配层交付的原因串服务于复核出口的
+ * 用例，不随本页展示。
  */
 const TRUSTED_SCOPE_SUBMIT_BLOCK_REASON = '可信范围已变化或读不到，本次不提交写入，请切换到新可信范围后重新提交。'
 
@@ -161,8 +169,12 @@ function RecognitionAmountsPlatformBoard({
   const [data, setData] = useState<ScopeData>({ key: scopeKey, rows: [], failure: null })
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  /** 提交前复核失败的一行原因；每次提交尝试整体替换，编辑目标变化时清空。 */
-  const [recheckReason, setRecheckReason] = useState<string | null>(null)
+  /**
+   * message 走 `useMessage()` context 实例（TC-T02-07）：前端可预判的输入问题（本地校验失败、
+   * 提交前复核失败）与操作成功经它提示，不用 antd 静态方法；接口错误仍由宿主统一提示，
+   * message 不承载。holder 挂在页面根部 JSX。
+   */
+  const [messageApi, messageContextHolder] = message.useMessage()
 
   /**
    * 范围切换在**渲染期**复位（React 的「props 变化时调整 state」写法）：等到 effect 再复位，
@@ -217,6 +229,20 @@ function RecognitionAmountsPlatformBoard({
     setReloadNonce((nonce) => nonce + 1)
   }
 
+  /**
+   * 重置（TC-T02-16）：草稿与已生效条件一并恢复默认（关键字清空、两个状态档回「全部」），
+   * 并按默认条件重读一次——重置口径与报告、统计看板页一致，条件已等于默认值时重置仍等价于一次刷新
+   * （推进号保证重读）。两个状态档是即时生效控件、不进草稿，重置只是把它们恢复默认档，
+   * 不改变「切换即生效、本地裁剪、不触发读取」的语义。地址栏经既有同步按默认值回写（三个参数删除）。
+   */
+  const resetFilters = () => {
+    setKeywordDraft('')
+    setKeywordApplied('')
+    setAmountStatus('all')
+    setConfigurationStatus('all')
+    setReloadNonce((nonce) => nonce + 1)
+  }
+
   const handleKeywordChange = (event: ChangeEvent<HTMLInputElement>) => {
     const next = event.target.value
     if (next.length > 0) {
@@ -252,9 +278,10 @@ function RecognitionAmountsPlatformBoard({
   /** 写能力：范围完整、读取未失败、读取不在途且无在途提交（加载期间禁用写入）。 */
   const canWrite = scope !== null && loadFailure === null && !loading && !submitting
 
+  /** 写后刷新门禁的重试入口：只服务 `refreshAfterWrite` 态；纯读取失败的重试经查询按钮（D-06）。 */
   const retry = () => {
-    if (appliedQuery === null) return
-    void load(appliedQuery, scopeKey, loadFailure ?? 'load')
+    if (appliedQuery === null || loadFailure !== 'refreshAfterWrite') return
+    void load(appliedQuery, scopeKey, 'refreshAfterWrite')
   }
 
   /**
@@ -262,10 +289,10 @@ function RecognitionAmountsPlatformBoard({
    * 随后发起提交前现值复核（C34，S3-D28，第二道，兜住用户未触发挂起路径的场景）——比对
    * 「页面应用范围时记录的可信院区」与「保存发起前现读的可信院区」，比对对象是可信范围的
    * 变化，用户选定的 `scope.query` 三值不参与；记录与现读不一致即零写请求（院区层两侧同为
-   * 缺失视为一致，S3-D28 档二），原因在行内就地
-   * 展示（页面书写的一行中文）；随后由适配层构造载荷（范围或金额不合法同样零写请求），成功
-   * 后才收起编辑态并整表重载；写失败保留编辑态与输入、不重载也不误报成功（拒绝文案由宿主
-   * 统一展示）。提交期同步去重，防止连续回车产生多次写请求。
+   * 缺失视为一致，S3-D28 档二），原因以 message.error 就近提示（TC-T02-07，单元格内不再渲染
+   * 校验原因）；随后由适配层构造载荷（范围或金额不合法同样零写请求），成功后经 message.success
+   * 反馈（TC-T02-07）并收起编辑态、整表重载；写失败保留编辑态与输入、不重载也不误报成功
+   * （拒绝文案由宿主统一展示）。提交期同步去重，防止连续回车产生多次写请求。
    */
   const submitAmount = async (standardProjectCode: string, amountInput: string) => {
     if (writeSuspended) return
@@ -279,11 +306,10 @@ function RecognitionAmountsPlatformBoard({
       layers: ['branch'],
     })
     if (!recheck.ok) {
-      // 行内原因整体替换且由页面书写，不透传适配层交付的原因串。
-      setRecheckReason(TRUSTED_SCOPE_SUBMIT_BLOCK_REASON)
+      // 拦截原因由页面书写并经 message.error 提示，不透传适配层交付的原因串。
+      messageApi.error(TRUSTED_SCOPE_SUBMIT_BLOCK_REASON)
       return
     }
-    setRecheckReason(null)
     if (submittingRef.current) return
     submittingRef.current = true
     setSubmitting(true)
@@ -295,6 +321,8 @@ function RecognitionAmountsPlatformBoard({
       setSubmitting(false)
     }
     if (!sent) return
+    // 保存成功的反馈在重载之前给出：即使随后的整表重载失败，「写入已成功」也有可见结论。
+    messageApi.success(AMOUNT_SAVE_SUCCESS_MESSAGE)
     onEditTargetChange(null)
     await load(appliedQuery, scopeKey, 'refreshAfterWrite')
   }
@@ -398,12 +426,10 @@ function RecognitionAmountsPlatformBoard({
             defaultValue={row.project.isAmountConfigured ? currentAmountText(row.project) : ''}
             disabled={!canWrite}
             submitting={submitting}
-            recheckReason={recheckReason}
+            // 本地校验失败经 message.error 反馈（TC-T02-07），单元格内不再渲染校验红字。
+            onValidationError={(text) => messageApi.error(text)}
             onSubmit={(value) => { void submitAmount(standardProjectCode, value) }}
-            onCancel={() => {
-              setRecheckReason(null)
-              onEditTargetChange(null)
-            }}
+            onCancel={() => onEditTargetChange(null)}
           />
         }
         return <Button
@@ -413,8 +439,6 @@ function RecognitionAmountsPlatformBoard({
           disabled={!canWrite || writeSuspended || standardProjectCode === null}
           onClick={() => {
             if (standardProjectCode === null) return
-            // 每次进入编辑都从干净状态开始：上一次的复核原因不带进新一次编辑。
-            setRecheckReason(null)
             onEditTargetChange(standardProjectCode)
           }}
         >{currentAmountText(row.project)}</Button>
@@ -443,9 +467,11 @@ function RecognitionAmountsPlatformBoard({
   }
 
   return <div className='recognition-amounts-page'>
+    {/* message context 实例的 holder 挂页面根部（TC-T02-07）：局部校验与保存结果经它提示，不用静态方法。 */}
+    {messageContextHolder}
     <div className='recognition-amounts-header'>
       <div>
-        <Typography.Title level={2}>{title}</Typography.Title>
+        <Typography.Title level={3}>{title}</Typography.Title>
         <Typography.Text type='secondary'>{subtitle}</Typography.Text>
       </div>
       {scopeDisplay}
@@ -453,40 +479,75 @@ function RecognitionAmountsPlatformBoard({
 
     {selector}
 
-    {loadFailure === null ? null : <Alert
+    {/*
+      写后刷新门禁横幅（TC-T02-12）：写入已成功、随后的整表重载失败时呈现，承载维护操作暂不可用
+      的门禁状态与恢复入口。纯读取失败不渲染横幅（D-06）：静默保留上一次成功数据，错误由宿主统一
+      提示，重试经查询按钮。
+    */}
+    {loadFailure !== 'refreshAfterWrite' ? null : <Alert
       type='warning'
       showIcon
       className='recognition-amounts-failure'
-      title={loadFailure === 'refreshAfterWrite' ? AMOUNT_LOAD_FAILURE_TEXT.refreshTitle : AMOUNT_LOAD_FAILURE_TEXT.loadTitle}
-      description={loadFailure === 'refreshAfterWrite'
-        ? AMOUNT_LOAD_FAILURE_TEXT.refreshDescription
-        : AMOUNT_LOAD_FAILURE_TEXT.loadDescription}
+      title={AMOUNT_LOAD_FAILURE_TEXT.refreshTitle}
+      description={AMOUNT_LOAD_FAILURE_TEXT.refreshDescription}
       action={<Button size='small' disabled={loading} onClick={retry}>重试</Button>}
     />}
 
+    {/*
+      查询区（TC-T02-16）：inline Form 只承载布局与提交语义，控件不注册 name、仍由页面状态受控；
+      两个状态 Segmented 是即时生效控件、不进草稿，保持切换即生效、本地裁剪、不触发读取；
+      查询与重置位于行内最后一个 Form.Item 内并排。
+    */}
     <div className='recognition-amounts-filter'>
-      <Input
-        className='recognition-amounts-keyword'
-        aria-label='关键字'
-        placeholder='标准项目编码或名称'
-        allowClear
-        value={keywordDraft}
-        onChange={handleKeywordChange}
-        onPressEnter={submitKeyword}
-      />
-      <Button type='primary' loading={loading} onClick={submitKeyword}>搜索</Button>
-      <Segmented<AmountStatusFilter>
-        aria-label='金额状态筛选'
-        value={amountStatus}
-        options={AMOUNT_STATUS_OPTIONS}
-        onChange={setAmountStatus}
-      />
-      <Segmented<AmountConfigurationStatusFilter>
-        aria-label='互认配置状态筛选'
-        value={configurationStatus}
-        options={CONFIGURATION_STATUS_OPTIONS}
-        onChange={setConfigurationStatus}
-      />
+      <Form layout='inline' onFinish={submitKeyword}>
+        <Form.Item>
+          <Input
+            className='recognition-amounts-keyword'
+            aria-label='关键字'
+            placeholder='标准项目编码或名称'
+            allowClear
+            value={keywordDraft}
+            onChange={handleKeywordChange}
+          />
+        </Form.Item>
+        <Form.Item>
+          <Segmented<AmountStatusFilter>
+            aria-label='金额状态筛选'
+            value={amountStatus}
+            options={AMOUNT_STATUS_OPTIONS}
+            onChange={setAmountStatus}
+          />
+        </Form.Item>
+        <Form.Item>
+          <Segmented<AmountConfigurationStatusFilter>
+            aria-label='互认配置状态筛选'
+            value={configurationStatus}
+            options={CONFIGURATION_STATUS_OPTIONS}
+            onChange={setConfigurationStatus}
+          />
+        </Form.Item>
+        <Form.Item>
+          <Space wrap>
+            {/*
+              查询按钮逐字符合全站统一规格（TC-T02-06/16）：`aria-label` 声明可访问名称——`SearchOutlined`
+              自带英文 `aria-label`，会参与按钮名称计算，不声明就会读成「search 查询」；`autoInsertSpace={false}`
+              关闭 antd 对两个汉字之间自动插入的空格，使按钮文本与可访问名称都是「查询」；颜色继承宿主
+              主题 token，不覆盖样式。`htmlType='submit'` 使提交经查询区 Form 的 onFinish 进入
+              `submitKeyword`，输入框内回车由表单隐式提交走同一条链路。提交触发重新读取，按钮在读取在途时
+              进入 `loading`。重置恒命名「重置」、默认样式（无 type）。
+            */}
+            <Button
+              type='primary'
+              icon={<SearchOutlined />}
+              aria-label='查询'
+              autoInsertSpace={false}
+              htmlType='submit'
+              loading={loading}
+            >查询</Button>
+            <Button autoInsertSpace={false} onClick={resetFilters}>重置</Button>
+          </Space>
+        </Form.Item>
+      </Form>
     </div>
 
     {scopePrompt}
@@ -514,36 +575,30 @@ function RecognitionAmountsPlatformBoard({
 
 /**
  * 金额行内编辑器（C32）：进入编辑即回填当前行金额值，回车提交、Esc 取消；
- * 金额判据只取适配层出口 `parseRecognitionAmount`，提示就地展示，`aria-invalid`
- * 随每次输入重新求值。调用方以「行 + 当前金额值」为键挂载本组件：后台刷新交付
- * 新值时组件重挂并回填新值。
+ * 金额判据只取适配层出口 `parseRecognitionAmount`，校验失败经 `onValidationError` 以 message.error
+ * 反馈（TC-T02-07，单元格内不再渲染校验红字），`aria-invalid` 随每次输入重新求值。
+ * 调用方以「行 + 当前金额值」为键挂载本组件：后台刷新交付新值时组件重挂并回填新值。
  */
-function AmountInlineEditor({ defaultValue, disabled, submitting, recheckReason, onSubmit, onCancel }: {
+function AmountInlineEditor({ defaultValue, disabled, submitting, onValidationError, onSubmit, onCancel }: {
   /** 回填值：已配置金额的展示文本，未配置时为空串。 */
   defaultValue: string
   /** 写门控：读取在途、失败或范围不完整时不可编辑。 */
   disabled: boolean
   /** 在途提交：输入暂时禁用，提交结束（无论成败）后恢复。 */
   submitting: boolean
-  /** 提交前复核失败的一行原因；页面在每次提交尝试后整体替换。 */
-  recheckReason: string | null
+  /** 本地校验失败（金额必填、格式不合法）的提示出口；由页面经 message.error 承载（TC-T02-07）。 */
+  onValidationError: (text: string) => void
   /** 回车提交；拒绝不在此处捕获，错误由宿主统一展示（C10）。 */
   onSubmit: (value: string) => void
   /** Esc 取消：收起编辑态并丢弃输入。 */
   onCancel: () => void
 }) {
   const [value, setValue] = useState(defaultValue)
-  const [message, setMessage] = useState<string | null>(null)
   const trimmed = value.trim()
   const invalid = trimmed === '' || parseRecognitionAmount(value) === null
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const next = event.target.value
-    setValue(next)
-    // 行内提示随输入重新求值：改回合法值后提示一并撤下。
-    if (message !== null && next.trim() !== '' && parseRecognitionAmount(next) !== null) {
-      setMessage(null)
-    }
+    setValue(event.target.value)
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -555,14 +610,13 @@ function AmountInlineEditor({ defaultValue, disabled, submitting, recheckReason,
     if (event.key !== 'Enter') return
     event.preventDefault()
     if (trimmed.length === 0) {
-      setMessage(AMOUNT_REQUIRED_MESSAGE)
+      onValidationError(AMOUNT_REQUIRED_MESSAGE)
       return
     }
     if (invalid) {
-      setMessage(AMOUNT_VALIDATION_MESSAGE)
+      onValidationError(AMOUNT_VALIDATION_MESSAGE)
       return
     }
-    setMessage(null)
     onSubmit(value)
   }
 
@@ -576,8 +630,6 @@ function AmountInlineEditor({ defaultValue, disabled, submitting, recheckReason,
       onChange={handleChange}
       onKeyDown={handleKeyDown}
     />
-    {message === null ? null : <div><Typography.Text type='danger'>{message}</Typography.Text></div>}
-    {recheckReason === null ? null : <div><Typography.Text type='danger'>{recheckReason}</Typography.Text></div>}
   </div>
 }
 
@@ -592,10 +644,10 @@ interface ScopeSelection {
 }
 
 /**
- * 平台管理员页的初始范围解析（S3-D22）：可信组织或可信医院任一缺失时组织、医院、院区整条级联
- * 取第一项（该档仅适用平台管理员页，仍存在的那个可信值一并不采用）；两者都在时组织取可信组织
- * （缺失或不属于选项清单时取本次交付的第一项），医院取可信医院且须属于选定组织（缺失或不属于
- * 清单时取该院第一项），院区取可信院区且须属于当前组织、医院（缺失或不属于时取新范围第一项）。
+ * 平台管理员页的初始范围解析：只在可信组织与可信医院**齐备**时执行——任一缺失时页面整页阻断、
+ * 选择器不挂载，本函数不会被调用（缺失场景不存在「级联取首项」的回退解析）。解析口径：
+ * 组织取可信组织（不属于选项清单时取本次交付的第一项），医院取可信医院且须属于选定组织
+ * （不属于清单时取该院第一项），院区取可信院区且须属于当前组织、医院（缺失或不属于时取新范围第一项）。
  *
  * 本次交付的选项清单由选择器按其受控值装载：选定组织或医院与交付组合不一致时，交付的医院与
  * 院区清单仍属于首项组合，院区归属无从核对。此时只应用组织与医院、院区留空——三值不齐不构造
@@ -618,10 +670,6 @@ function resolveInitialScopeSelection(
     organizations: meta.organizations,
     hospitals: meta.hospitals,
     branches: meta.branches,
-  }
-  // 可信组织或可信医院任一缺失：组织、医院、院区整条级联取第一项，交付值即首项组合。
-  if (trustedOrganizationCode === null || trustedHospitalCode === null) {
-    return { scope: { orgId: firstOrgId, hosId: firstHosId, branchId: firstBranchId }, meta: metaSelection }
   }
   // 组织取可信组织；缺失或不属于选项清单时取本次交付的第一项。
   const organizationCode = trustedOrganizationCode !== null
@@ -650,60 +698,36 @@ function resolveInitialScopeSelection(
 }
 
 /**
- * 页头三级范围展示：上行名称（正文色、字重稍重）、下行编码（次要色、小一号）整体右对齐，
- * 不设「组织」这类文字标签；名称未就绪时该行不展示，只可能展示编码。
+ * 页头范围展示的旧双行结构（名称行 + 编码行）已由共用范围条取代：`scopeDisplay` 槽位改接
+ * `CurrentScopeBar`，单行只显「组织 / 医院 / 院区」名称，页头不再出现任何编码文本。
  */
-function buildScopeDisplay(selection: ScopeSelection | null): ReactNode {
-  if (selection === null) return null
-  const { scope: selectedScope, meta } = selection
-  const levels = [
-    {
-      code: selectedScope.orgId,
-      name: meta.organizations.find((item) => item.id === selectedScope.orgId)?.name ?? null,
-    },
-    {
-      code: selectedScope.hosId,
-      name: meta.hospitals.find((item) => item.id === selectedScope.hosId)?.name ?? null,
-    },
-    {
-      code: selectedScope.branchId,
-      name: meta.branches.find((item) => item.id === selectedScope.branchId)?.name ?? null,
-    },
-  ]
-  const namedLevels = levels.filter((level): level is { code: string; name: string } =>
-    level.name !== null && level.name.length > 0)
-  return <div className='recognition-amounts-header-scope'>
-    {namedLevels.length === 0 ? null : <div className='recognition-amounts-scope-names'>
-      {namedLevels.map((level) => (
-        <span className='recognition-amounts-scope-name' key={level.code}>{level.name}</span>
-      ))}
-    </div>}
-    <div className='recognition-amounts-scope-codes'>
-      {levels.map((level) => (
-        <span className='recognition-amounts-scope-code' key={level.code}>{level.code}</span>
-      ))}
-    </div>
-  </div>
-}
 
 /**
  * 平台管理员页：组织、医院可切换，院区恒定单值，三个值随查询与保存请求提交。
  *
+ * 可信组织或医院任一缺失（含 token 缺失）即整页阻断：整页只渲染标题与错误 Alert，
+ * 不渲染选择器、不发起任何请求，也不伪造组织或退化为全局查询。
  * 范围值由页面**受控**保存并按默认规则解析：`BaseScopeSelector` 以 `selectFirstOption` 在初始
- * 选项加载完成后回调首项组合与选项清单，页面按 S3-D22 完成初始解析——可信组织或可信医院任一
- * 缺失时组织、医院、院区整条级联取第一项，两者都在时三值逐级取可信值（组织、医院、院区各自
- * 缺失或不属于上级清单时取该层第一项），选定组织或医院与交付组合不一致时先留空院区、等选择器
+ * 选项加载完成后回调首项组合与选项清单，页面按 S3-D22 完成初始解析——组织、医院、院区各自
+ * 缺失或不属于上级清单时取该层第一项，选定组织或医院与交付组合不一致时先留空院区、等选择器
  * 按受控值重载新清单后完成第二轮解析；在此之上页面还做四件事——三值任一缺失的回调保持原受控值（院区永不为
  * 空发请求）、切换组织医院时把属于新范围的可信院区作为默认值（同一组织医院内的显式改选不被
- * 覆盖）、从选项清单取名称供页头展示，以及在可信范围变化时按未保存内容的有无决定直接切换还是
+ * 覆盖）、页头范围条承载三级名称展示，以及在可信范围变化时按未保存内容的有无决定直接切换还是
  * 先弹确认（C33）；C33 的变化判定在**渲染期**现读可信院区派生，宿主单独重新签发 token、用户
  * 不碰选择器时同样触发，选择器回调里的现读比对只作第二道。
  * 写请求只在用户回车提交行内编辑时发出。
  */
 export function RecognitionAmounts() {
   const client = useApiClientContext()
+  const { token } = useAuth()
   /** 现读可信院区（渲染期接缝）：宿主重新签发 token 后由订阅推进，在渲染期现读比对。 */
   const trustedBranch = useTrustedBranchCode()
+  // 阻断判定与既有可信范围接缝同一口径：token 缺失时凭据不表达可信范围；
+  // 组织、医院编码 trim 后为空白即不可用（院区缺失不阻断，D-05）。
+  const trustedOrganizationCode = token ? readTrustedOrganizationCode() : null
+  const trustedHospitalCode = token ? readTrustedHospitalCode() : null
+  const scopeBlocked = trustedOrganizationCode === null || trustedHospitalCode === null
+
   const [selection, setSelection] = useState<ScopeSelection | null>(null)
   /** 行内编辑目标行的项目编码；列表主体负责在目标行离开当前行集时清空它。 */
   const [editTarget, setEditTarget] = useState<string | null>(null)
@@ -859,6 +883,23 @@ export function RecognitionAmounts() {
     </div>
   ) : null
 
+  // 可信组织或医院缺失即整页阻断：阻断面板不渲染选择器与列表主体，选择器不装载选项、
+  // 列表主体不挂载，因此零业务请求（早退在全部钩子之后，钩子挂载顺序不随阻断变化）。
+  if (scopeBlocked) {
+    return <div className='recognition-amounts-page'>
+      <ScopeUnavailablePanel
+        title={
+          <div className='recognition-amounts-header'>
+            <div>
+              <Typography.Title level={3}>互认项目金额维护</Typography.Title>
+              <Typography.Text type='secondary'>按组织、医院与院区维护互认项目金额</Typography.Text>
+            </div>
+          </div>
+        }
+      />
+    </div>
+  }
+
   return <>
     <RecognitionAmountsPlatformBoard
       title='互认项目金额维护'
@@ -871,7 +912,7 @@ export function RecognitionAmounts() {
         value={selection?.scope ?? {}}
         onChange={handleSelectorChange}
       />}
-      scopeDisplay={buildScopeDisplay(selection)}
+      scopeDisplay={<CurrentScopeBar />}
       scope={appliedScope}
       scopePrompt={scopePrompt}
       appliedTrustedBranch={appliedTrustedBranch}

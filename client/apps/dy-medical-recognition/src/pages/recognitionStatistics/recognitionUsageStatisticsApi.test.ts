@@ -224,6 +224,7 @@ describe('C4 接收侧明细请求：明细类型必填，医生与原因只进�
         startTime: '2026-02-01',
         endTime: '2026-02-28',
         detailType: 1,
+        branchCode: 'BR9',
         sourceBranchCode: 'BR2',
       },
       pageInput,
@@ -271,6 +272,46 @@ describe('C4 请求构造拒绝面：条件不完整或越界返回 null，零�
     expect(buildUsageExportQuery(invalidQuery(platformExportQuery, { startTime: '' }))).toBeNull()
     expect(buildUsageExportQuery(invalidQuery(platformExportQuery, { exportType: 6 }))).toBeNull()
     expect(buildUsageExportQuery(invalidQuery(platformExportQuery, { groupDimension: 9 }))).toBeNull()
+  })
+
+  it('本院版登录院区缺失或空白拒绝构造（空院区零请求契约），平台版院区筛选缺失不受影响', () => {
+    // 本院版院区恒为登录院区：缺失属权限配置错误，汇总、明细与导出三个本院端点构造一律返回 null，调用方零发请求。
+    expect(buildUsageSummaryQuery(
+      { version: 'branch', startTime: '2026-02-01', endTime: '2026-02-28', groupDimension: 1 },
+      pageInput,
+    )).toBeNull()
+    expect(buildUsageSummaryQuery(
+      { version: 'branch', startTime: '2026-02-01', endTime: '2026-02-28', groupDimension: 1, branchCode: '   ' },
+      pageInput,
+    )).toBeNull()
+    expect(buildUsageDetailsQuery(
+      { version: 'branch', startTime: '2026-02-01', endTime: '2026-02-28', detailType: 1 },
+      pageInput,
+    )).toBeNull()
+    expect(buildUsageDetailsQuery(
+      { version: 'branch', startTime: '2026-02-01', endTime: '2026-02-28', detailType: 1, branchCode: '' },
+      pageInput,
+    )).toBeNull()
+    expect(buildUsageExportQuery({
+      version: 'branch',
+      exportType: 2,
+      groupDimension: 1,
+      startTime: '2026-02-01',
+      endTime: '2026-02-28',
+    })).toBeNull()
+    expect(buildUsageExportQuery({
+      version: 'branch',
+      exportType: 2,
+      groupDimension: 1,
+      startTime: '2026-02-01',
+      endTime: '2026-02-28',
+      branchCode: '  ',
+    })).toBeNull()
+    // 平台页院区是可选筛选：平台版缺失照常构造（平台路径行为不变）。
+    expect(buildUsageSummaryQuery(
+      { version: 'platform', startTime: '2026-02-01', endTime: '2026-02-28', groupDimension: 1 },
+      pageInput,
+    )).not.toBeNull()
   })
 })
 
@@ -602,7 +643,7 @@ describe('C6 匹配记录集合视图映射', () => {
 describe('C4 明细分页查询收敛（本院版走本院端点）', () => {
   it('本院明细请求走 queryBranchRecognitionUsageDetails 并收敛分页', async () => {
     const built = buildUsageDetailsQuery(
-      { version: 'branch', startTime: '2026-02-01', endTime: '2026-02-28', detailType: 1 },
+      { version: 'branch', startTime: '2026-02-01', endTime: '2026-02-28', detailType: 1, branchCode: 'BR9' },
       pageInput,
     ) as BuiltDetailsQuery
     const client = stubClient({ detailsBranch: summaryPageResponse })

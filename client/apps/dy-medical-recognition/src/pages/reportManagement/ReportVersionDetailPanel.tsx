@@ -5,8 +5,9 @@
  * 并明确标识当前有效版本、已被后续版本替代的历史版本与报告已作废状态。历史版本不提供
  * 差异比较、修改、删除、恢复、重新设为当前版本或重新启用，也不展示更正原因与版本变更原因。
  *
- * 失败面三类落在本区域：版本列表读取失败、版本详情读取失败与 PDF 下载失败；
- * 三者都保留已有数据与当前版本选择、结束加载态、提供重试，且不显示本地接口错误提示。
+ * 失败面三类落在本区域：版本列表读取失败、版本详情读取失败与 PDF 下载失败。
+ * 三者都不渲染错误横幅（D-06）：静默保留已有数据与当前版本选择、结束加载态；错误由宿主统一提示，
+ * 版本列表经「查看详情」重读、版本内容经重新选择版本恢复、下载经版本行按钮重新发起。
  */
 import { DownloadOutlined } from '@ant-design/icons'
 import { Alert, Button, Descriptions, Empty, Space, Spin, Table, Tag, Typography, type DescriptionsProps, type TableColumnsType } from 'antd'
@@ -59,16 +60,11 @@ export interface ReportVersionDetailPanelProps {
   reportStatusText: string
   versions: ReportVersionRow[]
   versionsLoading: boolean
-  versionFailure: null | 'load'
   selectedVersionId: string | null
   detail: ReportVersionDetail | null
   detailLoading: boolean
-  detailFailure: null | 'load'
   downloadingVersionId: string | null
-  downloadFailed: boolean
   onSelectVersion: (reportVersionId: string) => void
-  onRetryVersions: () => void
-  onRetryDetail: () => void
   onDownload: (row: ReportVersionRow) => void
   onClose: () => void
 }
@@ -88,16 +84,11 @@ export function ReportVersionDetailPanel({
   reportStatusText,
   versions,
   versionsLoading,
-  versionFailure,
   selectedVersionId,
   detail,
   detailLoading,
-  detailFailure,
   downloadingVersionId,
-  downloadFailed,
   onSelectVersion,
-  onRetryVersions,
-  onRetryDetail,
   onDownload,
   onClose,
 }: ReportVersionDetailPanelProps) {
@@ -145,15 +136,7 @@ export function ReportVersionDetailPanel({
       <Button size='small' onClick={onClose}>关闭详情</Button>
     </div>
 
-    {versionFailure === null ? null : <Alert
-      type='warning'
-      showIcon
-      className='report-management-failure'
-      title='报告历史版本待刷新'
-      description='版本列表读取失败，已有数据保留；可重试读取。'
-      action={<Button size='small' disabled={versionsLoading} onClick={onRetryVersions}>重试</Button>}
-    />}
-
+    {/* 版本列表读取失败不渲染横幅（D-06）：已有版本静默保留，错误由宿主统一提示。 */}
     <Table
       rowKey='reportVersionId'
       size='small'
@@ -170,22 +153,8 @@ export function ReportVersionDetailPanel({
         版本内容{selectedVersionId === null ? '' : `（第 ${detail?.versionSequence ?? MISSING_TEXT} 版）`}
       </Typography.Title>
 
-      {detailFailure === null ? null : <Alert
-        type='warning'
-        showIcon
-        className='report-management-failure'
-        title='报告版本内容待刷新'
-        description='该版本内容读取失败，当前版本选择与已有内容保留；可重试读取。'
-        action={<Button size='small' disabled={detailLoading} onClick={onRetryDetail}>重试</Button>}
-      />}
-
-      {downloadFailed ? <Alert
-        type='warning'
-        showIcon
-        className='report-management-failure'
-        title='报告 PDF 下载未完成'
-        description='本次下载未成功，当前详情与版本选择保留；可重新下载。'
-      /> : null}
+      {/* 版本内容与 PDF 下载失败同样不渲染横幅（D-06）：当前选择与已有内容静默保留，
+          错误由宿主统一提示，可重新选择版本或再次下载。 */}
 
       {detailLoading ? <Spin /> : detail === null ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description='请选择要查看的版本' /> : <>
         <Typography.Text type='secondary'>

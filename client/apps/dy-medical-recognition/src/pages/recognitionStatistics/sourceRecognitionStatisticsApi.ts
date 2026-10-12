@@ -117,7 +117,7 @@ export interface PlatformSourceSummaryQuery {
 
 /**
  * 医院管理员入口的来源侧汇总条件：来源组织与来源医院固定为可信上下文，类型上不存在对应字段；
- * 本侧来源院区可选；接收组织恒为可信组织，只提交接收医院与院区。
+ * 本侧来源院区恒为登录院区（缺失或空白在构造时拒绝）；接收组织恒为可信组织，只提交接收医院与院区。
  */
 export interface BranchSourceSummaryQuery {
   version: 'branch'
@@ -152,7 +152,7 @@ export interface PlatformSourceDetailsQuery {
   standardProjectCode?: string
 }
 
-/** 医院管理员入口的来源侧明细条件：本侧来源院区可选，接收组医院/院区可选。 */
+/** 医院管理员入口的来源侧明细条件：本侧来源院区恒为登录院区（缺失在构造时拒绝），接收组医院/院区可选。 */
 export interface BranchSourceDetailsQuery {
   version: 'branch'
   startTime: string
@@ -255,25 +255,30 @@ function applyBranchSourceFilters(
   if (query.itemType !== undefined) body.itemType = query.itemType
 }
 
-/** 构造来源侧汇总查询；校验口径与接收侧一致（日期、维度、项目类型与分页）。 */
+/** 构造来源侧汇总查询；校验口径与接收侧一致（日期、维度、项目类型与分页，本院版登录院区缺失或空白拒绝构造）。 */
 export function buildSourceSummaryQuery(query: SourceSummaryQuery, page: StatisticsPageInput): BuiltSourceSummaryQuery | null {
   if (!isStatisticsPageInput(page)) return null
+  // 本院版来源院区恒为登录院区：缺失属权限配置错误，拒绝构造（与金额、报告适配层同款）；平台页院区是可选筛选，不在此校验。
+  if (query.version === 'branch' && (query.sourceBranchCode ?? '').trim().length === 0) return null
   if (toStatisticsRequestDate(query.startTime) === null || toStatisticsRequestDate(query.endTime) === null) return null
   if (!isStatisticsGroupDimensionValue(query.groupDimension)) return null
   if (query.itemType !== undefined && !isMedicalItemTypeValue(query.itemType)) return null
   return normalizeStatisticsTexts({ ...query, ...page }, [...SOURCE_SCOPE_TEXT_KEYS])
 }
 
-/** 构造来源侧明细查询；来源侧没有明细类型、互认医生与不采纳原因筛选。 */
+/** 构造来源侧明细查询；来源侧没有明细类型、互认医生与不采纳原因筛选，本院版登录院区缺失或空白拒绝构造。 */
 export function buildSourceDetailsQuery(query: SourceDetailsQuery, page: StatisticsPageInput): BuiltSourceDetailsQuery | null {
   if (!isStatisticsPageInput(page)) return null
+  if (query.version === 'branch' && (query.sourceBranchCode ?? '').trim().length === 0) return null
   if (toStatisticsRequestDate(query.startTime) === null || toStatisticsRequestDate(query.endTime) === null) return null
   if (query.itemType !== undefined && !isMedicalItemTypeValue(query.itemType)) return null
   return normalizeStatisticsTexts({ ...query, ...page }, [...SOURCE_SCOPE_TEXT_KEYS])
 }
 
-/** 构造来源侧导出条件：导出类型只接受来源侧取值（6-7），无分页对象。 */
+/** 构造来源侧导出条件：导出类型只接受来源侧取值（6-7），无分页对象；本院版登录院区缺失或空白拒绝构造。 */
 export function buildSourceExportQuery(query: SourceExportQuery): SourceExportQuery | null {
+  // 本院版导出同走零请求口径：登录院区缺失时不构造导出请求（导出也是业务请求）。
+  if (query.version === 'branch' && (query.sourceBranchCode ?? '').trim().length === 0) return null
   if (toStatisticsRequestDate(query.startTime) === null || toStatisticsRequestDate(query.endTime) === null) return null
   if (!isSourceExportTypeValue(query.exportType)) return null
   if (!isStatisticsGroupDimensionValue(query.groupDimension)) return null

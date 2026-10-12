@@ -191,6 +191,16 @@ const change = (element: HTMLElement, value: string) =>
     fireEvent.change(element, { target: { value } })
   })
 
+/**
+ * 按行内唯一文本定位表格行：操作列改为可见文字按钮后不再携带行名 aria-label，
+ * 跨行同名按钮（每行都有「修改备注」「更多」）一律收窄到行作用域内查询。
+ */
+function rowOf(rowText: string): HTMLElement {
+  const row = screen.getByText(rowText).closest('tr')
+  expect(row).not.toBeNull()
+  return row as HTMLElement
+}
+
 async function renderLoaded(data: CatalogData) {
   const read = armRead(pendingRead())
   renderPage()
@@ -432,7 +442,7 @@ describe('C64 可信身份未就绪与失效（Component 层可覆盖部分）',
       api.updateItemRemark.mockRejectedValueOnce(rejection)
       const readsBefore = api.queryCategories.mock.calls.length
 
-      click(screen.getByLabelText('修改备注：甲项目'))
+      click(within(rowOf('甲项目')).getByRole('button', { name: '修改备注' }))
       await modal().findByLabelText('备注')
       await change(modal().getByLabelText('备注'), '保留的备注')
       click(modal().getByRole('button', { name: /保\s*存/ }))
@@ -738,7 +748,7 @@ describe('C57 新增空备注与编辑原值/清空的表单转换（Component �
     expect(groupInput).toEqual({ id: 'g1', name: '甲分组', remark: null })
     expect('categoryId' in groupInput).toBe(false)
 
-    click(screen.getByLabelText('修改备注：血常规'))
+    click(within(rowOf('血常规')).getByRole('button', { name: '修改备注' }))
     await screen.findByLabelText('备注')
     await submitAndReload(modal().getByRole('button', { name: /保\s*存/ }))
     await waitFor(() => expect(api.updateItemRemark).toHaveBeenCalledTimes(1))
@@ -1164,6 +1174,72 @@ describe('C84 类型列移除（Component 层可覆盖部分）', () => {
 })
 
 /**
+ * 操作列统一形态（阶段操作列口径）：`type="link" size="small"` 文字按钮横排；修改备注为
+ * 高频主操作直接横排，停用/启用低频且具破坏性面收进「更多」Dropdown；停用为 danger 且
+ * 既有二次确认弹窗（ToggleModal，停用时确认按钮 danger）保留、确认后行为不变。
+ */
+describe('操作列 link 文字按钮与「更多」下拉', () => {
+  const DATA: CatalogData = {
+    categories: [cat('c1', '甲分类')],
+    groups: [grp('g1', 'c1', '甲分组')],
+    items: [
+      itm('i-on', 'c1', 'g1', 'A-1', '启用样例项目', true),
+      itm('i-off', 'c1', 'g1', 'A-2', '停用样例项目', false),
+    ],
+  }
+
+  it('操作列为 link 小号文字按钮：主操作「修改备注」直接可见，不再有纯图标按钮', async () => {
+    await renderLoaded(DATA)
+    const row = rowOf('启用样例项目')
+    const remark = within(row).getByRole('button', { name: '修改备注' })
+    expect(remark).toHaveClass('ant-btn-variant-link')
+    expect(remark).toHaveClass('ant-btn-sm')
+    // 旧形态的纯图标按钮（aria-label 形如「修改备注：xxx」「xx项目：xxx」）不复存在。
+    expect(within(row).queryByLabelText(/修改备注：/)).not.toBeInTheDocument()
+    expect(within(row).queryByLabelText(/项目：/)).not.toBeInTheDocument()
+    // 行内只保留「修改备注」与「更多」两个文字按钮，停用/启用不再横排图标按钮。
+    expect(within(row).getAllByRole('button').map((button) => button.textContent)).toEqual(['修改备注', '更多'])
+  })
+
+  it('启用行的次级操作收进「更多」下拉：停用项为 danger', async () => {
+    await renderLoaded(DATA)
+
+    click(within(rowOf('启用样例项目')).getByRole('button', { name: '更多' }))
+    const stop = await screen.findByRole('menuitem', { name: '停用' })
+    expect(stop).toHaveClass('ant-dropdown-menu-item-danger')
+  })
+
+  it('停用行的次级操作收进「更多」下拉：启用项非 danger', async () => {
+    await renderLoaded(DATA)
+
+    click(within(rowOf('停用样例项目')).getByRole('button', { name: '更多' }))
+    const enable = await screen.findByRole('menuitem', { name: '启用' })
+    expect(enable).not.toHaveClass('ant-dropdown-menu-item-danger')
+  })
+
+  it('停用仍弹既有二次确认：danger 确认按钮，确认后按原口径调用停用接口并刷新', async () => {
+    await renderLoaded(DATA)
+    api.setItemEnabled.mockResolvedValueOnce(undefined)
+    const reload = armRead(pendingRead())
+
+    click(within(rowOf('启用样例项目')).getByRole('button', { name: '更多' }))
+    click(await screen.findByRole('menuitem', { name: '停用' }))
+
+    // 二次确认仍由既有 ToggleModal 承担：确认按钮 danger，正文与文案不变。
+    const dialog = within(screen.getByRole('dialog'))
+    expect(dialog.getByText('停用标准项目')).toBeInTheDocument()
+    const confirm = dialog.getByRole('button', { name: /确认停用/ })
+    expect(confirm).toHaveClass('ant-btn-dangerous')
+
+    click(confirm)
+    await waitFor(() => expect(api.setItemEnabled).toHaveBeenCalledTimes(1))
+    expect(api.setItemEnabled.mock.calls[0].slice(1)).toEqual(['i-on', false])
+    await settle(reload, DATA)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+})
+
+/**
  * 新增项目弹窗的预选口径（缺陷修复）：
  * 1. 左侧选到分组时，弹窗同时预选该分组及其分类（此前只预选分类、分组留空）；
  * 2. 从类型根打开时，预选分类取**当前类型**下第一个启用分类（此前取全局第一个启用分类，
@@ -1304,5 +1380,22 @@ describe('审查 R2-18：宽度替身生效守卫', () => {
       expect(el.scrollWidth).toBeGreaterThan(0)
       el.remove()
     }
+  })
+})
+
+describe('TC-T02-14 页面标题层级', () => {
+  it('页面大标题为 level 3', async () => {
+    await renderLoaded({ categories: [cat('c-1', '启用分类')], groups: [], items: [] })
+
+    expect(screen.getByRole('heading', { name: '标准项目目录维护', level: 3 })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '标准项目目录维护', level: 2 })).toBeNull()
+  })
+
+  it('标题 margin 归零：配套 CSS 的归零选择器随标题层级改为 h3', () => {
+    // jsdom 无布局：margin 归零按配套 CSS 的静态规则断言（Testing Baseline §1.4 静态证据）。
+    const css = readFileSync(resolve(process.cwd(), 'src/pages/standardCatalog/StandardCatalog.css'), 'utf8')
+    const rule = css.match(/\.standard-catalog-header\s+h3\.ant-typography[^{]*\{[^}]*\}/)?.[0] ?? ''
+    expect(rule).toContain('margin: 0')
+    expect(css).not.toContain('h2.ant-typography')
   })
 })

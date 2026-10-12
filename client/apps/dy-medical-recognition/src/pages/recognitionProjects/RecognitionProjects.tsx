@@ -5,6 +5,7 @@ import {
 import {
   Alert,
   Button,
+  Form,
   Input,
   Modal,
   Segmented,
@@ -13,6 +14,8 @@ import {
 } from 'antd'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApiClientContext } from '../../contexts/ApiClientContext'
+import { CurrentScopeBar } from '../../components/CurrentScopeBar'
+import { ScopeUnavailablePanel } from '../../components/ScopeUnavailablePanel'
 import { useEnumMetadata } from '../../hooks/useEnumMetadata'
 import { RecognitionProjectCascade, type RecognitionProjectHighlight } from './RecognitionProjectCascade'
 import { RecognitionProjectRow } from './RecognitionProjectRow'
@@ -104,17 +107,16 @@ export function RecognitionProjects() {
   const [filter, setFilter] = useState<RecognitionProjectFilter>(() => readFilterFromLocation())
   /**
    * 关键字条件的输入原文。它是**草稿**，与生效筛选分开：输入过程不改变列表，
-   * 只有提交动作（搜索按钮或输入框内回车）才把原文写进 `filter.keyword` 并作为查询条件下推服务端（S2-D21、S2-D29）。
+   * 只有提交动作（查询按钮或输入框内回车）才把原文写进 `filter.keyword` 并作为查询条件下推服务端（S2-D21、S2-D29）。
    * 分开持有是为了让「已输入但未提交」与「已生效」成为两个可分辨的事实，
    * 页脚计数只按生效条件计算，不会跟着输入逐字跳动。初值取路由地址上的已生效关键字，
    * 使带条件的链接进入后输入框与列表指向同一条件。
    */
   const [keywordDraft, setKeywordDraft] = useState(() => readFilterFromLocation().keyword)
   /**
-   * 可信组织的名称。与组织编码分开持有：编码来自登录凭证、首帧即有，名称来自范围查询（S2-D22），
-   * 因此名称缺失只让页头退回「组织 编码」，不影响组织范围本身是否可用。
+   * 可信组织的名称不再由页面持有：页头范围条（CurrentScopeBar）自行经范围查询反查并按组织编码缓存。
+   * 页面仍保留范围查询本身，作为每次读取成败口径的一部分（任一次失败即整次读取失败，S2-D22）。
    */
-  const [organizationName, setOrganizationName] = useState<string | null>(null)
   const [modal, setModal] = useState<ModalState>({ kind: 'none' })
   const [submitting, setSubmitting] = useState(false)
   /** 被点中的层级格；`null` 表示没有高亮。高亮只标识位置，不携带任何写操作。 */
@@ -218,8 +220,8 @@ export function RecognitionProjects() {
    * 收窄与兜底口径都由适配层持有（页面不再自建"取值 + 中文"这份业务事实）。
    *
    * 请求时机：只在**可信组织范围可用**时才读取。该接口本身不是组织范围数据（服务端只按 `enumName`
-   * 返回进程级静态枚举表，见 `useEnumMetadata` 的缓存口径说明），但组织范围不可用时本页面整体
-   * 渲染「组织范围不可用」阻断提示，不渲染任何需要枚举文案的区域，此时发起读取只会产生一次
+   * 返回进程级静态枚举表，见 `useEnumMetadata` 的缓存口径说明），但可信组织或医院不可用时本页面
+   * 整体渲染统一阻断面板，不渲染任何需要枚举文案的区域，此时发起读取只会产生一次
    * 必定被丢弃的请求。因此以页面已有的可信组织判定作为请求门控，不新增状态源、也不改数据口径。
    */
   const statusOptions = useEnumMetadata('ConfigurationStatus', CONFIGURATION_STATUS_METADATA_FALLBACK, {
@@ -284,13 +286,7 @@ export function RecognitionProjects() {
         setDurationEdit(null)
       }
     }
-    // 名称只在范围查询回读的组织与本次读取的目标组织一致时应用：不一致说明凭证已换，
-    // 此时不接受该名称，避免把别的组织名称留在页头。
-    setOrganizationName(
-      scope.status === 'fulfilled' && scope.value.organizationCode === targetOrganizationCode
-        ? scope.value.organizationName
-        : null,
-    )
+    // 范围查询只参与读取成败口径（S2-D22）：名称展示由页头范围条自行反查，页面不再消费名称。
     setLoadFailure(
       configurations.status === 'rejected' || scope.status === 'rejected' ? failureKind : null,
     )
@@ -343,7 +339,6 @@ export function RecognitionProjects() {
     setCatalogLoaded(false)
     setFilter(EMPTY_RECOGNITION_PROJECT_FILTER)
     setKeywordDraft('')
-    setOrganizationName(null)
     setModal({ kind: 'none' })
     setDurationEdit(null)
     setHighlight(null)
@@ -410,7 +405,7 @@ export function RecognitionProjects() {
   useEffect(() => {
     if (trustedOrganizationCode === null) {
       // 可信组织缺失或失效：作废在途请求，不发起新请求、不退化为全局查询或硬编码组织；
-      // 展示由「组织范围不可用」分支接管，因此这里只清理不可见状态，不改动渲染状态。
+      // 展示由「可信组织或医院不可用」的统一阻断面板接管，因此这里只清理不可见状态，不改动渲染状态。
       // 注意这里**不动** `appliedOrganizationRef`：它只镜像 `appliedOrganizationCode`，
       // 单独把它置空会让它与门控所看的 state 永久不一致（「可用 → 不可用 → 同一组织」之后
       // 按钮可点而写路径静默失效）。作废在途请求由上面的序号推进完成。
@@ -557,6 +552,18 @@ export function RecognitionProjects() {
   }, [load, loadFailure, keywordDraft])
 
   /**
+   * 重置（TC-T02-16）：清空关键字草稿，已生效筛选恢复默认（关键字清空、配置状态回「全部」），
+   * 随后按空条件重读一次——重置口径与报告、统计看板页一致，条件已等于默认值时重置仍等价于一次刷新。
+   * 地址栏经生效筛选同步按默认值回写（keyword/status 参数删除）。
+   */
+  const resetFilters = useCallback(() => {
+    setKeywordDraft('')
+    changeFilter(() => EMPTY_RECOGNITION_PROJECT_FILTER)
+    const targetOrganizationCode = appliedOrganizationRef.current
+    if (targetOrganizationCode !== null) void load(targetOrganizationCode, loadFailure ?? 'load', '')
+  }, [changeFilter, load, loadFailure])
+
+  /**
    * 关键字输入框的输入原文变化。**清空动作**（输入框自带的清除入口，或手动删空）同时清掉生效条件并
    * 重读一次：关键字已下推服务端，只清状态不重读会让列表停在上一次关键字的结果上、
    * 而输入框与地址栏都已显示"无条件"；重读口径与"空条件提交等价于刷新"（S2-D24）一致。
@@ -603,14 +610,12 @@ export function RecognitionProjects() {
 
   if (trustedOrganizationCode === null) {
     return <div className='recognition-projects-page'>
-      <div className='recognition-projects-header'>
-        <div><Typography.Title level={2}>互认项目</Typography.Title><Typography.Text type='secondary'>标准项目互认配置</Typography.Text></div>
-      </div>
-      <Alert
-        type='warning'
-        showIcon
-        title='组织范围不可用'
-        description='当前无法从登录凭证确定可信组织范围，因此不能读取或维护互认项目配置。请从宿主登录后重新进入本页面。'
+      <ScopeUnavailablePanel
+        title={
+          <div className='recognition-projects-header'>
+            <div><Typography.Title level={3}>互认项目</Typography.Title><Typography.Text type='secondary'>标准项目互认配置</Typography.Text></div>
+          </div>
+        }
       />
     </div>
   }
@@ -621,16 +626,10 @@ export function RecognitionProjects() {
     onClick={() => setHighlight(null)}
   >
     <div className='recognition-projects-header'>
-      <div><Typography.Title level={2}>互认项目</Typography.Title><Typography.Text type='secondary'>标准项目互认配置</Typography.Text></div>
+      <div><Typography.Title level={3}>互认项目</Typography.Title><Typography.Text type='secondary'>标准项目互认配置</Typography.Text></div>
       <Space wrap>
-        {/*
-          页头组织范围：上下两行，名称在上、编码在下，不设文字标签。
-          名称来自范围查询，读取返回前只展示编码一行（不渲染空行）。
-        */}
-        <span className='recognition-projects-scope'>
-          {organizationName === null ? null : <span className='recognition-projects-scope-name'>{organizationName}</span>}
-          <span className='recognition-projects-scope-code'>{appliedOrganizationCode ?? '—'}</span>
-        </span>
+        {/* 页头范围区由共用范围条承载：单行只显「组织 / 医院 / 院区」名称，无编码（TC-T02-02）。 */}
+        <CurrentScopeBar />
         {/* 新增入口只按 `canWrite` 门控：可新增集合由弹窗自己查询交付，读取失败在弹窗内表达。 */}
         <Button type='primary' icon={<PlusOutlined />} disabled={!canWrite} onClick={openBatchCreate}>新增互认项目</Button>
       </Space>
@@ -660,37 +659,55 @@ export function RecognitionProjects() {
       />}
     </div>
 
+    {/*
+      查询区（TC-T02-16）：inline Form 只承载布局与提交语义，控件不注册 name、仍由页面状态受控。
+      关键字输入原文是草稿，提交动作（查询按钮或输入框内回车）才把原文下推服务端；配置状态
+      Segmented 是即时生效控件、不进草稿，保持切换即生效、本地裁剪、不触发读取；查询与重置位于
+      行内最后一个 Form.Item 内并排。
+    */}
     <div className='recognition-projects-filters'>
-      <Input
-        placeholder='标准项目编码/名称/分类/分组关键字'
-        aria-label='关键字筛选'
-        autoComplete='off'
-        allowClear
-        value={keywordDraft}
-        onChange={(event) => changeKeywordDraft(event.target.value)}
-        onPressEnter={submitKeywordFilter}
-      />
-      {/*
-        搜索按钮是筛选区唯一的主按钮。显式给出可访问名称：`SearchOutlined` 自带英文 `aria-label`，
-        它会参与按钮的名称计算，不声明就会读成「search 搜索」。`autoInsertSpace={false}` 关闭 antd
-        对两个汉字之间自动插入的空格，使按钮文本与可访问名称都是「搜索」，与设计登记的按钮文字一致。
-        提交会触发重新读取（S2-D24），因此按钮在读取在途时进入 `loading`：图标换成旋转指示并禁用，
-        「点了搜索之后正在取数」这件事因此在用户刚点击的位置可见。
-      */}
-      <Button
-        type='primary'
-        icon={<SearchOutlined />}
-        aria-label='搜索'
-        autoInsertSpace={false}
-        loading={loading}
-        onClick={submitKeywordFilter}
-      >搜索</Button>
-      <Segmented<RecognitionProjectFilter['status']>
-        aria-label='配置状态筛选'
-        value={filter.status}
-        options={statusSegmentedOptions}
-        onChange={(status) => changeFilter((previous) => ({ ...previous, status }))}
-      />
+      <Form layout='inline' onFinish={submitKeywordFilter}>
+        <Form.Item>
+          <Input
+            placeholder='标准项目编码/名称/分类/分组关键字'
+            aria-label='关键字筛选'
+            autoComplete='off'
+            allowClear
+            value={keywordDraft}
+            onChange={(event) => changeKeywordDraft(event.target.value)}
+          />
+        </Form.Item>
+        <Form.Item>
+          <Segmented<RecognitionProjectFilter['status']>
+            aria-label='配置状态筛选'
+            value={filter.status}
+            options={statusSegmentedOptions}
+            onChange={(status) => changeFilter((previous) => ({ ...previous, status }))}
+          />
+        </Form.Item>
+        <Form.Item>
+          <Space wrap>
+            {/*
+              查询按钮逐字符合全站统一规格（TC-T02-06/16）：显式给出可访问名称——
+              `SearchOutlined` 自带英文 `aria-label`，它会参与按钮的名称计算，不声明就会读成「search 查询」；
+              `autoInsertSpace={false}` 关闭 antd 对两个汉字之间自动插入的空格，使按钮文本与可访问名称
+              都是「查询」。`htmlType='submit'` 使提交经查询区 Form 的 onFinish 进入 `submitKeywordFilter`，
+              输入框内回车由表单隐式提交走同一条链路。提交会触发重新读取（S2-D24），因此按钮在读取在途时
+              进入 `loading`：图标换成旋转指示并禁用，「点了查询之后正在取数」这件事因此在用户刚点击的位置可见。
+              重置恒命名「重置」、默认样式（无 type）。
+            */}
+            <Button
+              type='primary'
+              icon={<SearchOutlined />}
+              aria-label='查询'
+              autoInsertSpace={false}
+              htmlType='submit'
+              loading={loading}
+            >查询</Button>
+            <Button autoInsertSpace={false} onClick={resetFilters}>重置</Button>
+          </Space>
+        </Form.Item>
+      </Form>
     </div>
 
     <div className='recognition-projects-cascade-wrap'>

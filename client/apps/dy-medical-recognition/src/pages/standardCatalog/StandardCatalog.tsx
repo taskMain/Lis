@@ -524,7 +524,25 @@ export function StandardCatalog() {
     // 状态合并列（S1-D39）。
     { title: '状态', width: 105, render: (_, item) => renderItemStatus(data, item) },
     { title: '备注', dataIndex: 'remark', width: 180, className: 'standard-catalog-cell-ellipsis', render: ellipsisCell },
-    { title: '操作', width: 92, fixed: 'right', render: (_, item) => <Space size={2}><Tooltip title='修改备注'><Button type='text' size='small' icon={<EditOutlined />} aria-label={`修改备注：${item.name ?? '未知名称'}`} disabled={item.id === null} onClick={() => setModal({ kind: 'editItemRemark', item })} /></Tooltip><Tooltip title={item.isValid === true ? '停用项目' : item.isValid === false ? '启用项目' : '状态未知'}><Button type='text' size='small' danger={item.isValid === true} icon={item.isValid === true ? <StopOutlined /> : <CheckCircleOutlined />} aria-label={`${item.isValid === true ? '停用' : '启用'}项目：${item.name ?? '未知名称'}`} disabled={item.id === null || item.isValid === null} onClick={() => item.id !== null && item.isValid !== null && setModal({ kind: 'toggle', kindName: '标准项目', id: item.id, name: item.name ?? '未知名称', isValid: item.isValid })} /></Tooltip></Space> },
+    /*
+     * 操作列统一 link 小号文字按钮：修改备注是高频主操作，直接横排；停用/启用低频且具破坏性面，
+     * 收进「更多」下拉。停用保持 danger 红色，二次确认仍由既有 ToggleModal 承担（停用时确认按钮
+     * danger），操作列不重复确认逻辑；菜单项禁用口径与旧按钮一致（无标识或状态未知不可启停）。
+     */
+    {
+      title: '操作',
+      width: 130,
+      fixed: 'right',
+      render: (_, item) => <Space size={2}>
+        <Button type='link' size='small' disabled={item.id === null} onClick={() => setModal({ kind: 'editItemRemark', item })}>修改备注</Button>
+        <Dropdown trigger={['click']} menu={{
+          items: [{ key: 'toggle', label: item.isValid === true ? '停用' : '启用', danger: item.isValid === true, disabled: item.id === null || item.isValid === null }],
+          onClick: ({ key }) => {
+            if (key === 'toggle' && item.id !== null && item.isValid !== null) setModal({ kind: 'toggle', kindName: '标准项目', id: item.id, name: item.name ?? '未知名称', isValid: item.isValid })
+          },
+        }}><Button type='link' size='small'>更多</Button></Dropdown>
+      </Space>,
+    },
   ], [categoryById, data, groupById])
 
   // 横向滚动宽度取列宽之和：加列只改列定义一处（审查 R2-10）。
@@ -534,7 +552,7 @@ export function StandardCatalog() {
   const selectedKeys = activeScope.groupId !== null ? [`g:${activeScope.groupId}`] : activeScope.categoryId !== null ? [`c:${activeScope.categoryId}`] : activeScope.itemType !== null ? [`t:${activeScope.itemType}`] : []
 
   return <div className='standard-catalog-page'>
-    <div className='standard-catalog-header'><div><Typography.Title level={2}>标准项目目录维护</Typography.Title><Typography.Text type='secondary'>分类、分组与标准项目</Typography.Text></div><Space><Tooltip title='重新读取目录'><Button icon={<ReloadOutlined />} aria-label='重新读取目录' loading={loading} onClick={() => void reloadAndResolve()} /></Tooltip><Button type='primary' icon={<PlusOutlined />} disabled={!dependencyReady || (selectedCategory !== null && selectedCategory.isValid !== true)} onClick={() => setModal({ kind: 'createItem', scope: activeScope })}>新增项目</Button></Space></div>
+    <div className='standard-catalog-header'><div><Typography.Title level={3}>标准项目目录维护</Typography.Title><Typography.Text type='secondary'>分类、分组与标准项目</Typography.Text></div><Space><Tooltip title='重新读取目录'><Button icon={<ReloadOutlined />} aria-label='重新读取目录' loading={loading} onClick={() => void reloadAndResolve()} /></Tooltip><Button type='primary' icon={<PlusOutlined />} disabled={!dependencyReady || (selectedCategory !== null && selectedCategory.isValid !== true)} onClick={() => setModal({ kind: 'createItem', scope: activeScope })}>新增项目</Button></Space></div>
     {failedSources.size > 0 && <Alert type='warning' showIcon message='目录数据待刷新' description='部分目录读取失败，已有数据保留；依赖未就绪的维护操作暂不可用。' action={<Button size='small' onClick={() => void reloadAndResolve()}>重试</Button>} />}
     <div className='standard-catalog-layout'>
       <section className='standard-catalog-directory' aria-label='标准目录'>

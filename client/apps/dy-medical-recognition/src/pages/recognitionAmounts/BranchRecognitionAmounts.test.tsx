@@ -1,42 +1,30 @@
 /**
  * 阶段 3「本院区互认项目金额」医院管理员页 Component 层用例
- * （测试矩阵 C3-C10、C12-C13、C15-C17、C21、C27-C36 的组件面）。
+ * （测试矩阵 C3-C10、C12-C13、C15-C17、C21、C27-C36 的组件面，T02 批 3 起 D-05 院区固定口径）。
  *
  * 装配边界（与平台管理员页用例同一口径）：
  * 1. `./recognitionAmountsApi` 只替换 4 个 I/O 出口，其余纯函数使用真实实现；行夹具由真实
  *    `toRecognitionAmountRows` 从读模型形态构造，表格行序由真实 `toRecognitionAmountColumnView` 决定；
  * 2. `../../contexts/ApiClientContext` 只提供占位 client；
- * 3. `@dy/components-base` 只替换整个包：该包 ESM 产物内部使用无扩展名相对导入，vitest 默认把
- *    node_modules 依赖交给 Node 解析，组件层无法加载真实实现（需 `test.server.deps.inline`，
- *    而 `vite.config.ts` 不属于本票所有权）。替身复现页面接线依赖的组件行为：受控 `value`、
- *    `orgId`/`hosId` 固定后对应级不渲染、初始选项加载完成后按 `selectFirstOption` 在院区取值为空时
- *    取首项并回传完整范围值与选项清单（页头名称与首项默认的取值来源）、用户改动按可选项级联回填
- *    下游首项并回传完整范围值、选项读取失败时调用 antd 静态 `message.error`。组织固定时组件不再
- *    读取组织清单，组织名称即其编码（与真实组件同一交付）。真实选择器的行为属宿主层验收面
- *    （C3 的 Host 层级）；
- * 4. 可信范围沿用既有包：`@dy/auth` 的 `LoginUserManager.getOrgID()`/`getHosID()`/`getBranchID()`
- *    与 `@dy/auth-react` 的 `useAuth()` token。这里替换这两个包以构造四份身份上下文：
- *    组织+医院+院区齐全、可信院区缺失、可信组织或医院缺失（另含 token 缺失）。
- *    替身的 `useAuth` 订阅本文件的登录态并在通知后重新求值（与真实包同形），因此**挂载之后**的可信
- *    范围变化可观察：token 后到、可信医院换绑、登录态失效都按真实路径触发页面重新求值。
+ * 3. 可信范围沿用既有包：`@dy/auth` 的 `LoginUserManager.getOrgID()`/`getHosID()`/`getBranchID()`
+ *    与 `@dy/auth-react` 的 `useAuth()` token。这里替换这两个包以构造多份身份上下文：
+ *    组织+医院+院区齐全、可信组织或医院缺失（另含 token 缺失）。替身的 `useAuth` 订阅本文件的
+ *    登录态并在通知后重新求值（与真实包同形），因此**挂载之后**的可信范围变化可观察：token 后到、
+ *    可信医院换绑、登录态失效都按真实路径触发页面重新求值。D-05 后页面不再渲染范围选择器
+ *    （`@dy/components-base` 未被页面消费，无需替身），院区恒取登录院区，无三档解析与显式改选。
  *
  * 列表字段集合、未配置与零元的呈现差异、层级列视图、排序、空态、状态筛选本地裁剪、地址栏参数同步、
  * 页脚计数与读取在途写门控都与平台管理员页同款式，本文件按同一写法分别覆盖医院管理员页的实现
- * （查询只携带院区与可选关键字，保存只携带院区、标准项目编码与金额）；金额行内编辑（C32）、可信范围
- * 变化确认框（C33）、提交前现值复核（C34）、金额校验与保存成功、拒绝、写成功但刷新失败都改用与平台
- * 管理员页同一套行内锚点，断言语义按 Client/testPlan.md 的 C8-C10、C12、C13、C32-C34 条逐条覆盖。
+ * （查询只携带院区与可选关键字，保存只携带院区、标准项目编码与金额）；金额行内编辑（C32）、
+ * 提交前现值复核（C34，D-05 后只保留可信组织或医院现读不到的拦截）、金额校验与保存成功、拒绝、
+ * 写成功但刷新失败都改用与平台管理员页同一套行内锚点，断言语义按 Client/testPlan.md 逐条覆盖。
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { configureBaseComponents, type BaseComponentsConfig } from '@dy/components-base'
-import type { BaseScopeSelectorProps, BaseScopeValue } from '@dy/components-base'
 import { toRecognitionAmountColumnView, toRecognitionAmountRows, type RecognitionAmountReadModelLike, type RecognitionAmountRow } from './recognitionAmountsApi'
 import { BranchRecognitionAmounts } from './BranchRecognitionAmounts'
-
-/** 伪 Base API Client 的注入点：与真实包 `configureBaseComponents` 同形（替身见文件头第 3 条）。 */
-const baseClientRef = vi.hoisted(() => ({ current: null as unknown }))
 
 /**
  * 可信登录态（组织、医院、院区、token）；每条用例按需改成缺失上下文，或在挂载后变更。
@@ -76,159 +64,38 @@ const api = vi.hoisted(() => ({
   saveBranchRecognitionAmount: vi.fn(),
 }))
 
-vi.mock('@dy/components-base', async () => {
-  const { createElement, useEffect, useRef, useState } = await import('react')
-  const { message: antdMessage } = await import('antd')
+/** 基础目录替身注入点：范围条按编码反查医院、院区名称（编码到名称的固定映射，避开行夹具名称）。 */
+const baseDirectoryRef = vi.hoisted(() => ({ current: null as unknown }))
 
-  type ScopeOption = { id?: string | null; name?: string | null; hosId?: string | null }
-  interface ScopeClient {
+vi.mock('@dy/api-client-base', () => ({
+  createBaseApiClient: () => baseDirectoryRef.current,
+}))
+
+vi.mock('../../runtimeConfig', () => ({
+  loadRuntimeConfig: async () => ({ apiBaseUrl: 'http://api.test', baseApiBaseUrl: 'http://base.test' }),
+}))
+
+/** 基础目录替身：与生成契约同形（含 id、name、hosId、orgId），查无编码返回 undefined。 */
+function createBaseDirectory() {
+  return {
     api: {
       organization: {
-        queryAllOrganization: { post: () => Promise<ScopeOption[] | undefined> }
-        queryAllValidHospitalByOrgId: { post: (body: { orgId: string }) => Promise<ScopeOption[] | undefined> }
-        queryAllValidBranchByOrgId: { post: (body: { orgId: string }) => Promise<ScopeOption[] | undefined> }
-      }
-    }
-  }
-
-  /** 替身回传的选项清单：只承载页头名称与首项默认解析用到的三级选项。 */
-  interface StubScopeMeta {
-    organizations: ScopeOption[]
-    hospitals: ScopeOption[]
-    branches: ScopeOption[]
-    depts: ScopeOption[]
-    users: ScopeOption[]
-  }
-
-  /**
-   * 替身 props：在真实组件 props 上把 onChange 的选项清单换成替身自己的选项形状
-   * （真实清单元素是 Kiota 生成的 DTO，替身只复现页面读取的 id 与 name 两个字段）。
-   */
-  type StubScopeSelectorProps = Omit<BaseScopeSelectorProps, 'onChange'> & {
-    onChange?: (value: BaseScopeValue, meta: StubScopeMeta) => void
-  }
-
-  /** 范围选择器替身：接线行为与真实组件一致的部分见文件头第 3 条。 */
-  function StubScopeSelector({ value = {}, orgId, hosId, disabled, className, selectFirstOption, onChange }: StubScopeSelectorProps) {
-    const [organizations, setOrganizations] = useState<ScopeOption[]>([])
-    const [hospitals, setHospitals] = useState<ScopeOption[]>([])
-    const [branches, setBranches] = useState<ScopeOption[]>([])
-
-    const loadedScopeKeyRef = useRef('')
-    useEffect(() => {
-      // 挂载时读取一次选项；固定的组织或医院变化时也重新读取（与真实组件同口径）：可信范围换绑后
-      // 必须交付新范围内的医院与院区，否则替身会一直展示旧范围的选项。用 ref 守卫守住加载键的单次
-      // 语义，依赖数组保持完整。
-      const loadKey = `${orgId ?? ''}|${hosId ?? ''}|${value.hosId ?? ''}`
-      if (loadedScopeKeyRef.current === loadKey) return
-      loadedScopeKeyRef.current = loadKey
-      const client = baseClientRef.current as ScopeClient
-      const load = async () => {
-        try {
-          if (!orgId) {
-            // 未固定组织：初始只加载组织清单，医院与院区在变更时按级联加载（与真实组件同形）。
-            setOrganizations(await client.api.organization.queryAllOrganization.post() ?? [])
-            return
-          }
-          // 组织固定：与真实组件同一交付——组织清单即该组织自身（名称取编码），医院清单按组织读取，
-          // 院区清单按固定的医院过滤。
-          setOrganizations([{ id: orgId, name: orgId }])
-          const nextHospitals = await client.api.organization.queryAllValidHospitalByOrgId.post({ orgId }) ?? []
-          setHospitals(nextHospitals)
-          const allBranches = await client.api.organization.queryAllValidBranchByOrgId.post({ orgId }) ?? []
-          const nextBranches = allBranches.filter((branch) => branch.hosId === (hosId ?? value.hosId))
-          setBranches(nextBranches)
-          const resolvedHosId = hosId ?? value.hosId
-          // selectFirstOption：院区取值为空时取首项并回传完整范围值与选项清单（页头名称与首项默认
-          // 的取值来源）；院区取值非空时组件不越权改写受控值。
-          if (selectFirstOption && !value.branchId && resolvedHosId && nextBranches[0]?.id) {
-            onChange?.(
-              { orgId, hosId: resolvedHosId, branchId: nextBranches[0].id },
-              { organizations: [{ id: orgId, name: orgId }], hospitals: nextHospitals, branches: nextBranches, depts: [], users: [] },
-            )
-          }
-        } catch (error) {
-          antdMessage.error(error instanceof Error ? error.message : '加载机构选择数据失败')
-        }
-      }
-      void load()
-    }, [hosId, onChange, orgId, selectFirstOption, value.branchId, value.hosId])
-
-    /** 变更后按可选项级联回填下游首项（与真实组件同形），并把完整范围值与当前选项清单回传页面。 */
-    const handleChange = async (changed: 'org' | 'hospital' | 'branch', next: string) => {
-      const client = baseClientRef.current as ScopeClient
-      const merged = { ...value }
-      let nextHospitals = hospitals
-      let nextBranches = branches
-      try {
-        if (changed === 'org') {
-          merged.orgId = next.length > 0 ? next : undefined
-          nextHospitals = merged.orgId
-            ? await client.api.organization.queryAllValidHospitalByOrgId.post({ orgId: merged.orgId }) ?? []
-            : []
-          setHospitals(nextHospitals)
-          merged.hosId = hosId ?? nextHospitals[0]?.id ?? undefined
-          const allBranches = merged.orgId
-            ? await client.api.organization.queryAllValidBranchByOrgId.post({ orgId: merged.orgId }) ?? []
-            : []
-          nextBranches = allBranches.filter((branch) => branch.hosId === merged.hosId)
-          setBranches(nextBranches)
-          merged.branchId = nextBranches[0]?.id ?? undefined
-        } else if (changed === 'hospital') {
-          merged.hosId = next.length > 0 ? next : undefined
-          const allBranches = merged.orgId
-            ? await client.api.organization.queryAllValidBranchByOrgId.post({ orgId: merged.orgId }) ?? []
-            : []
-          nextBranches = allBranches.filter((branch) => branch.hosId === merged.hosId)
-          setBranches(nextBranches)
-          merged.branchId = nextBranches[0]?.id ?? undefined
-        } else {
-          merged.branchId = next.length > 0 ? next : undefined
-        }
-      } catch (error) {
-        antdMessage.error(error instanceof Error ? error.message : '加载机构选择数据失败')
-        return
-      }
-      onChange?.(merged, { organizations, hospitals: nextHospitals, branches: nextBranches, depts: [], users: [] })
-    }
-
-    const levelSelect = (
-      label: string,
-      options: ScopeOption[],
-      selected: string | undefined,
-      selectDisabled: boolean,
-      onSelect: (next: string) => void,
-    ) => createElement('select', {
-      'aria-label': `范围-${label}`,
-      value: selected ?? '',
-      disabled: disabled === true || selectDisabled,
-      onChange: (event: { target: { value: string } }) => onSelect(event.target.value),
-    }, [
-      createElement('option', { key: '__placeholder', value: '' }, `请选择${label}`),
-      ...options.map((option, index) => createElement(
-        'option',
-        { key: option.id ?? index, value: option.id ?? '' },
-        option.name ?? option.id ?? '',
-      )),
-    ])
-
-    // 三个子节点按位置各占一个参数位；数组形式的子元素需要 key，按位置传入满足该要求，stderr 上不出现缺 key 的告警淹没真实告警。
-    return createElement(
-      'div',
-      { className },
-      orgId ? null : levelSelect('组织', organizations, value.orgId, false, (next) => { void handleChange('org', next) }),
-      hosId ? null : levelSelect('医院', hospitals, value.hosId, !value.orgId, (next) => { void handleChange('hospital', next) }),
-      levelSelect('院区', branches, value.branchId, !(hosId ?? value.hosId), (next) => { void handleChange('branch', next) }),
-    )
-  }
-
-  return {
-    configureBaseComponents: (config: { client?: unknown }) => {
-      baseClientRef.current = config.client ?? null
+        getHospitalById: {
+          post: vi.fn(async ({ id }: { id: string }) =>
+            ({ 'HOS-1': { id: 'HOS-1', name: '医院甲', orgId: 'ORG-A' }, 'HOS-2': { id: 'HOS-2', name: '医院乙', orgId: 'ORG-A' } })[id]),
+        },
+        getBranchById: {
+          post: vi.fn(async ({ id }: { id: string }) =>
+            ({
+              'BRA-1': { id: 'BRA-1', name: '院区甲', hosId: 'HOS-1', orgId: 'ORG-A' },
+              'BRA-2': { id: 'BRA-2', name: '院区乙', hosId: 'HOS-1', orgId: 'ORG-A' },
+              'BRA-9': { id: 'BRA-9', name: '院区丙', hosId: 'HOS-2', orgId: 'ORG-A' },
+            })[id]),
+        },
+      },
     },
-    BaseScopeSelector: StubScopeSelector,
   }
-})
+}
 
 vi.mock('./recognitionAmountsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./recognitionAmountsApi')>()
@@ -265,27 +132,6 @@ vi.mock('@dy/auth-react', async () => {
     },
   }
 })
-
-const HOSPITALS = [{ id: 'HOS-1', name: '医院一' }, { id: 'HOS-2', name: '医院二' }]
-const BRANCHES = [
-  { id: 'BRA-1', name: '院区一', hosId: 'HOS-1' },
-  { id: 'BRA-2', name: '院区二', hosId: 'HOS-1' },
-  { id: 'BRA-3', name: '院区三', hosId: 'HOS-1' },
-]
-
-function createBaseClient(branchList: typeof BRANCHES = BRANCHES) {
-  return {
-    api: {
-      organization: {
-        queryAllOrganization: { post: vi.fn(async () => [{ id: 'ORG-A', name: '组织一' }]) },
-        queryAllValidHospitalByOrgId: { post: vi.fn(async () => HOSPITALS) },
-        queryAllValidBranchByOrgId: { post: vi.fn(async () => branchList) },
-      },
-    },
-  }
-}
-
-let baseClient: ReturnType<typeof createBaseClient>
 
 const node = (value: unknown) => ({ value, getValue: () => value })
 
@@ -346,29 +192,6 @@ async function failQuery(pending: ReturnType<typeof deferred<RecognitionAmountRo
   })
 }
 
-/** 院区下拉是医院管理员页唯一渲染的范围下拉。 */
-const branchSelect = () => screen.getByLabelText('范围-院区') as HTMLSelectElement
-
-async function pickBranch(value: string) {
-  const select = branchSelect()
-  // 选项由伪 Base Client 异步交付：等选项就绪再选，避免构造出「选了不存在的值」这种非真实路径。
-  await waitFor(() => expect(Array.from(select.options).some((option) => option.value === value)).toBe(true))
-  await change(select, value)
-}
-
-function modalElement(title: string): HTMLElement {
-  const found = Array.from(document.querySelectorAll<HTMLElement>('.ant-modal')).find(
-    (node) => node.querySelector('.ant-modal-title')?.textContent?.trim() === title,
-  )
-  if (!found) throw new Error(`弹窗未找到：${title}`)
-  return found
-}
-
-const modalExists = (title: string) =>
-  Array.from(document.querySelectorAll('.ant-modal-title')).some((node) => node.textContent?.trim() === title)
-
-const findModal = (title: string) => waitFor(() => modalElement(title))
-
 /** 行内编辑器（C32）的金额输入：编辑态以可访问名称「金额」呈现，收起后即从文档消失。 */
 const inlineAmountInput = () => screen.getByLabelText('金额') as HTMLInputElement
 const queryInlineAmountInput = () => screen.queryByLabelText('金额')
@@ -396,13 +219,20 @@ function amountValueCell(standardProjectName: string): HTMLElement {
 
 const editAmount = (standardProjectName: string) => click(amountValueCell(standardProjectName))
 
-/** C33：可信范围变化确认框的标题；待切换提示态以页面样式类呈现（RecognitionAmounts.css）。 */
-const CONFIRM_TRUSTED_SCOPE = '可信范围已变化'
-const promptElement = () => document.querySelector<HTMLElement>('.recognition-amounts-prompt')
-
-/** 搜索主按钮与关键字输入框：读取在途时主按钮呈加载态，关键字只在提交时下推服务端。 */
-const searchButton = () => screen.getByRole('button', { name: /搜\s*索/ })
+/** 查询主按钮与关键字输入框：读取在途时主按钮呈加载态，关键字只在提交时下推服务端。 */
+const searchButton = () => screen.getByRole('button', { name: /查\s*询/ })
 const keywordInput = () => screen.getByLabelText('关键字') as HTMLInputElement
+
+/**
+ * 在查询区表单上触发 submit 事件（等价模拟输入框内回车提交）：jsdom 不实现文本框内回车的
+ * 隐式提交（键盘默认动作不在模拟范围），真实浏览器的回车经表单隐式提交进入同一条 Form
+ * onFinish 提交链路，这里以 submit 事件表达同一条链路。
+ */
+const submitByEnter = () => {
+  const form = keywordInput().closest('form')
+  if (!form) throw new Error('查询区未以 Form 承载')
+  fireEvent.submit(form)
+}
 
 /** 两个状态 Segmented 把外部 aria-label 透传到 role=radiogroup（与互认项目配置页同一手法）。 */
 const amountStatusFilter = () => screen.getByRole('radiogroup', { name: '金额状态筛选' })
@@ -453,10 +283,10 @@ beforeEach(() => {
   // 列表读取缺省给出明确拒绝：用例须先 armQuery 排队，未排队的读取以可读的失败暴露，避免以 undefined 静默通过。
   query().mockRejectedValue(new Error('用例未排队列表读取：先调用 armQuery'))
   clientRef.current = {}
-  baseClient = createBaseClient()
+  // restoreMocks 会让上一用例的 vi.fn() 实现失效：目录替身每用例重建。
+  baseDirectoryRef.current = createBaseDirectory()
   // 地址栏回到缺省状态：上一个用例的已生效条件不得泄漏进本用例。
   window.history.replaceState(null, '', '/')
-  configureBaseComponents({ client: baseClient as unknown as BaseComponentsConfig['client'] })
 })
 
 /**
@@ -477,23 +307,22 @@ afterEach(() => {
   activeUnhandledRejectionObserver = null
 })
 
-describe('C3 可信范围与院区选择', () => {
-  it('组织与医院只读固定且不渲染下拉，只渲染院区下拉，院区默认取可信院区', async () => {
+describe('C3 可信范围与院区固定（D-05）', () => {
+  it('整页不渲染范围选择器：查询院区恒取登录院区，请求不含组织与医院（TC-T02-05）', async () => {
     const pending = armQuery()
     renderPage()
 
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
-    // 只渲染院区一级：固定传入的组织与医院不渲染对应下拉。
+    // D-05：院区选择器移除，页面不渲染任何范围下拉，院区恒取登录院区。
     expect(screen.queryByLabelText('范围-组织')).toBeNull()
     expect(screen.queryByLabelText('范围-医院')).toBeNull()
-    expect(screen.getByLabelText('范围-院区')).toBeInTheDocument()
-    // 查询只按可信上下文里的院区构造，不提交组织与医院。
+    expect(screen.queryByLabelText('范围-院区')).toBeNull()
+    expect(screen.queryByRole('combobox')).toBeNull()
+    // 查询只按可信上下文里的登录院区构造，不提交组织与医院。
     expect(query().mock.calls[0][1]).toEqual({ branchCode: 'BRA-1' })
 
     await settle(pending, [amountRow()])
-
-    await waitFor(() => expect(branchSelect().value).toBe('BRA-1'))
-    expect((branchSelect().selectedOptions[0]?.textContent) ?? '').toBe('院区一')
+    await screen.findByText('血常规')
   })
 
   it('C4：查询只提交院区与可选关键字，不含组织与医院', async () => {
@@ -543,110 +372,79 @@ describe('C3 可信范围与院区选择', () => {
     await screen.findByText('20.00')
   })
 
-  it('C3 可信范围在首屏之后才就绪（token 后到）：院区默认值随可信院区回填并据此查询', async () => {
-    // 挂载时凭据尚无 token：可信范围不可用，整页阻断、零业务请求、不渲染院区下拉。
+  it('C3 可信范围在首屏之后才就绪（token 后到）：按新的登录院区发起查询', async () => {
+    // 挂载时凭据尚无 token：可信范围不可用，整页阻断、零业务请求、不渲染任何范围下拉。
     authState.token = null
     authState.organizationCode = null
     authState.hospitalCode = null
     authState.branchCode = null
     renderPage()
-    await screen.findByText('可信范围不可用')
+    await screen.findByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')
     expect(screen.queryByLabelText('范围-院区')).toBeNull()
     expect(query()).not.toHaveBeenCalled()
 
-    // token 后到，可信范围随后才可用：默认院区随可信范围同步回填，首屏的空值随之被取代。
+    // token 后到，可信范围随后才可用：查询按登录院区发起。
     const pending = armQuery()
     await changeTrustedScope({ token: 'token-1', organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' })
 
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
     expect(query().mock.calls[0][1]).toEqual({ branchCode: 'BRA-1' })
-    await waitFor(() => expect(branchSelect().value).toBe('BRA-1'))
-    expect((branchSelect().selectedOptions[0]?.textContent) ?? '').toBe('院区一')
 
     await settle(pending, [amountRow()])
     await screen.findByText('血常规')
   })
 
-  it('C3 可信医院变更：院区不残留旧范围的值，按新可信院区查询', async () => {
-    // 新可信医院下的院区由伪 Base Client 交付：替身按固定的组织与医院范围读取选项。
-    baseClient = createBaseClient([...BRANCHES, { id: 'BRA-9', name: '院区九', hosId: 'HOS-2' }])
-    configureBaseComponents({ client: baseClient as unknown as BaseComponentsConfig['client'] })
-
+  it('C3 可信医院变更：院区恒随登录院区，不残留旧范围的行（D-05）', async () => {
     await renderLoaded([amountRow()])
     expect(query().mock.calls[0][1]).toEqual({ branchCode: 'BRA-1' })
-    await waitFor(() => expect(branchSelect().value).toBe('BRA-1'))
 
-    // 可信医院换绑，并交付该医院下的可信院区：旧范围的院区与旧范围的行都不得残留。
+    // 可信医院换绑并携带新的登录院区：旧范围的行不得残留，整表按新范围重读。
     const next = armQuery()
     await changeTrustedScope({ hospitalCode: 'HOS-2', branchCode: 'BRA-9' })
 
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-9' })
-    await waitFor(() => expect(branchSelect().value).toBe('BRA-9'))
-    expect(branchSelect().value).not.toBe('BRA-1')
-    expect((branchSelect().selectedOptions[0]?.textContent) ?? '').toBe('院区九')
 
     await settle(next, [amountRow({ standardProjectCode: 'B01', standardProjectName: '新院区项目' })])
     await screen.findByText('新院区项目')
     expect(screen.queryByText('血常规')).not.toBeInTheDocument()
   })
 
-  it('C3 可信范围变为不可用：院区清空、整页阻断，恢复后按新可信院区重新取值', async () => {
+  it('C3 可信范围变为不可用：整页阻断，恢复后按新的登录院区取值', async () => {
     const first = armQuery()
     renderPage()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
     await settle(first, [amountRow()])
-    await waitFor(() => expect(branchSelect().value).toBe('BRA-1'))
+    await screen.findByText('血常规')
 
-    // 登录态失效：可信组织与医院不可用，整页阻断，院区不残留旧范围的值。
+    // 登录态失效：可信组织与医院不可用，整页阻断。
     await changeTrustedScope({ token: null, organizationCode: null, hospitalCode: null, branchCode: null })
 
-    await screen.findByText('可信范围不可用')
-    expect(screen.queryByLabelText('范围-院区')).toBeNull()
+    await screen.findByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')
+    expect(screen.queryByRole('combobox')).toBeNull()
     expect(query()).toHaveBeenCalledTimes(1)
 
-    // 恢复登录态且可信院区换为另一个值：必须按新可信范围取值，不回填失效前的院区。
+    // 恢复登录态且登录院区换为另一个值：必须按新可信范围取值，不残留失效前的院区。
     const next = armQuery()
     await changeTrustedScope({ token: 'token-2', organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-2' })
 
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-2' })
-    await waitFor(() => expect(branchSelect().value).toBe('BRA-2'))
     await settle(next, [amountRow()])
     await screen.findByText('血常规')
-  })
-
-  it('C3 用户显式选择的院区不被可信默认值覆盖', async () => {
-    await renderLoaded([amountRow()])
-    expect(branchSelect().value).toBe('BRA-1')
-
-    // 用户显式选择院区二：此后同一可信范围内不得被默认可信院区盖回。
-    const selected = armQuery()
-    await pickBranch('BRA-2')
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-2' })
-    await settle(selected, [amountRow()])
-
-    // 宿主重新签发 token 但可信院区未变（仍在同一可信组织与医院内）：显式选择保持不变，也不额外
-    // 发起请求；默认可信院区只用于「用户尚未选择」时的回填，不得被当成用户的选择，也不得反过来
-    // 盖回用户选择。可信院区真的变化时按 C33 走确认框或直接切换，不再静默保持（见 C33 用例）。
-    await changeTrustedScope({ branchCode: 'BRA-1' })
-    expect(branchSelect().value).toBe('BRA-2')
-    expect((branchSelect().selectedOptions[0]?.textContent) ?? '').toBe('院区二')
-    expect(query()).toHaveBeenCalledTimes(2)
-    expect(save()).not.toHaveBeenCalled()
-    expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false)
-    expect(promptElement()).toBeNull()
   })
 })
 
 describe('C15 可信组织或医院缺失', () => {
-  it('阻断提示、不渲染院区下拉、零业务请求，也不伪造组织或降级为空值', async () => {
+  it('阻断提示、不渲染范围选择器、零业务请求，也不伪造组织或降级为空值', async () => {
     authState.organizationCode = null
     const missingOrganization = renderPage()
-    await screen.findByText('可信范围不可用')
-    expect(screen.getByText(/不能读取或维护本院区互认项目金额/)).toBeInTheDocument()
-    expect(screen.queryByLabelText('范围-院区')).toBeNull()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveClass('ant-alert-error')
+    expect(alert.textContent).toBe('无法读取当前登录组织或医院，已阻断本页查询与操作。')
+    // 阻断态标题与正常态同一层级（TC-T02-14）。
+    expect(screen.getByRole('heading', { name: '本院区互认项目金额', level: 3 })).toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).toBeNull()
     expect(query()).not.toHaveBeenCalled()
     expect(save()).not.toHaveBeenCalled()
     expect(screen.queryByRole('button', { name: /维护金额/ })).not.toBeInTheDocument()
@@ -655,8 +453,8 @@ describe('C15 可信组织或医院缺失', () => {
     authState.reset()
     authState.hospitalCode = '   '
     const missingHospital = renderPage()
-    await screen.findByText('可信范围不可用')
-    expect(screen.queryByLabelText('范围-院区')).toBeNull()
+    await screen.findByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')
+    expect(screen.queryByRole('combobox')).toBeNull()
     expect(query()).not.toHaveBeenCalled()
     expect(save()).not.toHaveBeenCalled()
     missingHospital.unmount()
@@ -664,7 +462,7 @@ describe('C15 可信组织或医院缺失', () => {
     authState.reset()
     authState.token = null
     renderPage()
-    await screen.findByText('可信范围不可用')
+    await screen.findByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')
     expect(query()).not.toHaveBeenCalled()
     expect(save()).not.toHaveBeenCalled()
   })
@@ -746,7 +544,7 @@ describe('C6 / C7 未配置与零元的呈现差异', () => {
 })
 
 describe('C8 金额输入校验', () => {
-  it('负数、三位小数、双精度无法精确表示的大额与空值都只给出行内提示，零写请求且保留编辑态与输入', async () => {
+  it('负数、三位小数、双精度无法精确表示的大额与空值都以 message.error 提示，单元格内不再渲染校验红字，零写请求且保留编辑态与输入', async () => {
     await renderLoaded([amountRow()])
 
     editAmount('血常规')
@@ -758,8 +556,11 @@ describe('C8 金额输入校验', () => {
     for (const invalid of ['-1', '1.234', '99999999999999.99']) {
       await change(inlineAmountInput(), invalid)
       await pressEnter(inlineAmountInput())
-      await screen.findByText('金额必须是不小于 0 且最多两位小数的数字')
-      // 行内提示与 `invalid` 标记：校验在字段变更后重新求值，标记随之更新。
+      // 校验失败以 message.error 反馈（TC-T02-07）：同一文案可叠加多条提示，按「出现至少一条」断言。
+      expect((await screen.findAllByText('金额必须是不小于 0 且最多两位小数的数字')).length).toBeGreaterThan(0)
+      // 表格单元格内不再渲染任何校验红字。
+      expect(within(rowOf('血常规')).queryByText('金额必须是不小于 0 且最多两位小数的数字')).toBeNull()
+      // `invalid` 标记：校验在字段变更后重新求值，标记随之更新。
       await waitFor(() => expect(inlineAmountInput()).toHaveAttribute('aria-invalid', 'true'))
       expect(save()).not.toHaveBeenCalled()
       expect(inlineAmountInput()).toBeInTheDocument()
@@ -768,7 +569,8 @@ describe('C8 金额输入校验', () => {
 
     await change(inlineAmountInput(), '')
     await pressEnter(inlineAmountInput())
-    await screen.findByText('金额必填')
+    expect((await screen.findAllByText('金额必填')).length).toBeGreaterThan(0)
+    expect(within(rowOf('血常规')).queryByText('金额必填')).toBeNull()
     await waitFor(() => expect(inlineAmountInput()).toHaveAttribute('aria-invalid', 'true'))
     expect(save()).not.toHaveBeenCalled()
     expect(query()).toHaveBeenCalledTimes(1)
@@ -789,6 +591,8 @@ describe('C9 / C12 金额保存成功', () => {
     await pressEnter(inlineAmountInput())
 
     await waitFor(() => expect(save()).toHaveBeenCalledTimes(1))
+    // 保存成功给 message.success 反馈（TC-T02-07）；现状保存后没有任何成功提示。
+    expect(await screen.findByText('金额保存成功')).toBeInTheDocument()
     // C4：保存请求同样只携带院区与标准项目编码、金额；载荷只经适配层出口构造。
     expect(save().mock.calls[0][1]).toEqual({
       branchCode: 'BRA-1',
@@ -843,6 +647,8 @@ describe('C10 金额保存被拒绝', () => {
       expect(screen.queryByText('写入已成功，数据待刷新')).not.toBeInTheDocument()
       expect(screen.queryByText('互认项目金额数据待刷新')).not.toBeInTheDocument()
       expect(screen.queryByText('业务拒绝')).not.toBeInTheDocument()
+      // 写失败不是成功：保存成功的 message 反馈同样不得出现（TC-T02-07 的分流口径）。
+      expect(screen.queryByText('金额保存成功')).not.toBeInTheDocument()
       // 提交中状态归零：编辑态仍然可用，可以继续输入并重试。
       await waitFor(() => expect(inlineAmountInput()).toBeEnabled())
       // 收尾再确认一次：观测窗口到用例结束为止，断言之后到达的杂散拒绝同样不得漏掉。
@@ -886,6 +692,42 @@ describe('C13 写成功但随后的刷新失败', () => {
     await screen.findByText('20.00')
     expect(screen.queryByText('写入已成功，数据待刷新')).not.toBeInTheDocument()
     await waitFor(() => expect(amountValueCell('血常规')).toBeEnabled())
+  })
+})
+
+describe('C14 读取失败形态（D-06、TC-T02-11）', () => {
+  it('查询失败不渲染错误横幅：旧数据保留、写入仍禁用，点查询可重试成功', async () => {
+    await renderLoaded([amountRow()])
+
+    const failing = armQuery()
+    // 空条件提交等价于刷新：查询主按钮重新读取当前范围。
+    click(searchButton())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    // 加载态的提交晚于读取计数的观测，等它真正落到按钮上再断言。
+    await waitFor(() => expect(searchButton()).toHaveClass('ant-btn-loading'))
+    await failQuery(failing)
+
+    // 失败落地的观测点改为加载态结束：D-06 下读取失败不再渲染任何错误横幅，
+    // 错误由宿主统一提示，重试经查询按钮。
+    await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
+    expect(screen.queryByText('互认项目金额数据待刷新')).not.toBeInTheDocument()
+    expect(screen.queryByText(/待刷新|读取失败/)).not.toBeInTheDocument()
+
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    // 失败后写入仍保持禁用（写门禁不依赖横幅），点击不进入编辑态。
+    expect(amountValueCell('血常规')).toBeDisabled()
+    click(amountValueCell('血常规'))
+    expect(queryInlineAmountInput()).toBeNull()
+    expect(save()).not.toHaveBeenCalled()
+
+    // 重试经查询按钮：重读成功后恢复可写。
+    const retry = armQuery()
+    click(searchButton())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    await settle(retry, [amountRow()])
+
+    await waitFor(() => expect(amountValueCell('血常规')).toBeEnabled())
+    expect(screen.queryByText(/待刷新|读取失败/)).not.toBeInTheDocument()
   })
 })
 
@@ -945,25 +787,23 @@ describe('C17 空态', () => {
   })
 })
 
-describe('C21 院区切换与未保存输入', () => {
-  it('切换院区时未保存的金额输入与旧院区数据一并清空', async () => {
+describe('C21 登录院区变化与未保存输入（D-05）', () => {
+  it('登录院区变化时整表按新院区重读，未保存的金额输入随行集替换清空', async () => {
     await renderLoaded([amountRow()])
 
     editAmount('血常规')
     await change(inlineAmountInput(), '99')
 
     const next = armQuery()
-    await pickBranch('BRA-2')
+    await changeTrustedScope({ branchCode: 'BRA-2' })
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-2' })
 
-    // 未保存输入随编辑态收起被清空，旧院区数据不再展示，且没有任何写请求；用户主动切换不弹确认框，
-    // 也不进入待切换提示态。
+    // 未保存输入随编辑态收起被清空，旧院区数据不再展示，且没有任何写请求；
+    // D-05 后不存在用户选定的滞留范围，不再有确认框或待切换提示态。
     expect(queryInlineAmountInput()).toBeNull()
     expect(screen.queryByText('血常规')).not.toBeInTheDocument()
     expect(save()).not.toHaveBeenCalled()
-    expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false)
-    expect(promptElement()).toBeNull()
 
     await settle(next, [amountRow({ standardProjectCode: 'B01', standardProjectName: '新院区项目' })])
     await screen.findByText('新院区项目')
@@ -971,6 +811,90 @@ describe('C21 院区切换与未保存输入', () => {
     // 重新进入编辑时回填的是新范围当前值，切换前未提交的输入已清空。
     editAmount('新院区项目')
     expect(inlineAmountInput().value).toBe('12.50')
+  })
+})
+
+/**
+ * 用例名只描述行为：全站查询按钮逐字符合统一规格（T02 Client/design.md「查询按钮与查询区」、
+ * testPlan.md TC-T02-06）。规格属性逐项断言；`autoInsertSpace={false}` 的效果以文本精确等于
+ * 「查询」表达；`htmlType` 经 DOM 属性断言；条件为空提交等价于刷新由 C27 与读取时序用例覆盖。
+ */
+describe('TC-T02-06 查询按钮规格', () => {
+  it('筛选区查询按钮：主按钮、搜索图标、文本精确为「查询」、htmlType 为 submit', async () => {
+    await renderLoaded([amountRow()])
+
+    const button = searchButton()
+    expect(button).toHaveClass('ant-btn-primary')
+    expect(button.querySelector('.anticon-search')).not.toBeNull()
+    expect(button.textContent).toBe('查询')
+    expect(button.getAttribute('type')).toBe('submit')
+  })
+})
+
+/**
+ * 用例名只描述行为：查询区以 inline Form 承载，查询与重置按钮位于行内最后一个 Form.Item 内并排
+ * （T02 Client/design.md「查询按钮与查询区」、testPlan.md TC-T02-16）。重置恒命名「重置」、默认样式。
+ * 重置口径与批 3 看板页一致：草稿与已生效条件一并恢复默认（关键字清空、两个状态档回「全部」），
+ * 随后按默认条件重读一次；地址栏参数按默认值回写。两个状态档是即时生效控件、不进草稿：
+ * 重置只是把它们恢复默认档，不改变「切换即生效、本地裁剪、不触发读取」的既有语义。
+ */
+describe('TC-T02-16 查询区 Form 化与重置', () => {
+  it('查询区为 inline Form，查询与重置在行内最后一个 Form.Item 内并排', async () => {
+    await renderLoaded([amountRow()])
+
+    const form = document.querySelector('.recognition-amounts-filter form')
+    expect(form).not.toBeNull()
+    expect(form).toHaveClass('ant-form-inline')
+    const search = searchButton()
+    expect(search.getAttribute('type')).toBe('submit')
+    const reset = screen.getByRole('button', { name: '重置' })
+    expect(reset).not.toHaveClass('ant-btn-primary')
+    // 查询与重置并排：同属行内最后一个 Form.Item。
+    const sharedItem = search.closest('.ant-form-item')
+    expect(sharedItem).not.toBeNull()
+    expect(sharedItem).toBe(reset.closest('.ant-form-item'))
+  })
+
+  it('重置把关键字草稿与两个状态档恢复默认，按默认条件重读一次并回写地址栏', async () => {
+    await renderLoaded([
+      amountRow({ standardProjectCode: 'A01', standardProjectName: '血常规' }),
+      amountRow({ standardProjectCode: 'A02', standardProjectName: '尿常规' }),
+    ])
+
+    // 布置：关键字提交生效（第 2 次读取），两个状态档切到非默认（即时生效，不追加读取）。
+    await change(keywordInput(), '尿常规')
+    expect(query()).toHaveBeenCalledTimes(1)
+    const applied = armQuery()
+    submitByEnter()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await settle(applied, [
+      amountRow({ standardProjectCode: 'A02', standardProjectName: '尿常规' }),
+    ])
+    await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
+    pickSegment(amountStatusFilter(), '已配置')
+    pickSegment(configurationStatusFilter(), '停用')
+    expect(new URLSearchParams(window.location.search).get('keyword')).toBe('尿常规')
+    expect(new URLSearchParams(window.location.search).get('amountStatus')).toBe('configured')
+    expect(new URLSearchParams(window.location.search).get('configurationStatus')).toBe('disabled')
+
+    // 重置：草稿与已生效条件一并恢复默认，按空条件重读一次。
+    const resetLoad = armQuery()
+    click(screen.getByRole('button', { name: '重置' }))
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    expect(query().mock.calls[2][1]).toEqual({ branchCode: 'BRA-1' })
+    await settle(resetLoad, [
+      amountRow({ standardProjectCode: 'A01', standardProjectName: '血常规' }),
+      amountRow({ standardProjectCode: 'A02', standardProjectName: '尿常规' }),
+    ])
+
+    // 草稿清空、两个状态档回「全部」。
+    expect(keywordInput().value).toBe('')
+    expect(selectedSegmentLabels(amountStatusFilter())).toEqual(['全部'])
+    expect(selectedSegmentLabels(configurationStatusFilter())).toEqual(['全部'])
+    // 地址栏参数按默认值回写（三个参数删除）。
+    expect(new URLSearchParams(window.location.search).get('keyword')).toBeNull()
+    expect(new URLSearchParams(window.location.search).get('amountStatus')).toBeNull()
+    expect(new URLSearchParams(window.location.search).get('configurationStatus')).toBeNull()
   })
 })
 
@@ -985,7 +909,7 @@ describe('C27 关键字搜索', () => {
     await change(keywordInput(), '尿常规')
     expect(query()).toHaveBeenCalledTimes(1)
     const second = armQuery()
-    fireEvent.keyDown(keywordInput(), { key: 'Enter' })
+    submitByEnter()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-1', keyword: '尿常规' })
 
@@ -1088,7 +1012,7 @@ describe('C29 地址栏参数同步', () => {
 
     // 回车提交：草稿成为已生效关键字，随请求下推并替换写入地址栏。
     const second = armQuery()
-    fireEvent.keyDown(keywordInput(), { key: 'Enter' })
+    submitByEnter()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls.map((call) => call[1])).toEqual([
       { branchCode: 'BRA-1' },
@@ -1112,9 +1036,9 @@ describe('C29 地址栏参数同步', () => {
   })
 })
 
-describe('C30 院区恒定单值与默认取值', () => {
-  it('默认档一：可信院区属于当前院区清单时选中可信院区，不被首项覆盖', async () => {
-    // 该院下首项是 BRA-1；可信院区 BRA-2 属于该清单，因此取可信院区。
+describe('C30 院区恒取登录院区（D-05）', () => {
+  it('登录院区不是清单首项时仍取登录院区，不做首项回退（三档解析已随选择器移除）', async () => {
+    // 登录院区 BRA-2 不在任何可选清单里参与解析：D-05 后查询恒用登录院区，不回退首项。
     authState.branchCode = 'BRA-2'
     const first = armQuery()
     renderPage()
@@ -1122,124 +1046,22 @@ describe('C30 院区恒定单值与默认取值', () => {
     expect(query().mock.calls.map((call) => call[1])).toEqual([
       { branchCode: 'BRA-2' },
     ])
-    await waitFor(() => expect(branchSelect()).toHaveValue('BRA-2'))
     await settle(first, [amountRow()])
-  })
-
-  it('默认档二：可信院区缺失时取该院下第一项，选项交付前不发任何请求', async () => {
-    authState.branchCode = null
-    const first = armQuery()
-    renderPage()
-
-    // 选项尚未交付：范围未解析，不发起请求，更不以空院区发起请求。
-    expect(query()).not.toHaveBeenCalled()
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
-    expect(query().mock.calls.map((call) => call[1])).toEqual([
-      { branchCode: 'BRA-1' },
-    ])
-    await waitFor(() => expect(branchSelect()).toHaveValue('BRA-1'))
-    await settle(first, [amountRow()])
-  })
-
-  it('默认档二：可信院区不在回调清单时取该院下第一项', async () => {
-    // 可信院区有值但不属于选择器交付的院区清单（清单只有 BRA-1 ~ BRA-3），归属核对不上即取首项。
-    authState.branchCode = 'BRA-9'
-    const first = armQuery()
-    renderPage()
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
-    expect(query().mock.calls.map((call) => call[1])).toEqual([
-      { branchCode: 'BRA-1' },
-    ])
-    await waitFor(() => expect(branchSelect()).toHaveValue('BRA-1'))
-    expect((branchSelect().selectedOptions[0]?.textContent) ?? '').toBe('院区一')
-    await settle(first, [amountRow()])
-  })
-
-  it('用户显式改选的院区被接受，清空院区被拒绝且保持原受控值', async () => {
-    await renderLoaded([amountRow()])
-    expect(query().mock.calls.map((call) => call[1])).toEqual([
-      { branchCode: 'BRA-1' },
-    ])
-
-    const second = armQuery()
-    await pickBranch('BRA-3')
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-3' })
-    await settle(second, [amountRow()])
-
-    // 组件的清空动作不被接受：保持原受控值，不发起空院区请求。
-    await pickBranch('')
-    expect(branchSelect()).toHaveValue('BRA-3')
-    expect(query()).toHaveBeenCalledTimes(2)
   })
 })
 
-describe('C31 页头三级范围展示', () => {
-  it('选择器加载完成前不展示范围名称，完成后名称在上、编码在下且不设文字标签', async () => {
-    const first = armQuery()
+describe('C31 页头范围条', () => {
+  it('页头由共用范围条承载：医院与院区显名称、组织显「未知」，全程无编码文本（TC-T02-02）', async () => {
+    await renderLoaded([amountRow()])
 
-    renderPage()
-
-    // 选择器加载完成前名称无从取值：页头整个范围展示块不出现。
-    expect(document.querySelector('.recognition-amounts-header-scope')).toBeNull()
-
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
-    await settle(first, [amountRow()])
-
-    await waitFor(() => expect(document.querySelector('.recognition-amounts-header-scope')).not.toBeNull())
-    const block = document.querySelector('.recognition-amounts-header-scope') as HTMLElement
-    const lines = Array.from(block.children) as HTMLElement[]
-    expect(lines).toHaveLength(2)
-    // 上下两行：名称在上、编码在下，整体右对齐由页头样式承载。
-    expect(lines[0].className).toContain('recognition-amounts-scope-names')
-    expect(lines[1].className).toContain('recognition-amounts-scope-codes')
-    // 组织固定后组件不再读取组织清单，组织名称即其编码（与真实组件同一交付）；医院与院区取选项名称。
-    for (const name of ['ORG-A', '医院一', '院区一']) {
-      expect(within(lines[0]).getByText(name)).toBeInTheDocument()
-    }
+    // 组织名经本项目客户端可信范围查询反查（本文件的占位 client 不含该端点 → 「未知」）；
+    // 医院与院区经基础目录按编码反查（医院甲 / 院区甲），编码一律不出现在页头。
+    expect(await screen.findByText('未知 / 医院甲 / 院区甲')).toBeInTheDocument()
+    const header = document.querySelector('.recognition-amounts-header') as HTMLElement
     for (const code of ['ORG-A', 'HOS-1', 'BRA-1']) {
-      expect(within(lines[1]).getByText(code)).toBeInTheDocument()
+      expect(header.textContent).not.toContain(code)
     }
-    // 不设「组织」这类文字标签：三级各自只有名称与编码。
-    for (const label of ['组织', '医院', '院区']) {
-      expect(within(block).queryByText(label, { exact: true })).toBeNull()
-    }
-  })
-
-  it('切换院区后名称行与编码行仍指同一范围，读取在途期间页头不渲染过期名称', async () => {
-    const first = armQuery()
-    renderPage()
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
-    await settle(first, [amountRow()])
-    await waitFor(() => expect(document.querySelector('.recognition-amounts-header-scope')).not.toBeNull())
-
-    const second = armQuery()
-    await pickBranch('BRA-2')
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-
-    // 读取在途：搜索按钮呈加载态，页头两行已整体切到新院区，旧院区名称与编码都不出现。
-    // 加载态的提交晚于读取计数的观测，等它真正落到按钮上再断言（与平台管理员页同一写法）。
-    await waitFor(() => expect(searchButton()).toHaveClass('ant-btn-loading'))
-    const inFlightBlock = document.querySelector('.recognition-amounts-header-scope') as HTMLElement
-    const inFlightLines = Array.from(inFlightBlock.children) as HTMLElement[]
-    expect(within(inFlightLines[0]).queryByText('院区一')).toBeNull()
-    expect(within(inFlightLines[1]).queryByText('BRA-1')).toBeNull()
-    expect(within(inFlightLines[0]).getByText('院区二')).toBeInTheDocument()
-    expect(within(inFlightLines[1]).getByText('BRA-2')).toBeInTheDocument()
-
-    await settle(second, [amountRow()])
-
-    // 读取结束后两行仍指同一范围：名称行与编码行都取当前选定项（院区二 / BRA-2 收尾）。
-    const block = document.querySelector('.recognition-amounts-header-scope') as HTMLElement
-    const lines = Array.from(block.children) as HTMLElement[]
-    expect(within(lines[0]).queryByText('院区一')).toBeNull()
-    expect(within(lines[1]).queryByText('BRA-1')).toBeNull()
-    for (const name of ['ORG-A', '医院一', '院区二']) {
-      expect(within(lines[0]).getByText(name)).toBeInTheDocument()
-    }
-    for (const code of ['ORG-A', 'HOS-1', 'BRA-2']) {
-      expect(within(lines[1]).getByText(code)).toBeInTheDocument()
-    }
+    expect(document.querySelector('.recognition-amounts-header-scope')).toBeNull()
   })
 })
 
@@ -1356,435 +1178,59 @@ describe('C32 行内编辑金额', () => {
   })
 })
 
-describe('C33 可信范围变化确认框', () => {
+describe('C34 提交前现值复核（D-05 后只保留可信组织或医院现读不到的拦截）', () => {
   /**
-   * 可信范围变化用受控构造：编辑期间让页面现读的可信三层取值改变（医院页的可信三层取自
-   * `LoginUserManager`，这里按宿主重签 token 的路径通知订阅者），生产代码无需提供注入点。
-   * 变化判定与平台管理员页同一结构：渲染期派生为主、选择器回调为第二道。
+   * message 拦截提示（S3-D28；TC-T02-07 起以 message.error 承载，不再渲染在单元格内）：
+   * 一句中文须含发生了什么、结果与下一步三段。D-05 后院区恒随登录院区、不存在用户选定的
+   * 滞留范围，「可信范围已变化」的拦截随范围选择器一并移除，只保留现读可信组织或医院读不到的拦截。
    */
-  it('有未保存内容时可信范围变化弹出确认框，放弃并切换即清空输入并按新范围加载', async () => {
-    await renderLoaded([amountRow()])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-
-    await changeTrustedScope({ branchCode: 'BRA-3' })
-    const next = armQuery()
-    await pickBranch('BRA-2')
-
-    const dialog = await findModal(CONFIRM_TRUSTED_SCOPE)
-    // 确认框存续期间：既不加载新范围，也不发起写入，更不进入待切换提示态。
-    expect(query()).toHaveBeenCalledTimes(1)
-    expect(save()).not.toHaveBeenCalled()
-    expect(promptElement()).toBeNull()
-
-    click(within(dialog).getByRole('button', { name: '放弃并切换' }))
-    await waitFor(() => expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false))
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-2' })
-
-    // 放弃即清空未保存输入，直接按新范围加载，没有残留的确认框与提示态。
-    expect(queryInlineAmountInput()).toBeNull()
-    expect(promptElement()).toBeNull()
-    expect(save()).not.toHaveBeenCalled()
-
-    await settle(next, [amountRow({ standardProjectCode: 'C01', standardProjectName: '新范围项目' })])
-    await screen.findByText('新范围项目')
-  })
-
-  it('确认框选取消后保留输入并进入待切换提示态，再次确认后按新范围加载', async () => {
-    await renderLoaded([amountRow()])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-
-    await changeTrustedScope({ branchCode: 'BRA-3' })
-    const next = armQuery()
-    await pickBranch('BRA-2')
-
-    const dialog = await findModal(CONFIRM_TRUSTED_SCOPE)
-    // antd 对恰为两个汉字的按钮文案自动插入空格（与既有「保 存」同一手法），匹配时容忍该空格。
-    click(within(dialog).getByRole('button', { name: /取\s*消/ }))
-    await waitFor(() => expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false))
-
-    // 取消：保留未保存输入与编辑态，进入待切换提示态，范围尚未切换。
-    expect(inlineAmountInput().value).toBe('99')
-    expect(promptElement()).not.toBeNull()
-    expect(query()).toHaveBeenCalledTimes(1)
-    expect(save()).not.toHaveBeenCalled()
-
-    // 提示态里再次确认：清空输入并按新范围加载，确认框不重复出现。
-    const prompt = promptElement()
-    expect(prompt).not.toBeNull()
-    click(within(prompt as HTMLElement).getByRole('button', { name: '放弃并切换' }))
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-2' })
-    await waitFor(() => expect(promptElement()).toBeNull())
-    expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false)
-    expect(queryInlineAmountInput()).toBeNull()
-
-    await settle(next, [amountRow({ standardProjectCode: 'C01', standardProjectName: '新范围项目' })])
-    await screen.findByText('新范围项目')
-  })
-
-  it('待切换提示态下未保存输入消失即自动按新范围加载', async () => {
-    await renderLoaded([amountRow()])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-
-    await changeTrustedScope({ branchCode: 'BRA-3' })
-    const next = armQuery()
-    await pickBranch('BRA-2')
-
-    const dialog = await findModal(CONFIRM_TRUSTED_SCOPE)
-    click(within(dialog).getByRole('button', { name: /取\s*消/ }))
-    await waitFor(() => expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false))
-    expect(promptElement()).not.toBeNull()
-    expect(inlineAmountInput().value).toBe('99')
-
-    // 用户用 Esc 收起编辑：未保存内容消失，提示态自动完成切换。
-    await pressEscape(inlineAmountInput())
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-2' })
-    await waitFor(() => expect(promptElement()).toBeNull())
-    expect(queryInlineAmountInput()).toBeNull()
-    expect(save()).not.toHaveBeenCalled()
-
-    await settle(next, [amountRow({ standardProjectCode: 'C01', standardProjectName: '新范围项目' })])
-    await screen.findByText('新范围项目')
-  })
-
-  it('没有未保存内容时可信范围变化直接切换，不弹确认框', async () => {
-    await renderLoaded([amountRow()])
-
-    await changeTrustedScope({ branchCode: 'BRA-3' })
-    // 自动切换先行完成：等它的读取排队并交付，再做用户改选，两个时序不交叠。
-    const auto = armQuery()
-    await waitFor(() => expect(branchSelect().value).toBe('BRA-3'))
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    await settle(auto, [amountRow()])
-
-    const next = armQuery()
-    await pickBranch('BRA-2')
-
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
-    expect(query().mock.calls[2][1]).toEqual({ branchCode: 'BRA-2' })
-    expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false)
-    expect(promptElement()).toBeNull()
-    expect(save()).not.toHaveBeenCalled()
-
-    await settle(next, [amountRow({ standardProjectCode: 'C01', standardProjectName: '新范围项目' })])
-    await screen.findByText('新范围项目')
-  })
-
-  it('可信组织或医院换绑且有未保存内容时弹确认框，放弃并切换即按新范围加载', async () => {
-    // 新可信医院下的院区由伪 Base Client 交付（与 C3 可信医院变更同一构造）。
-    baseClient = createBaseClient([...BRANCHES, { id: 'BRA-9', name: '院区九', hosId: 'HOS-2' }])
-    configureBaseComponents({ client: baseClient as unknown as BaseComponentsConfig['client'] })
-    await renderLoaded([amountRow()])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-
-    // 宿主重签 token 换绑可信医院：在既有选择被清空之前挂起本次切换（Client/design.md 第 34 行）。
-    const next = armQuery()
-    await changeTrustedScope({ hospitalCode: 'HOS-2', branchCode: 'BRA-9' })
-
-    const dialog = await findModal(CONFIRM_TRUSTED_SCOPE)
-    // 确认框存续期间：既不加载新范围，也不发起写入，更不进入待切换提示态，未保存输入与行集都保留。
-    expect(query()).toHaveBeenCalledTimes(1)
-    expect(save()).not.toHaveBeenCalled()
-    expect(promptElement()).toBeNull()
-    expect(inlineAmountInput().value).toBe('99')
-
-    click(within(dialog).getByRole('button', { name: '放弃并切换' }))
-    await waitFor(() => expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false))
-    // 放弃即清空未保存输入，按新可信范围重新解析院区并加载。
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-9' })
-    expect(queryInlineAmountInput()).toBeNull()
-    expect(promptElement()).toBeNull()
-    expect(save()).not.toHaveBeenCalled()
-
-    await settle(next, [amountRow({ standardProjectCode: 'C01', standardProjectName: '新范围项目' })])
-    await screen.findByText('新范围项目')
-  })
-
-  it('可信组织或医院换绑且没有未保存内容时直接切换，不弹确认框', async () => {
-    baseClient = createBaseClient([...BRANCHES, { id: 'BRA-9', name: '院区九', hosId: 'HOS-2' }])
-    configureBaseComponents({ client: baseClient as unknown as BaseComponentsConfig['client'] })
-    await renderLoaded([amountRow()])
-
-    // 先进入过编辑又用 Esc 收起：此后没有未保存内容。
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-    await pressEscape(inlineAmountInput())
-    expect(queryInlineAmountInput()).toBeNull()
-
-    const next = armQuery()
-    await changeTrustedScope({ hospitalCode: 'HOS-2', branchCode: 'BRA-9' })
-
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-9' })
-    expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false)
-    expect(promptElement()).toBeNull()
-    expect(save()).not.toHaveBeenCalled()
-
-    await settle(next, [amountRow({ standardProjectCode: 'C01', standardProjectName: '新范围项目' })])
-    await screen.findByText('新范围项目')
-  })
-
-  it('院区层挂起：确认框与待切换提示态期间回车提交零写请求，入口金额按钮禁用', async () => {
-    await renderLoaded([
-      amountRow(),
-      amountRow({ standardProjectCode: 'B02', standardProjectName: '便常规' }),
-    ])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-
-    // 院区层换绑：可信院区变化且存在未保存内容，选择器回调挂起本次切换并弹确认框。
-    await changeTrustedScope({ branchCode: 'BRA-3' })
-    await pickBranch('BRA-2')
-
-    const dialog = await findModal(CONFIRM_TRUSTED_SCOPE)
-    // 预排一次读取：写入路径若真走到整表重载，让它停在在途，失败现场只留下写调用本身。
-    armQuery()
-    // 确认框挂起期间：回车零写返回，未在编辑的行其入口金额按钮禁用；行内输入仍可编辑。
-    await pressEnter(inlineAmountInput())
-    expect(save()).not.toHaveBeenCalled()
-    expect(amountValueCell('便常规')).toBeDisabled()
-    expect(inlineAmountInput()).not.toBeDisabled()
-    expect(promptElement()).toBeNull()
-
-    // 转入待切换提示态后同一口径继续生效。
-    click(within(dialog).getByRole('button', { name: /取\s*消/ }))
-    await waitFor(() => expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false))
-    expect(promptElement()).not.toBeNull()
-    armQuery()
-    await pressEnter(inlineAmountInput())
-    expect(save()).not.toHaveBeenCalled()
-    expect(amountValueCell('便常规')).toBeDisabled()
-    expect(inlineAmountInput()).not.toBeDisabled()
-  })
-
-  it('组织医院换绑挂起：确认框与待切换提示态期间回车提交零写请求，入口金额按钮禁用', async () => {
-    // 新可信医院下的院区由伪 Base Client 交付（与换绑确认框用例同一构造）。
-    baseClient = createBaseClient([...BRANCHES, { id: 'BRA-9', name: '院区九', hosId: 'HOS-2' }])
-    configureBaseComponents({ client: baseClient as unknown as BaseComponentsConfig['client'] })
-    await renderLoaded([
-      amountRow(),
-      amountRow({ standardProjectCode: 'B02', standardProjectName: '便常规' }),
-    ])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-
-    // 宿主重签 token 换绑可信医院：在既有选择被清空之前挂起本次切换（Client/design.md 第 34 行）。
-    await changeTrustedScope({ hospitalCode: 'HOS-2', branchCode: 'BRA-9' })
-
-    const dialog = await findModal(CONFIRM_TRUSTED_SCOPE)
-    armQuery()
-    // 确认框挂起期间：回车零写返回，未在编辑的行其入口金额按钮禁用；行内输入仍可编辑。
-    await pressEnter(inlineAmountInput())
-    expect(save()).not.toHaveBeenCalled()
-    expect(amountValueCell('便常规')).toBeDisabled()
-    expect(inlineAmountInput()).not.toBeDisabled()
-    expect(promptElement()).toBeNull()
-
-    // 转入待切换提示态后同一口径继续生效。
-    click(within(dialog).getByRole('button', { name: /取\s*消/ }))
-    await waitFor(() => expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false))
-    expect(promptElement()).not.toBeNull()
-    armQuery()
-    await pressEnter(inlineAmountInput())
-    expect(save()).not.toHaveBeenCalled()
-    expect(amountValueCell('便常规')).toBeDisabled()
-    expect(inlineAmountInput()).not.toBeDisabled()
-  })
-
-  it('组织医院换绑挂起中在旧院区下拉改选：放弃并切换后按新可信范围解析的院区读取，请求体不含旧医院院区', async () => {
-    // 新可信医院下的院区由伪 Base Client 交付（与换绑确认框用例同一构造）。
-    baseClient = createBaseClient([...BRANCHES, { id: 'BRA-9', name: '院区九', hosId: 'HOS-2' }])
-    configureBaseComponents({ client: baseClient as unknown as BaseComponentsConfig['client'] })
-    await renderLoaded([amountRow()])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-
-    // 宿主重签 token 换绑可信医院弹出确认框；取消后转入待切换提示态（无遮罩）。
-    const next = armQuery()
-    await changeTrustedScope({ hospitalCode: 'HOS-2', branchCode: 'BRA-9' })
-    const dialog = await findModal(CONFIRM_TRUSTED_SCOPE)
-    click(within(dialog).getByRole('button', { name: /取\s*消/ }))
-    await waitFor(() => expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false))
-    expect(promptElement()).not.toBeNull()
-
-    // 提示态下选择器仍展示旧医院的院区清单：在这里改选一个旧医院院区。
-    await pickBranch('BRA-2')
-
-    // 放弃并切换：读取按新可信范围解析出的院区发起，请求体不含旧医院的院区。
-    click(within(promptElement() as HTMLElement).getByRole('button', { name: '放弃并切换' }))
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-9' })
-    expect(queryInlineAmountInput()).toBeNull()
-    expect(promptElement()).toBeNull()
-    expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false)
-    expect(save()).not.toHaveBeenCalled()
-
-    await settle(next, [amountRow({ standardProjectCode: 'C01', standardProjectName: '新范围项目' })])
-    await screen.findByText('新范围项目')
-  })
-
-  it('院区层只推进 token、不碰选择器：有未保存内容时渲染期即弹出可信范围变化确认框', async () => {
-    await renderLoaded([amountRow()])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-
-    // 只按宿主重签 token 的路径推进可信院区（Client/design.md 第 34 行），全程没有任何选择器交互。
-    await changeTrustedScope({ branchCode: 'BRA-3' })
-
-    await findModal(CONFIRM_TRUSTED_SCOPE)
-    // 确认框由渲染期派生弹出：期间既不加载新范围，也不发起写入，更不进入待切换提示态。
-    expect(query()).toHaveBeenCalledTimes(1)
-    expect(save()).not.toHaveBeenCalled()
-    expect(promptElement()).toBeNull()
-    // 受控值仍停在原院区——确认框出现之前没有发生过任何选择器交互。
-    expect(branchSelect().value).toBe('BRA-1')
-  })
-
-  it('院区层只推进 token、不碰选择器：无未保存内容时按三档规则重取院区且不弹确认框', async () => {
-    await renderLoaded([amountRow()])
-    expect(branchSelect().value).toBe('BRA-1')
-
-    // 只按宿主重签 token 的路径推进可信院区，全程没有任何选择器交互；重载读取先排队再触发。
-    const next = armQuery()
-    await changeTrustedScope({ branchCode: 'BRA-3' })
-
-    // 可信院区 BRA-3 属于当前医院的院区清单：组织、医院不变，按档一直接选中它并据此重载（S3-D22）。
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-3' })
-    await waitFor(() => expect(branchSelect().value).toBe('BRA-3'))
-    expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false)
-    expect(promptElement()).toBeNull()
-    expect(save()).not.toHaveBeenCalled()
-
-    await settle(next, [amountRow()])
-    await screen.findByText('血常规')
-  })
-
-  it('院区层只推进 token、有未保存内容：确认框里不碰选择器直接放弃并切换，院区按三档规则现解析', async () => {
-    await renderLoaded([amountRow()])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-
-    // 只推进 token：确认框由渲染期派生弹出，全程没有任何选择器交互，挂起的目标范围为空。
-    const next = armQuery()
-    await changeTrustedScope({ branchCode: 'BRA-3' })
-    const dialog = await findModal(CONFIRM_TRUSTED_SCOPE)
-
-    click(within(dialog).getByRole('button', { name: '放弃并切换' }))
-    await waitFor(() => expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false))
-
-    // 放弃并切换：按 S3-D22 三档规则现解析院区——可信 BRA-3 属于当前院区清单，选中它并据此读取。
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-3' })
-    await waitFor(() => expect(branchSelect().value).toBe('BRA-3'))
-    expect(queryInlineAmountInput()).toBeNull()
-    expect(promptElement()).toBeNull()
-    expect(save()).not.toHaveBeenCalled()
-
-    await settle(next, [amountRow({ standardProjectCode: 'C01', standardProjectName: '新范围项目' })])
-    await screen.findByText('新范围项目')
-  })
-})
-
-describe('C34 提交前现值复核', () => {
-  /**
-   * 行内拦截原因（S3-D28、Client/design.md 第 34 行）：一句中文须含发生了什么、结果与下一步
-   * 三段；旧口径那句「页面范围为…可信范围为…请刷新页面后重试」指向用户选定范围，已作废。
-   */
-  const REASON_CHANGED = '可信范围已变化，页面尚未应用新可信范围，本次不提交写入；请放弃未保存内容并切换到新可信范围。'
   const REASON_UNREADABLE = '读取不到完整可信范围，本次不提交写入；请放弃未保存内容并切换到新可信范围。'
 
-  /**
-   * 可信范围变化用受控构造（与 C33 同一构造）：编辑期间按宿主重签 token 的路径推进现读可信三层；
-   * 比对的记录侧是页面应用范围时写下的可信范围（`applySelection` 同一帧记录），生产代码无需注入点。
-   */
-  it('可信范围已变化（记录的可信范围与现读不一致）时提交：零写请求，行内出现指向切换新可信范围的可见原因', async () => {
+  it('现读可信组织缺失时提交：零写请求，以 message.error 给出读取不到完整可信范围的提示', async () => {
     await renderLoaded([amountRow()])
 
     editAmount('血常规')
     await change(inlineAmountInput(), '99')
 
-    // 现读可信院区改变、页面尚未应用新可信范围：记录侧仍是应用范围时的 BRA-1。
-    await changeTrustedScope({ branchCode: 'BRA-3' })
-    await findModal(CONFIRM_TRUSTED_SCOPE)
-
-    // 写入路径若真走到整表重载，让这次读取停在在途：失败现场只留下写调用本身。
+    // 只推进命令式现读的组织取值：「现读不到」的结论只由可信组织或医院的缺失给出。
+    authState.organizationCode = null
     armQuery()
     await pressEnter(inlineAmountInput())
 
-    // 零写请求、不重载，编辑态与输入原样保留。
     expect(save()).not.toHaveBeenCalled()
     expect(query()).toHaveBeenCalledTimes(1)
+    // 拦截提示以 message.error 反馈（TC-T02-07），单元格内不再渲染任何拦截原因。
+    expect((await screen.findAllByText(REASON_UNREADABLE)).length).toBeGreaterThan(0)
+    expect(within(rowOf('血常规')).queryByText(REASON_UNREADABLE)).toBeNull()
     expect(inlineAmountInput()).toBeInTheDocument()
     expect(inlineAmountInput().value).toBe('99')
-    // 行内就地给出可见原因：发生了什么、结果与下一步三段齐全。
-    expect(within(rowOf('血常规')).getByText(REASON_CHANGED)).toBeInTheDocument()
-    // 旧口径文案（用户选定范围那套）不得出现。
-    expect(screen.queryByText(/请刷新页面后重试/)).not.toBeInTheDocument()
-
-    // 转入待切换提示态后同一原因仍在行内呈现，回车依旧零写。
-    click(within(modalElement(CONFIRM_TRUSTED_SCOPE)).getByRole('button', { name: /取\s*消/ }))
-    await waitFor(() => expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false))
-    expect(promptElement()).not.toBeNull()
-    armQuery()
-    await pressEnter(inlineAmountInput())
-    expect(save()).not.toHaveBeenCalled()
-    expect(query()).toHaveBeenCalledTimes(1)
-    expect(within(rowOf('血常规')).getByText(REASON_CHANGED)).toBeInTheDocument()
   })
 
-  it('渲染期可信范围未变化、提交时现读值已变化：零写请求，行内出现指向切换新可信范围的可见原因', async () => {
+  it('现读可信医院缺失时提交：零写请求，以 message.error 给出读取不到完整可信范围的提示', async () => {
     await renderLoaded([amountRow()])
 
     editAmount('血常规')
     await change(inlineAmountInput(), '99')
 
-    /**
-     * 只推进命令式读取的现值、不通知订阅者（不走 `changeTrustedScope` 的 notify 路径）：
-     * 渲染期 prop 停留在上次渲染读到的可信院区，记录侧同为 BRA-1，两侧仍相等；现值只在
-     * 提交发起时经命令式出口读到——构造「宿主改写可信值后同一同步块内回车」的真实宿主路径，
-     * 父层渲染期比对（C33 的 `trustedRangeChanged` 派生）对这次变化毫无察觉。
-     */
-    authState.branchCode = 'BRA-3'
-    expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false)
-    expect(promptElement()).toBeNull()
-
-    // 写入路径若真走到整表重载，让这次读取停在在途：失败现场只留下写调用本身。
+    // 只推进命令式现读的医院取值：「现读不到」的结论只由可信组织或医院的缺失给出。
+    authState.hospitalCode = null
     armQuery()
     await pressEnter(inlineAmountInput())
 
-    // 零写请求、不重载，编辑态与输入原样保留。
     expect(save()).not.toHaveBeenCalled()
     expect(query()).toHaveBeenCalledTimes(1)
+    // 拦截提示以 message.error 反馈（TC-T02-07），单元格内不再渲染任何拦截原因。
+    expect((await screen.findAllByText(REASON_UNREADABLE)).length).toBeGreaterThan(0)
+    expect(within(rowOf('血常规')).queryByText(REASON_UNREADABLE)).toBeNull()
     expect(inlineAmountInput()).toBeInTheDocument()
     expect(inlineAmountInput().value).toBe('99')
-    // 行内就地给出可见原因，与渲染期已察觉变化的用例同一句文案。
-    expect(within(rowOf('血常规')).getByText(REASON_CHANGED)).toBeInTheDocument()
-    // 旧口径文案不得出现。
-    expect(screen.queryByText(/请刷新页面后重试/)).not.toBeInTheDocument()
   })
 
-  it('可信范围一致时提交：照常发出保存请求并整表重载，行内不出现拦截原因', async () => {
+  it('可信范围现读完整时提交：照常发出保存请求并整表重载，行内不出现拦截原因', async () => {
     await renderLoaded([amountRow()])
 
     editAmount('血常规')
-    // 记录的可信范围与现读三层一致（组织 ORG-A、医院 HOS-1、院区 BRA-1 都未变化）：复核通过。
+    // 记录侧概念已随范围选择器移除：现读可信组织与医院齐全即放行，载荷用页面生效的登录院区。
     save().mockResolvedValueOnce(undefined)
     const reload = armQuery()
     await pressEnter(inlineAmountInput())
@@ -1803,118 +1249,40 @@ describe('C34 提交前现值复核', () => {
     expect(screen.queryByText(/本次不提交写入/)).not.toBeInTheDocument()
   })
 
-  it('院区现读缺失而记录有值（可信范围已变化、页面未应用）时提交：零写请求，行内给出已变化的可见原因', async () => {
+  it('登录院区现值在提交时已变化：保存以提交时的生效院区发出，随后的渲染按新登录院区切换重读', async () => {
     await renderLoaded([amountRow()])
 
     editAmount('血常规')
     await change(inlineAmountInput(), '99')
 
-    // 现读院区缺失、记录侧仍是应用范围时的 BRA-1：院区层按一致性比对给出已变化，缺失不作读不到。
-    await changeTrustedScope({ branchCode: null })
-    await findModal(CONFIRM_TRUSTED_SCOPE)
-
-    armQuery()
-    await pressEnter(inlineAmountInput())
-
-    expect(save()).not.toHaveBeenCalled()
-    expect(query()).toHaveBeenCalledTimes(1)
-    expect(within(rowOf('血常规')).getByText(REASON_CHANGED)).toBeInTheDocument()
-    expect(within(rowOf('血常规')).queryByText(REASON_UNREADABLE)).not.toBeInTheDocument()
-    expect(inlineAmountInput()).toBeInTheDocument()
-    expect(inlineAmountInput().value).toBe('99')
-  })
-
-  it('档二已应用（记录与现读的可信院区同为缺失）时提交：不拦截，保存照常提交并整表重载', async () => {
-    // S3-D22 档二：可信院区缺失，页面按当前组织医院下的首项选定院区（BRA-1），记录侧仍为缺失。
-    authState.branchCode = null
-    await renderLoaded([amountRow()])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
+    /**
+     * 只推进命令式读取的现值、不通知订阅者（不走 `changeTrustedScope` 的 notify 路径）：
+     * 提交发起时页面仍展示登录院区 BRA-1 的行集，D-05 后没有「页面应用范围落后于可信范围」的
+     * 滞留拦截，保存以提交时页面生效的登录院区发出、与所编辑行集一致；随后保存成功复位编辑目标
+     * 触发页面重渲染，渲染期现读读到新登录院区 BRA-3，范围键变化即视为范围切换，主体清空旧行集
+     * 并按 BRA-3 重读。
+     */
+    authState.branchCode = 'BRA-3'
     save().mockResolvedValueOnce(undefined)
-    const reload = armQuery()
+    const writeReload = armQuery()
+    const switchReload = armQuery()
     await pressEnter(inlineAmountInput())
 
-    // 记录值与现读值同为缺失：一致性比对放行，保存照常提交一次，载荷用页面选定的首项院区。
     await waitFor(() => expect(save()).toHaveBeenCalledTimes(1))
     expect(save().mock.calls[0][1]).toEqual({
       branchCode: 'BRA-1',
       standardProjectCode: 'A01',
       currentAmount: 99,
     })
-    expect(screen.queryByText(/本次不提交写入/)).not.toBeInTheDocument()
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-1' })
-    await settle(reload, [amountRow({ currentAmount: node(20), isAmountConfigured: true })])
-    await waitFor(() => expect(queryInlineAmountInput()).toBeNull())
-    await screen.findByText('20.00')
-  })
-
-  it('记录的可信院区缺失而现读已有值（档二后范围变化、页面未应用）时提交：零写请求，行内给出已变化的可见原因', async () => {
-    authState.branchCode = null
-    await renderLoaded([amountRow()])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-
-    // 只推进命令式现读的取值、不通知订阅者：渲染期比对毫无察觉、C33 不弹，只有提交时的现读读到新值。
-    authState.branchCode = 'BRA-3'
-    armQuery()
-    await pressEnter(inlineAmountInput())
-
-    expect(save()).not.toHaveBeenCalled()
-    expect(query()).toHaveBeenCalledTimes(1)
-    expect(within(rowOf('血常规')).getByText(REASON_CHANGED)).toBeInTheDocument()
-    expect(inlineAmountInput()).toBeInTheDocument()
-    expect(inlineAmountInput().value).toBe('99')
-  })
-
-  it('现读可信医院缺失时提交：零写请求，行内给出读取不到完整可信范围的可见原因', async () => {
-    await renderLoaded([amountRow()])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-
-    // 只推进命令式现读的医院取值：「现读不到」的结论只由可信组织或医院的缺失给出。
-    authState.hospitalCode = null
-    armQuery()
-    await pressEnter(inlineAmountInput())
-
-    expect(save()).not.toHaveBeenCalled()
-    expect(query()).toHaveBeenCalledTimes(1)
-    expect(within(rowOf('血常规')).getByText(REASON_UNREADABLE)).toBeInTheDocument()
-    expect(inlineAmountInput()).toBeInTheDocument()
-    expect(inlineAmountInput().value).toBe('99')
-  })
-
-  it('用户改选院区不同于可信默认值、记录与现读一致：不拦截，保存照常提交', async () => {
-    await renderLoaded([amountRow()])
-
-    // 用户改选 BRA-3（可信默认仍是 BRA-1）：先按新范围重载行，随后编辑并提交。
-    const second = armQuery()
-    await pickBranch('BRA-3')
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-3' })
-    await settle(second, [amountRow()])
-
-    editAmount('血常规')
-    await change(inlineAmountInput(), '8')
-    save().mockResolvedValueOnce(undefined)
-    const reload = armQuery()
-    await pressEnter(inlineAmountInput())
-
-    // 记录侧与现读侧都取可信 BRA-1（用户选定值不参与比对）：比对放行，载荷用用户选定的 BRA-3。
-    await waitFor(() => expect(save()).toHaveBeenCalledTimes(1))
-    expect(save().mock.calls[0][1]).toEqual({
-      branchCode: 'BRA-3',
-      standardProjectCode: 'A01',
-      currentAmount: 8,
-    })
-    expect(screen.queryByText(/本次不提交写入/)).not.toBeInTheDocument()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
-    await settle(reload, [amountRow({ currentAmount: node(20), isAmountConfigured: true })])
-    await waitFor(() => expect(queryInlineAmountInput()).toBeNull())
-    await screen.findByText('20.00')
+    expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-1' })
+    expect(query().mock.calls[2][1]).toEqual({ branchCode: 'BRA-3' })
+    // BRA-1 的写后重读因范围键已切换被丢弃，行集以 BRA-3 的重读为准。
+    await settle(writeReload, [amountRow({ currentAmount: node(20), isAmountConfigured: true })])
+    await settle(switchReload, [amountRow({ standardProjectCode: 'C01', standardProjectName: '新院区项目' })])
+    await screen.findByText('新院区项目')
+    expect(screen.queryByText('血常规')).not.toBeInTheDocument()
+    expect(queryInlineAmountInput()).toBeNull()
   })
 })
 
@@ -1964,5 +1332,14 @@ describe('C36 读取在途写门控', () => {
     expect(amountValueCell('血常规')).toBeEnabled()
     click(amountValueCell('血常规'))
     expect(inlineAmountInput()).toBeInTheDocument()
+  })
+})
+
+describe('TC-T02-14 页面标题层级', () => {
+  it('页面大标题为 level 3（正常态与阻断态同层级，配套 CSS 与平台页共用）', async () => {
+    await renderLoaded([amountRow()])
+
+    expect(screen.getByRole('heading', { name: '本院区互认项目金额', level: 3 })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '本院区互认项目金额', level: 2 })).toBeNull()
   })
 })

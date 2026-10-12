@@ -222,12 +222,14 @@ export function RecognitionProjectBatchCreateModal({
   onSubmit: () => Promise<void>
 }) {
   /**
-   * 本次点击确定被拒绝的本地原因：未勾选任何项目、或统一天数不合法。
-   * 只作弹窗内的即时反馈，不参与请求构造——真正的零写请求由页面按载荷构造结果拦截。
+   * 本地拦截原因按字段就近展示（TC-T02-07 字段级红字）：选择面的原因（未勾选、超上限）与
+   * 可互认时间的原因（天数非法）各持一份，渲染在对应字段下方；只作弹窗内的即时反馈，
+   * 不参与请求构造——真正的零写请求由页面按载荷构造结果拦截。
    */
-  const [inputError, setInputError] = useState<string | null>(null)
+  const [selectionError, setSelectionError] = useState<string | null>(null)
+  const [durationError, setDurationError] = useState<string | null>(null)
   /**
-   * 弹窗内的关键字搜索（S2-D26、S2-D29）：`keywordDraft` 是输入原文，经搜索按钮或回车提交后
+   * 弹窗内的关键字搜索（S2-D26、S2-D29）：`keywordDraft` 是输入原文，经查询按钮或回车提交后
    * **由页面按该关键字向服务端查询可新增项目**（`onKeywordSearch`），结果就是 `view` 本身。
    * 弹窗因此不再做本地裁剪：以名称、分类或分组命中的项目在客户端是看不出来的（服务端才知道），
    * 本地再判一次会把它们错误裁掉。`keyword` 是当前生效条件，用于区分「没有可新增项」与「没有匹配项」。
@@ -235,7 +237,7 @@ export function RecognitionProjectBatchCreateModal({
   const [keywordDraft, setKeywordDraft] = useState(keyword)
 
   const changeSelection = (next: ReadonlySet<string>) => {
-    setInputError(null)
+    setSelectionError(null)
     onSelectionChange(next)
   }
 
@@ -293,20 +295,22 @@ export function RecognitionProjectBatchCreateModal({
   }
 
   const submit = async () => {
-    // 三条本地拦截都保留输入与选择，且不发出写请求：未勾选时无处提交，超上限与天数非法时提交必被服务端拒绝。
+    // 三条本地拦截都保留输入与选择，且不发出写请求：未勾选时无处提交，超上限与天数非法时提交必被服务端拒绝；
+    // 原因以字段级红字就近提示（TC-T02-07），弹窗保持打开、用户输入原样保留。
     if (selection.size === 0) {
-      setInputError('请先勾选要新增的标准项目')
+      setSelectionError('请先勾选要新增的标准项目')
       return
     }
     if (exceedsBatchCreateLimit(selection.size)) {
-      setInputError(`一次最多新增 ${BATCH_CREATE_LIMIT} 项，当前已选 ${selection.size} 项；请减少选择后再提交。`)
+      setSelectionError(`一次最多新增 ${BATCH_CREATE_LIMIT} 项，当前已选 ${selection.size} 项；请减少选择后再提交。`)
       return
     }
     if (parseRecognitionDurationDays(durationInput) === null) {
-      setInputError(RECOGNITION_DURATION_RANGE_TEXT)
+      setDurationError(RECOGNITION_DURATION_RANGE_TEXT)
       return
     }
-    setInputError(null)
+    setSelectionError(null)
+    setDurationError(null)
     await onSubmit()
   }
 
@@ -340,13 +344,20 @@ export function RecognitionProjectBatchCreateModal({
         }}
         onPressEnter={() => onKeywordSearch(keywordDraft)}
       />
+      {/*
+        弹窗查询按钮逐字符合全站统一规格（TC-T02-06）：`aria-label` 声明可访问名称——`SearchOutlined`
+        自带英文 `aria-label`，会参与按钮名称计算，不声明就会读成「search 查询」；`autoInsertSpace={false}`
+        关闭两汉字间自动插入的空格，使按钮文本与可访问名称都是「查询」。`htmlType='submit'` 在
+        查询区 Form 化后获得表单提交语义，当前无 Form 包裹不改变行为。
+      */}
       <Button
         type='primary'
         icon={<SearchOutlined />}
-        aria-label='搜索'
+        aria-label='查询'
         autoInsertSpace={false}
+        htmlType='submit'
         onClick={() => onKeywordSearch(keywordDraft)}
-      >搜索</Button>
+      >查询</Button>
     </div>
 
     <div className='recognition-projects-batch-body'>
@@ -371,18 +382,14 @@ export function RecognitionProjectBatchCreateModal({
             : '标准目录数据待刷新'}
         />
       </div>
+      {/* 选择面的拦截原因以字段级红字落在选择区下方（TC-T02-07），不用 Alert；清除时机见 changeSelection。 */}
+      {selectionError === null ? null : <div className='recognition-projects-batch-error'>
+        <Typography.Text type='danger'>{selectionError}</Typography.Text>
+      </div>}
     </div>
 
     {/* 异步出现的提示都放在常驻的 live region 里：容器先于内容存在，读屏软件才收得到这次变化。 */}
     <div className='recognition-projects-live' aria-live='polite'>
-      {inputError === null ? null : <Alert
-        className='recognition-projects-batch-error'
-        type='warning'
-        showIcon
-        title='无法提交'
-        description={inputError}
-      />}
-
       {prunedCount === 0 ? null : <Alert
         className='recognition-projects-batch-pruned'
         type='info'
@@ -401,21 +408,28 @@ export function RecognitionProjectBatchCreateModal({
         onClick={selectAllVisible}
       >全选当前结果</Button>
       <span className='recognition-projects-batch-count'>已选 {selection.size} 项</span>
-      <span className='recognition-projects-batch-days'>
-        <span>可互认时间（天）</span>
-        <Input
-          aria-label='可互认时间（天）'
-          inputMode='numeric'
-          autoComplete='off'
-          placeholder='正整数，如 30…'
-          value={durationInput}
-          disabled={submitting}
-          onChange={(event) => {
-            setInputError(null)
-            onDurationChange(event.target.value)
-          }}
-        />
-      </span>
+      {/* 天数拦截原因落在输入框正下方（TC-T02-07 字段级红字）；外层块级包裹让红字换行到字段下方，
+          同时保持页脚 flex 布局把「标签 + 输入 + 原因」作为一个整体参与换行。 */}
+      <div>
+        <span className='recognition-projects-batch-days'>
+          <span>可互认时间（天）</span>
+          <Input
+            aria-label='可互认时间（天）'
+            inputMode='numeric'
+            autoComplete='off'
+            placeholder='正整数，如 30…'
+            value={durationInput}
+            disabled={submitting}
+            onChange={(event) => {
+              setDurationError(null)
+              onDurationChange(event.target.value)
+            }}
+          />
+        </span>
+        {durationError === null ? null : <div className='recognition-projects-batch-error'>
+          <Typography.Text type='danger'>{durationError}</Typography.Text>
+        </div>}
+      </div>
       <Typography.Text type='secondary'>
         本次新增的全部配置共用这一个可互认时间，单位为天、最小 1 天；从报告时间起按连续 24 小时计算，边界包含。
       </Typography.Text>

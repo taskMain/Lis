@@ -7,7 +7,7 @@
  *    `recheckRecognitionAmountScope`（描述块缺省由替身给值、核对入参两侧——应用范围时记录的
  *    可信院区与保存发起前现读的可信院区；C34 描述块把该出口接到真实实现以断言整链，装配说明见
  *    该描述块；逐层比对与适配层交付的原因串由 recognitionAmountsApi.test.ts 的复核用例覆盖，
- *    行内展示的原因由本页书写），其余纯函数
+ *    message 拦截提示的文案由本页书写），其余纯函数
  *    （请求构造、金额解析、读模型 → 行视图模型映射、层级列视图、本地裁剪、地址栏读写、金额与
  *    枚举文案）**使用真实实现**：行夹具由真实 `toRecognitionAmountRows` 从读模型形态构造，
  *    表格行序由真实 `toRecognitionAmountColumnView` 决定，因此「未配置与零元的归一」「枚举文案」
@@ -35,6 +35,8 @@
  * （写失败时的业务拒绝文案由宿主展示）、C11/C12/C13/C14/C20/C22/C26 的宿主面。
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { ConfigProvider, message } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -461,9 +463,20 @@ const editAmount = (standardProjectName: string) => click(amountValueCell(standa
 const CONFIRM_TRUSTED_SCOPE = '可信范围已变化'
 const promptElement = () => document.querySelector<HTMLElement>('.recognition-amounts-prompt')
 
-/** 搜索主按钮与关键字输入框：读取在途时主按钮呈加载态，关键字只在提交时下推服务端。 */
-const searchButton = () => screen.getByRole('button', { name: /搜\s*索/ })
+/** 查询主按钮与关键字输入框：读取在途时主按钮呈加载态，关键字只在提交时下推服务端。 */
+const searchButton = () => screen.getByRole('button', { name: /查\s*询/ })
 const keywordInput = () => screen.getByLabelText('关键字') as HTMLInputElement
+
+/**
+ * 在查询区表单上触发 submit 事件（等价模拟输入框内回车提交）：jsdom 不实现文本框内回车的
+ * 隐式提交（键盘默认动作不在模拟范围），真实浏览器的回车经表单隐式提交进入同一条 Form
+ * onFinish 提交链路，这里以 submit 事件表达同一条链路。
+ */
+const submitByEnter = () => {
+  const form = keywordInput().closest('form')
+  if (!form) throw new Error('查询区未以 Form 承载')
+  fireEvent.submit(form)
+}
 
 /** 两个状态 Segmented 把外部 aria-label 透传到 role=radiogroup（与互认项目配置页同一手法）。 */
 const amountStatusFilter = () => screen.getByRole('radiogroup', { name: '金额状态筛选' })
@@ -509,8 +522,10 @@ beforeEach(() => {
   trustedBranchRef.current = null
   authState.token = 'token-1'
   trustedBranchRef.current = null
-  trustedOrganizationRef.current = null
-  trustedHospitalRef.current = null
+  // 可信组织与医院缺省在值（组织 ORG-A、医院 HOS-1，与伪 Base Client 首项组合一致）：
+  // 阻断判定之下页面只有可信组织、医院齐备才进入选择器解析；缺失场景由阻断用例显式改写。
+  trustedOrganizationRef.current = 'ORG-A'
+  trustedHospitalRef.current = 'HOS-1'
   trustedBranchReadCount.count = 0
   // 组件的 Base API Client 走它声明的注入点，不发起真实请求。
   configureBaseComponents({ client: baseClient as unknown as BaseComponentsConfig['client'] })
@@ -668,7 +683,7 @@ describe('C6 / C7 未配置与零元的呈现差异', () => {
 })
 
 describe('C8 金额输入校验', () => {
-  it('负数、三位小数、双精度无法精确表示的大额与空值都只给出行内提示，零写请求且保留编辑态与输入', async () => {
+  it('负数、三位小数、双精度无法精确表示的大额与空值都以 message.error 提示，单元格内不再渲染校验红字，零写请求且保留编辑态与输入', async () => {
     await renderLoaded([amountRow()])
 
     editAmount('血常规')
@@ -680,8 +695,11 @@ describe('C8 金额输入校验', () => {
     for (const invalid of ['-1', '1.234', '99999999999999.99']) {
       await change(inlineAmountInput(), invalid)
       await pressEnter(inlineAmountInput())
-      await screen.findByText('金额必须是不小于 0 且最多两位小数的数字')
-      // 行内提示与 `invalid` 标记：校验在字段变更后重新求值，标记随之更新。
+      // 校验失败以 message.error 反馈（TC-T02-07）：同一文案可叠加多条提示，按「出现至少一条」断言。
+      expect((await screen.findAllByText('金额必须是不小于 0 且最多两位小数的数字')).length).toBeGreaterThan(0)
+      // 表格单元格内不再渲染任何校验红字。
+      expect(within(rowOf('血常规')).queryByText('金额必须是不小于 0 且最多两位小数的数字')).toBeNull()
+      // `invalid` 标记：校验在字段变更后重新求值，标记随之更新。
       await waitFor(() => expect(inlineAmountInput()).toHaveAttribute('aria-invalid', 'true'))
       expect(save()).not.toHaveBeenCalled()
       expect(inlineAmountInput()).toBeInTheDocument()
@@ -690,7 +708,8 @@ describe('C8 金额输入校验', () => {
 
     await change(inlineAmountInput(), '')
     await pressEnter(inlineAmountInput())
-    await screen.findByText('金额必填')
+    expect((await screen.findAllByText('金额必填')).length).toBeGreaterThan(0)
+    expect(within(rowOf('血常规')).queryByText('金额必填')).toBeNull()
     await waitFor(() => expect(inlineAmountInput()).toHaveAttribute('aria-invalid', 'true'))
     expect(save()).not.toHaveBeenCalled()
     expect(query()).toHaveBeenCalledTimes(1)
@@ -711,6 +730,8 @@ describe('C9 / C12 金额保存成功', () => {
     await pressEnter(inlineAmountInput())
 
     await waitFor(() => expect(save()).toHaveBeenCalledTimes(1))
+    // 保存成功给 message.success 反馈（TC-T02-07）；现状保存后没有任何成功提示。
+    expect(await screen.findByText('金额保存成功')).toBeInTheDocument()
     // C2：保存请求同样携带组织、医院、院区三个值；载荷只经适配层出口构造。
     expect(save().mock.calls[0][1]).toEqual({
       organizationCode: 'ORG-A',
@@ -767,6 +788,8 @@ describe('C10 金额保存被拒绝', () => {
       expect(screen.queryByText('写入已成功，数据待刷新')).not.toBeInTheDocument()
       expect(screen.queryByText('互认项目金额数据待刷新')).not.toBeInTheDocument()
       expect(screen.queryByText('业务拒绝')).not.toBeInTheDocument()
+      // 写失败不是成功：保存成功的 message 反馈同样不得出现（TC-T02-07 的分流口径）。
+      expect(screen.queryByText('金额保存成功')).not.toBeInTheDocument()
       // 提交中状态归零：编辑态仍然可用，可以继续输入并重试。
       await waitFor(() => expect(inlineAmountInput()).toBeEnabled())
       // 收尾再判一次：观测窗口到用例结束为止，断言之后到达的杂散拒绝同样不得漏判。
@@ -813,8 +836,8 @@ describe('C13 写成功但随后的刷新失败', () => {
   })
 })
 
-describe('C14 读取失败与重试', () => {
-  it('保留已有数据、加载期间与失败后都禁用写入，重试成功后恢复', async () => {
+describe('C14 读取失败形态（D-06、TC-T02-11）', () => {
+  it('查询失败不渲染错误横幅：旧数据保留、写入仍禁用，点查询可重试成功', async () => {
     await renderLoaded([amountRow()])
 
     const failing = armQuery()
@@ -830,7 +853,11 @@ describe('C14 读取失败与重试', () => {
     expect(queryInlineAmountInput()).toBeNull()
 
     await failQuery(failing)
-    await screen.findByText('互认项目金额数据待刷新')
+    // 失败落地的观测点改为加载态结束：D-06 下读取失败不再渲染任何错误横幅，
+    // 错误由宿主统一提示，重试经查询按钮。
+    await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
+    expect(screen.queryByText('互认项目金额数据待刷新')).not.toBeInTheDocument()
+    expect(screen.queryByText(/待刷新|读取失败/)).not.toBeInTheDocument()
 
     expect(screen.getByText('血常规')).toBeInTheDocument()
     expect(amountValueCell('血常规')).toBeDisabled()
@@ -838,13 +865,14 @@ describe('C14 读取失败与重试', () => {
     expect(queryInlineAmountInput()).toBeNull()
     expect(save()).not.toHaveBeenCalled()
 
+    // 重试经查询按钮：重读成功后恢复可写。
     const retry = armQuery()
-    click(screen.getByRole('button', { name: /重\s*试/ }))
+    click(searchButton())
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
     await settle(retry, [amountRow()])
 
     await waitFor(() => expect(amountValueCell('血常规')).toBeEnabled())
-    expect(screen.queryByText('互认项目金额数据待刷新')).not.toBeInTheDocument()
+    expect(screen.queryByText(/待刷新|读取失败/)).not.toBeInTheDocument()
   })
 })
 
@@ -954,6 +982,90 @@ describe('C23 组件自身加载失败提示', () => {
   })
 })
 
+/**
+ * 用例名只描述行为：全站查询按钮逐字符合统一规格（T02 Client/design.md「查询按钮与查询区」、
+ * testPlan.md TC-T02-06）。规格属性逐项断言；`autoInsertSpace={false}` 的效果以文本精确等于
+ * 「查询」表达；`htmlType` 经 DOM 属性断言；条件为空提交等价于刷新由 C27 与读取时序用例覆盖。
+ */
+describe('TC-T02-06 查询按钮规格', () => {
+  it('筛选区查询按钮：主按钮、搜索图标、文本精确为「查询」、htmlType 为 submit', async () => {
+    await renderLoaded([amountRow()])
+
+    const button = searchButton()
+    expect(button).toHaveClass('ant-btn-primary')
+    expect(button.querySelector('.anticon-search')).not.toBeNull()
+    expect(button.textContent).toBe('查询')
+    expect(button.getAttribute('type')).toBe('submit')
+  })
+})
+
+/**
+ * 用例名只描述行为：查询区以 inline Form 承载，查询与重置按钮位于行内最后一个 Form.Item 内并排
+ * （T02 Client/design.md「查询按钮与查询区」、testPlan.md TC-T02-16）。重置恒命名「重置」、默认样式。
+ * 重置口径与批 3 看板页一致：草稿与已生效条件一并恢复默认（关键字清空、两个状态档回「全部」），
+ * 随后按默认条件重读一次；地址栏参数按默认值回写。两个状态档是即时生效控件、不进草稿：
+ * 重置只是把它们恢复默认档，不改变「切换即生效、本地裁剪、不触发读取」的既有语义。
+ */
+describe('TC-T02-16 查询区 Form 化与重置', () => {
+  it('查询区为 inline Form，查询与重置在行内最后一个 Form.Item 内并排', async () => {
+    await renderLoaded([amountRow()])
+
+    const form = document.querySelector('.recognition-amounts-filter form')
+    expect(form).not.toBeNull()
+    expect(form).toHaveClass('ant-form-inline')
+    const search = searchButton()
+    expect(search.getAttribute('type')).toBe('submit')
+    const reset = screen.getByRole('button', { name: '重置' })
+    expect(reset).not.toHaveClass('ant-btn-primary')
+    // 查询与重置并排：同属行内最后一个 Form.Item。
+    const sharedItem = search.closest('.ant-form-item')
+    expect(sharedItem).not.toBeNull()
+    expect(sharedItem).toBe(reset.closest('.ant-form-item'))
+  })
+
+  it('重置把关键字草稿与两个状态档恢复默认，按默认条件重读一次并回写地址栏', async () => {
+    await renderLoaded([
+      amountRow({ standardProjectCode: 'A01', standardProjectName: '血常规' }),
+      amountRow({ standardProjectCode: 'A02', standardProjectName: '尿常规' }),
+    ])
+
+    // 布置：关键字提交生效（第 2 次读取），两个状态档切到非默认（即时生效，不追加读取）。
+    await change(keywordInput(), '尿常规')
+    expect(query()).toHaveBeenCalledTimes(1)
+    const applied = armQuery()
+    submitByEnter()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await settle(applied, [
+      amountRow({ standardProjectCode: 'A02', standardProjectName: '尿常规' }),
+    ])
+    await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
+    pickSegment(amountStatusFilter(), '已配置')
+    pickSegment(configurationStatusFilter(), '停用')
+    expect(new URLSearchParams(window.location.search).get('keyword')).toBe('尿常规')
+    expect(new URLSearchParams(window.location.search).get('amountStatus')).toBe('configured')
+    expect(new URLSearchParams(window.location.search).get('configurationStatus')).toBe('disabled')
+
+    // 重置：草稿与已生效条件一并恢复默认，按空条件重读一次。
+    const resetLoad = armQuery()
+    click(screen.getByRole('button', { name: '重置' }))
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    expect(query().mock.calls[2][1]).toEqual({ organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' })
+    await settle(resetLoad, [
+      amountRow({ standardProjectCode: 'A01', standardProjectName: '血常规' }),
+      amountRow({ standardProjectCode: 'A02', standardProjectName: '尿常规' }),
+    ])
+
+    // 草稿清空、两个状态档回「全部」。
+    expect(keywordInput().value).toBe('')
+    expect(selectedSegmentLabels(amountStatusFilter())).toEqual(['全部'])
+    expect(selectedSegmentLabels(configurationStatusFilter())).toEqual(['全部'])
+    // 地址栏参数按默认值回写（三个参数删除）。
+    expect(new URLSearchParams(window.location.search).get('keyword')).toBeNull()
+    expect(new URLSearchParams(window.location.search).get('amountStatus')).toBeNull()
+    expect(new URLSearchParams(window.location.search).get('configurationStatus')).toBeNull()
+  })
+})
+
 describe('C27 关键字搜索', () => {
   it('提交下推关键字、服务端返回的行原样展示、清空后草稿与已生效关键字一并清空并按空条件重读', async () => {
     await renderLoaded([
@@ -965,7 +1077,7 @@ describe('C27 关键字搜索', () => {
     await change(keywordInput(), '尿常规')
     expect(query()).toHaveBeenCalledTimes(1)
     const second = armQuery()
-    fireEvent.keyDown(keywordInput(), { key: 'Enter' })
+    submitByEnter()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({
       organizationCode: 'ORG-A',
@@ -1077,7 +1189,7 @@ describe('C29 地址栏参数同步', () => {
 
     // 回车提交：草稿成为已生效关键字，随请求下推并替换写入地址栏。
     const second = armQuery()
-    fireEvent.keyDown(keywordInput(), { key: 'Enter' })
+    submitByEnter()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls.map((call) => call[1])).toEqual([
       { organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' },
@@ -1151,52 +1263,29 @@ describe('C30 院区恒定单值与三档默认', () => {
     await settle(first, [amountRow()])
   })
 
-  it('默认档三：组织与医院都缺失时逐级取第一项，院区恰好一个值', async () => {
-    trustedBranchRef.current = null
-    const first = armQuery()
+  it('可信组织缺失时整页阻断：只渲染标题与错误 Alert，不进入逐级取首项的解析', async () => {
+    trustedOrganizationRef.current = null
+    trustedBranchRef.current = 'BRA-3'
     renderPage()
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
-    expect(query().mock.calls.map((call) => call[1])).toEqual([
-      { organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' },
-    ])
-    expect(scopeSelect('组织')).toHaveValue('ORG-A')
-    expect(scopeSelect('医院')).toHaveValue('HOS-1')
-    expect(scopeSelect('院区')).toHaveValue('BRA-1')
-    await settle(first, [amountRow()])
+
+    expect(await screen.findByRole('heading', { name: '互认项目金额维护' })).toBeInTheDocument()
+    const alert = within(document.querySelector('.recognition-amounts-page') as HTMLElement).getByRole('alert')
+    expect(alert).toHaveClass('ant-alert-error')
+    expect(alert.textContent).toBe('无法读取当前登录组织或医院，已阻断本页查询与操作。')
+    // 阻断态零业务请求，也不渲染范围选择器（不伪造组织、不退化为全局查询）。
+    expect(query()).not.toHaveBeenCalled()
+    expect(save()).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('范围-组织')).not.toBeInTheDocument()
   })
 
-  it('默认档三：可信组织在、可信医院缺失时逐级取第一项，可信组织与可信院区都不采用', async () => {
-    trustedOrganizationRef.current = 'ORG-B'
+  it('可信医院缺失时同样整页阻断', async () => {
     trustedHospitalRef.current = null
     trustedBranchRef.current = 'BRA-3'
-    const first = armQuery()
     renderPage()
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
-    // 可信组织或可信医院任一缺失即整条级联取第一项：组织也取第一项 ORG-A，不保留可信 ORG-B。
-    expect(query().mock.calls.map((call) => call[1])).toEqual([
-      { organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' },
-    ])
-    expect(scopeSelect('组织')).toHaveValue('ORG-A')
-    expect(scopeSelect('医院')).toHaveValue('HOS-1')
-    expect(scopeSelect('院区')).toHaveValue('BRA-1')
-    await settle(first, [amountRow()])
-  })
 
-  it('默认档三：可信组织缺失、可信医院在时逐级取第一项，可信医院与可信院区都不采用', async () => {
-    trustedOrganizationRef.current = null
-    trustedHospitalRef.current = 'HOS-2'
-    trustedBranchRef.current = 'BRA-3'
-    const first = armQuery()
-    renderPage()
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
-    // 可信组织缺失即整条级联取第一项：医院取首项 HOS-1，不保留可信 HOS-2。
-    expect(query().mock.calls.map((call) => call[1])).toEqual([
-      { organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' },
-    ])
-    expect(scopeSelect('组织')).toHaveValue('ORG-A')
-    expect(scopeSelect('医院')).toHaveValue('HOS-1')
-    expect(scopeSelect('院区')).toHaveValue('BRA-1')
-    await settle(first, [amountRow()])
+    expect(await screen.findByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')).toBeInTheDocument()
+    expect(query()).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('范围-医院')).not.toBeInTheDocument()
   })
 
   it('切换组织或医院后院区自动重取：可信院区属于新范围则选中，否则新范围第一项', async () => {
@@ -1248,71 +1337,50 @@ describe('C30 院区恒定单值与三档默认', () => {
   })
 })
 
-describe('C31 页头三级范围展示', () => {
-  it('选择器加载完成前不展示范围名称，完成后名称在上、编码在下且不设文字标签', async () => {
-    const first = armQuery()
+describe('C31 页头范围条', () => {
+  it('页头由共用范围条承载：单行只显名称、不出现任何编码文本（TC-T02-02）', async () => {
+    await renderLoaded([amountRow()])
 
-    renderPage()
-
-    // 选择器加载完成前名称无从取值：页头连编码都尚未解析，整个范围展示块不出现。
+    // 本用例环境的登录态（真实 LoginUserManager）没有三级编码，范围条按「未知」占位：
+    // 名称解析属组件层与目录反查用例的面，页面级此处固定「页头无编码」与范围条挂载两个事实。
+    expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
+    const header = document.querySelector('.recognition-amounts-header') as HTMLElement
+    for (const code of ['ORG-A', 'HOS-1', 'BRA-1', 'ORG-B', 'HOS-2', 'BRA-2']) {
+      expect(header.textContent).not.toContain(code)
+    }
+    // 范围条不设「组织」这类文字标签，也不含名称行/编码行的旧双行结构。
     expect(document.querySelector('.recognition-amounts-header-scope')).toBeNull()
-
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
-    await settle(first, [amountRow()])
-    await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
-
-    await waitFor(() => expect(document.querySelector('.recognition-amounts-header-scope')).not.toBeNull())
-    const block = document.querySelector('.recognition-amounts-header-scope') as HTMLElement
-    const lines = Array.from(block.children) as HTMLElement[]
-    expect(lines).toHaveLength(2)
-    // 上下两行：名称在上、编码在下，整体右对齐由页头样式承载。
-    expect(lines[0].className).toContain('recognition-amounts-scope-names')
-    expect(lines[1].className).toContain('recognition-amounts-scope-codes')
-    for (const name of ['组织一', '医院一', '院区一']) {
-      expect(within(lines[0]).getByText(name)).toBeInTheDocument()
-    }
-    for (const code of ['ORG-A', 'HOS-1', 'BRA-1']) {
-      expect(within(lines[1]).getByText(code)).toBeInTheDocument()
-    }
-    // 不设「组织」这类文字标签：三级各自只有名称与编码。
-    for (const label of ['组织', '医院', '院区']) {
-      expect(within(block).queryByText(label, { exact: true })).toBeNull()
-    }
+    expect(within(header).queryByText('组织', { exact: true })).toBeNull()
   })
 
-  it('切换组织后名称行与编码行仍指同一范围，读取在途期间页头不渲染过期名称', async () => {
-    const first = armQuery()
-    renderPage()
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
-    await settle(first, [amountRow()])
-    await waitFor(() => expect(document.querySelector('.recognition-amounts-header-scope')).not.toBeNull())
+  it('切换组织、医院选择后页头范围条不变：范围条指登录范围而非选定范围（D-05 接缝）', async () => {
+    await renderLoaded([amountRow()])
+    expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
 
     const second = armQuery()
     await pickScopeOption('组织', 'ORG-B')
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-
-    // 读取在途：搜索按钮呈加载态，页头两行已整体切到新范围，旧范围的名称与编码都不出现。
-    await waitFor(() => expect(searchButton()).toHaveClass('ant-btn-loading'))
-    const inFlightBlock = document.querySelector('.recognition-amounts-header-scope') as HTMLElement
-    const inFlightLines = Array.from(inFlightBlock.children) as HTMLElement[]
-    expect(within(inFlightLines[0]).queryByText('组织一')).toBeNull()
-    expect(within(inFlightLines[1]).queryByText('ORG-A')).toBeNull()
-    expect(within(inFlightLines[0]).getByText('组织二')).toBeInTheDocument()
-    expect(within(inFlightLines[1]).getByText('ORG-B')).toBeInTheDocument()
-
     await settle(second, [amountRow()])
 
-    // 读取结束后两行仍指同一范围：名称行与编码行都取当前选定项（组织二 / ORG-B 打头）。
-    const block = document.querySelector('.recognition-amounts-header-scope') as HTMLElement
-    const lines = Array.from(block.children) as HTMLElement[]
-    expect(within(lines[0]).queryByText('组织一')).toBeNull()
-    expect(within(lines[1]).queryByText('ORG-A')).toBeNull()
-    for (const name of ['组织二', '医院一', '院区一']) {
-      expect(within(lines[0]).getByText(name)).toBeInTheDocument()
-    }
-    for (const code of ['ORG-B', 'HOS-1', 'BRA-1']) {
-      expect(within(lines[1]).getByText(code)).toBeInTheDocument()
-    }
+    // 范围条只反映登录可信范围，不随选择器的显式改选变化，也不出现新选定范围的编码。
+    expect(screen.getByText('未知 / 未知 / 未知')).toBeInTheDocument()
+    const header = document.querySelector('.recognition-amounts-header') as HTMLElement
+    expect(header.textContent).not.toContain('ORG-B')
+  })
+})
+
+describe('TC-T02-04 可信范围不可用（平台页阻断）', () => {
+  it('token 缺失时整页只渲染标题与错误 Alert，零业务请求（TC-T02-04）', async () => {
+    authState.token = null
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: '互认项目金额维护', level: 3 })).toBeInTheDocument()
+    const alert = within(document.querySelector('.recognition-amounts-page') as HTMLElement).getByRole('alert')
+    expect(alert).toHaveClass('ant-alert-error')
+    expect(alert.textContent).toBe('无法读取当前登录组织或医院，已阻断本页查询与操作。')
+    expect(query()).not.toHaveBeenCalled()
+    expect(save()).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText('范围-组织')).not.toBeInTheDocument()
   })
 })
 
@@ -1620,19 +1688,21 @@ describe('C33 可信范围变化确认框', () => {
     await screen.findByText('血常规')
   })
 
-  it('token 缺失且管理器仍有院区值：页面稳定——单次读取、不弹确认框、不进入无限重排', async () => {
+  it('token 缺失且管理器仍有院区值：整页阻断且页面稳定——单次读取、不弹确认框、不进入无限重排', async () => {
     trustedBranchRef.current = 'BRA-1'
     await renderLoaded([amountRow()])
 
-    // 宿主清掉 token，管理器里缓存的院区值还在：订阅值为 null，现读接缝仍返回管理器的取值。
+    // 宿主清掉 token，管理器里缓存的院区值还在：订阅值为 null，凭据不再表达可信范围，整页阻断。
     await act(async () => {
       authState.token = null
       authState.notify()
     })
     const readsAtTokenLoss = trustedBranchReadCount.count
+    expect(await screen.findByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')).toBeInTheDocument()
 
     // 让出若干轮宏任务：渲染重排若在持续，每一轮的 setTimeout(0) 与其中的现读都会被观察到。
-    // 两个缺陷面用 expect.soft 并列报告，任一面的失败都不被前一个失败掩盖。
+    // 阻断面（面板、零新增读取）与稳定面（无确认框、无选择器、现读计数停住）
+    // 用 expect.soft 并列报告，任一面的失败都不被前一个失败掩盖。
     await act(async () => {
       for (let round = 0; round < 5; round += 1) {
         await new Promise((resolve) => { window.setTimeout(resolve, 0) })
@@ -1641,18 +1711,7 @@ describe('C33 可信范围变化确认框', () => {
     expect.soft(query()).toHaveBeenCalledTimes(1)
     expect.soft(trustedBranchReadCount.count).toBe(readsAtTokenLoss)
     expect.soft(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false)
-
-    // 再构造未保存内容：token 缺失期间同样不得弹出可信范围变化确认框，也不得发起写入。
-    editAmount('血常规')
-    await change(inlineAmountInput(), '99')
-    await act(async () => {
-      for (let round = 0; round < 3; round += 1) {
-        await new Promise((resolve) => { window.setTimeout(resolve, 0) })
-      }
-    })
-    expect.soft(query()).toHaveBeenCalledTimes(1)
-    expect.soft(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false)
-    expect.soft(promptElement()).toBeNull()
+    expect.soft(screen.queryByLabelText('范围-组织')).not.toBeInTheDocument()
     expect.soft(save()).not.toHaveBeenCalled()
   })
 
@@ -1696,10 +1755,10 @@ describe('C34 提交前现值复核', () => {
     api.recheckRecognitionAmountScope.mockImplementation(actual.recheckRecognitionAmountScope)
   })
 
-  /** 行内拦截原因必须齐备的三要素（Client/testPlan.md 第 42 行 C34 三场景）。 */
+  /** 拦截提示必须齐备的三要素（Client/testPlan.md 第 42 行 C34 三场景）；提示以 message.error 承载（TC-T02-07）。 */
   const REASON_PATTERN = /可信范围已变化.*本次不提交写入.*切换到新可信范围/
 
-  it('场景一：可信范围已变化且页面未应用（记录 BRA-1、现读缺失）：零写请求，行内就地给出切换到新可信范围的原因', async () => {
+  it('场景一：可信范围已变化且页面未应用（记录 BRA-1、现读缺失）：零写请求，以 message.error 给出切换到新可信范围的原因', async () => {
     // 应用范围时记录的可信院区为 BRA-1；随后现读接缝推进到缺失并通知订阅者，记录值与现读值不再一致。
     trustedBranchRef.current = 'BRA-1'
     await renderLoaded([amountRow()])
@@ -1723,10 +1782,10 @@ describe('C34 提交前现值复核', () => {
       layers: ['branch'],
     })
     expect(query()).toHaveBeenCalledTimes(1)
-    // 行内就地给出可见原因，且指向切换到新可信范围；旧版「页面范围为…请刷新页面后重试」不再出现。
-    const row = rowOf('血常规')
-    expect(within(row).getByText(REASON_PATTERN)).toBeInTheDocument()
-    expect(within(row).queryByText(/请刷新页面后重试/)).not.toBeInTheDocument()
+    // 拦截原因以 message.error 反馈（TC-T02-07），且不再渲染在单元格内；旧版「页面范围为…请刷新页面后重试」不再出现。
+    expect(await screen.findByText(REASON_PATTERN)).toBeInTheDocument()
+    expect(within(rowOf('血常规')).queryByText(REASON_PATTERN)).toBeNull()
+    expect(within(rowOf('血常规')).queryByText(/请刷新页面后重试/)).not.toBeInTheDocument()
     expect(inlineAmountInput().value).toBe('18.00')
   })
 
@@ -1809,7 +1868,7 @@ describe('C34 提交前现值复核', () => {
     await screen.findByText('8.00')
   })
 
-  it('记录的可信院区缺失而现读已有值（档二后范围变化、页面未应用）：零写请求，行内给出已变化的原因', async () => {
+  it('记录的可信院区缺失而现读已有值（档二后范围变化、页面未应用）：零写请求，以 message.error 给出已变化的原因', async () => {
     // 档二已应用：记录侧为缺失；随后宿主给出新的可信院区，页面尚未应用新可信范围。
     trustedBranchRef.current = null
     await renderLoaded([amountRow()])
@@ -1830,7 +1889,9 @@ describe('C34 提交前现值复核', () => {
       layers: ['branch'],
     })
     expect(query()).toHaveBeenCalledTimes(1)
-    expect(within(rowOf('血常规')).getByText(REASON_PATTERN)).toBeInTheDocument()
+    // 拦截原因以 message.error 反馈（TC-T02-07），不再渲染在单元格内。
+    expect(await screen.findByText(REASON_PATTERN)).toBeInTheDocument()
+    expect(within(rowOf('血常规')).queryByText(REASON_PATTERN)).toBeNull()
     expect(inlineAmountInput()).toBeInTheDocument()
     expect(inlineAmountInput().value).toBe('99')
   })
@@ -1882,5 +1943,24 @@ describe('C36 读取在途写门控', () => {
     expect(amountValueCell('血常规')).toBeEnabled()
     click(amountValueCell('血常规'))
     expect(inlineAmountInput()).toBeInTheDocument()
+  })
+})
+
+describe('TC-T02-14 页面标题层级', () => {
+  it('页面大标题为 level 3', async () => {
+    await renderLoaded([amountRow()])
+
+    expect(screen.getByRole('heading', { name: '互认项目金额维护', level: 3 })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '互认项目金额维护', level: 2 })).toBeNull()
+  })
+
+  it('标题 margin 归零：配套 CSS 的归零选择器随标题层级改为 h3', async () => {
+    await renderLoaded([amountRow()])
+
+    // jsdom 无布局：margin 归零按配套 CSS 的静态规则断言（Testing Baseline §1.4 静态证据）。
+    const css = readFileSync(resolve(process.cwd(), 'src/pages/recognitionAmounts/RecognitionAmounts.css'), 'utf8')
+    const rule = css.match(/\.recognition-amounts-header\s+h3\.ant-typography\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(rule).toContain('margin: 0')
+    expect(css).not.toMatch(/\.recognition-amounts-header\s+h2\.ant-typography/)
   })
 })

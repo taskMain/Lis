@@ -5,16 +5,15 @@
  * 装配边界与平台管理员页用例一致（遵循 Frontend Testing 第 2 节）：
  * 1. `./reportsApi` 只替换 4 个 I/O 出口，其余纯函数使用真实实现，行夹具经真实适配层 `toReportPage` 归一；
  * 2. `../../contexts/ApiClientContext` 只提供占位 client；
- * 3. `@dy/components-base` 只替换整个包（理由同平台管理员页用例）；
- * 4. 可信组织与可信医院两个接缝被替换为可控值，用于构造「可信范围就绪」与「可信范围不可用」两类场景。
+ * 3. 可信组织与可信医院两个接缝被替换为可控值，用于构造「可信范围就绪」与「可信范围不可用」两类场景。
+ *    页面无范围选择器（D-05：院区恒取登录院区），不依赖 `@dy/components-base`，无需替换该包。
  *
- * 仍属 Host 层、不在本文件覆盖：真实宿主菜单进入、真实范围选择器交互、宿主统一错误提示与真实后端链路（C27–C31）。
+ * 仍属 Host 层、不在本文件覆盖：真实宿主菜单进入、宿主统一错误提示与真实后端链路（C27–C31）。
  */
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BaseScopeSelectorProps } from '@dy/components-base'
 import { toReportPage } from './reportsApi'
 import type { TrustedHospitalScope } from './reportsTrustedScope'
 import { BranchReportManagement } from './BranchReportManagement'
@@ -33,38 +32,6 @@ const trustedScopeRef = vi.hoisted(() => ({
   organizationCode: 'ORG-A' as string | null,
 }))
 
-vi.mock('@dy/components-base', async () => {
-  const { createElement } = await import('react')
-
-  /** 范围选择器替身：只渲染院区一级，`orgId`/`hosId` 为固定值时对应级不渲染下拉。 */
-  function StubScopeSelector({ value = {}, orgId, hosId, disabled, className, onChange }: BaseScopeSelectorProps) {
-    return createElement('div', { className, 'data-testid': 'scope-selector' },
-      createElement('span', { 'data-testid': 'fixed-org' }, orgId ?? ''),
-      createElement('span', { 'data-testid': 'fixed-hos' }, hosId ?? ''),
-      createElement('select', {
-        'data-testid': 'branch-select',
-        'aria-label': '院区',
-        disabled,
-        value: value.branchId ?? '',
-        onChange: (event: { target: { value: string } }) => {
-          const next = event.target.value
-          onChange?.({ ...value, branchId: next.length > 0 ? next : undefined },
-            { organizations: [], hospitals: [], branches: [], depts: [], users: [] })
-        },
-      },
-        createElement('option', { value: '' }, ''),
-        createElement('option', { value: 'BRA-1' }, '院区一'),
-        createElement('option', { value: 'BRA-2' }, '院区二'),
-      ),
-    )
-  }
-
-  return {
-    configureBaseComponents: vi.fn(),
-    BaseScopeSelector: StubScopeSelector,
-  }
-})
-
 vi.mock('./reportsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./reportsApi')>()
   return { ...actual, ...api }
@@ -73,6 +40,11 @@ vi.mock('./reportsApi', async (importOriginal) => {
 vi.mock('../../contexts/ApiClientContext', () => ({
   ApiClientProvider: ({ children }: { children: unknown }) => children,
   useApiClientContext: () => ({}),
+}))
+
+vi.mock('@dy/auth-react', () => ({
+  /** 与真实包同形的最小替身：token 在值（范围条据此读取三级编码）；本文件无 token 变化场景。 */
+  useAuth: () => ({ isAuthenticated: true, token: 'token-1', login: () => {}, logout: () => {} }),
 }))
 
 vi.mock('../recognitionProjects/recognitionProjectsOrganizationScope', () => ({
@@ -133,11 +105,12 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-/** 渲染页面并交付当页数据。 */
+/** 渲染页面并交付当页数据；返回渲染结果，供后续 `rerender` 构造可信范围变化。 */
 async function renderLoaded(items = [generatedRow()], page = { totalCount: 1 }) {
   api.queryBranchReportPage.mockResolvedValue(listResponse(items, 1, 10, page.totalCount))
-  renderPage()
+  const view = renderPage()
   await waitFor(() => expect(api.queryBranchReportPage).toHaveBeenCalled())
+  return view
 }
 
 beforeEach(() => {
@@ -149,20 +122,20 @@ beforeEach(() => {
   api.downloadReportVersionPdf.mockResolvedValue(undefined)
 })
 
-describe('C23 医院管理员页可信范围', () => {
-  it('组织与医院以只读方式固定展示，范围选择器只渲染院区一级', async () => {
+describe('C23 医院管理员页可信范围（D-05）', () => {
+  it('组织与医院固定展示，页面无院区选择器', async () => {
     await renderLoaded()
 
-    expect(screen.getByText(/可信范围（只读）：组织 ORG-A，医院 HOS-1/)).toBeInTheDocument()
-    const selector = screen.getByTestId('scope-selector')
-    expect(within(selector).getByTestId('fixed-org')).toHaveTextContent('ORG-A')
-    expect(within(selector).getByTestId('fixed-hos')).toHaveTextContent('HOS-1')
-    // 只渲染院区下拉，不渲染组织与医院的输入项。
-    expect(within(selector).getAllByRole('combobox')).toHaveLength(1)
-    expect(within(selector).getByTestId('branch-select')).toBeInTheDocument()
+    // 页头范围区由共用范围条承载：本用例环境的真实 LoginUserManager 无登录编码，三级按「未知」占位，
+    // 且页头不出现任何组织、医院编码文本（TC-T02-02）。
+    expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
+    expect(document.querySelector('.report-management-header')?.textContent).not.toContain('ORG-A')
+    expect(document.querySelector('.report-management-header')?.textContent).not.toContain('HOS-1')
+    // D-05：院区恒取登录院区，页面不再提供院区选择，不渲染任何院区选择项。
+    expect(screen.queryByRole('combobox', { name: '院区' })).not.toBeInTheDocument()
   })
 
-  it('请求不提交组织与医院，只提交院区与筛选条件', async () => {
+  it('请求不提交组织与医院，只提交登录院区与筛选条件', async () => {
     await renderLoaded()
 
     const query = api.queryBranchReportPage.mock.calls[0]?.[1] as { branchCode?: string; organizationCode?: string; hospitalCode?: string }
@@ -177,36 +150,71 @@ describe('C23 医院管理员页可信范围', () => {
     trustedScopeRef.organizationCode = null
     renderPage()
 
-    expect(await screen.findByText('可信范围不可用')).toBeInTheDocument()
+    expect(await screen.findByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveClass('ant-alert-error')
+    // 阻断态标题与正常态同一层级（TC-T02-14）。
+    expect(screen.getByRole('heading', { name: '本院报告管理与历史版本', level: 3 })).toBeInTheDocument()
     // 阻断态不渲染院区选择项，也不发起列表查询。
-    expect(screen.queryByTestId('scope-selector')).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: '院区' })).not.toBeInTheDocument()
     expect(api.queryBranchReportPage).not.toHaveBeenCalled()
   })
 })
 
-describe('C24 医院管理员页院区可选与范围重置', () => {
-  it('院区是页面上唯一可选层级，未选院区时不发起列表查询', async () => {
+describe('C24 医院管理员页登录院区与范围重置（D-05）', () => {
+  it('登录院区缺失属权限配置错误：零业务请求并以空态呈现', async () => {
     trustedScopeRef.hospital = { kind: 'ready', hospitalCode: 'HOS-1', branchCode: null }
     renderPage()
 
-    // 可信院区缺失时留空、不默认选中，因此不构造请求。
-    expect(await screen.findByText('请选择院区后查看报告')).toBeInTheDocument()
+    // 适配层对空院区拒绝构造请求：页面不兜底、不伪造院区、不本地补默认，以空态呈现。
+    expect(await screen.findByText('当前登录身份未携带院区，无法查询本院报告')).toBeInTheDocument()
     expect(api.queryBranchReportPage).not.toHaveBeenCalled()
   })
 
-  it('切换院区时服务端归属仍由后端判定，页面不做本地归属过滤', async () => {
-    await renderLoaded()
-    const selector = screen.getByTestId('scope-selector')
-    const select = within(selector).getByTestId('branch-select')
+  it('院区恒取登录院区：登录院区变化即清空旧数据并整表重读', async () => {
+    const first = deferred<unknown>()
+    api.queryBranchReportPage.mockReturnValueOnce(first.promise)
+    const view = renderPage()
+    await waitFor(() => expect(api.queryBranchReportPage).toHaveBeenCalledTimes(1))
+    await act(async () => { first.resolve(listResponse([generatedRow()], 1, 10, 1)) })
+    expect(await screen.findByText('R-1')).toBeInTheDocument()
 
-    // 选择一个不在可信医院内的院区：页面只把它提交给服务端，不做本地拒绝。
+    // 登录院区变化（宿主重新签发凭据）：范围键含院区，主体清空旧数据与未提交筛选并整表重读。
+    const second = deferred<unknown>()
+    api.queryBranchReportPage.mockReturnValueOnce(second.promise)
+    trustedScopeRef.hospital = { kind: 'ready', hospitalCode: 'HOS-1', branchCode: 'BRA-2' }
+    view.rerender(<ConfigProvider locale={zhCN}><BranchReportManagement /></ConfigProvider>)
+
+    await waitFor(() => expect(api.queryBranchReportPage).toHaveBeenCalledTimes(2))
+    const secondQuery = api.queryBranchReportPage.mock.calls[1]?.[1] as { branchCode?: string }
+    expect(secondQuery.branchCode).toBe('BRA-2')
+    // 范围切换先清空旧范围数据，旧行不再渲染。
+    expect(screen.queryByText('R-1')).not.toBeInTheDocument()
+
+    await act(async () => { second.resolve(listResponse([generatedRow({ reportNo: 'R-2' })], 1, 10, 1)) })
+    expect(await screen.findByText('R-2')).toBeInTheDocument()
+  })
+
+  it('可信医院变化即范围切换：清空未提交筛选与旧数据并整表重读（范围键含三层）', async () => {
+    const view = await renderLoaded()
     const { fireEvent } = await import('@testing-library/react')
-    fireEvent.change(select, { target: { value: 'BRA-2' } })
+    // 只设置草稿，不提交：范围切换把草稿与旧数据一并清空。
+    fireEvent.change(screen.getByLabelText('报告单号筛选'), { target: { value: 'R-9' } })
 
-    await waitFor(() => {
-      const lastQuery = api.queryBranchReportPage.mock.calls.at(-1)?.[1] as { branchCode?: string }
-      expect(lastQuery.branchCode).toBe('BRA-2')
-    })
+    const switched = deferred<unknown>()
+    api.queryBranchReportPage.mockReturnValueOnce(switched.promise)
+    // 可信医院变化而登录院区编码不变：范围键含三层（组织、医院、院区），同样整表重读。
+    trustedScopeRef.hospital = { kind: 'ready', hospitalCode: 'HOS-2', branchCode: 'BRA-1' }
+    view.rerender(<ConfigProvider locale={zhCN}><BranchReportManagement /></ConfigProvider>)
+
+    await waitFor(() => expect(api.queryBranchReportPage).toHaveBeenCalledTimes(2))
+    const switchedQuery = api.queryBranchReportPage.mock.calls[1]?.[1] as { branchCode?: string }
+    expect(switchedQuery.branchCode).toBe('BRA-1')
+    // 旧范围数据与未提交筛选一并清空。
+    expect(screen.queryByText('R-1')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('报告单号筛选')).toHaveValue('')
+
+    await act(async () => { switched.resolve(listResponse([generatedRow({ reportNo: 'R-3', hospitalCode: 'HOS-2' })], 1, 10, 1)) })
+    expect(await screen.findByText('R-3')).toBeInTheDocument()
   })
 })
 
@@ -218,8 +226,7 @@ describe('C25 医院管理员页列表与详情', () => {
     expect(screen.getByText('R-1')).toBeInTheDocument()
     expect(screen.getByText('检验报告')).toBeInTheDocument()
     expect(screen.getByText('有效')).toBeInTheDocument()
-    // 来源组织与医院名称由服务端回填后按行渲染；院区名同时出现在范围选择器选项里，
-    // 因此按表格范围断言，避免与选择器选项重名。
+    // 来源组织与医院名称由服务端回填后按行渲染；按表格范围断言行内归属名称。
     expect(screen.getByText('组织一')).toBeInTheDocument()
     expect(screen.getByText('医院一')).toBeInTheDocument()
     expect(within(screen.getByRole('table')).getByText('院区一')).toBeInTheDocument()
@@ -228,31 +235,42 @@ describe('C25 医院管理员页列表与详情', () => {
 })
 
 describe('C26 医院管理员页接口失败', () => {
-  it('列表读取失败时保留数据、结束加载、可重试、无本地错误提示', async () => {
+  it('列表读取失败不渲染错误横幅：保留数据、结束加载、点查询可重试、无本地错误提示（D-06、TC-T02-11）', async () => {
     await renderLoaded([generatedRow()])
 
     const failing = deferred<unknown>()
     api.queryBranchReportPage.mockReturnValueOnce(failing.promise)
     const { fireEvent } = await import('@testing-library/react')
-    fireEvent.click(screen.getByRole('button', { name: /重新读取报告列表/ }))
+    // 页头刷新按钮已移除：查询按钮是重读唯一入口（T02 提交式筛选）。
+    fireEvent.click(screen.getByRole('button', { name: '查询' }))
     await waitFor(() => expect(api.queryBranchReportPage).toHaveBeenCalledTimes(2))
 
-    const { act } = await import('@testing-library/react')
-    await act(async () => { failing.reject(new Error('读取失败')) })
+    const { act: actFn } = await import('@testing-library/react')
+    await actFn(async () => { failing.reject(new Error('读取失败')) })
 
-    // 失败态：给出待刷新提示与重试入口，已有数据保留。
-    await screen.findByText('报告列表数据待刷新')
+    // D-06：读取失败不渲染错误横幅（错误由宿主统一提示），已有数据保留。
     expect(screen.getByText('R-1')).toBeInTheDocument()
+    expect(screen.queryByText('报告列表数据待刷新')).not.toBeInTheDocument()
+    expect(screen.queryByText(/待刷新|读取失败/)).not.toBeInTheDocument()
     // 不弹本地错误提示，错误文案由宿主统一展示。
     expect(screen.queryByText(/接口错误|请求失败|网络错误/)).not.toBeInTheDocument()
-    // 刷新入口在加载结束后恢复可用。
-    await waitFor(() => expect(screen.getByRole('button', { name: /重新读取报告列表/ })).toBeEnabled())
 
+    // 重试经查询按钮：重读成功后按新结果呈现。
     const retry = deferred<unknown>()
     api.queryBranchReportPage.mockReturnValueOnce(retry.promise)
-    fireEvent.click(screen.getByRole('button', { name: /重\s*试/ }))
+    fireEvent.click(screen.getByRole('button', { name: '查询' }))
     await waitFor(() => expect(api.queryBranchReportPage).toHaveBeenCalledTimes(3))
-    await act(async () => { retry.resolve(listResponse([generatedRow()], 1, 10, 1)) })
-    await waitFor(() => expect(screen.queryByText('报告列表数据待刷新')).not.toBeInTheDocument())
+    await actFn(async () => { retry.resolve(listResponse([generatedRow({ reportNo: 'R-2' })], 1, 10, 1)) })
+    await screen.findByText('R-2')
+    expect(screen.queryByText(/待刷新|读取失败/)).not.toBeInTheDocument()
+  })
+})
+
+describe('TC-T02-14 页面标题层级', () => {
+  it('页面大标题为 level 3（正常态由共用主体渲染，阻断态断言见阻断用例）', async () => {
+    await renderLoaded([generatedRow()])
+
+    expect(screen.getByRole('heading', { name: '本院报告管理与历史版本', level: 3 })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '本院报告管理与历史版本', level: 2 })).toBeNull()
   })
 })

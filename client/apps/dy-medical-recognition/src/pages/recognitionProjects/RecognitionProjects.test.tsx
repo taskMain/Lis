@@ -49,9 +49,9 @@ const WRITABLE_GATE: RecognitionProjectWriteGate = {
 
 /** 可信登录态（org claim + token）的外部 store；token 变化等价于宿主重新签发 token。 */
 const authState = vi.hoisted(() => {
-  type State = { organizationCode: string | null; token: string | null }
+  type State = { organizationCode: string | null; hospitalCode: string | null; branchCode: string | null; token: string | null }
   const listeners = new Set<() => void>()
-  const state: State = { organizationCode: 'ORG-A', token: 'token-1' }
+  const state: State = { organizationCode: 'ORG-A', hospitalCode: null, branchCode: null, token: 'token-1' }
   return {
     state,
     subscribe(listener: () => void) {
@@ -74,6 +74,8 @@ const authState = vi.hoisted(() => {
     },
     reset() {
       state.organizationCode = 'ORG-A'
+      state.hospitalCode = null
+      state.branchCode = null
       state.token = 'token-1'
     },
   }
@@ -115,7 +117,11 @@ vi.mock('../../contexts/ApiClientContext', () => ({
 }))
 
 vi.mock('@dy/auth', () => ({
-  LoginUserManager: { getOrgID: () => authState.state.organizationCode },
+  LoginUserManager: {
+    getOrgID: () => authState.state.organizationCode,
+    getHosID: () => authState.state.hospitalCode,
+    getBranchID: () => authState.state.branchCode,
+  },
 }))
 
 vi.mock('@dy/auth-react', () => ({
@@ -202,14 +208,19 @@ interface PendingSelectableLoad {
 }
 
 /**
- * 已知可信组织的展示名称。名称由范围查询交付，与组织编码同源；
+ * 已知可信组织的展示名称。名称与组织编码同源；页面范围查询替身与范围条的客户端替身共用这一份映射，
  * 用固定映射而不是让夹具照抄被测实现，避免断言失去判别力。
  */
 const ORGANIZATION_NAMES: Record<string, string> = { 'ORG-A': '组织甲', 'ORG-B': '组织乙' }
 
+/** 按给定组织编码派生展示名称（未知编码按「编码+名称」兜底，与未知编码的真实路径一致）。 */
+function organizationDisplayName(organizationCode: string): string {
+  return ORGANIZATION_NAMES[organizationCode] ?? `${organizationCode}名称`
+}
+
 /** 构造范围查询的返回：编码取给定组织，名称按同一编码派生。 */
 function scopeFor(organizationCode: string): TrustedOrganizationScope {
-  return { organizationCode, organizationName: ORGANIZATION_NAMES[organizationCode] ?? `${organizationCode}名称` }
+  return { organizationCode, organizationName: organizationDisplayName(organizationCode) }
 }
 
 /**
@@ -490,20 +501,28 @@ function stubUnarmedLoads() {
 }
 
 /**
- * 页头组织范围的展示形态。名称与编码各占一行，因此按元素分别取，
- * 同时断言不存在「组织」文字标签——标签的有无是 S2-D22 的判定点之一。
+ * 页头当前范围条（共用组件 CurrentScopeBar）的文本断言。本用例环境的登录态只建模组织一层
+ * （医院与院区编码为空），范围条因此恒为「组织名 / 未知 / 未知」；名称反查按编码缓存，
+ * 首次出现是异步的，断言统一经 findByText 等待。
  */
-const scopeLines = () => ({
-  name: document.querySelector('.recognition-projects-scope-name')?.textContent ?? null,
-  code: document.querySelector('.recognition-projects-scope-code')?.textContent ?? null,
-  label: document.querySelector('.recognition-projects-scope-label')?.textContent ?? null,
-})
+const scopeBar = async (text: string) => expect(await screen.findByText(text)).toBeInTheDocument()
 
 /**
- * 触发一次重新读取。按 S2-D24，读取由搜索提交发起；输入框为空时提交等价于刷新，
+ * 触发一次重新读取。按 S2-D24，读取由查询提交发起；输入框为空时提交等价于刷新，
  * 因此需要「刷新」语义的用例统一走这里，不再有独立的刷新按钮。
  */
-const submitSearch = () => click(screen.getByRole('button', { name: '搜索' }))
+const submitSearch = () => click(screen.getByRole('button', { name: '查询' }))
+
+/**
+ * 在查询区表单上触发 submit 事件（等价模拟输入框内回车提交）：jsdom 不实现文本框内回车的
+ * 隐式提交（键盘默认动作不在模拟范围），真实浏览器的回车经表单隐式提交进入同一条 Form
+ * onFinish 提交链路，这里以 submit 事件表达同一条链路。
+ */
+const submitByEnter = () => {
+  const form = document.querySelector('.recognition-projects-filters form')
+  if (!form) throw new Error('查询区未以 Form 承载')
+  fireEvent.submit(form)
+}
 
 /** 等未点名装配的那次重读落地：兜底实现立即返回，冲刷微任务即可（弹窗读取多一层 then，多冲几拍）。 */
 async function settleUnarmedReload() {
@@ -554,7 +573,24 @@ beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset()
   // 每条用例一个 client 实例（隔离 hook 的按实例缓存），枚举元数据端点默认不可用。
   clientRef.post.mockReset()
-  clientRef.current = { api: { enumMetadata: { getEnumMetadata: { post: clientRef.post } } } }
+  // 页头范围条经本项目客户端反查组织名（与页面适配层同一出口）：按调用时点的登录态交付，
+  // 使「凭证换绑后范围条跟随新组织」走生产同一路径。
+  clientRef.current = {
+    api: {
+      enumMetadata: { getEnumMetadata: { post: clientRef.post } },
+      medicalRecognitionReportQuery: {
+        queryTrustedOrganizationScope: {
+          post: async () => {
+            const organizationCode = authState.state.organizationCode
+            return {
+              organizationCode,
+              organizationName: organizationCode === null ? null : organizationDisplayName(organizationCode),
+            }
+          },
+        },
+      },
+    },
+  }
   setMetadataOptions(null)
   // 未点名读取的兜底数据按用例隔离：上一条用例结算过的行集与目录不得泄漏进来。
   currentRows = []
@@ -605,7 +641,7 @@ describe('C13 / C1 页面首次加载与可信组织', () => {
     expect(query().mock.calls[0][0]).toBe(clientRef.current)
     expect(query().mock.calls[0][1]).toEqual({ organizationCode: 'ORG-A' })
     expect(Object.keys(query().mock.calls[0][1] as object)).toEqual(['organizationCode'])
-    expect(scopeLines()).toEqual({ name: '组织甲', code: 'ORG-A', label: null })
+    await scopeBar('组织甲 / 未知 / 未知')
   })
 
   it('只展示查询契约交付的列，不展示创建修改信息与已删除的派生状态', async () => {
@@ -619,10 +655,13 @@ describe('C13 / C1 页面首次加载与可信组织', () => {
     }
   })
 
-  it('可信组织缺失或为空白时进入不可操作状态，且不发起任何请求', async () => {
+  it('可信组织缺失或为空白时整页只渲染标题与错误 Alert，且不发起任何请求', async () => {
     authState.change({ organizationCode: null, token: null })
     renderPage()
-    expect(screen.getByText('组织范围不可用')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '互认项目', level: 3 })).toBeInTheDocument()
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveClass('ant-alert-error')
+    expect(alert.textContent).toBe('无法读取当前登录组织或医院，已阻断本页查询与操作。')
     expect(query()).not.toHaveBeenCalled()
     expect(api.querySelectableStandardItems).not.toHaveBeenCalled()
     expect(api.queryTrustedOrganizationScope).not.toHaveBeenCalled()
@@ -631,7 +670,7 @@ describe('C13 / C1 页面首次加载与可信组织', () => {
     await act(async () => {
       authState.change({ organizationCode: '   ', token: 'token-x' })
     })
-    expect(screen.getByText('组织范围不可用')).toBeInTheDocument()
+    expect(screen.getByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')).toBeInTheDocument()
     expect(query()).not.toHaveBeenCalled()
   })
 
@@ -650,7 +689,7 @@ describe('C13 / C1 页面首次加载与可信组织', () => {
     authState.change({ organizationCode: null, token: null })
     renderPage()
 
-    expect(screen.getByText('组织范围不可用')).toBeInTheDocument()
+    expect(screen.getByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')).toBeInTheDocument()
     await act(async () => { await Promise.resolve() })
     expect(clientRef.post).not.toHaveBeenCalled()
 
@@ -688,11 +727,9 @@ describe('C13 / C1 页面首次加载与可信组织', () => {
     const target = armLoad(pendingLoad())
     await switchTrustedOrganization('ORG-B')
 
-    // 组织切换后、目标组织查询发起前：列表与目录已被清空（loading=false、catalogLoaded=false、
-    // loadFailure=null），旧判据会用旧组织的就绪态放行入口，此处必须已禁用。
-    expect(query()).toHaveBeenCalledTimes(1)
+    // 组织切换后（清理帧与目标组织读取在途帧都不放行）：旧就绪判据只看 loadFailure/loading，
+    // 会在「已切换、读取未发起」的一帧用旧组织的就绪态放行入口，此处断言两种帧都已禁用。
     expect(addButton()).toBeDisabled()
-
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(addButton()).toBeDisabled()
 
@@ -940,8 +977,7 @@ describe('C10 / C16 / C17 组织变化', () => {
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
     expect(query().mock.calls[2][1]).toEqual({ organizationCode: 'ORG-B' })
     expect(screen.queryByText('血常规')).not.toBeInTheDocument()
-    // 组织编码随可信令牌立即更新；名称来自本次范围查询，读取返回前只展示编码（S2-D22）。
-    expect(scopeLines()).toEqual({ name: null, code: 'ORG-B', label: null })
+    // 页头范围条不随页面读取在途置空：它按登录编码异步反查，落地断言在下方。
     // applyOrganization 的复位：编码与状态筛选回到默认，否则旧筛选会隐藏新组织的配置。
     expect((screen.getByLabelText('关键字筛选') as HTMLInputElement).value).toBe('')
     expect(selectedStatusLabels()).toEqual(['全部'])
@@ -949,7 +985,7 @@ describe('C10 / C16 / C17 组织变化', () => {
     // 可选集合必须来自目标组织本次读取的目录，而不是旧组织残留的目录数据。
     await settle(target, [row('c9', 'B01', '乙院项目')], ORG_B_CATALOG)
     await screen.findByText('乙院项目')
-    expect(scopeLines()).toEqual({ name: '组织乙', code: 'ORG-B', label: null })
+    await scopeBar('组织乙 / 未知 / 未知')
     click(addButton())
     const after = await findModal('新增互认项目配置')
     await waitFor(() => expect(batchItemLabels(after)).toEqual(['选择标准项目：丙院项目（C01）']))
@@ -1039,7 +1075,8 @@ describe('C10 / C16 / C17 组织变化', () => {
     expect(screen.getByText('宿主组织已变化，尚有未保存内容')).toBeInTheDocument()
     expect((within(create).getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('45')
     expect(screen.getByText('血常规')).toBeInTheDocument()
-    expect(scopeLines()).toEqual({ name: '组织甲', code: 'ORG-A', label: null })
+    // 页头范围条只跟随登录范围（已随凭证切到 ORG-B），不回退页面仍展示的旧组织。
+    await scopeBar('组织乙 / 未知 / 未知')
     expect(addButton()).toBeDisabled()
 
     // 确认分支：清空旧组织的列表与弹窗，加载目标组织。
@@ -1053,12 +1090,11 @@ describe('C10 / C16 / C17 组织变化', () => {
     expect(query().mock.calls[1][1]).toEqual({ organizationCode: 'ORG-B' })
     await expectModalClosed('新增互认项目配置')
     expect(screen.queryByText('血常规')).not.toBeInTheDocument()
-    // 组织编码随可信令牌立即更新；名称来自本次范围查询，读取返回前只展示编码（S2-D22）。
-    expect(scopeLines()).toEqual({ name: null, code: 'ORG-B', label: null })
+    // 页头范围条不随页面读取在途置空：它按登录编码异步反查，落地断言在下方。
 
     await settle(target, [row('c9', 'B01', '乙院项目')])
     await screen.findByText('乙院项目')
-    expect(scopeLines()).toEqual({ name: '组织乙', code: 'ORG-B', label: null })
+    await scopeBar('组织乙 / 未知 / 未知')
   })
 
   /**
@@ -1092,14 +1128,13 @@ describe('C10 / C16 / C17 组织变化', () => {
     // 读取次序：进入页面 1 次、放弃未保存内容后的自动切换 1 次（打开弹窗只查可新增项目）。
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({ organizationCode: 'ORG-B' })
-    // 组织编码随可信令牌立即更新；名称来自本次范围查询，读取返回前只展示编码（S2-D22）。
-    expect(scopeLines()).toEqual({ name: null, code: 'ORG-B', label: null })
+    // 页头范围条不随页面读取在途置空：它按登录编码异步反查，落地断言在下方。
     expect(screen.queryByText('血常规')).not.toBeInTheDocument()
     expect(screen.queryByText('宿主组织已变化，尚有未保存内容')).not.toBeInTheDocument()
 
     await settle(target, [row('c9', 'B01', '乙院项目')])
     await screen.findByText('乙院项目')
-    expect(scopeLines()).toEqual({ name: '组织乙', code: 'ORG-B', label: null })
+    await scopeBar('组织乙 / 未知 / 未知')
   })
 })
 
@@ -1368,7 +1403,7 @@ describe('提交前组织复核取现值', () => {
     // 读取只有进入页面与打开弹窗两次。
     expect(query()).toHaveBeenCalledTimes(1)
     // 复核失败后的重渲染让页面读到「可信组织不可用」，由既有阻断分支给出原因。
-    expect(screen.getByText('组织范围不可用')).toBeInTheDocument()
+    expect(screen.getByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')).toBeInTheDocument()
   })
 
   /**
@@ -1384,7 +1419,7 @@ describe('提交前组织复核取现值', () => {
     await act(async () => {
       authState.change({ organizationCode: null, token: null })
     })
-    expect(screen.getByText('组织范围不可用')).toBeInTheDocument()
+    expect(screen.getByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')).toBeInTheDocument()
 
     // 宿主重新签发**同一组织**的凭证：页面已应用组织与可信组织相同，无需重新对齐，但会重载一次数据。
     const restored = armLoad(pendingLoad())
@@ -1441,6 +1476,9 @@ describe('C2 / C3 新增弹窗的可选集合', () => {
     click(within(create).getByRole('button', { name: /确定新增/ }))
 
     await within(create).findByText('可互认时间为 1 到 2147483647 之间的整数天数')
+    // 字段级红字（TC-T02-07）：拦截原因就近提示，不再以 Alert 承载。
+    expect(within(create).queryByText('无法提交')).not.toBeInTheDocument()
+    expect(within(create).getByText('可互认时间为 1 到 2147483647 之间的整数天数').closest('.ant-alert')).toBeNull()
     expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
     expect(modalExists('新增互认项目配置')).toBe(true)
     expect((within(create).getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('0')
@@ -1569,6 +1607,9 @@ describe('C29 弹窗多选批量新增', () => {
     await within(create).findByText('请先勾选要新增的标准项目')
     expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
     expect(modalExists('新增互认项目配置')).toBe(true)
+    // 字段级红字（TC-T02-07）：拦截原因就近提示，不再以 Alert 承载。
+    expect(within(create).queryByText('无法提交')).not.toBeInTheDocument()
+    expect(within(create).getByText('请先勾选要新增的标准项目').closest('.ant-alert')).toBeNull()
 
     // 勾选后原因随之清除，可以直接提交。
     click(batchItemCheckbox(create, '尿常规（A02）'))
@@ -1748,11 +1789,10 @@ describe('C6 / C20 修改可互认时间', () => {
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
     expect(query().mock.calls[2][1]).toEqual({ organizationCode: 'ORG-B' })
     expect(screen.queryByText('切换组织将放弃未保存内容')).not.toBeInTheDocument()
-    // 组织编码随可信令牌立即更新；名称来自本次范围查询，读取返回前只展示编码（S2-D22）。
-    expect(scopeLines()).toEqual({ name: null, code: 'ORG-B', label: null })
+    // 页头范围条不随页面读取在途置空：它按登录编码异步反查，落地断言在下方。
     await settle(target, [row('c9', 'B01', '乙院项目')])
     await screen.findByText('乙院项目')
-    expect(scopeLines()).toEqual({ name: '组织乙', code: 'ORG-B', label: null })
+    await scopeBar('组织乙 / 未知 / 未知')
   })
 
   /**
@@ -2097,7 +2137,7 @@ describe('C31 搜索重新读取并在新结果上裁剪', () => {
     const load = armLoad(pendingLoad())
     submitSearch()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    expect(screen.getByRole('button', { name: '搜索' })).toHaveClass('ant-btn-loading')
+    expect(screen.getByRole('button', { name: '查询' })).toHaveClass('ant-btn-loading')
     expect(screen.getByText('尿常规')).toBeInTheDocument()
 
     // 读取返回后才裁剪：交付的就是服务端按关键字过滤后的行集（S2-D29），本地不再二次裁剪。
@@ -2106,11 +2146,11 @@ describe('C31 搜索重新读取并在新结果上裁剪', () => {
     expect(screen.queryByText('尿常规')).not.toBeInTheDocument()
     expect(summary()).toBe('共 1 项配置')
 
-    // 回车与点击走同一条提交路径。
+    // 回车与点击走同一条提交路径（Form 化后回车经表单提交进入 onFinish，模拟方式见 submitByEnter）。
     await change(codeFilter(), 'A02')
     const byEnter = armLoad(pendingLoad())
     act(() => {
-      fireEvent.keyDown(codeFilter(), { key: 'Enter' })
+      submitByEnter()
     })
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
     await settle(byEnter, [row('c2', 'A02', '尿常规', 2)])
@@ -2156,13 +2196,14 @@ describe('C31 搜索重新读取并在新结果上裁剪', () => {
 })
 
 /**
- * 用例名只描述行为：筛选区只有编码输入框、搜索按钮与配置状态选择；页头只有主按钮；
+ * 用例名只描述行为：筛选区由 inline Form 承载编码输入框、配置状态选择与行内并排的查询、重置按钮
+ * （查询区容器与重置行为本身由 TC-T02-16 用例覆盖）；页头只有主按钮；
  * 清除编码走输入框自带的清除入口，配置状态切换不触发读取。
  *
  * 文档锚点：同上的筛选区行、标题区行与已定实现边界（S2-D21、S2-D23、S2-D24）。
  */
 describe('C32 筛选区控件构成、清除动作与读写在途门控', () => {
-  it('无重置与独立刷新控件、页头只有主按钮；清除只清编码；配置状态切换不触发读取', async () => {
+  it('无独立刷新控件、页头只有主按钮；清除只清编码；配置状态切换不触发读取', async () => {
     await renderLoaded([row('c1', 'A01', '血常规', 1), row('c2', 'A02', '尿常规', 2)])
 
     const codeFilter = () => screen.getByLabelText('关键字筛选') as HTMLInputElement
@@ -2179,9 +2220,8 @@ describe('C32 筛选区控件构成、清除动作与读写在途门控', () => 
       return found
     }
 
-    // 控件构成：筛选区是编码输入框、搜索按钮与配置状态三件；页头只有主按钮，没有纯图标刷新。
-    expect(screen.getByRole('button', { name: '搜索' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /重置/ })).not.toBeInTheDocument()
+    // 控件构成：筛选区是编码输入框、查询按钮、重置按钮与配置状态；页头只有主按钮，没有纯图标刷新。
+    expect(screen.getByRole('button', { name: '查询' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /重新读取/ })).not.toBeInTheDocument()
     const headerButtons = document.querySelectorAll('.recognition-projects-header button')
     expect([...headerButtons].map((node) => node.textContent?.trim())).toEqual(['新增互认项目'])
@@ -2237,35 +2277,104 @@ describe('C32 筛选区控件构成、清除动作与读写在途门控', () => 
 })
 
 /**
- * 用例名只描述行为：页头组织为上下两行且不设文字标签，页头只保留一个主按钮。
+ * 用例名只描述行为：全站查询按钮逐字符合统一规格（T02 Client/design.md「查询按钮与查询区」、
+ * testPlan.md TC-T02-06）。规格属性逐项断言；`autoInsertSpace={false}` 的效果以文本精确等于
+ * 「查询」表达（antd 默认在两个汉字之间插入空格）；`htmlType` 经 DOM 属性断言；
+ * 条件为空提交等价于刷新由 C31 系列既有用例覆盖。
+ */
+describe('TC-T02-06 查询按钮规格', () => {
+  it('筛选区查询按钮：主按钮、搜索图标、文本精确为「查询」、htmlType 为 submit', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规', 1)])
+
+    const button = screen.getByRole('button', { name: '查询' })
+    expect(button).toHaveClass('ant-btn-primary')
+    expect(button.querySelector('.anticon-search')).not.toBeNull()
+    expect(button.textContent).toBe('查询')
+    expect(button.getAttribute('type')).toBe('submit')
+  })
+
+  it('新增弹窗内查询按钮：主按钮、搜索图标、文本精确为「查询」、htmlType 为 submit', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
+
+    const create = await openBatchCreate([], '30')
+    const button = within(create).getByRole('button', { name: '查询' })
+    expect(button).toHaveClass('ant-btn-primary')
+    expect(button.querySelector('.anticon-search')).not.toBeNull()
+    expect(button.textContent).toBe('查询')
+    expect(button.getAttribute('type')).toBe('submit')
+  })
+})
+
+/**
+ * 用例名只描述行为：查询区以 inline Form 承载，查询与重置按钮位于行内最后一个 Form.Item 内并排
+ * （T02 Client/design.md「查询按钮与查询区」、testPlan.md TC-T02-16）。重置恒命名「重置」、默认样式。
+ * 重置口径与批 3 看板页一致：清空关键字草稿，已生效筛选恢复默认（关键字清空、状态回「全部」），
+ * 随后按空条件重读一次（条件已等于默认值时重置仍等价于一次刷新）；地址栏参数经生效筛选同步按默认值回写。
+ */
+describe('TC-T02-16 查询区 Form 化与重置', () => {
+  it('查询区为 inline Form，查询与重置在行内最后一个 Form.Item 内并排', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规', 1)])
+
+    const form = document.querySelector('.recognition-projects-filters form')
+    expect(form).not.toBeNull()
+    expect(form).toHaveClass('ant-form-inline')
+    const search = screen.getByRole('button', { name: '查询' })
+    expect(search.getAttribute('type')).toBe('submit')
+    const reset = screen.getByRole('button', { name: '重置' })
+    expect(reset).not.toHaveClass('ant-btn-primary')
+    // 查询与重置并排：同属行内最后一个 Form.Item。
+    const sharedItem = search.closest('.ant-form-item')
+    expect(sharedItem).not.toBeNull()
+    expect(sharedItem).toBe(reset.closest('.ant-form-item'))
+  })
+
+  it('重置清空关键字草稿、状态档回「全部」，按空条件重读一次并按默认值回写地址栏', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规', 1), row('c2', 'A02', '尿常规', 2)])
+
+    // 布置：关键字提交生效（第 2 次读取），状态档切到「停用」（本地裁剪，不新增读取）。
+    await applyKeywordFilter('A01')
+    click(within(screen.getByRole('radiogroup', { name: '配置状态筛选' })).getByText('停用'))
+    expect((screen.getByLabelText('关键字筛选') as HTMLInputElement).value).toBe('A01')
+    expect(new URLSearchParams(window.location.search).get('keyword')).toBe('A01')
+    expect(new URLSearchParams(window.location.search).get('status')).toBe('2')
+    // A01 是启用配置，被「停用」档裁空。
+    expect(screen.queryByText('血常规')).not.toBeInTheDocument()
+
+    // 重置：恢复默认条件并按空条件（不带关键字）重读一次。
+    const resetLoad = armLoad(pendingLoad())
+    click(screen.getByRole('button', { name: '重置' }))
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    expect(query().mock.calls[2][1]).toEqual({ organizationCode: 'ORG-A' })
+    await settle(resetLoad, [row('c1', 'A01', '血常规', 1), row('c2', 'A02', '尿常规', 2)])
+
+    // 草稿清空、控件回默认值，状态裁剪一并解除。
+    expect((screen.getByLabelText('关键字筛选') as HTMLInputElement).value).toBe('')
+    expect(selectedStatusLabels()).toEqual(['全部'])
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    expect(screen.getByText('尿常规')).toBeInTheDocument()
+    // 地址栏参数按默认值回写（keyword 与 status 参数删除）。
+    expect(new URLSearchParams(window.location.search).get('keyword')).toBeNull()
+    expect(new URLSearchParams(window.location.search).get('status')).toBeNull()
+  })
+})
+
+/**
+ * 用例名只描述行为：页头只渲染范围条（只显名称，无编码），页头只保留一个主按钮。
  *
  * 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/Client/Pages/RecognitionProjects/RecognitionProjects.md`
  * 第 1 节「页面结构」的标题区行与第 5 节「已定实现边界」的页头组织范围行（S2-D22、S2-D23）。
  */
 describe('C33 页头组织展示与动作区', () => {
-  it('组织按上下两行展示且无文字标签，名称与编码同一来源，名称缺失时只展示编码一行', async () => {
+  it('页头渲染当前范围条：只显组织名称、不出现组织编码，范围查询不提交任何入参', async () => {
     await renderLoaded([row('c1', 'A01', '血常规')])
 
-    expect(scopeLines()).toEqual({ name: '组织甲', code: 'ORG-A', label: null })
-    // 两行是纵向排列：名称元素在编码元素之前，容器内不存在标签元素。
-    const scope = document.querySelector('.recognition-projects-scope') as HTMLElement
-    expect([...scope.children].map((node) => node.className))
-      .toEqual(['recognition-projects-scope-name', 'recognition-projects-scope-code'])
-    // 范围查询不提交任何入参：组织只取自可信上下文。
+    // 页头范围区由共用范围条承载：只显名称（医院与院区在本用例环境无登录编码，按「未知」占位）。
+    await scopeBar('组织甲 / 未知 / 未知')
+    const header = document.querySelector('.recognition-projects-header') as HTMLElement
+    expect(header.textContent).not.toContain('ORG-A')
+    // 范围查询不提交任何入参：组织只取自可信上下文（页面每次读取仍带一次范围查询作成败口径）。
     expect(api.queryTrustedOrganizationScope).toHaveBeenCalledTimes(1)
     expect(api.queryTrustedOrganizationScope.mock.calls[0][1]).toBeUndefined()
-
-    // 名称缺失（服务端未交付）时只展示编码一行，不留空行也不渲染空括号。
-    const reload = armLoad(pendingLoad())
-    submitSearch()
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    await act(async () => {
-      reload.configurations.resolve([row('c1', 'A01', '血常规')])
-      reload.items.resolve(CATALOG)
-      reload.scope.resolve({ organizationCode: 'ORG-A', organizationName: null })
-    })
-    expect(scopeLines()).toEqual({ name: null, code: 'ORG-A', label: null })
-    expect([...scope.children].map((node) => node.className)).toEqual(['recognition-projects-scope-code'])
   })
 
   it('页头只有「新增互认项目」一个动作，点击即打开新增弹窗', async () => {
@@ -2278,7 +2387,7 @@ describe('C33 页头组织展示与动作区', () => {
     await findModal('新增互认项目配置')
   })
 
-  it('范围查询失败并入读取失败阻断态，重试成功后页头恢复名称', async () => {
+  it('范围查询失败并入读取失败阻断态，重试成功后恢复可写', async () => {
     const load = armLoad(pendingLoad())
     renderPage()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
@@ -2287,7 +2396,6 @@ describe('C33 页头组织展示与动作区', () => {
     // 三次读取同口径：任一次失败即整页不可写、保留已有数据并给出重试入口。
     expect(screen.getByText('互认配置数据待刷新')).toBeInTheDocument()
     expect(addButton()).toBeDisabled()
-    expect(scopeLines()).toEqual({ name: null, code: 'ORG-A', label: null })
 
     const retryLoad = armLoad(pendingLoad())
     click(screen.getByRole('button', { name: /重\s*试/ }))
@@ -2295,22 +2403,7 @@ describe('C33 页头组织展示与动作区', () => {
     await settle(retryLoad, [row('c1', 'A01', '血常规')])
 
     expect(screen.queryByText('互认配置数据待刷新')).not.toBeInTheDocument()
-    expect(scopeLines()).toEqual({ name: '组织甲', code: 'ORG-A', label: null })
     expect(addButton()).toBeEnabled()
-  })
-
-  it('范围查询回读的组织与本次读取的目标组织不一致时不接受该名称', async () => {
-    const load = armLoad(pendingLoad())
-    renderPage()
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
-    await act(async () => {
-      load.configurations.resolve([row('c1', 'A01', '血常规')])
-      load.items.resolve(CATALOG)
-      // 凭证已换：范围查询回读的是另一个组织。
-      load.scope.resolve(scopeFor('ORG-B'))
-    })
-
-    expect(scopeLines()).toEqual({ name: null, code: 'ORG-A', label: null })
   })
 })
 
@@ -2388,7 +2481,7 @@ describe('C35 弹窗发现能力：关键字搜索与全选当前结果', () => 
     // 输入原文只是草稿：未提交前列表不变。
     expect(batchItemLabels(create)).toHaveLength(4)
 
-    click(within(create).getByRole('button', { name: '搜索' }))
+    click(within(create).getByRole('button', { name: '查询' }))
     await waitFor(() => expect(batchItemLabels(create)).toEqual(['选择标准项目：丙氨酸氨基转移酶（B01）']))
     // 搜索只查一次可新增项目，不重读配置列表。
     expect(api.querySelectableStandardItems.mock.calls.length).toBe(selectableReadsBeforeSearch + 1)
@@ -2396,7 +2489,7 @@ describe('C35 弹窗发现能力：关键字搜索与全选当前结果', () => 
 
     // 搜索无命中时给的是"没有匹配的标准项目"，不是"没有可新增项"——两者事实不同。
     await change(within(create).getByLabelText('弹窗关键字搜索'), 'ZZ')
-    click(within(create).getByRole('button', { name: '搜索' }))
+    click(within(create).getByRole('button', { name: '查询' }))
     await screen.findByText('没有匹配的标准项目')
 
     // 清空输入原文同时清掉生效条件，可选集合恢复。
@@ -2421,7 +2514,7 @@ describe('C35 弹窗发现能力：关键字搜索与全选当前结果', () => 
 
     // 已被搜索裁掉的项目不在"当前结果"里：全选只补齐当前可见的项目，不清除此前已选。
     await change(within(create).getByLabelText('弹窗关键字搜索'), 'C01')
-    click(within(create).getByRole('button', { name: '搜索' }))
+    click(within(create).getByRole('button', { name: '查询' }))
     await waitFor(() => expect(batchItemLabels(create)).toEqual(['选择标准项目：胸部正位片（C01）']))
     click(within(create).getByRole('button', { name: '全选当前结果' }))
     await waitFor(() => expect(batchSelectedCount(create)).toBe('已选 4 项'))
@@ -2453,18 +2546,20 @@ describe('C35 弹窗发现能力：关键字搜索与全选当前结果', () => 
     expect(batchSelectedCount(create)).toBe('已选 0 项')
   })
 
-  it('异步提示与常驻读屏区域：剔除说明与本地拦截都在 aria-live 容器内', async () => {
+  it('剔除说明在常驻读屏区域，本地拦截以字段级红字就近提示（不进读屏区域、无 Alert）', async () => {
     await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
 
     const create = await openBatchCreate([], '30')
-    // 读屏区域先于内容存在：容器在未提交时就已在版面上。
+    // 读屏区域先于内容存在：容器在未提交时就已在版面上，供异步出现的剔除说明使用。
     expect(create.querySelectorAll('[aria-live="polite"]').length).toBeGreaterThan(0)
 
     // 未勾选即确定：本地拦截，不发写请求。
     click(within(create).getByRole('button', { name: /确定新增/ }))
-    await screen.findByText('请先勾选要新增的标准项目')
+    await within(create).findByText('请先勾选要新增的标准项目')
     expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
-    expect(create.querySelector('[aria-live="polite"]')?.textContent).toContain('请先勾选要新增的标准项目')
+    // 拦截原因是字段级红字：不再借道读屏区域，也不以 Alert 承载（TC-T02-07）。
+    expect(create.querySelector('[aria-live="polite"]')?.textContent).not.toContain('请先勾选要新增的标准项目')
+    expect(within(create).getByText('请先勾选要新增的标准项目').closest('.ant-alert')).toBeNull()
   })
 })
 
@@ -3150,5 +3245,22 @@ describe('C28 状态徽标与可互认时间行内展示', () => {
     await settle(again, [row('c1', 'A01', '血常规', 1, { recognitionDurationDays: 45 })])
     expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
     expect(api.setRecognitionProjectConfigurationEnabled).not.toHaveBeenCalled()
+  })
+})
+
+describe('TC-T02-14 页面标题层级', () => {
+  it('页面大标题为 level 3', async () => {
+    await renderLoaded([])
+
+    expect(screen.getByRole('heading', { name: '互认项目', level: 3 })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '互认项目', level: 2 })).toBeNull()
+  })
+
+  it('标题 margin 归零：配套 CSS 的归零选择器随标题层级改为 h3', () => {
+    // jsdom 无布局：margin 归零按配套 CSS 的静态规则断言（Testing Baseline §1.4 静态证据）。
+    const css = readFileSync(resolve(process.cwd(), 'src/pages/recognitionProjects/RecognitionProjects.css'), 'utf8')
+    const rule = css.match(/\.recognition-projects-header\s+h3\.ant-typography\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(rule).toContain('margin: 0')
+    expect(css).not.toMatch(/\.recognition-projects-header\s+h2\.ant-typography/)
   })
 })

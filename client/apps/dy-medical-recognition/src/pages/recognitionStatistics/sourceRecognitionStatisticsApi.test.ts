@@ -132,7 +132,7 @@ describe('C4 本院版来源侧请求：本侧来源组织与医院、接收组�
 
   it('明细请求走 queryBranchSourceRecognitionDetails，来源侧没有明细类型字段', async () => {
     const built = buildSourceDetailsQuery(
-      { version: 'branch', startTime: '2026-03-01', endTime: '2026-03-31', receiverBranchCode: 'BR1' },
+      { version: 'branch', startTime: '2026-03-01', endTime: '2026-03-31', sourceBranchCode: 'BR9', receiverBranchCode: 'BR1' },
       pageInput,
     )
     expect(built).not.toBeNull()
@@ -162,6 +162,46 @@ describe('C4 来源侧构造拒绝面与导出请求', () => {
     expect(buildSourceSummaryQuery(invalidQuery(base, { itemType: 7 }), pageInput)).toBeNull()
     expect(buildSourceSummaryQuery(base, { pageIndex: 0, pageSize: 20 })).toBeNull()
     expect(buildSourceDetailsQuery(base, { pageIndex: 1, pageSize: 201 })).toBeNull()
+  })
+
+  it('本院版登录院区缺失或空白拒绝构造（空院区零请求契约），平台版院区筛选缺失不受影响', () => {
+    // 本院版来源院区恒为登录院区：缺失属权限配置错误，汇总、明细与导出三个本院端点构造一律返回 null，调用方零发请求。
+    expect(buildSourceSummaryQuery(
+      { version: 'branch', startTime: '2026-03-01', endTime: '2026-03-31', groupDimension: 1 },
+      pageInput,
+    )).toBeNull()
+    expect(buildSourceSummaryQuery(
+      { version: 'branch', startTime: '2026-03-01', endTime: '2026-03-31', groupDimension: 1, sourceBranchCode: '   ' },
+      pageInput,
+    )).toBeNull()
+    expect(buildSourceDetailsQuery(
+      { version: 'branch', startTime: '2026-03-01', endTime: '2026-03-31' },
+      pageInput,
+    )).toBeNull()
+    expect(buildSourceDetailsQuery(
+      { version: 'branch', startTime: '2026-03-01', endTime: '2026-03-31', sourceBranchCode: '' },
+      pageInput,
+    )).toBeNull()
+    expect(buildSourceExportQuery({
+      version: 'branch',
+      exportType: 6,
+      groupDimension: 1,
+      startTime: '2026-03-01',
+      endTime: '2026-03-31',
+    })).toBeNull()
+    expect(buildSourceExportQuery({
+      version: 'branch',
+      exportType: 6,
+      groupDimension: 1,
+      startTime: '2026-03-01',
+      endTime: '2026-03-31',
+      sourceBranchCode: '  ',
+    })).toBeNull()
+    // 平台页院区是可选筛选：平台版缺失照常构造（平台路径行为不变）。
+    expect(buildSourceSummaryQuery(
+      { version: 'platform', startTime: '2026-03-01', endTime: '2026-03-31', groupDimension: 1 },
+      pageInput,
+    )).not.toBeNull()
   })
 
   it('来源侧导出只接受导出类型 6-7；平台版提交两组组织编码且无分页', async () => {

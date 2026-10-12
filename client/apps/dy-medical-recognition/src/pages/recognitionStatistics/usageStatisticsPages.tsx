@@ -8,14 +8,17 @@
  * 两页共享同一套统计页主体（StatisticsBoard）与同一套查询/导出接线，差异只在范围形态与固定文案：
  * 平台页接收组与来源组的组织、医院、院区三级都由页面选择并随请求提交（服务端校验取值归属）；
  * 本院页本侧接收组织与医院取可信上下文并固定展示，请求不提交这两项（由服务端从可信上下文注入），
- * 本侧院区可选（为空按可信医院全院统计），来源组只提交医院与院区（来源组织恒为可信组织）。
+ * 本侧院区恒为登录院区（D-05，不提供院区选择；缺失属权限配置错误，页面零业务请求、以空态呈现，
+ * 服务端全院统计契约仅为接口面保留（S6-D1），前端已不按其触发），
+ * 来源组只提交医院与院区（来源组织恒为可信组织）。
  *
  * 页面不实现角色判断、不做权限二次确认；日期必填，页面默认当月 1 日至当天；
  * 查询条件不完整时适配层构造出口返回 `null`，主体据此零发请求并阻断。
  * 敏感查询条件只随请求提交，不写入地址栏；失败面由宿主统一提示，页面只结束加载态并保留已有数据。
  */
-import { Alert, Typography } from 'antd'
-import { useCallback, useState } from 'react'
+import { Typography } from 'antd'
+import { useCallback, useMemo, useState } from 'react'
+import { ScopeUnavailablePanel } from '../../components/ScopeUnavailablePanel'
 import { useApiClientContext } from '../../contexts/ApiClientContext'
 import { useTrustedOrganizationScope } from '../recognitionProjects/recognitionProjectsOrganizationScope'
 import { useTrustedHospitalScope } from '../reportManagement/reportsTrustedScope'
@@ -209,41 +212,48 @@ function UsageStatisticsPage({ version }: { version: StatisticsPageVersion }) {
     [client],
   )
 
+  // 本院页（D-05）：本侧院区恒为登录院区，作为初始条件交给主体；缺失属权限配置错误，查询出口经
+  // 适配层构造返回 null 阻断，主体零业务请求并以 missingScopeText 空态呈现（文案与金额、报告页同款）。
+  const branchInitialFilters = useMemo<StatisticsFilters>(
+    () => ({ ...initialFilters, ownBranchCode: trustedBranchCode ?? undefined }),
+    [initialFilters, trustedBranchCode],
+  )
+  // 登录院区缺失只发生在本院页（平台页院区是可选筛选）：主体保持挂载，权限配置恢复后 scopeKey
+  // 随登录院区变化，主体清空条件与数据并按新院区重读。
+  const missingBranchScope = version === 'branch' && (trustedBranchCode ?? '').trim() === ''
+
   if (version === 'branch' && (organizationCode === null || hospitalCode === null)) {
     return <div className='statistics-board'>
-      <div className='statistics-board-header'>
-        <div>
-          <Typography.Title level={2}>本院互认使用统计</Typography.Title>
-          <Typography.Text type='secondary'>查询本院互认使用汇总与明细；院区不选择时按可信医院全院统计</Typography.Text>
-        </div>
-      </div>
-      <Alert
-        type='warning'
-        showIcon
-        title='可信范围不可用'
-        description='当前无法从登录凭证确定可信组织与医院，因此不能读取本院的统计数据。请从宿主登录后重新进入本页面。'
+      <ScopeUnavailablePanel
+        title={
+          <div className='statistics-board-header'>
+            <div>
+              <Typography.Title level={3} style={{ margin: 0 }}>本院互认使用统计</Typography.Title>
+              <Typography.Text type='secondary'>查询本院互认使用汇总与明细</Typography.Text>
+            </div>
+          </div>
+        }
       />
     </div>
   }
 
   const scopeSpec: StatisticsScopeSpec = version === 'platform'
     ? { kind: 'platform' }
-    : {
-        kind: 'branch',
-        organizationCode: organizationCode ?? '',
-        hospitalCode: hospitalCode ?? '',
-        trustedBranchCode,
-      }
+    : { kind: 'branch', organizationCode: organizationCode ?? '' }
 
   return <StatisticsBoard
     title={version === 'platform' ? '接收医院互认使用统计' : '本院互认使用统计'}
     subtitle={version === 'platform'
       ? '按组织、医院与院区查询接收侧互认使用汇总与明细'
-      : '查询本院互认使用汇总与明细；院区不选择时按可信医院全院统计'}
+      : '查询本院互认使用汇总与明细'}
     side='usage'
-    scopeKey={version === 'platform' ? 'platform-usage' : `branch-usage|${organizationCode ?? ''}|${hospitalCode ?? ''}`}
+    // 范围键含登录院区：院区随可信范围变化即视为范围切换，主体清空条件与数据后按新院区复位。
+    scopeKey={version === 'platform'
+      ? 'platform-usage'
+      : `branch-usage|${organizationCode ?? ''}|${hospitalCode ?? ''}|${trustedBranchCode ?? ''}`}
     scopeSpec={scopeSpec}
-    initialFilters={initialFilters}
+    initialFilters={version === 'platform' ? initialFilters : branchInitialFilters}
+    missingScopeText={missingBranchScope ? '当前登录身份未携带院区，无法查询本院统计' : undefined}
     querySummaryPage={querySummaryPage}
     queryDetailsPage={queryDetailsPage}
     exportWorkbook={exportWorkbook}
