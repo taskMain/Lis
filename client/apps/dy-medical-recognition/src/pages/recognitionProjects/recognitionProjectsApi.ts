@@ -208,15 +208,6 @@ export interface BatchCreateConfigurationPayload {
 }
 
 /**
- * 当前可信范围的展示资料：组织编码与名称，两者同源（都由服务端按可信上下文解析）。
- * 名称缺失时为 `null`，页面据此退回只展示编码。
- */
-export interface TrustedOrganizationScope {
-  organizationCode: string
-  organizationName: string | null
-}
-
-/**
  * 可互认时间上界：与后端 `[Range(1, int.MaxValue)]` 同口径（C# `int` 上界）。
  * 超出该值的输入必须在本地拦截，否则会在写请求上白跑一次服务端校验。
  */
@@ -677,17 +668,6 @@ export async function querySelectableStandardItems(
   if (trimmed.length > 0) body.keyword = trimmed
   const catalog = await client.api.medicalRecognitionReportQuery.querySelectableStandardItemList.post(body)
   return catalog ?? null
-}
-
-/**
- * 读取当前可信范围的展示资料：组织编码与名称。
- *
- * 组织**只取自服务端可信上下文**：该出口不提交任何入参，调用方无法查询其他组织，
- * 因此页面拿到的编码与名称必然同源。名称缺失时返回 `null`，由页面退回只展示编码。
- */
-export async function queryTrustedOrganizationScope(client: MedicalRecognitionClient): Promise<TrustedOrganizationScope> {
-  const scope = await client.api.medicalRecognitionReportQuery.queryTrustedOrganizationScope.post()
-  return { organizationCode: scope?.organizationCode ?? '', organizationName: scope?.organizationName ?? null }
 }
 
 /** 批量新增互认配置：一次请求建立全部所选项目，全部默认启用；载荷不含组织编码与内部标准项目 ID。 */

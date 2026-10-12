@@ -1,15 +1,15 @@
 .recognition-projects-page { min-width: 0; max-width: 100%; }
 .recognition-projects-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .recognition-projects-header h3.ant-typography { margin: 0; }
-/* 页头范围展示已由共用范围条（CurrentScopeBar）承载：本文件不再有双行名称/编码范围条的样式。 */
+/* 页头不渲染范围展示：本文件不含范围条样式。 */
 /*
- * 筛选区：条件组整体左对齐一行，控件各自按内容宽度排布，窄视口自动换行。
- * 不用网格：网格的自动轨道会吸收剩余宽度，把落在该轨道上的控件拉伸成整条（搜索按钮与
- * 配置状态选择都曾在版面里被拉长），而筛选区没有任何需要占满宽度的元素。
+ * 查询区（S2-D21，2026-10-12 修订）：只有关键字输入框一个条件，查询图标按钮在框内右侧；
+ * 配置状态是贴在列表上沿的页签，页签底边与列表容器边框重合，使两者在版面上连成一体。
  */
 .recognition-projects-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 12px; }
-.recognition-projects-filters .ant-input-affix-wrapper { width: 240px; max-width: 100%; }
-.recognition-projects-filters .ant-segmented { min-width: 200px; }
+.recognition-projects-filters .ant-input-affix-wrapper { width: 320px; max-width: 100%; }
+.recognition-projects-status-tabs { margin-bottom: -1px; }
+.recognition-projects-status-tabs .ant-tabs-nav { margin-bottom: 0; }
 .recognition-projects-summary { display: block; margin-top: 12px; font-variant-numeric: tabular-nums; }
 
 /*

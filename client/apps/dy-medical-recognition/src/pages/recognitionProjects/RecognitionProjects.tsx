@@ -5,16 +5,13 @@ import {
 import {
   Alert,
   Button,
-  Form,
   Input,
   Modal,
-  Segmented,
-  Space,
+  Tabs,
   Typography,
 } from 'antd'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApiClientContext } from '../../contexts/ApiClientContext'
-import { CurrentScopeBar } from '../../components/CurrentScopeBar'
 import { ScopeUnavailablePanel } from '../../components/ScopeUnavailablePanel'
 import { useEnumMetadata } from '../../hooks/useEnumMetadata'
 import { RecognitionProjectCascade, type RecognitionProjectHighlight } from './RecognitionProjectCascade'
@@ -36,7 +33,6 @@ import {
   filterRecognitionProjectColumnView,
   queryRecognitionProjectConfigurations,
   querySelectableStandardItems,
-  queryTrustedOrganizationScope,
   setRecognitionProjectConfigurationEnabled,
   toConfigurationStatusFilterOptions,
   toRecognitionProjectColumnView,
@@ -113,10 +109,6 @@ export function RecognitionProjects() {
    * 使带条件的链接进入后输入框与列表指向同一条件。
    */
   const [keywordDraft, setKeywordDraft] = useState(() => readFilterFromLocation().keyword)
-  /**
-   * 可信组织的名称不再由页面持有：页头范围条（CurrentScopeBar）自行经范围查询反查并按组织编码缓存。
-   * 页面仍保留范围查询本身，作为每次读取成败口径的一部分（任一次失败即整次读取失败，S2-D22）。
-   */
   const [modal, setModal] = useState<ModalState>({ kind: 'none' })
   const [submitting, setSubmitting] = useState(false)
   /** 被点中的层级格；`null` 表示没有高亮。高亮只标识位置，不携带任何写操作。 */
@@ -228,7 +220,7 @@ export function RecognitionProjects() {
     enabled: trustedOrganizationCode !== null,
   })
   const statusFilterOptions = useMemo(() => toConfigurationStatusFilterOptions(statusOptions), [statusOptions])
-  const statusSegmentedOptions = useMemo(
+  const statusTabOptions = useMemo(
     () => [{ value: 'all' as const, label: '全部' }, ...statusFilterOptions],
     [statusFilterOptions],
   )
@@ -245,9 +237,8 @@ export function RecognitionProjects() {
   }
 
   /**
-   * 读取指定组织的配置列表与可信范围。调用方在应用新组织前已推进请求序号，因此迟到的旧组织响应不会覆盖新组织；
-   * 同一组织的重载失败只保留已有数据并进入阻断态，不覆盖成空列表。范围查询与配置查询并行发起、
-   * 按同一口径判定成败：任一次失败即整次读取失败（S2-D22）。
+   * 读取指定组织的配置列表。调用方在应用新组织前已推进请求序号，因此迟到的旧组织响应不会覆盖新组织；
+   * 同一组织的重载失败只保留已有数据并进入阻断态，不覆盖成空列表。
    *
    * `pendingKeyword` 由搜索提交传入：它既是**本次查询条件**（下推服务端，S2-D29），读取成功后才写成生效筛选，
    * 因此列表里看到的结果一定来自这一次查询，不会先拿旧条件的结果凑一帧。
@@ -258,7 +249,7 @@ export function RecognitionProjects() {
    * 否则「配置状态切换」这类只改本地裁剪的动作会连带触发一次多余读取。
    *
    * 页面不再读取标准目录：行集的名称、类型、分类、分组由配置列表读模型实时带出（S2-D29），
-   * 可新增标准项目由弹窗自己那次查询交付。
+   * 可新增标准项目由弹窗自己那次查询交付。页头不展示三级范围，页面读取只有配置列表 1 次（S2-D22）。
    */
   const load = useCallback(async (targetOrganizationCode: string, failureKind: Exclude<LoadFailure, null>, pendingKeyword?: string) => {
     const keyword = pendingKeyword ?? filterRef.current.keyword
@@ -270,26 +261,21 @@ export function RecognitionProjects() {
     }
     const requestId = ++requestIdRef.current
     setLoading(true)
-    const results = await Promise.allSettled([
-      queryRecognitionProjectConfigurations(client, query),
-      queryTrustedOrganizationScope(client),
-    ])
+    const result = await queryRecognitionProjectConfigurations(client, query)
+      .then((value) => ({ ok: true as const, value }))
+      .catch(() => ({ ok: false as const, value: null as null }))
     if (requestId !== requestIdRef.current) return
 
-    const [configurations, scope] = results
     setLoading(false)
-    if (configurations.status === 'fulfilled') {
-      setRows(configurations.value)
+    if (result.ok) {
+      setRows(result.value)
       if (pendingKeyword !== undefined) {
         setFilter((previous) => (previous.keyword === pendingKeyword ? previous : { ...previous, keyword: pendingKeyword }))
         // 可见行集随之变化，编辑态一并清除（与 `changeFilter` 同一理由）。
         setDurationEdit(null)
       }
     }
-    // 范围查询只参与读取成败口径（S2-D22）：名称展示由页头范围条自行反查，页面不再消费名称。
-    setLoadFailure(
-      configurations.status === 'rejected' || scope.status === 'rejected' ? failureKind : null,
-    )
+    setLoadFailure(result.ok ? null : failureKind)
   }, [client])
 
   /**
@@ -552,18 +538,6 @@ export function RecognitionProjects() {
   }, [load, loadFailure, keywordDraft])
 
   /**
-   * 重置（TC-T02-16）：清空关键字草稿，已生效筛选恢复默认（关键字清空、配置状态回「全部」），
-   * 随后按空条件重读一次——重置口径与报告、统计看板页一致，条件已等于默认值时重置仍等价于一次刷新。
-   * 地址栏经生效筛选同步按默认值回写（keyword/status 参数删除）。
-   */
-  const resetFilters = useCallback(() => {
-    setKeywordDraft('')
-    changeFilter(() => EMPTY_RECOGNITION_PROJECT_FILTER)
-    const targetOrganizationCode = appliedOrganizationRef.current
-    if (targetOrganizationCode !== null) void load(targetOrganizationCode, loadFailure ?? 'load', '')
-  }, [changeFilter, load, loadFailure])
-
-  /**
    * 关键字输入框的输入原文变化。**清空动作**（输入框自带的清除入口，或手动删空）同时清掉生效条件并
    * 重读一次：关键字已下推服务端，只清状态不重读会让列表停在上一次关键字的结果上、
    * 而输入框与地址栏都已显示"无条件"；重读口径与"空条件提交等价于刷新"（S2-D24）一致。
@@ -627,12 +601,8 @@ export function RecognitionProjects() {
   >
     <div className='recognition-projects-header'>
       <div><Typography.Title level={3}>互认项目</Typography.Title><Typography.Text type='secondary'>标准项目互认配置</Typography.Text></div>
-      <Space wrap>
-        {/* 页头范围区由共用范围条承载：单行只显「组织 / 医院 / 院区」名称，无编码（TC-T02-02）。 */}
-        <CurrentScopeBar />
-        {/* 新增入口只按 `canWrite` 门控：可新增集合由弹窗自己查询交付，读取失败在弹窗内表达。 */}
-        <Button type='primary' icon={<PlusOutlined />} disabled={!canWrite} onClick={openBatchCreate}>新增互认项目</Button>
-      </Space>
+      {/* 新增入口只按 `canWrite` 门控：可新增集合由弹窗自己查询交付，读取失败在弹窗内表达。 */}
+      <Button type='primary' icon={<PlusOutlined />} disabled={!canWrite} onClick={openBatchCreate}>新增互认项目</Button>
     </div>
 
     {/*
@@ -660,54 +630,47 @@ export function RecognitionProjects() {
     </div>
 
     {/*
-      查询区（TC-T02-16）：inline Form 只承载布局与提交语义，控件不注册 name、仍由页面状态受控。
-      关键字输入原文是草稿，提交动作（查询按钮或输入框内回车）才把原文下推服务端；配置状态
-      Segmented 是即时生效控件、不进草稿，保持切换即生效、本地裁剪、不触发读取；查询与重置位于
-      行内最后一个 Form.Item 内并排。
+      查询区（S2-D21，2026-10-12 修订）：只承载关键字一个查询条件。关键字输入原文是草稿，
+      提交动作（框内查询图标按钮或输入框内回车，两者都进 `submitKeywordFilter`）才把原文下推服务端。
+      查询图标按钮显式给出可访问名称——`SearchOutlined` 自带英文 `aria-label`，它会参与按钮的
+      名称计算，不声明就会读成「search 查询」。提交会触发重新读取（S2-D24），因此按钮在读取在途时
+      进入 `loading`：图标换成旋转指示并禁用，「点了查询之后正在取数」这件事因此在用户刚点击的位置可见。
     */}
     <div className='recognition-projects-filters'>
-      <Form layout='inline' onFinish={submitKeywordFilter}>
-        <Form.Item>
-          <Input
-            placeholder='标准项目编码/名称/分类/分组关键字'
-            aria-label='关键字筛选'
-            autoComplete='off'
-            allowClear
-            value={keywordDraft}
-            onChange={(event) => changeKeywordDraft(event.target.value)}
-          />
-        </Form.Item>
-        <Form.Item>
-          <Segmented<RecognitionProjectFilter['status']>
-            aria-label='配置状态筛选'
-            value={filter.status}
-            options={statusSegmentedOptions}
-            onChange={(status) => changeFilter((previous) => ({ ...previous, status }))}
-          />
-        </Form.Item>
-        <Form.Item>
-          <Space wrap>
-            {/*
-              查询按钮逐字符合全站统一规格（TC-T02-06/16）：显式给出可访问名称——
-              `SearchOutlined` 自带英文 `aria-label`，它会参与按钮的名称计算，不声明就会读成「search 查询」；
-              `autoInsertSpace={false}` 关闭 antd 对两个汉字之间自动插入的空格，使按钮文本与可访问名称
-              都是「查询」。`htmlType='submit'` 使提交经查询区 Form 的 onFinish 进入 `submitKeywordFilter`，
-              输入框内回车由表单隐式提交走同一条链路。提交会触发重新读取（S2-D24），因此按钮在读取在途时
-              进入 `loading`：图标换成旋转指示并禁用，「点了查询之后正在取数」这件事因此在用户刚点击的位置可见。
-              重置恒命名「重置」、默认样式（无 type）。
-            */}
-            <Button
-              type='primary'
-              icon={<SearchOutlined />}
-              aria-label='查询'
-              autoInsertSpace={false}
-              htmlType='submit'
-              loading={loading}
-            >查询</Button>
-            <Button autoInsertSpace={false} onClick={resetFilters}>重置</Button>
-          </Space>
-        </Form.Item>
-      </Form>
+      <Input
+        placeholder='标准项目编码/名称/分类/分组关键字'
+        aria-label='关键字筛选'
+        autoComplete='off'
+        allowClear
+        suffix={<Button
+          type='text'
+          size='small'
+          icon={<SearchOutlined />}
+          aria-label='查询'
+          autoInsertSpace={false}
+          loading={loading}
+          onClick={submitKeywordFilter}
+        />}
+        value={keywordDraft}
+        onChange={(event) => changeKeywordDraft(event.target.value)}
+        onPressEnter={() => submitKeywordFilter()}
+      />
+    </div>
+
+    {/*
+      配置状态页签（S2-D21）：贴在列表上沿，是「视图切换」而非查询条件——
+      切换即生效、只在服务端结果上本地裁剪、不触发读取。
+    */}
+    <div role='group' aria-label='配置状态筛选'>
+      <Tabs
+        className='recognition-projects-status-tabs'
+        activeKey={String(filter.status)}
+        items={statusTabOptions.map((option) => ({ key: String(option.value), label: option.label }))}
+        onChange={(key) => {
+          const option = statusTabOptions.find((item) => String(item.value) === key)
+          if (option) changeFilter((previous) => ({ ...previous, status: option.value }))
+        }}
+      />
     </div>
 
     <div className='recognition-projects-cascade-wrap'>
