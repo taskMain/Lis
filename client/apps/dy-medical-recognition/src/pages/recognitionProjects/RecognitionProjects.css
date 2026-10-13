@@ -13,25 +13,30 @@
 .recognition-projects-summary { display: block; margin-top: 12px; font-variant-numeric: tabular-nums; }
 
 /*
- * 列视图：类型｜分类｜分组｜项目四栏同时摊开。
+ * 新增弹窗的网格列视图（`RecognitionProjectCascade`）：类型｜分类｜分组｜项目四栏同时摊开。
  * 四列宽度固定且不压缩，窄视口由外层滚动容器承载横向滚动，因此任何视口下四栏都同时存在。
- * 版面定位由组件写在每个单元格的 grid-column / grid-row 内联样式上，这里只声明列宽与外观。
+ * 版面定位由组件写在每个单元格的 grid-column / grid-row 内联样式上；
+ * 列模板与前三个列宽由组件按共享列宽常量给出内联值，这里只声明最小宽度与外观。
+ * 页面列表不再使用这套网格，改由 antd Table 承载八列列视图。
  */
 .recognition-projects-cascade-wrap { overflow-x: auto; margin-top: 14px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
-.recognition-projects-cascade { display: grid; grid-template-columns: 88px 186px 208px minmax(560px, 1fr); min-width: 1060px; background: #fff; }
+.recognition-projects-cascade { display: grid; min-width: 1060px; background: #fff; }
 .recognition-projects-cascade-head { min-width: 0; padding: 10px 12px; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #d1d5db; background: #f5f5f5; color: #4b5563; font-weight: 600; }
 
 /*
- * 层级格是原生按钮直接作为网格项：网格项默认在两条轴上拉伸，整个格都是点击区域（含格内空白处）。
- * `touch-action: manipulation` 去掉触屏上双击缩放的等待；层级格跨若干行、行高随分组下的项目数变化，
- * 因此离屏跳过渲染只声明在本层（`content-visibility: auto` + 固有尺寸估计），不做窗口化（S2-D28）。
+ * 层级格的基础规则（新增弹窗的网格列视图在用）：原生按钮直接作为网格项，网格项默认在两条轴上拉伸，
+ * 整个格都是点击区域（含格内空白处）。`touch-action: manipulation` 去掉触屏上双击缩放的等待；
+ * 在弹窗网格里按钮就是承载层级格的元素，因此离屏跳过渲染声明在本层（`content-visibility: auto`
+ * 加固有尺寸估计），不做窗口化（S2-D28）。
+ * 页面列表改由 antd Table 承载后，表格的离屏跳过渲染声明在单元格（`td.recognition-projects-level-cell`，
+ * 见下面的表格段），格内按钮沿用本基础类的同一声明，不改变表格的跳过结果。
  */
 .recognition-projects-level { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 4px; min-width: 0; margin: 0; padding: 10px 12px; border: 0; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; font: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; touch-action: manipulation; content-visibility: auto; contain-intrinsic-size: auto 320px; }
 .recognition-projects-level:focus-visible { outline: 2px solid #1677ff; outline-offset: -2px; }
-/* 类型格与分类格各有底色，分组格与项目格保持底色，使从属关系在纵向上一眼可辨。 */
-.recognition-projects-level-type { align-items: center; padding-top: 16px; background: #eef0f5; color: #2b3350; font-weight: 700; }
-.recognition-projects-level-category { background: #f7f8fb; color: #3c4356; font-weight: 600; }
-.recognition-projects-level-group { background: #fff; color: #1f2937; font-weight: 600; }
+/* 类型格与分类格各有底色，分组格与项目格保持底色，使从属关系在纵向上一眼可辨（仅新增弹窗的网格列视图）。 */
+.recognition-projects-cascade .recognition-projects-level-type { align-items: center; padding-top: 16px; background: #eef0f5; color: #2b3350; font-weight: 700; }
+.recognition-projects-cascade .recognition-projects-level-category { background: #f7f8fb; color: #3c4356; font-weight: 600; }
+.recognition-projects-cascade .recognition-projects-level-group { background: #fff; color: #1f2937; font-weight: 600; }
 /* 高亮只改背景，因此高亮态与普通态在尺寸、边框与文字位置上完全一致，切换时不产生跳动。 */
 .recognition-projects-level.recognition-projects-level-highlighted { background: #e6f4ff; }
 .recognition-projects-level-type.recognition-projects-level-highlighted { background: #d6e9ff; }
@@ -48,29 +53,50 @@
 .recognition-projects-row-name { display: flex; flex: 1 1 auto; flex-direction: column; gap: 1px; min-width: 0; }
 .recognition-projects-row-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recognition-projects-row-code { color: #6b7280; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recognition-projects-row-reason { flex: none; max-width: 180px; color: #cf1322; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 可互认时间：非编辑态是可点的值，编辑态是「输入框 + 保存 + 取消」。 */
-.recognition-projects-days { flex: none; }
 .recognition-projects-days-value { display: inline-flex; align-items: baseline; gap: 3px; padding: 2px 6px; border: 1px solid transparent; border-radius: 4px; background: none; color: inherit; font: inherit; font-variant-numeric: tabular-nums; }
 button.recognition-projects-days-value { cursor: text; }
 button.recognition-projects-days-value:hover:not(:disabled) { border-color: #91caff; background: #e6f4ff; }
 button.recognition-projects-days-value:focus-visible { outline: 2px solid #1677ff; outline-offset: 1px; }
 button.recognition-projects-days-value:disabled { color: #9ca3af; cursor: not-allowed; }
 .recognition-projects-days-value .unit { color: #6b7280; font-size: 12px; }
-.recognition-projects-days-editor { display: inline-flex; flex: none; align-items: center; gap: 6px; }
-.recognition-projects-days-input { width: 104px; }
-/* 输入不合法与写入被冻结的原因都换到整行的下一行显示，不挤压同一行的名称与其它控件。 */
-.recognition-projects-days-error { flex: 0 0 100%; }
+/*
+ * 编辑器整体宽度跟随所在单元格的内容盒：两个图标按钮保持自身尺寸，输入框吃掉剩余宽度，
+ * 因此编辑控件不会溢出单元格、也不侵占用相邻列。
+ */
+.recognition-projects-days-editor { display: flex; width: 100%; align-items: center; gap: 4px; }
+.recognition-projects-days-input { flex: 1; min-width: 0; }
+/* 校验提示与写冻结原因就地渲染在编辑器下方，与「互认项目金额维护」页行内提示同一形态。 */
+.recognition-projects-days-error { margin-top: 4px; }
 
 .recognition-projects-cascade-empty { margin-top: 14px; padding: 44px 16px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; color: #6b7280; text-align: center; }
 
 /*
- * 常驻的读屏播报容器（aria-live）：内容为空时也存在于版面上，异步提示才有"从无到有"的变化可播报。
- * 行内的提示容器与提示自身同一列宽规则，避免多出一层后把行内控件挤到下一行。
+ * 页面列表（antd Table，S2-D16 2026-10-13 修订）：样式口径与「互认项目金额维护」页一致，
+ * 取值与 RecognitionAmounts.css 同源；新增弹窗的网格列视图不受这些规则影响。
+ * 覆写 antd 默认样式的规则统一带 `.ant-table-wrapper` 根级提级：antd 运行时注入的样式与未提级的
+ * 覆写选择器同优先级且注入顺序靠后，不提级时宿主计算值仍是 antd 默认值。
  */
+.recognition-projects-table.ant-table-wrapper { margin-top: 14px; }
+.recognition-projects-table.ant-table-wrapper .ant-table-container { border: 1px solid #e5e7eb; border-radius: 8px; }
+.recognition-projects-table.ant-table-wrapper .ant-table-thead > tr > th { padding: 10px 12px; background: #f5f5f5; color: #4b5563; font-weight: 600; border-bottom-color: #d1d5db; }
+.recognition-projects-table.ant-table-wrapper .ant-table-thead > tr > th:not(:last-child), .recognition-projects-table.ant-table-wrapper .ant-table-tbody > tr > td:not(:last-child) { border-right: 1px solid #e5e7eb; }
+.recognition-projects-table.ant-table-wrapper .ant-table-tbody > tr > td { padding: 10px 12px; border-bottom-color: #e5e7eb; }
+.recognition-projects-table.ant-table-wrapper .ant-table-tbody > tr:hover > td, .recognition-projects-table.ant-table-wrapper .ant-table-tbody > tr > td.ant-table-cell-row-hover { background: #fafafa; }
+/*
+ * 层级单元格（页面列表，antd Table 承载）：格内按钮承担点击语义与整格命中区，单元格自身不重复
+ * padding 与边框；表格的离屏跳过渲染声明在本层（`content-visibility: auto` 加固有尺寸估计，
+ * S2-D28；弹窗网格的同名声明在层级格基础规则上，两处各服务一种承载）；
+ * 高亮类施加在单元格上，行悬停色不盖掉高亮底色。
+ */
+.recognition-projects-table.ant-table-wrapper td.recognition-projects-level-cell { padding: 0; vertical-align: top; content-visibility: auto; contain-intrinsic-size: auto 320px; }
+.recognition-projects-table.ant-table-wrapper td.recognition-projects-level-cell .recognition-projects-level { width: 100%; min-height: 100%; padding: 10px 12px; border: 0; background: none; }
+.recognition-projects-table.ant-table-wrapper td.recognition-projects-level-highlighted { background: #e6f4ff; }
+.recognition-projects-table.ant-table-wrapper .ant-table-tbody > tr:hover > td.recognition-projects-level-highlighted { background: #e6f4ff; }
+
+/* 页面级读屏播报容器（aria-live）：常驻于列表与弹窗之外的页面提示区。 */
 .recognition-projects-live { display: block; }
-.recognition-projects-row-live { flex: 0 0 100%; }
 
 /*
  * 批量新增弹窗：弹窗内的列视图与页面同一套结构，因此只补弹窗自己的搜索、滚动与底栏。

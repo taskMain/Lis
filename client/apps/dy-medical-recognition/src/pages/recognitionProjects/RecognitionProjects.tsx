@@ -5,17 +5,25 @@ import {
 import {
   Alert,
   Button,
+  Empty,
   Input,
   Modal,
+  Table,
   Tabs,
+  Tag,
   Typography,
 } from 'antd'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApiClientContext } from '../../contexts/ApiClientContext'
 import { ScopeUnavailablePanel } from '../../components/ScopeUnavailablePanel'
 import { useEnumMetadata } from '../../hooks/useEnumMetadata'
-import { RecognitionProjectCascade, type RecognitionProjectHighlight } from './RecognitionProjectCascade'
-import { RecognitionProjectRow } from './RecognitionProjectRow'
+import {
+  isCategoryHighlighted,
+  isGroupHighlighted,
+  isItemTypeHighlighted,
+  type RecognitionProjectHighlight,
+} from './recognitionProjectsHighlight'
+import { RecognitionProjectDurationCell, RecognitionProjectToggleCell } from './RecognitionProjectRow'
 import { RecognitionProjectBatchCreateModal, ToggleModal } from './RecognitionProjectModals'
 import { type RecognitionProjectWriteGate } from './recognitionProjectWriteGate'
 import { readFilterFromLocation, syncFilterToLocation } from './recognitionProjectsFilterUrl'
@@ -24,6 +32,7 @@ import {
   CONFIGURATION_STATUS_METADATA_FALLBACK,
   DISABLED_CONFIGURATION_STATUS,
   ENABLED_CONFIGURATION_STATUS,
+  RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS,
   buildBatchCreateConfigurationRequest,
   buildConfigurationListQuery,
   buildDurationUpdatePayload,
@@ -33,6 +42,8 @@ import {
   filterRecognitionProjectColumnView,
   queryRecognitionProjectConfigurations,
   querySelectableStandardItems,
+  recognitionProjectRowBadge,
+  rowDisplayName,
   setRecognitionProjectConfigurationEnabled,
   toConfigurationStatusFilterOptions,
   toRecognitionProjectColumnView,
@@ -43,6 +54,7 @@ import {
   type RecognitionProjectColumnView,
   type RecognitionProjectConfigurationRow,
   type RecognitionProjectFilter,
+  type MedicalItemTypeValue,
   type SelectableStandardItem,
 } from './recognitionProjectsApi'
 import { readTrustedOrganizationCode, useTrustedOrganizationScope } from './recognitionProjectsOrganizationScope'
@@ -60,6 +72,20 @@ type ModalState =
  */
 type LoadFailure = null | 'load' | 'refreshAfterWrite'
 
+/** 层级单元格的样式类：高亮类施加在单元格（td）上，格内按钮只承载点击与可访问名称。 */
+function levelCellClassName(highlighted: boolean): string {
+  return highlighted
+    ? 'recognition-projects-level-cell recognition-projects-level-highlighted'
+    : 'recognition-projects-level-cell'
+}
+
+/** 项目列单元格的样式类：所属分组格被高亮时它一并高亮（下级链路的最后一层）。 */
+function itemCellClassName(highlighted: boolean): string {
+  return highlighted
+    ? 'recognition-projects-item-cell recognition-projects-level-highlighted'
+    : 'recognition-projects-item-cell'
+}
+
 /**
  * 列视图里的全部项目行，按渲染顺序摊平。两个写界面的目标行查找都基于它，查找范围由调用方决定：
  * 启停弹窗查整份列视图，行内编辑查裁剪后的可见列视图。
@@ -68,6 +94,62 @@ function flattenColumnRows(view: RecognitionProjectColumnView): RecognitionProje
   return view.flatMap((itemType) =>
     itemType.categories.flatMap((category) => category.groups.flatMap((group) => group.rows)),
   )
+}
+
+/**
+ * 列表表格行：每个项目行一行，层级三列的跨行信息（`rowSpan` 取值与是否首行）随行携带。
+ * antd Table 的行跨越按项目行计数，与列视图的分组结构在这里换算一次，列定义因此只读行字段。
+ */
+interface RecognitionProjectTableRow {
+  row: RecognitionProjectColumnRow
+  itemType: MedicalItemTypeValue | null
+  itemTypeText: string
+  categoryName: string
+  groupName: string
+  typeFirst: boolean
+  typeSpan: number
+  categoryFirst: boolean
+  categorySpan: number
+  groupFirst: boolean
+  groupSpan: number
+}
+
+/** 把列视图摊平成表格行：行序即层级展示顺序，空分组不产生行（裁剪后的列视图不含空层级）。 */
+function toRecognitionProjectTableRows(view: RecognitionProjectColumnView): RecognitionProjectTableRow[] {
+  const rows: RecognitionProjectTableRow[] = []
+  for (const itemType of view) {
+    const typeSpan = itemType.categories.reduce(
+      (total, category) => total + category.groups.reduce((groupTotal, group) => groupTotal + group.rows.length, 0),
+      0,
+    )
+    let typeFirst = true
+    for (const category of itemType.categories) {
+      const categorySpan = category.groups.reduce((total, group) => total + group.rows.length, 0)
+      let categoryFirst = true
+      for (const group of category.groups) {
+        let groupFirst = true
+        for (const row of group.rows) {
+          rows.push({
+            row,
+            itemType: itemType.itemType,
+            itemTypeText: itemType.itemTypeText,
+            categoryName: category.categoryName,
+            groupName: group.groupName,
+            typeFirst,
+            typeSpan,
+            categoryFirst,
+            categorySpan,
+            groupFirst,
+            groupSpan: group.rows.length,
+          })
+          typeFirst = false
+          categoryFirst = false
+          groupFirst = false
+        }
+      }
+    }
+  }
+  return rows
 }
 
 export function RecognitionProjects() {
@@ -348,6 +430,8 @@ export function RecognitionProjects() {
   const totalRowCount = useMemo(() => countColumnRows(columnView), [columnView])
   /** 裁剪后仍然可见的项目行总数。 */
   const visibleRowCount = useMemo(() => countColumnRows(visibleColumnView), [visibleColumnView])
+  /** 列表表格行：行序与跨行信息由列视图换算，列定义只读行字段。 */
+  const tableRows = useMemo(() => toRecognitionProjectTableRows(visibleColumnView), [visibleColumnView])
 
   /**
    * 启停弹窗的目标行：只持配置标识，行数据每次渲染都按**整份列视图**重取，
@@ -673,38 +757,165 @@ export function RecognitionProjects() {
       />
     </div>
 
-    <div className='recognition-projects-cascade-wrap'>
-      <RecognitionProjectCascade
-        view={visibleColumnView}
-        highlight={highlight}
-        onLevelClick={setHighlight}
-        // 两种空态事实不同：本组织还没有任何互认项目配置（此时没有任何生效条件），
-        // 与「有条件但没命中」——关键字或状态把结果裁空了。服务端按关键字过滤后行集为空时
-        // 无法只看行数区分两者，必须结合生效条件判定。
-        emptyText={totalRowCount === 0 && !filtering ? '本组织还没有互认项目配置' : '没有匹配的配置'}
-        renderRow={(columnRow) => <RecognitionProjectRow
-          row={columnRow}
-          writeGate={writeGate}
-          submitting={submitting}
-          canWrite={canWrite}
-          actionText={actionLabel}
-          editing={durationEditRow !== null && durationEditRow.rowIdentity === columnRow.rowIdentity}
-          onStartEdit={() => setDurationEdit({ rowIdentity: columnRow.rowIdentity })}
-          onCancelEdit={closeDurationEdit}
-          onSubmitDuration={(durationInput) => {
-            const request = buildDurationUpdatePayload(columnRow.configurationId, durationInput)
-            if (request === null) return Promise.resolve()
-            return submitWrite(() => updateRecognitionDuration(client, request), closeDurationEdit)
-          }}
-          onToggle={() => {
-            // 只把配置标识交给弹窗：弹窗渲染时按当前列视图重取该行与它的当前状态，
-            // 不持有打开那一刻的行快照，也不持有打开那一刻的目标状态。
-            if (columnRow.configurationId === null) return
-            setModal({ kind: 'toggle', configurationId: columnRow.configurationId })
-          }}
-        />}
-      />
-    </div>
+    {/*
+      列表（S2-D16，2026-10-13 第二次修订）：antd Table 承载，与「互认项目金额维护」页同一承载机制与样式口径。
+      八列恒定全显：类型｜分类｜分组｜项目｜可互认时间｜互认配置状态｜当前不可用原因｜操作；
+      类型格与分类格经 `rowSpan` 纵向跨其名下全部项目行表达从属；层级格是整格可点的按钮，
+      点击只高亮其整条下级链路（含项目格），不携带写操作；层级格的点击阻止冒泡——页面根上的
+      处理器负责「点击其他区域清除高亮」，让它收到这次点击会立刻清掉刚设置的高亮；
+      项目格不阻止冒泡，点项目格或页面空白即清除高亮。
+      后四列的承载与「互认项目金额维护」页对应列一致：时间列为值按钮与行内编辑器，状态列为徽标，
+      原因列为目录停用原因文本（超长省略），操作列为启停图标按钮。
+      两种空态事实不同：本组织还没有任何互认项目配置（此时没有任何生效条件），
+      与「有条件但没命中」——关键字或状态把结果裁空了。服务端按关键字过滤后行集为空时
+      无法只看行数区分两者，必须结合生效条件判定。
+    */}
+    <Table<RecognitionProjectTableRow>
+      className='recognition-projects-table'
+      rowKey={(record) => record.row.rowIdentity}
+      dataSource={tableRows}
+      loading={loading && tableRows.length === 0}
+      scroll={{ x: 1316 }}
+      pagination={false}
+      locale={{
+        emptyText: <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={totalRowCount === 0 && !filtering ? '本组织还没有互认项目配置' : '没有匹配的配置'}
+        />,
+      }}
+      columns={[
+        {
+          title: '类型',
+          width: RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS.itemType,
+          onCell: (record) => ({
+            rowSpan: record.typeFirst ? record.typeSpan : 0,
+            className: levelCellClassName(isItemTypeHighlighted(highlight, record.itemType)),
+          }),
+          render: (_, record) => record.typeFirst
+            ? <button
+              type='button'
+              className='recognition-projects-level'
+              aria-label={`高亮类型「${record.itemTypeText}」及其下级`}
+              onClick={(event) => {
+                event.stopPropagation()
+                setHighlight({ level: 'itemType', itemType: record.itemType })
+              }}
+            >{record.itemTypeText}</button>
+            : null,
+        },
+        {
+          title: '分类',
+          width: RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS.category,
+          onCell: (record) => ({
+            rowSpan: record.categoryFirst ? record.categorySpan : 0,
+            className: levelCellClassName(isCategoryHighlighted(highlight, record.itemType, record.categoryName)),
+          }),
+          render: (_, record) => record.categoryFirst
+            ? <button
+              type='button'
+              className='recognition-projects-level'
+              aria-label={`高亮分类「${record.categoryName}」及其下级`}
+              onClick={(event) => {
+                event.stopPropagation()
+                setHighlight({ level: 'category', itemType: record.itemType, categoryName: record.categoryName })
+              }}
+            >{record.categoryName}</button>
+            : null,
+        },
+        {
+          title: '分组',
+          width: RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS.group,
+          onCell: (record) => ({
+            rowSpan: record.groupFirst ? record.groupSpan : 0,
+            className: levelCellClassName(isGroupHighlighted(highlight, record.itemType, record.categoryName, record.groupName)),
+          }),
+          render: (_, record) => record.groupFirst
+            ? <button
+              type='button'
+              className='recognition-projects-level'
+              aria-label={`高亮分组「${record.groupName}」及其下级`}
+              onClick={(event) => {
+                event.stopPropagation()
+                setHighlight({
+                  level: 'group',
+                  itemType: record.itemType,
+                  categoryName: record.categoryName,
+                  groupName: record.groupName,
+                })
+              }}
+            >{record.groupName}</button>
+            : null,
+        },
+        {
+          // 项目列弹性占满剩余宽度：设计只为其余七列给定列宽，本列不设宽度。
+          title: '项目',
+          onCell: (record) => ({
+            className: itemCellClassName(isGroupHighlighted(highlight, record.itemType, record.categoryName, record.groupName)),
+          }),
+          render: (_, record) => {
+            const columnRow = record.row
+            const name = rowDisplayName(columnRow)
+            return <span className='recognition-projects-row-name'>
+              <span className='recognition-projects-row-name-text' title={name}>{name}</span>
+              <span className='recognition-projects-row-code' title={columnRow.standardProjectCode ?? undefined}>
+                {columnRow.standardProjectCode ?? '—'}
+              </span>
+            </span>
+          },
+        },
+        {
+          // 可互认时间列：非编辑态是值按钮、编辑态是「输入框＋保存＋取消」，两者在本单元格内切换。
+          title: '可互认时间',
+          width: 190,
+          render: (_, record) => <RecognitionProjectDurationCell
+            row={record.row}
+            writeGate={writeGate}
+            submitting={submitting}
+            canWrite={canWrite}
+            editing={durationEditRow !== null && durationEditRow.rowIdentity === record.row.rowIdentity}
+            onStartEdit={() => setDurationEdit({ rowIdentity: record.row.rowIdentity })}
+            onCancelEdit={closeDurationEdit}
+            onSubmitDuration={(durationInput) => {
+              const request = buildDurationUpdatePayload(record.row.configurationId, durationInput)
+              if (request === null) return Promise.resolve()
+              return submitWrite(() => updateRecognitionDuration(client, request), closeDurationEdit)
+            }}
+          />,
+        },
+        {
+          // 互认配置状态列：行摘要徽标（含「目录已停用」），颜色取适配层同一推导出口。
+          title: '互认配置状态',
+          width: 130,
+          render: (_, record) => {
+            const badge = recognitionProjectRowBadge(record.row)
+            return <Tag color={badge.color}>{badge.text}</Tag>
+          },
+        },
+        {
+          // 当前不可用原因列：目录三层启用时服务端返回 null，此时该单元格为空；超长文本按列省略。
+          title: '当前不可用原因',
+          width: 190,
+          ellipsis: true,
+          render: (_, record) => record.row.unavailableReason,
+        },
+        {
+          // 操作列：启停图标按钮，只改配置自身状态。
+          title: '操作',
+          width: 64,
+          render: (_, record) => <RecognitionProjectToggleCell
+            row={record.row}
+            canWrite={canWrite}
+            actionText={actionLabel}
+            onToggle={() => {
+              // 只把配置标识交给弹窗：弹窗渲染时按当前列视图重取该行与它的当前状态，
+              // 不持有打开那一刻的行快照，也不持有打开那一刻的目标状态。
+              if (record.row.configurationId === null) return
+              setModal({ kind: 'toggle', configurationId: record.row.configurationId })
+            }}
+          />,
+        },
+      ]}
+    />
     <Typography.Text type='secondary' className='recognition-projects-summary'>
       {/* 页脚只报当前显示条数：列表响应没有总数来源，而页面行集就是本组织的配置集合（S2-D24）。 */}
       共 {visibleRowCount} 项配置

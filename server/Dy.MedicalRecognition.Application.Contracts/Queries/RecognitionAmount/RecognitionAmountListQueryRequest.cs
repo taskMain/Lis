@@ -9,7 +9,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
 /// <remarks>
 /// 组织、医院、院区取值与保存入口一致：三个值按请求使用，服务端校验其存在、启用与父子归属，
 /// 不要求请求组织等于可信上下文组织；这里只表达查询目标，不构成授权结论。
-/// 按标准项目编码升序返回，不分页；不提供操作人、操作时间、内部标识、状态或授权结论字段。
+/// 按项目类型、分类名称、分组名称、标准项目名称逐级升序返回，名称相同再按分类、分组、项目与配置标识升序兜底，不分页；不提供操作人、操作时间、内部标识、状态或授权结论字段。
 /// </remarks>
 public sealed record RecognitionAmountListQueryRequest
 {

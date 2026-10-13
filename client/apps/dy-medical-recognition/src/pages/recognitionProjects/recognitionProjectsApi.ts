@@ -122,6 +122,12 @@ export function configurationStatusTagColor(value: ConfigurationStatusValue | nu
 }
 
 /**
+ * 类型、分类、分组三列的固定宽度（S2-D16）：页面列表按它给出表格列宽，新增弹窗的网格列视图
+ * 按它拼出列模板，两处承载共用同一份列宽事实，不在各自的渲染代码里重复写这三个数值。
+ */
+export const RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS = { itemType: 88, category: 186, group: 208 } as const
+
+/**
  * 行内可识别的业务名称；未知时退回编码，再退回占位文案。
  * 表格、弹窗与操作按钮的可访问名称共用同一出口，不各自重复 `??` 链。
  *

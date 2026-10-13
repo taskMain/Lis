@@ -1,17 +1,58 @@
 .recognition-amounts-page { min-width: 0; max-width: 100%; }
 .recognition-amounts-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .recognition-amounts-header h3.ant-typography { margin: 0; }
-/* 页头范围展示已由共用范围条（CurrentScopeBar）承载：本文件不再有双行名称/编码范围条的样式。 */
+/* 平台管理员页页头不再展示组织、医院、院区范围（S3-D23 修订）：页头只保留标题与副标题。 */
 .recognition-amounts-scope { margin-bottom: 16px; }
-/* 筛选区（提交式筛选、查询区 Form 化后）：关键字输入框在前，两个状态 Segmented 随后，
-   查询与重置按钮组在行尾；换行时机由容器宽度决定。 */
-.recognition-amounts-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
-.recognition-amounts-keyword { width: 260px; }
-/* 层级格纵向跨多行：离屏时跳过渲染并声明固有尺寸估计，行高按常见单行层级格估算。 */
-.recognition-amounts-level-cell { content-visibility: auto; contain-intrinsic-size: auto 48px; }
+/* 查询区（S3-D25 2026-10-13 修订）：关键字输入框（框内查询图标按钮）在前，金额状态下拉选择随后；
+   互认配置状态筛选为列表上沿页签，不在查询区内；版面口径与「互认项目」页一致。 */
+.recognition-amounts-filter { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0 12px; }
+/* 关键字框宽度规则带命名空间提级（与页签贴合、表格覆写同一根因）：antd 的
+   `:where(...).ant-input-affix-wrapper { width: 100% }` 与未提级的同优先级覆写并存时，
+   后注入的 antd 样式获胜，宿主实测关键字框曾被压成整行宽（1770px）而设计值为 320px。 */
+.recognition-amounts-filter .recognition-amounts-keyword { width: 320px; max-width: 100%; }
+.recognition-amounts-filter-group { display: inline-flex; align-items: center; gap: 8px; }
+.recognition-amounts-filter-label { color: rgba(0, 0, 0, 0.45); font-size: 13px; flex: none; }
+.recognition-amounts-filter-group .ant-select { min-width: 120px; }
+/* 配置状态页签贴在列表上沿：页签底边与列表容器边框重合，两者在版面上连成一体（与「互认项目」页同款）。
+   两条规则带 .ant-tabs 提级（与本文件表格覆写提级同一根因：antd cssinjs 注入顺序靠后时，
+   未提级的同优先级覆写会被 antd 默认样式压住；导航切换路径下宿主实测过失效）。 */
+.recognition-amounts-status-tabs.ant-tabs { margin-bottom: -1px; }
+.recognition-amounts-status-tabs.ant-tabs > .ant-tabs-nav { margin-bottom: 0; }
+/* 层级格纵向跨多行：内容顶端与「互认项目」页层级格一致，离屏时跳过渲染并声明固有尺寸估计。 */
+.recognition-amounts-level-cell { vertical-align: top; content-visibility: auto; contain-intrinsic-size: auto 48px; }
 .recognition-amounts-project { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }
-.recognition-amounts-project-code { color: rgba(0, 0, 0, 0.45); }
+/* 项目编码的颜色与字号与「互认项目」页一致（S3-D24 2026-10-13 修订）；编码与名称同行的布局保留。 */
+.recognition-amounts-project-code { color: #6b7280; font-size: 12px; }
 .recognition-amounts-number { font-variant-numeric: tabular-nums; }
-.recognition-amounts-count { margin-top: 8px; text-align: right; color: rgba(0, 0, 0, 0.45); }
+/*
+ * 金额值按钮与行内编辑器（S3-D27 2026-10-12 修订；2026-10-13 修订保存与取消改为图标按钮）：
+ * 款式同「互认项目」页可互认时间——非编辑态是可点的值按钮（悬停显现边框与底色），
+ * 编辑态为「输入框＋保存＋取消」；编辑控件整体收在当前金额单元格内（当前金额列宽减去单元格内边距）：
+ * 两个图标按钮保持自身尺寸，输入框吃掉剩余宽度，整体宽度跟随单元格内容盒，不侵占用相邻列。
+ * 校验提示就地渲染在编辑器下方。
+ */
+.recognition-amounts-amount-value { display: inline-flex; align-items: baseline; gap: 3px; padding: 2px 6px; border: 1px solid transparent; border-radius: 4px; background: none; color: inherit; font: inherit; font-variant-numeric: tabular-nums; }
+button.recognition-amounts-amount-value { cursor: text; }
+button.recognition-amounts-amount-value:hover:not(:disabled) { border-color: #91caff; background: #e6f4ff; }
+button.recognition-amounts-amount-value:focus-visible { outline: 2px solid #1677ff; outline-offset: 1px; }
+button.recognition-amounts-amount-value:disabled { color: #9ca3af; cursor: not-allowed; }
+.recognition-amounts-editor { display: flex; width: 100%; align-items: center; gap: 4px; }
+.recognition-amounts-editor-input { flex: 1; min-width: 0; }
+.recognition-amounts-editor-error { margin-top: 4px; }
+/*
+ * 列表样式口径与「互认项目」页一致（S3-D24 2026-10-12 修订）：容器边框与圆角、表头底色与间距、
+ * 单元格间距、层级列分隔线、行悬停底色的取值与 RecognitionProjects.css 同源。
+ * 覆写 antd 默认样式的规则统一带 `.ant-table-wrapper` 根级提级，原因与 RecognitionProjects.css 相同。
+ */
+.recognition-amounts-table.ant-table-wrapper { margin-top: 14px; }
+.recognition-amounts-table.ant-table-wrapper .ant-table-container { border: 1px solid #e5e7eb; border-radius: 8px; }
+.recognition-amounts-table.ant-table-wrapper .ant-table-thead > tr > th { padding: 10px 12px; background: #f5f5f5; color: #4b5563; font-weight: 600; border-bottom-color: #d1d5db; }
+.recognition-amounts-table.ant-table-wrapper .ant-table-thead > tr > th:not(:last-child),
+.recognition-amounts-table.ant-table-wrapper .ant-table-tbody > tr > td:not(:last-child) { border-right: 1px solid #e5e7eb; }
+.recognition-amounts-table.ant-table-wrapper .ant-table-tbody > tr > td { padding: 10px 12px; border-bottom-color: #e5e7eb; }
+.recognition-amounts-table.ant-table-wrapper .ant-table-tbody > tr:hover > td,
+.recognition-amounts-table.ant-table-wrapper .ant-table-tbody > tr > td.ant-table-cell-row-hover { background: #fafafa; }
+/* 页脚计数：靠左、等宽数字，与「互认项目」页同一形态（S3-D24 2026-10-13 修订）。 */
+.recognition-amounts-count { margin-top: 12px; font-variant-numeric: tabular-nums; }
 .recognition-amounts-failure { margin-bottom: 12px; }
 .recognition-amounts-prompt { margin-bottom: 12px; }

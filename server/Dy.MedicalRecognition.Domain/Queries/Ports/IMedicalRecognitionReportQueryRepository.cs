@@ -71,7 +71,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   /// <remarks>
   /// 组织编码是必填的范围条件，调用方须先确认它是可信当前组织。
   /// 关键字按字面包含同时匹配标准项目编码、名称、分类名称与分组名称，<c>%</c>、<c>_</c> 不作为通配符，比较不区分大小写。
-  /// 传 <see langword="null"/> 表示不按该条件过滤；无匹配时返回空集合；按标准项目编码升序、配置标识升序。
+  /// 传 <see langword="null"/> 表示不按该条件过滤；无匹配时返回空集合；按项目类型、分类名称、分组名称、标准项目名称逐级升序返回，名称相同再按分类、分组、项目与配置标识升序兜底，不分页。
   /// </remarks>
   /// <param name="organizationCode">配置所属组织编码；只返回该组织的配置。</param>
   /// <param name="keyword">关键字筛选条件。</param>
@@ -87,7 +87,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   /// 金额表按组织编码、医院编码、院区编码与标准项目编码四个业务键左连接，未配置金额的行金额为空值。
   /// 标准项目编码按字面包含匹配，<c>%</c>、<c>_</c> 不作为通配符。
   /// 关键字按字面包含同时匹配标准项目编码、标准项目名称、所属分类名称与所属分组名称，<c>%</c>、<c>_</c> 不作为通配符，比较不区分大小写。
-  /// 两个筛选条件都传 <see langword="null"/> 表示不按该条件过滤；无匹配时返回空集合；只按标准项目编码升序。
+  /// 两个筛选条件都传 <see langword="null"/> 表示不按该条件过滤；无匹配时返回空集合；按项目类型、分类名称、分组名称、标准项目名称逐级升序返回，名称相同再按分类、分组、项目与配置标识升序兜底，不分页。
   /// </remarks>
   /// <param name="organizationCode">互认配置所属组织编码；只返回该组织的配置。</param>
   /// <param name="hospitalCode">金额所属医院编码，作为金额表侧的连接条件。</param>

@@ -210,7 +210,7 @@ describe('接收医院互认使用统计（平台页）', () => {
     expect(detailsBuilt).toMatchObject({ version: 'platform', detailType: 1, pageIndex: 1, pageSize: 10 })
   })
 
-  it('两组范围与科室、项目条件改动进草稿零请求，点查询按已生效条件提交（TC-T02-08、09）', async () => {
+  it('两组范围与科室、项目条件改动进草稿零请求，点查询按已生效条件提交（提交式筛选与提交重读）', async () => {
     renderPage(<RecognitionUsageStatistics />)
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
 
@@ -292,14 +292,14 @@ describe('接收医院互认使用统计（平台页）', () => {
 })
 
 describe('本院互认使用统计（本院页）', () => {
-  it('本院页无院区选择器：请求院区参数恒为登录院区，built 查询不含本侧组织与医院（TC-T02-05）', async () => {
+  it('本院页无院区选择器：请求院区参数恒为登录院区，built 查询不含本侧组织与医院（范围随登录上下文取数）', async () => {
     renderPage(<BranchRecognitionUsageStatistics />)
 
     // 页头范围区由共用范围条承载：本用例环境的真实 LoginUserManager 无登录编码，三级按「未知」占位，
-    // 直拼编码的旧只读副文案不再出现（TC-T02-02）。
+    // 直拼编码的旧只读副文案不再出现（页头范围条名称渲染口径）。
     expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
     expect(screen.queryByText(/可信范围（只读）/)).not.toBeInTheDocument()
-    // D-05：本院页不再渲染本院院区选择。
+    // 院区恒取登录院区：本院页不再渲染本院院区选择。
     expect(screen.queryByRole('group', { name: '本院院区' })).toBeNull()
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalled())
 
@@ -314,7 +314,7 @@ describe('本院互认使用统计（本院页）', () => {
     expect(detailsBuilt).not.toHaveProperty('hospitalCode')
   })
 
-  it('对侧（来源）医院、院区选择改动进草稿零请求，点查询按登录院区与对侧条件提交（TC-T02-05、08）', async () => {
+  it('对侧（来源）医院、院区选择改动进草稿零请求，点查询按登录院区与对侧条件提交（随登录上下文取数、提交式筛选）', async () => {
     renderPage(<BranchRecognitionUsageStatistics />)
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
 

@@ -24,7 +24,7 @@
 
 **关键字口径。** 两个查询的可选 `Keyword` 是单个查询条件，按字面包含同时匹配标准项目编码、标准项目名称、所属分类名称、所属分组名称，比较不区分大小写，用户输入的 `%` 与 `_` 按普通字符转义（S3-D26，写法与阶段 2 `QueryRecognitionProjectConfigurationList` 的过滤条件一致）；缺失或去首尾空白后为空视为未提供、不附加过滤，非空白取值整体去首尾空白后参与匹配。
 
-两个入口的**取值口径与保存一致**（S3-D1、S3-D11、S3-D18）：平台管理员入口的组织、医院、院区取自请求提交值，服务端校验三者存在、启用且父子归属正确；医院管理员入口的组织与医院取自可信上下文——登录令牌该层非空白即取令牌值，令牌该层缺失或空白时用当前登录用户档案补齐，令牌与用户档案都提供该层且不一致即拒绝，补齐后该层仍为空即拒绝（不使用默认值、不降级为空值），请求院区必须属于可信医院与可信组织，不属于即拒绝、不降级为空集合；**院区不做可信授权回落**，院区仍由请求提交并由组织路径解析校验归属（S3-D19）。**不得要求平台管理员入口的查询组织等于可信上下文组织**——那会使平台管理员无法查询其他组织、医院、院区的金额，与 SRS「互认项目金额维护」页面要求 1、UML2 的 `QueryRecognitionAmountList` 说明及本阶段 S3-D1 冲突。`RecognitionAmountReadModel` 字段固定为：`StandardProjectCode`、`StandardProjectName`、`ItemType`、`CategoryName`、`GroupName`、`OrganizationName`、`HospitalName`、`BranchName`、`ConfigurationStatus`、可空 `UnavailableReason`、可空 `CurrentAmount`、`IsAmountConfigured`、可空 `ItemTypeText`、非空 `ConfigurationStatusText`；不返回组织编码、医院编码、院区编码，不返回最后修改时间与最后修改人。两个枚举中文是只读计算属性，由服务端按枚举 `Description` 解析（`ItemTypeText` 取值未登记时为 `null`，`ConfigurationStatusText` 未登记取值按严格解析抛出），口径见 [总体计划设计](../../001-总体计划/design.md) 5.3 与本阶段 S3-D21。按标准项目编码升序，不分页。
+两个入口的**取值口径与保存一致**（S3-D1「两个页面、两种信任边界」、S3-D11「医院管理员入口的可信上下文」、S3-D18「两个金额查询按项目类型、分类名称、分组名称、标准项目名称逐级升序交付」）：平台管理员入口的组织、医院、院区取自请求提交值，服务端校验三者存在、启用且父子归属正确；医院管理员入口的组织与医院取自可信上下文——登录令牌该层非空白即取令牌值，令牌该层缺失或空白时用当前登录用户档案补齐，令牌与用户档案都提供该层且不一致即拒绝，补齐后该层仍为空即拒绝（不使用默认值、不降级为空值），请求院区必须属于可信医院与可信组织，不属于即拒绝、不降级为空集合；**院区不做可信授权回退**，院区仍由请求提交并由组织路径解析校验归属（S3-D19）。**不得要求平台管理员入口的查询组织等于可信上下文组织**——那会使平台管理员无法查询其他组织、医院、院区的金额，与 SRS「互认项目金额维护」页面要求 1、UML2 的 `QueryRecognitionAmountList` 说明及本阶段 S3-D1 冲突。`RecognitionAmountReadModel` 字段固定为：`StandardProjectCode`、`StandardProjectName`、`ItemType`、`CategoryName`、`GroupName`、`OrganizationName`、`HospitalName`、`BranchName`、`ConfigurationStatus`、可空 `UnavailableReason`、可空 `CurrentAmount`、`IsAmountConfigured`、可空 `ItemTypeText`、非空 `ConfigurationStatusText`；不返回组织编码、医院编码、院区编码，不返回最后修改时间与最后修改人。两个枚举中文是只读计算属性，由服务端按枚举 `Description` 解析（`ItemTypeText` 取值未登记时为 `null`，`ConfigurationStatusText` 未登记取值按严格解析抛出），口径见 [总体计划设计](../../001-总体计划/design.md) 5.3 与本阶段 S3-D21。按项目类型、分类名称、分组名称、标准项目名称逐级升序，名称相同按分类、分组、项目与配置标识升序兜底（S3-D18），不分页。
 
 **分层职责。** Host 绑定 Request；Application 校验公共输入、解析可信组织/医院/操作人、编排外部组织服务、把编码解析为 Command 并调用 Manager；Domain Manager 校验业务不变量、维护持久化协调与事件登记；Repository 负责金额读写、业务键读取、唯一冲突识别与查询 SQL；Contracts 不引用 Domain Entity。Request、Command、ReadModel、Entity、DomainEvent 分离。
 
@@ -79,7 +79,7 @@
 
 两个入口解析完成后交给 Manager 的领域数据完全相同，入口差异只存在于 Application 的取值来源与校验顺序，因此不建立第二个 Command；S3-D3 记录了该收敛及其理由。事件不携带入口标识。
 
-**查询链**：Host → 查询 Request → `MedicalRecognitionReportQueryAppService` 解析可信组织（医院管理员入口另解析可信医院）→ `OrganizationPathResolver` 一次性批量读取并校验路径、同时取得组织/医院/院区名称 → 既有 `IMedicalRecognitionReportQueryRepository` 的新增方法 → `MedicalRecognitionReportQueryRepository` / `MedicalRecognitionReportQuery.xml`，以 `mrec_mutual_recognition_item` 为行集、按业务键 LEFT JOIN `mrec_organization_hospital_branch_recognition_amount`、关联标准目录取得名称/类型/分类/分组与三层启用状态，按可选关键字四列过滤（S3-D26），按标准项目编码升序 → `RecognitionAmountListItem` → Application 派生 `UnavailableReason`、填充名称与 `IsAmountConfigured`、映射 `RecognitionAmountReadModel`（两个枚举中文由读模型按枚举描述派生）。查询不得产生写入、审计事件或消息。
+**查询链**：Host → 查询 Request → `MedicalRecognitionReportQueryAppService` 解析可信组织（医院管理员入口另解析可信医院）→ `OrganizationPathResolver` 一次性批量读取并校验路径、同时取得组织/医院/院区名称 → 既有 `IMedicalRecognitionReportQueryRepository` 的新增方法 → `MedicalRecognitionReportQueryRepository` / `MedicalRecognitionReportQuery.xml`，以 `mrec_mutual_recognition_item` 为行集、按业务键 LEFT JOIN `mrec_organization_hospital_branch_recognition_amount`、关联标准目录取得名称/类型/分类/分组与三层启用状态，按可选关键字四列过滤（S3-D26），按项目类型、分类名称、分组名称、标准项目名称逐级升序并按标识兜底（S3-D18）→ `RecognitionAmountListItem` → Application 派生 `UnavailableReason`、填充名称与 `IsAmountConfigured`、映射 `RecognitionAmountReadModel`（两个枚举中文由读模型按枚举描述派生）。查询不得产生写入、审计事件或消息。
 
 内部投影携带分类/分组/项目三层启用状态供派生原因，公共返回不泄漏这三层原始字段，只返回派生后的 `UnavailableReason`。金额未配置时 `CurrentAmount` 为 `null`；不以 `0` 冒充未配置。
 
@@ -186,7 +186,7 @@ V25 单元验证事件构造与登记规则，不能替代 V27 的真实生产�
 | V17 | 行集由互认配置驱动、金额 LEFT JOIN | Query | 行数等于该组织已配置标准项目数；未配置行 `IsAmountConfigured=false`、`CurrentAmount` 为 `null` | 是 | 否 | 同一组织多个互认配置，其中部分已保存金额 |
 | V18 | 返回字段集合 | Query/Contract | 只返回设计字段；不含组织/医院/院区编码，不含最后修改时间与最后修改人；返回四个名称 | 否 | 否 | 已保存与未保存金额各一行 |
 | V19 | 名称与归属读取次数与行数无关 | Application | 组织服务调用次数不随返回行数增长（计数替身断言） | 否 | 否 | 10 行与 100 行两组数据下的调用计数 |
-| V20 | 排序与空结果 | Query | 标准项目编码升序；无互认配置时返回空集合且成功 | 是 | 否 | 同一组织多个不同编码配置；或无配置 |
+| V20 | 排序与空结果 | Query | 项目类型、分类名称、分组名称、标准项目名称逐级升序，名称相同按标识兜底；无互认配置时返回空集合且成功 | 是 | 否 | 同一组织多个不同编码配置；或无配置 |
 | V21 | `UnavailableReason` 与 `ConfigurationStatus` | Query | 三层启用为 `null`；仅分类/仅分组/仅项目停用分别返回对应文案；多层时按分类→分组→项目取首条；配置自身停用不产生目录原因 | 是 | 否 | 逐层独立停用，其余两层自身启用 |
 | V22 | 医院管理员查询越权院区 | Application/Query | 请求院区不属于可信医院时拒绝，不返回其他医院数据、不降级为空集合 | 否 | 否 | 可信医院；它医院院区编码 |
 | V23 | DDL 列序、类型、注释、唯一索引 | Static/DB | 与设计一致；无 `varchar(n)`、无默认值、无跨系统外键 | 是 | 否 | 最终 DDL 与目标库 |

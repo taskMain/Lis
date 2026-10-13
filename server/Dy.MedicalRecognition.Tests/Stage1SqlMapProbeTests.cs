@@ -367,8 +367,9 @@ public sealed class Stage1SqlMapProbeTests
       "and m.organization_code = $OrganizationCode", "and 1 = 1", StringComparison.Ordinal);
     Assert.NotEqual(statement.Value, organizationPredicateRemoved);
     Assert.False(RecognitionConfigurationQueryFiltersByOrganization(NormalizeSqlText(organizationPredicateRemoved)));
-    // 稳定排序键：缺失时同一组织的配置顺序随数据库执行计划变化，页面顺序会抖动。
-    Assert.Contains("order by m.standard_project_code asc, m.id asc", sql, StringComparison.Ordinal);
+    // 稳定排序键：与有效标准目录查询同键，按项目类型、分类名称、分组名称、标准项目名称逐级升序，
+    // 名称相同按分类、分组、项目与配置标识升序兜底；缺失时同一组织的配置顺序随数据库执行计划变化，页面顺序会抖动。
+    Assert.Contains("order by c.item_type asc, c.name asc, c.id asc, g.name asc, g.id asc, i.name asc, i.id asc, m.id asc", sql, StringComparison.Ordinal);
 
     // 投影列逐项冻结：列表达式必须出现在 select 列表中，且其别名与投影属性名按 snake_case 一一对应。
     string[] expectedAliases = [.. RecognitionConfigurationProjection
@@ -389,6 +390,23 @@ public sealed class Stage1SqlMapProbeTests
         : selectExpression[(selectExpression.IndexOf('.') + 1)..];
       Assert.Equal(expectedAlias, ToSnakeCase(propertyName));
     }
+  }
+
+  /// <summary>
+  /// 校验可新增标准项目查询语句冻结了稳定排序键：排序键与有效标准目录查询同键，
+  /// 按项目类型、分类名称、分组名称、标准项目名称逐级升序，名称相同按分类、分组、项目标识升序兜底；
+  /// 分类与分组两键使用标识或缺少名称键时，同一份目录数据下两次查询的层级顺序会分叉。
+  /// </summary>
+  [Fact]
+  public void Selectable_standard_item_query_freezes_sort_key_matching_the_effective_catalog()
+  {
+    var document = XDocument.Load(FindRepositoryFile("MedicalRecognitionReportQuery.xml"));
+    var ns = (XNamespace)"http://dysoft.vip/schemas/EarthraceSqlMap.xsd";
+    var statement = document.Descendants(ns + "Statement")
+      .Single(element => (string?)element.Attribute("Id") == "QuerySelectableStandardItemList");
+    string sql = NormalizeSqlText(statement.Value);
+
+    Assert.Contains("order by c.item_type asc, c.name asc, c.id asc, g.name asc, g.id asc, i.name asc, i.id asc", sql, StringComparison.Ordinal);
   }
 
   /// <summary>

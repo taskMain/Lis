@@ -176,9 +176,9 @@ public sealed class Stage3QueryTests
     Assert.Equal((ten.Organizations, ten.Hospitals, ten.Branches), (hundred.Organizations, hundred.Hospitals, hundred.Branches));
   }
 
-  /// <summary>V20：结果按标准项目编码升序；该组织没有互认配置时成功返回空集合。</summary>
+  /// <summary>V20：应用层原样保持仓储端口返回顺序，排序键由 SQL 的 order by 决定；该组织没有互认配置时成功返回空集合。</summary>
   [Fact]
-  public async Task Amount_list_is_ordered_by_project_code_and_returns_empty_when_no_configuration_exists()
+  public async Task Amount_list_preserves_repository_order_and_returns_empty_when_no_configuration_exists()
   {
     UseTrustedContext();
     MedicalRecognitionReportQueryAppService service = CreateService(new FakeQueryRepository([]), CreateTrustedOrganizationService());
@@ -228,7 +228,8 @@ public sealed class Stage3QueryTests
     // 不筛配置启用状态：停用的配置仍要出现在金额维护页面上。
     Assert.DoesNotContain("m.is_valid = $IsValid", sql, StringComparison.Ordinal);
     // 排序与不分页：分页会截断结果，方言特征会让共享 SQL 绑定到单一 Provider。
-    Assert.Contains("order by m.standard_project_code asc", sql, StringComparison.Ordinal);
+    // 排序键与有效目录查询一致：项目类型、分类名称、分组名称、标准项目名称逐级升序，名称相同按分类、分组、项目与配置标识升序兜底。
+    Assert.Contains("order by c.item_type asc, c.name asc, c.id asc, g.name asc, g.id asc, i.name asc, i.id asc, m.id asc", sql, StringComparison.Ordinal);
     foreach (string marker in new[] { "limit ", "offset ", "on conflict", "nulls first", "nulls last", "count(distinct", "::" })
     {
       Assert.DoesNotContain(marker, sql, StringComparison.OrdinalIgnoreCase);

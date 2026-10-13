@@ -9,8 +9,9 @@
  *    `@dy/auth-react` 的 `useAuth()`。这里替换这两个包，并用外部 store + `useSyncExternalStore`
  *    模拟宿主重新签发 token，从而以生产同一路径驱动「组织变化」。
  *
- * 页面主体是四栏列视图（类型｜分类｜分组｜项目）：列表断言按层级格的可访问名称、列头类名与
- * 行的 `data-row-key` 定位；可互认时间的修改在项目行内就地完成，编辑控件按
+ * 页面主体是八列列视图（类型｜分类｜分组｜项目｜可互认时间｜互认配置状态｜当前不可用原因｜操作），
+ * 列表由 antd Table 承载：列表断言按层级格的可访问名称、表头单元格（`th`）与表格行的 `data-row-key`
+ * 定位；可互认时间的修改在可互认时间单元格内就地完成，编辑控件按
  * `修改可互认时间：{名称}`／`可互认时间（天）`／`保存可互认时间：{名称}` 定位。
  *
  * 仍属 Host 层、不在本文件覆盖：C4 / C5 / C7 / C9 / C12 与 C17 / C21 的 Host 分支，
@@ -28,6 +29,7 @@ import { useSyncExternalStore } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildFilterSearch, parseFilterSearch } from './recognitionProjectsFilterUrl'
 import {
+  RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS,
   type EffectiveMedicalStandardCatalogReadModel,
   type MedicalItemTypeValue,
   type RecognitionProjectColumnRow,
@@ -35,7 +37,7 @@ import {
 } from './recognitionProjectsApi'
 import { RecognitionProjects } from './RecognitionProjects'
 import { RecognitionProjectBatchCreateModal, ToggleModal } from './RecognitionProjectModals'
-import { RecognitionProjectRow } from './RecognitionProjectRow'
+import { RecognitionProjectDurationCell } from './RecognitionProjectRow'
 import { type RecognitionProjectWriteGate } from './recognitionProjectWriteGate'
 
 /** 已对齐且可写的门控：直接渲染弹窗组件的用例用它表达「组织已对齐、读取未失败、读取不在途、无提交期复核失败」。 */
@@ -362,11 +364,11 @@ const query = () => api.queryRecognitionProjectConfigurations
 const addButton = () => screen.getByRole('button', { name: /新增互认项目/ })
 
 /**
- * 直接渲染行内编辑器：读取失败与读取在途时页面的编辑入口本身是禁用的，
+ * 直接渲染可互认时间单元格的编辑态：读取失败与读取在途时页面的编辑入口本身是禁用的，
  * 「编辑器已挂载但写被冻结」无法通过页面交互到达，只能这样固定门控口径。
  * 调用方只给出与门控相关的差异，其余 props 取可写行的常用值。
  */
-function renderInlineEditor(overrides: Partial<Parameters<typeof RecognitionProjectRow>[0]> = {}) {
+function renderInlineEditor(overrides: Partial<Parameters<typeof RecognitionProjectDurationCell>[0]> = {}) {
   const columnRow: RecognitionProjectColumnRow = {
     rowIdentity: 'c1',
     standardProjectCode: 'A01',
@@ -383,35 +385,35 @@ function renderInlineEditor(overrides: Partial<Parameters<typeof RecognitionProj
     writeGate: WRITABLE_GATE,
     submitting: false,
     canWrite: true,
-    actionText: () => '停用',
     editing: true,
     onStartEdit: () => {},
     onCancelEdit: () => {},
     onSubmitDuration: async () => {},
-    onToggle: () => {},
     ...overrides,
   }
-  return render(<RecognitionProjectRow {...props} />)
+  return render(<RecognitionProjectDurationCell {...props} />)
 }
 
-/** 列视图表头文本：类型｜分类｜分组｜项目四栏恒定全显，因此这里始终是四项。 */
-const cascadeHeads = () =>
-  Array.from(document.querySelectorAll<HTMLElement>('.recognition-projects-cascade-head'))
+/** 列表表头单元格：antd Table 的八列恒定全显，因此这里始终是八项。 */
+const TABLE_HEAD_TEXTS = ['类型', '分类', '分组', '项目', '可互认时间', '互认配置状态', '当前不可用原因', '操作']
+const tableHeads = () =>
+  Array.from(document.querySelectorAll<HTMLElement>('.recognition-projects-table .ant-table-thead > tr > th'))
 
 /** 层级格按可访问名称定位：名称同时表达被点中的层级与它的下级范围。 */
 const levelButton = (name: string) => screen.getByRole('button', { name })
 
-/** 层级格是否处于高亮态：高亮只改背景，可观察的差异就是这个类名。 */
-const isHighlighted = (element: HTMLElement) => element.classList.contains('recognition-projects-level-highlighted')
+/** 层级格是否处于高亮态：高亮类施加在承载它的表格单元格（td）上，按钮只承载点击与可访问名称。 */
+const isHighlighted = (element: HTMLElement) =>
+  element.closest('td')?.classList.contains('recognition-projects-level-highlighted') ?? false
 
 /**
- * 项目格的高亮态，按 DOM 顺序返回，与 `GROUP_CELLS` 一一对应（每个分组一个项目格）。
+ * 项目列单元格的高亮态，按 DOM 顺序返回（每个项目行一个项目格，行序即分组序）。
  * 项目层是下级链路的最后一层：只断言层级格会漏掉它，页面在真实宿主里就会出现
  * 「分组亮了、它名下的项目行没亮」，看不出项目行归属于哪一次点击。
  */
 const itemCellHighlightStates = (): boolean[] =>
-  Array.from(document.querySelectorAll<HTMLElement>('.recognition-projects-cascade-items'))
-    .map((node) => isHighlighted(node))
+  Array.from(document.querySelectorAll<HTMLElement>('td.recognition-projects-item-cell'))
+    .map((node) => node.classList.contains('recognition-projects-level-highlighted'))
 
 /**
  * 当前高亮态：以层级格的可访问名称为键，一次比对整份高亮状态。
@@ -423,11 +425,12 @@ const levelHighlightStates = (): Record<string, boolean> =>
     isHighlighted(node),
   ]))
 
-/** 列视图行外壳：行标识渲染在 `data-row-key` 上，按它定位到具体那一行。 */
+/** 表格正文数据行：antd Table 把行标识渲染为行（`tr`）的 `data-row-key` 属性，按它定位到具体那一行。 */
+const dataRowElements = (): HTMLElement[] =>
+  Array.from(document.querySelectorAll<HTMLElement>('.recognition-projects-table .ant-table-tbody > tr[data-row-key]'))
+
 function rowElement(rowIdentity: string): HTMLElement {
-  const found = Array.from(document.querySelectorAll<HTMLElement>('[data-row-key]')).find(
-    (node) => node.getAttribute('data-row-key') === rowIdentity,
-  )
+  const found = dataRowElements().find((node) => node.getAttribute('data-row-key') === rowIdentity)
   if (!found) throw new Error(`未找到行：${rowIdentity}`)
   return found
 }
@@ -621,8 +624,8 @@ describe('C13 / C1 页面首次加载与可信组织', () => {
   it('只展示查询契约交付的列，不展示创建修改信息与已删除的派生状态', async () => {
     await renderLoaded([row('c1', 'A01', '血常规')])
 
-    // 四栏列视图没有表格语义，列头是网格里的文本节点：按列头类名取，顺序即四栏顺序。
-    expect(cascadeHeads().map((node) => node.textContent)).toEqual(['类型', '分类', '分组', '项目'])
+    // 八列列头即 antd Table 的表头单元格：按表头位置取，顺序即八列顺序。
+    expect(tableHeads().map((node) => node.textContent)).toEqual(TABLE_HEAD_TEXTS)
     // 契约没有交付的字段名一律不出现在页面上（与旧断言同一口径，只是换了定位方式）。
     for (const removed of ['IsStandardCatalogValid', 'IsAvailableForNewMatch', '创建人', '修改时间', '最后修改']) {
       expect(screen.queryByText(removed)).not.toBeInTheDocument()
@@ -828,10 +831,10 @@ describe('列视图行标识稳定唯一', () => {
     // 两行都必须渲染出来（下面的按行断言都以两行为前提）。
     expect(screen.getAllByText('匿名项目')).toHaveLength(2)
 
-    const dataRows = Array.from(document.querySelectorAll<HTMLElement>('[data-row-key]'))
+    const dataRows = dataRowElements()
     expect(dataRows).toHaveLength(2)
 
-    // 判别标识是否唯一不依赖 React 的告警文本：列视图把实际使用的行标识渲染为行的 `data-row-key`，
+    // 判别标识是否唯一不依赖 React 的告警文本：antd Table 把行标识渲染为表格行的 `data-row-key`，
     // 两行必须互不相同；重复标识会触发 React 告警并可能让同行数据错配，可观察的差异就是 `data-row-key` 重复。
     const rowKeys = dataRows.map((node) => node.getAttribute('data-row-key'))
     expect(new Set(rowKeys).size).toBe(2)
@@ -866,7 +869,7 @@ describe('C14 手动刷新', () => {
     submitSearch()
 
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    // 搜索只重读配置列表与组织范围；可新增项目由弹窗自己查询，页面搜索不牵动它。
+    // 搜索只重读配置列表；可新增项目由弹窗自己查询，页面搜索不牵动它。
     expect(api.querySelectableStandardItems).not.toHaveBeenCalled()
     expect(addButton()).toBeDisabled()
     expect(screen.getByLabelText('修改可互认时间：血常规')).toBeDisabled()
@@ -1425,7 +1428,7 @@ describe('C2 / C3 新增弹窗的可选集合', () => {
     click(within(create).getByRole('button', { name: /确定新增/ }))
 
     await within(create).findByText('可互认时间为 1 到 2147483647 之间的整数天数')
-    // 字段级红字（TC-T02-07）：拦截原因就近提示，不再以 Alert 承载。
+    // 字段级红字（message 反馈口径）：拦截原因就近提示，不再以 Alert 承载。
     expect(within(create).queryByText('无法提交')).not.toBeInTheDocument()
     expect(within(create).getByText('可互认时间为 1 到 2147483647 之间的整数天数').closest('.ant-alert')).toBeNull()
     expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
@@ -1556,7 +1559,7 @@ describe('C29 弹窗多选批量新增', () => {
     await within(create).findByText('请先勾选要新增的标准项目')
     expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
     expect(modalExists('新增互认项目配置')).toBe(true)
-    // 字段级红字（TC-T02-07）：拦截原因就近提示，不再以 Alert 承载。
+    // 字段级红字（message 反馈口径）：拦截原因就近提示，不再以 Alert 承载。
     expect(within(create).queryByText('无法提交')).not.toBeInTheDocument()
     expect(within(create).getByText('请先勾选要新增的标准项目').closest('.ant-alert')).toBeNull()
 
@@ -1688,7 +1691,7 @@ describe('C6 / C20 修改可互认时间', () => {
    * 判别方式：编辑期间发起一次后台刷新，服务端交付的行取值与状态都变了；
    * 旧实现（编辑器持行快照）下输入框仍是进入编辑时的 30、行上徽标仍是「启用」，本条断言会失败。
    */
-  it('编辑期间后台刷新交付新值时，编辑器取当前行取值而不是进入编辑时的快照', async () => {
+  it('编辑期间后台刷新交付新值时，编辑器按最新当前行取值回填', async () => {
     await renderLoaded([
       row('c1', 'A01', '血常规', 1, { recognitionDurationDays: 30 }),
       row('c2', 'A02', '尿常规', 1),
@@ -1966,7 +1969,7 @@ describe('写弹窗的关闭入口与重开语义', () => {
     expect((within(second).getByLabelText('可互认时间（天）') as HTMLInputElement).value).toBe('')
   })
 
-  it('关闭后再次进入编辑时，编辑器回填当前行取值而不是上次输入', async () => {
+  it('关闭后再次进入编辑时，编辑器按当前行取值回填', async () => {
     await renderLoaded([row('c1', 'A01', '血常规', 1, { recognitionDurationDays: 30 })])
 
     click(screen.getByLabelText('修改可互认时间：血常规'))
@@ -2250,12 +2253,12 @@ describe('C32 查询区控件构成、状态页签、清除动作与读写在途
 
 /**
  * 用例名只描述行为：查询区的查询入口改为关键字输入框内的图标按钮（S2-D21，2026-10-12 修订）；
- * 新增弹窗内的查询按钮仍逐字符合全站统一规格（T02 Client/design.md「查询按钮与查询区」、
- * testPlan.md TC-T02-06）。弹窗按钮的规格属性逐项断言；`autoInsertSpace={false}` 的效果以文本精确等于
+ * 新增弹窗内的查询按钮仍逐字符合全站统一规格（Client/design.md「查询按钮与查询区」、
+ * testPlan.md 的框内查询图标按钮规格）。弹窗按钮的规格属性逐项断言；`autoInsertSpace={false}` 的效果以文本精确等于
  * 「查询」表达（antd 默认在两个汉字之间插入空格）；`htmlType` 经 DOM 属性断言；
  * 条件为空提交等价于刷新由 C31 系列既有用例覆盖。
  */
-describe('TC-T02-06 查询按钮规格', () => {
+describe('查询按钮规格', () => {
   it('查询区查询图标按钮：位于关键字输入框内、搜索图标、可访问名称为「查询」、非主按钮', async () => {
     await renderLoaded([row('c1', 'A01', '血常规', 1)])
 
@@ -2472,7 +2475,7 @@ describe('C35 弹窗发现能力：关键字搜索与全选当前结果', () => 
     click(within(create).getByRole('button', { name: /确定新增/ }))
     await within(create).findByText('请先勾选要新增的标准项目')
     expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
-    // 拦截原因是字段级红字：不再借道读屏区域，也不以 Alert 承载（TC-T02-07）。
+    // 拦截原因是字段级红字：不再借道读屏区域，也不以 Alert 承载（message 反馈口径）。
     expect(create.querySelector('[aria-live="polite"]')?.textContent).not.toContain('请先勾选要新增的标准项目')
     expect(within(create).getByText('请先勾选要新增的标准项目').closest('.ant-alert')).toBeNull()
   })
@@ -2644,8 +2647,10 @@ describe('列表空态与计数', () => {
     await renderLoaded([], null)
 
     // 页面行集是本组织已配置项（S2-D16）：行集为空只可能是本组织零配置，目录读不到任何项目也一样。
+    // antd Table 空态下表头恒定展示、行数为 0，空态文案在表格空态位。
     expect(screen.getByText('本组织还没有互认项目配置')).toBeInTheDocument()
-    expect(cascadeHeads()).toEqual([])
+    expect(tableHeads().map((node) => node.textContent)).toEqual(TABLE_HEAD_TEXTS)
+    expect(dataRowElements()).toHaveLength(0)
     expect(screen.getByText('共 0 项配置')).toBeInTheDocument()
     expect(query()).toHaveBeenCalledTimes(1)
   })
@@ -2655,8 +2660,8 @@ describe('列表空态与计数', () => {
 
     // 目录里有三个可展示项目，但本组织一条配置都没有：这些项目不构成列表行，页面报本组织空态。
     expect(screen.getAllByText('本组织还没有互认项目配置')).toHaveLength(1)
-    expect(cascadeHeads()).toEqual([])
-    expect(document.querySelectorAll('[data-row-key]')).toHaveLength(0)
+    expect(tableHeads().map((node) => node.textContent)).toEqual(TABLE_HEAD_TEXTS)
+    expect(dataRowElements()).toHaveLength(0)
     expect(screen.queryByText('未配置')).not.toBeInTheDocument()
     // 计数与列表行数同源。
     expect(screen.getByText('共 0 项配置')).toBeInTheDocument()
@@ -2673,8 +2678,9 @@ describe('列表空态与计数', () => {
     // 本组织确实有配置，只是被本地筛掉：不得报成本组织空态。
     expect(screen.getByText('没有匹配的配置')).toBeInTheDocument()
     expect(screen.queryByText('本组织还没有互认项目配置')).not.toBeInTheDocument()
-    // 列视图裁剪丢弃没有可见项目的层级，裁剪后连表头与网格都不渲染。
-    expect(cascadeHeads()).toEqual([])
+    // 列视图裁剪丢弃没有可见项目的层级；裁剪后行集为空，表头恒定展示、行数为 0。
+    expect(tableHeads().map((node) => node.textContent)).toEqual(TABLE_HEAD_TEXTS)
+    expect(dataRowElements()).toHaveLength(0)
     expect(screen.getByText('共 0 项配置')).toBeInTheDocument()
   })
 
@@ -2756,7 +2762,7 @@ describe('行内动作门控与列表规模', () => {
     await renderLoaded(rows, catalogOf(rows.map((value) => ({ code: value.standardProjectCode ?? '', name: value.standardItemName ?? '' }))))
 
     expect(screen.getAllByLabelText(/^修改可互认时间：项目/)).toHaveLength(25)
-    expect(document.querySelectorAll('[data-row-key]')).toHaveLength(25)
+    expect(dataRowElements()).toHaveLength(25)
     // 页面按设计不分页：一次读取交付全部行，也不因渲染而追加读取；
     // 可新增项目不在页面读取里（S2-D29），渲染不牵动它。
     expect(query()).toHaveBeenCalledTimes(1)
@@ -2848,8 +2854,9 @@ describe('枚举中文来源', () => {
 
 /**
  * C26-C28 使用的多层级目录：两种类型、三个分类、四个分组，共五个项目。
- * 层级规模由本夹具固定，因此层级格的跨行声明与四栏表头都有确定的期望值：
- * 检验名下三个分组行（网格第 2、3、4 行）、检查名下一个分组行（第 5 行）。
+ * 层级规模由本夹具固定，因此层级格的行跨越（按项目行计数）与八列表头都有确定的期望值：
+ * 检验名下四个项目行、检查名下一个项目行；血液学跨 3 行，生化与影像各跨 1 行；
+ * 分组依次跨 2、1、1、1 行。
  */
 const MULTI_LEVEL_CATALOG: EffectiveMedicalStandardCatalogReadModel = {
   itemTypes: [
@@ -2910,65 +2917,116 @@ const GROUP_CELLS = ['高亮分组「血常规组」及其下级', '高亮分组
 
 /**
  * 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/Client/testPlan.md` 的 C26 行
- * （列视图全平铺）与 `Client/design.md`「页面与交互」的横向四栏段（S2-D16），
+ * （列视图全平铺）与 `Client/design.md`「页面与交互」的八列段（S2-D16），
  * 以及 `docs/plans/004-阶段2-标准项目互认配置/design.md` 的 S2-D16（设计决策编号）。
  *
- * 判别方式：四栏表头、单一层格与跨行声明三处断言都以真实渲染结果为据。
- * 把类型格或分类格改成「每个分组行各渲染一格」时，同一层格按钮的计数会变成多个；
- * 把跨行声明改掉时，层级格与分组行会错位，`grid-row` 断言失败。
- * 窄视口横向滚动按外层滚动容器与内部网格的类名断言：jsdom 没有布局引擎，
- * 这里只能守住承载滚动的结构与最小宽度声明，真实滚动行为属宿主浏览器验收项。
+ * 判别方式：八列表头、单一层格与跨行声明三处断言都以真实渲染结果为据（antd Table 承载，
+ * 跨行即 `rowSpan`，按项目行计数）。
+ * 把类型格或分类格改成「每个项目行各渲染一格」时，同一层格按钮的计数会变成多个；
+ * 把跨行声明改掉时，层级格与下级行会错位，`rowSpan` 断言失败。
+ * 窄视口横向滚动按表格滚动容器与列宽声明断言：jsdom 没有布局引擎，
+ * 这里只能守住承载滚动的结构与列宽声明，真实滚动行为属宿主浏览器验收项。
  */
 describe('C26 列视图全平铺', () => {
-  it('类型｜分类｜分组｜项目四栏恒定全显，且不存在任何折叠或展开控件', async () => {
+  it('类型｜分类｜分组｜项目｜可互认时间｜互认配置状态｜当前不可用原因｜操作八列恒定全显，且不存在任何折叠或展开控件', async () => {
     await renderLoaded([row('c1', 'A01', '血常规'), row('c2', 'A02', '尿常规')], MULTI_LEVEL_CATALOG)
 
-    expect(cascadeHeads().map((node) => node.textContent)).toEqual(['类型', '分类', '分组', '项目'])
+    expect(tableHeads().map((node) => node.textContent)).toEqual(TABLE_HEAD_TEXTS)
 
     // 折叠或展开控件在可访问名称里必然表达「展开／折叠／收起」，同时会带 `aria-expanded`。
-    // 断言限定在列视图容器内：列表上沿的状态页签在窄视口会渲染溢出收纳按钮，与列视图平铺无关。
-    const cascade = document.querySelector('.recognition-projects-cascade-wrap') as HTMLElement
-    const collapsible = within(cascade).queryAllByRole('button').filter((node) => {
+    // 断言限定在列表表格内：列表上沿的状态页签在窄视口会渲染溢出收纳按钮，与列视图平铺无关。
+    const table = document.querySelector('.recognition-projects-table') as HTMLElement
+    const collapsible = within(table).queryAllByRole('button').filter((node) => {
       const name = node.getAttribute('aria-label') ?? node.textContent ?? ''
       return /展开|折叠|收起/.test(name)
     })
     expect(collapsible).toEqual([])
-    expect(cascade.querySelectorAll('[aria-expanded]')).toHaveLength(0)
+    expect(table.querySelectorAll('[aria-expanded]')).toHaveLength(0)
   })
 
-  it('类型格与分类格各自只出现一处，并纵向跨过自己的全部分组行', async () => {
+  it('类型格与分类格各自只出现一处，并经行跨越纵向跨过自己名下的全部项目行', async () => {
     await renderLoaded(multiLevelConfiguredRows(), MULTI_LEVEL_CATALOG)
 
-    // 同一类型／分类只有一处层格：多渲染一处就意味着版面变成逐分组重复层级。
+    // 同一类型／分类只有一处层格：多渲染一处就意味着版面变成逐行重复层级。
     for (const name of ITEM_TYPE_CELLS) expect(screen.getAllByRole('button', { name })).toHaveLength(1)
     for (const name of CATEGORY_CELLS) expect(screen.getAllByRole('button', { name })).toHaveLength(1)
 
-    // 跨行声明按夹具的层级规模给出：检验跨 3 个分组行、血液学跨 2 个、生化与影像各跨 1 个。
-    expect(levelButton(ITEM_TYPE_CELLS[0]).style.gridRow).toBe('2 / span 3')
-    expect(levelButton(ITEM_TYPE_CELLS[1]).style.gridRow).toBe('5 / span 1')
-    expect(levelButton(CATEGORY_CELLS[0]).style.gridRow).toBe('2 / span 2')
-    expect(levelButton(CATEGORY_CELLS[1]).style.gridRow).toBe('4 / span 1')
-    expect(levelButton(CATEGORY_CELLS[2]).style.gridRow).toBe('5 / span 1')
+    // 跨行声明按夹具的层级规模给出（行跨越按项目行计数）：检验跨 4 行（血常规组 2 行、凝血组 1 行、
+    // 肝功能 1 行）、检查跨 1 行；血液学跨 3 行，生化与影像各跨 1 行。
+    const spanOf = (name: string) => levelButton(name).closest('td')?.rowSpan
+    expect(spanOf(ITEM_TYPE_CELLS[0])).toBe(4)
+    expect(spanOf(ITEM_TYPE_CELLS[1])).toBe(1)
+    expect(spanOf(CATEGORY_CELLS[0])).toBe(3)
+    expect(spanOf(CATEGORY_CELLS[1])).toBe(1)
+    expect(spanOf(CATEGORY_CELLS[2])).toBe(1)
 
-    // 分组格一行一格、逐行推进：类型格与分类格的跨行高度因此与它们的下级严格同高。
-    expect(GROUP_CELLS.map((name) => levelButton(name).style.gridRow)).toEqual(['2', '3', '4', '5'])
+    // 分组格随自己名下的项目行数跨越：层级格的跨行高度因此与它们的下级严格同高。
+    expect(GROUP_CELLS.map((name) => spanOf(name))).toEqual([2, 1, 1, 1])
+
+    // 每个项目一行：正文数据行数（表格行 `tr` 携带 `data-row-key`）与夹具的项目总数一致。
+    expect(dataRowElements()).toHaveLength(5)
   })
 
-  it('窄视口下四栏由外层容器承载横向滚动，列宽不被压缩', async () => {
+  it('窄视口下八列由表格横向滚动承载，列宽不被压缩', async () => {
     await renderLoaded(multiLevelConfiguredRows(), MULTI_LEVEL_CATALOG)
 
-    const wrap = document.querySelector('.recognition-projects-cascade-wrap')
-    expect(wrap).not.toBeNull()
-    // 网格必须在外层滚动容器内部：两者互换时窄视口就没有承载横向滚动的元素。
-    expect(wrap?.querySelector('.recognition-projects-cascade')).not.toBeNull()
+    const table = document.querySelector('.recognition-projects-table')
+    expect(table).not.toBeNull()
+    // 列宽经 colgroup 给出：类型 88、分类 186、分组 208、可互认时间 190、互认配置状态 130、
+    // 当前不可用原因 190、操作 64；项目列无宽度声明（不占列宽元素），弹性占满剩余宽度。
+    const columnWidths = Array.from(document.querySelectorAll<HTMLElement>('.recognition-projects-table col'))
+      .map((node) => node.style.width)
+    expect(columnWidths).toEqual(['88px', '186px', '208px', '', '190px', '130px', '190px', '64px'])
+    // 横向滚动基准为列宽之和 1316px（项目列按 260 基准计入）：rc-table 把它写成表格元素的内联宽度，
+    // 因此按真实渲染的 DOM 断言，不读源码文本（格式敏感）。
+    const scrollTable = document.querySelector<HTMLElement>('.recognition-projects-table .ant-table-content > table')
+    expect(scrollTable?.style.width).toBe('1316px')
+    // jsdom 没有布局引擎，横向滚动按 antd Table 滚动容器的内容溢出样式断言（Testing Baseline §1.4，
+    // rc-table 对横向滚动容器只写 `overflowX` 长手属性），真实滚动行为属宿主浏览器验收项。
+    const content = document.querySelector<HTMLElement>('.recognition-projects-table .ant-table-content')
+    expect(content?.style.overflowX).toBe('auto')
 
-    // jsdom 没有布局引擎，横向滚动与列宽按静态样式证据断言（Testing Baseline §1.4）：
-    // 外层容器承载横向滚动、网格自身有最小宽度，因此窄视口下四栏靠滚动容纳，不压缩列宽。
+    // 层级单元格的离屏跳过渲染声明（S2-D28）按静态样式证据守住。
     const css = readFileSync(resolve(process.cwd(), 'src/pages/recognitionProjects/RecognitionProjects.css'), 'utf8')
-    const wrapRule = css.match(/\.recognition-projects-cascade-wrap\s*\{[^}]*\}/)?.[0] ?? ''
-    const gridRule = css.match(/\.recognition-projects-cascade\s*\{[^}]*\}/)?.[0] ?? ''
-    expect(wrapRule).toContain('overflow-x: auto')
-    expect(gridRule).toContain('min-width:')
+    const levelCellRule = css.match(/\.recognition-projects-level-cell\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(levelCellRule).toContain('content-visibility: auto')
+    // 覆写 antd 默认样式的选择器必须提级到 `.ant-table-wrapper` 根：antd 运行时注入的样式与未提级的
+    // 覆写选择器同优先级且注入顺序靠后，未提级时宿主计算值仍是 antd 默认值（宿主验收实测证据）。
+    const headCellRule = css.match(/\.recognition-projects-table\.ant-table-wrapper \.ant-table-thead > tr > th\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(headCellRule).toContain('padding: 10px 12px')
+    expect(headCellRule).toContain('background: #f5f5f5')
+    const bodyCellRule = css.match(/\.recognition-projects-table\.ant-table-wrapper \.ant-table-tbody > tr > td\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(bodyCellRule).toContain('padding: 10px 12px')
+  })
+
+  /**
+   * 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/design.md` 的 S2-D16 列宽口径。
+   *
+   * 判别方式：层级三列的列宽只有一份事实（适配层导出的共享常量）。表格的列宽与新增弹窗网格的
+   * 列模板都由它派生，因此两处渲染出的取值必须与常量逐一相符；任一承载改回自己固定数值而与另一处
+   * 漂移时，断言失败。表格列宽按 colgroup 的映射到常量的键序断言，弹窗列模板按内联
+   * `grid-template-columns` 的整串断言（项目列弹性下界 560px 由组件与常量一并拼出）。
+   */
+  it('层级三列宽由共享常量单一承载：表格列宽与弹窗网格列模板同源', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')], MULTI_LEVEL_CATALOG)
+
+    const tableWidths = Array.from(document.querySelectorAll<HTMLElement>('.recognition-projects-table col'))
+      .map((node) => node.style.width)
+    expect(tableWidths[0]).toBe(`${RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS.itemType}px`)
+    expect(tableWidths[1]).toBe(`${RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS.category}px`)
+    expect(tableWidths[2]).toBe(`${RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS.group}px`)
+
+    click(addButton())
+    const create = await findModal('新增互认项目配置')
+    await settleUnarmedReload()
+    const cascade = create.querySelector<HTMLElement>('.recognition-projects-cascade')
+    // 弹窗网格的列模板与前三个列宽取同一份常量，项目列弹性下界 560px。
+    expect(cascade?.style.gridTemplateColumns).toBe([
+      `${RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS.itemType}px`,
+      `${RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS.category}px`,
+      `${RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS.group}px`,
+      'minmax(560px, 1fr)',
+    ].join(' '))
   })
 })
 
@@ -3052,34 +3110,35 @@ describe('C27 层级高亮', () => {
 
   /**
    * 项目层随所属分组一起高亮：四级都要亮才是设计要求的「整条下级链路（类型→分类→分组→项目）」。
-   * 判别方式：项目格与分组格一一对应，因此按 DOM 顺序比对整份项目格高亮状态；
+   * 判别方式：每个项目行一个项目格，项目格按 DOM 顺序与夹具的五个项目行一一对应
+   * （血常规组两行、凝血组一行、肝功能一行、放射一行）；按 DOM 顺序比对整份项目格高亮状态，
    * 若实现只点亮层级格而漏掉项目格（真实宿主曾如此），本条失败。
    */
   it('项目格随所属分组格一起高亮，未点中的分组项目格保持不高亮', async () => {
     await renderLoaded(multiLevelConfiguredRows(), MULTI_LEVEL_CATALOG)
 
-    // 初始全不高亮（四个分组各一个项目格，顺序与 GROUP_CELLS 一致）。
-    expect(itemCellHighlightStates()).toEqual([false, false, false, false])
+    // 初始全不高亮（五个项目行各一个项目格，行序：血常规组 2 行、凝血组、肝功能、放射）。
+    expect(itemCellHighlightStates()).toEqual([false, false, false, false, false])
 
-    // 点第一个分组格：只有它名下的项目格高亮，另外三个分组的项目格不受影响。
+    // 点第一个分组格：只有它名下的两个项目格高亮，其余分组的项目格不受影响。
     click(levelButton(GROUP_CELLS[0]))
-    expect(itemCellHighlightStates()).toEqual([true, false, false, false])
+    expect(itemCellHighlightStates()).toEqual([true, true, false, false, false])
 
-    // 点分类格：该分类下的两个分组项目格都高亮，另一个类型下的项目格不高亮。
+    // 点分类格：该分类下的三个分组项目格都高亮，另一个类型下的项目格不高亮。
     click(levelButton(CATEGORY_CELLS[0]))
-    expect(itemCellHighlightStates()).toEqual([true, true, false, false])
+    expect(itemCellHighlightStates()).toEqual([true, true, true, false, false])
 
-    // 点整个类型格：该类型下全部分组项目格高亮，另一个类型的项目格不高亮。
+    // 点整个类型格：该类型下全部四个项目格高亮，另一个类型的项目格不高亮。
     click(levelButton(ITEM_TYPE_CELLS[0]))
-    expect(itemCellHighlightStates()).toEqual([true, true, true, false])
+    expect(itemCellHighlightStates()).toEqual([true, true, true, true, false])
 
     // 点另一个类型格：高亮整条链路随之切换。
     click(levelButton(ITEM_TYPE_CELLS[1]))
-    expect(itemCellHighlightStates()).toEqual([false, false, false, true])
+    expect(itemCellHighlightStates()).toEqual([false, false, false, false, true])
 
     // 点项目行清除高亮：项目格连同层级格一起回到未高亮。
     click(rowElement('c-A01'))
-    expect(itemCellHighlightStates()).toEqual([false, false, false, false])
+    expect(itemCellHighlightStates()).toEqual([false, false, false, false, false])
 
     expectNoWriteRequest()
   })
@@ -3107,10 +3166,12 @@ describe('C28 状态徽标与可互认时间行内展示', () => {
     expect(within(rowElement('c2')).getByText('停用')).toBeInTheDocument()
     // 目录读不到的配置行按行内字段补进列视图，徽标表达目录状态并带出停用原因。
     expect(within(rowElement('c99')).getByText('目录已停用')).toBeInTheDocument()
-    expect(within(rowElement('c99')).getByText('所属分组已停用')).toBeInTheDocument()
+    // 原因列超长时按列省略，完整原因仍挂在承载它的单元格上（列省略由单元格的 title 承载完整文本）。
+    const reasonText = within(rowElement('c99')).getByText('所属分组已停用')
+    expect(reasonText.closest('td')?.getAttribute('title')).toBe('所属分组已停用')
     // 目录里有、本组织没有配置的项目不进列表（S2-D16），因此不存在「未配置」徽标。
     expect(screen.queryByText('未配置')).not.toBeInTheDocument()
-    expect(document.querySelectorAll('[data-row-key]')).toHaveLength(3)
+    expect(dataRowElements()).toHaveLength(3)
 
     await act(async () => {})
     expect(api.updateRecognitionDuration).not.toHaveBeenCalled()
@@ -3122,6 +3183,34 @@ describe('C28 状态徽标与可互认时间行内展示', () => {
     // 行集只含已配置项，因此每行都有可互认时间入口，没有「—」占位行。
     expect(screen.getAllByLabelText(/^修改可互认时间：/)).toHaveLength(3)
     expect(within(rowElement('c1')).getByLabelText('修改可互认时间：血常规')).toBeInTheDocument()
+  })
+
+  /**
+   * 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/Client/testPlan.md` 的 C28 行
+   * （「编辑控件不换行挤占启停按钮位置」）与 `Client/design.md`「页面与交互」的八列段
+   * （可互认时间、互认配置状态、当前不可用原因与操作各自独立成列）。
+   *
+   * 判别方式：编辑态的可互认时间控件与启停按钮分处两列，各自都位于自己那一列内，
+   * 编辑控件因此不再与启停按钮争夺同一行空间。断言按单元格归属（`td` 列序）判定，与 DOM 相邻关系无关：
+   * 把编辑器渲染到操作列、或把启停按钮留在可互认时间列时，两条按列归属的断言都会失败。
+   * 这四列各自独立成列后「编辑控件换行挤占启停按钮位置」这一现象的前提不再存在，
+   * 因此不再有对应的换行断言，该要求在结构与列宽两处断言上成立。
+   */
+  it('编辑态控件收在可互认时间列内，启停按钮留在操作列内，两者分列承载', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规', 1)], MULTI_LEVEL_CATALOG)
+
+    click(within(rowElement('c1')).getByLabelText('修改可互认时间：血常规'))
+
+    // 单行夹具下每个项目行 8 个单元格（该行的类型、分类、分组格按 rowSpan 1 各自渲染）。
+    const cells = Array.from(rowElement('c1').querySelectorAll<HTMLElement>('td'))
+    expect(cells).toHaveLength(8)
+    const durationCell = cells[4]
+    const toggleCell = cells[7]
+    expect(within(durationCell).getByLabelText('可互认时间（天）')).toBeInTheDocument()
+    expect(durationCell.contains(screen.getByLabelText('保存可互认时间：血常规'))).toBe(true)
+    expect(durationCell.contains(screen.getByLabelText('取消修改可互认时间：血常规'))).toBe(true)
+    expect(within(toggleCell).getByLabelText('停用配置：血常规（当前启用）')).toBeInTheDocument()
+    expect(toggleCell.querySelector('.recognition-projects-days-editor')).toBeNull()
   })
 
   it('点击时间进入行内编辑：非法输入零写并保留输入，合法与同值保存都发出请求', async () => {
@@ -3163,9 +3252,60 @@ describe('C28 状态徽标与可互认时间行内展示', () => {
     expect(api.createRecognitionProjectConfigurations).not.toHaveBeenCalled()
     expect(api.setRecognitionProjectConfigurationEnabled).not.toHaveBeenCalled()
   })
+
+  /**
+   * 文档锚点：`docs/plans/004-阶段2-标准项目互认配置/Client/testPlan.md` 的 C28 行
+   * （编辑态保存与取消为图标按钮，可访问名与悬停提示保留既有文案）与
+   * `Client/design.md`「页面与交互」可互认时间行内修改段的 2026-10-13 修订。
+   *
+   * 判别方式：可访问名仍由 aria-label 组成，既有按可访问名定位与点击的用例不受影响；
+   * 本组断言图标类与按钮文本，文字按钮实现下 `.anticon-check`/`.anticon-close` 缺失且
+   * 按钮文本含「保存」「取消」，断言失败。
+   */
+  it('编辑态保存与取消为图标按钮，悬停提示与可访问名称同一文案', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规', 1)])
+
+    click(screen.getByLabelText('修改可互认时间：血常规'))
+
+    // 保存为图标主按钮、取消为图标默认按钮：可访问名仍由 aria-label 组成（点击行为由
+    // 上面的行内编辑用例覆盖），按钮文本不再出现文字。
+    const saveButton = screen.getByRole('button', { name: '保存可互认时间：血常规' })
+    expect(saveButton).toHaveClass('ant-btn-primary', 'ant-btn-sm')
+    expect(saveButton.querySelector('.anticon-check')).not.toBeNull()
+    expect(saveButton.textContent).not.toContain('保存')
+
+    const cancelButton = screen.getByRole('button', { name: '取消修改可互认时间：血常规' })
+    expect(cancelButton).toHaveClass('ant-btn-sm')
+    expect(cancelButton).not.toHaveClass('ant-btn-primary')
+    expect(cancelButton.querySelector('.anticon-close')).not.toBeNull()
+    expect(cancelButton.textContent).not.toContain('取消')
+
+    // 悬停提示与可访问名称同一文案；离开保存按钮再悬停取消按钮，离开动画在 jsdom 没有
+    // transitionend、残影可能滞留，按文案在任一 tooltip 节点中出现判定。
+    fireEvent.mouseEnter(saveButton)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('保存可互认时间：血常规')
+    fireEvent.mouseLeave(saveButton)
+    fireEvent.mouseEnter(cancelButton)
+    await waitFor(() =>
+      expect(screen.getAllByRole('tooltip').some((node) => node.textContent?.includes('取消修改可互认时间：血常规'))).toBe(true),
+    )
+  })
+
+  it('保存按钮禁用态下悬停仍出现同一文案的悬停提示', async () => {
+    // 「编辑器已挂载但写被冻结」无法通过页面交互到达，沿用既有装置固定门控口径：
+    // 真实浏览器里 disabled 按钮不派发悬停事件，悬停提示须由包裹元素承接，文案仍与可访问名称一致。
+    const editor = renderInlineEditor({
+      writeGate: { organizationReady: true, canWrite: false, loadFailure: 'load', organizationRecheckFailure: null },
+    })
+
+    const saveButton = editor.getByRole('button', { name: '保存可互认时间：血常规' })
+    expect(saveButton).toBeDisabled()
+    fireEvent.mouseEnter(saveButton)
+    expect(await editor.findByRole('tooltip')).toHaveTextContent('保存可互认时间：血常规')
+  })
 })
 
-describe('TC-T02-14 页面标题层级', () => {
+describe('页面标题层级', () => {
   it('页面大标题为 level 3', async () => {
     await renderLoaded([])
 

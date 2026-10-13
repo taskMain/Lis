@@ -358,7 +358,7 @@ export function currentAmountText(row: Pick<RecognitionAmountRow, 'currentAmount
 
 /** 四栏层级列视图中的项目行；只承载表格项目列需要的字段。 */
 export interface RecognitionAmountColumnProjectRow {
-  /** 标准项目编码；组内按该编码升序排列。 */
+  /** 标准项目编码。 */
   standardProjectCode: string | null
   standardProjectName: string | null
   /** 当前金额（元）；`null` 表示未配置，与已配置的 `0` 严格区分。 */
@@ -451,26 +451,12 @@ export const AMOUNT_VALIDATION_MESSAGE = '金额必须是不小于 0 且最多�
 
 /**
  * 列表读取失败告警的中文文案（两个页面共用，中文逐字一致）：
- * `refresh*` 面向写入成功后的重载失败；纯读取失败不渲染横幅（D-06）——错误由宿主统一提示、
+ * `refresh*` 面向写入成功后的重载失败；纯读取失败不渲染横幅——错误由宿主统一提示、
  * 重试经查询按钮，已有数据保留与维护操作禁用的口径由页面状态承载，无需横幅文案。
  */
 export const AMOUNT_LOAD_FAILURE_TEXT = {
   refreshTitle: '写入已成功，数据待刷新',
   refreshDescription: '写入已经成功，但重新读取金额列表失败；已有数据保留，维护操作暂不可用。',
-}
-
-/** 文本比较：空值按空串参与升序，比较只按字符码位，不依赖区域设置。 */
-function compareNullableText(a: string | null, b: string | null): number {
-  const left = a ?? ''
-  const right = b ?? ''
-  return left < right ? -1 : left > right ? 1 : 0
-}
-
-/** 类型比较：数值升序，未知类型（`null`）排在已知类型之后。 */
-function compareItemTypeForView(a: MedicalItemTypeValue | null, b: MedicalItemTypeValue | null): number {
-  if (a === null) return b === null ? 0 : 1
-  if (b === null) return -1
-  return a - b
 }
 
 /** 项目行裁出表格项目列需要的字段；类型、分类与分组的归属由外层三栏承载，行内不再重复。 */
@@ -488,9 +474,10 @@ function toColumnProjectRow(row: RecognitionAmountRow): RecognitionAmountColumnP
 
 /**
  * 把金额行组织成「类型 → 分类 → 分组 → 项目行」的四栏层级列视图，供页面渲染表格：
- * 组间按 `itemType`（数值升序，未知类型排在已知类型之后）、`categoryName`、`groupName` 归类排序，
- * 组内按 `standardProjectCode` 升序；同名类型格与分类格记录跨其名下全部行的 `rowSpan`，
- * 分组格同样记录 `rowSpan`，页面据此合并同名格。空集合返回空结构。
+ * 行序由服务端按 S3-D18 的排序键交付，本层只按输入行序依次折叠——同名类型格、分类格与分组格
+ * 按首次出现的次序成格，同名行归入同一格，组内项目行保持输入行序，前端不再本地重排；
+ * 同名类型格与分类格记录跨其名下全部行的 `rowSpan`，分组格同样记录 `rowSpan`，
+ * 页面据此合并同名格。空集合返回空结构。
  */
 export function toRecognitionAmountColumnView(rows: readonly RecognitionAmountRow[]): RecognitionAmountColumnView {
   const typeBuckets = new Map<
@@ -525,17 +512,14 @@ export function toRecognitionAmountColumnView(rows: readonly RecognitionAmountRo
             .map(([groupName, groupRows]) => ({
               groupName,
               rowSpan: groupRows.length,
-              rows: [...groupRows].sort((left, right) => compareNullableText(left.standardProjectCode, right.standardProjectCode)),
+              rows: groupRows,
             }))
-            .sort((left, right) => compareNullableText(left.groupName, right.groupName))
           const categoryRowSpan = groupColumns.reduce((total, group) => total + group.rowSpan, 0)
           return { categoryName, rowSpan: categoryRowSpan, groups: groupColumns }
         })
-        .sort((left, right) => compareNullableText(left.categoryName, right.categoryName))
       const typeRowSpan = categories.reduce((total, category) => total + category.rowSpan, 0)
       return { itemType, itemTypeText: typeBucket.itemTypeText, rowSpan: typeRowSpan, categories }
     })
-    .sort((left, right) => compareItemTypeForView(left.itemType, right.itemType))
   return { types }
 }
 
@@ -634,8 +618,8 @@ export function syncAmountFilterToLocation(filter: RecognitionAmountUrlFilter): 
 /**
  * 保存前的可信范围复核输入：页面应用范围时记录的可信范围与现读的可信范围，两侧都是可信范围。
  *
- * 复核次序固定为组织、医院、院区逐层；`layers` 控制本次比较哪些层级——医院管理员页比组织、
- * 医院、院区三层，平台管理员页比院区一层。
+ * 复核次序固定为组织、医院、院区逐层；`layers` 控制本次比较哪些层级——平台管理员页只传院区一层；
+ * 医院管理员页不调用本出口，其现读可信组织或医院的拦截由页面自身在提交前判定。
  */
 export interface RecognitionAmountScopeRecheckInput {
   /** 页面应用范围时记录的可信范围；页面尚未应用范围时为 `null`。 */
@@ -648,7 +632,7 @@ export interface RecognitionAmountScopeRecheckInput {
 
 /** 保存前的可信范围复核结论：通过时 `reason` 为 `null`，失败时是一行可直接展示的中文原因。 */
 export interface RecognitionAmountScopeRecheckResult {
-  /** 是否可以提交写入；`false` 时调用方零写请求并在行内展示 `reason`。 */
+  /** 是否可以提交写入；`false` 时调用方零写请求并以页面消息提示可见原因（调用方按自身文案提示，不透传本字段）；`reason` 供调用方与复核用例判别不通过的原因。 */
   ok: boolean
   /** 失败原因；单行中文文案，通过时为 `null`。 */
   reason: string | null
@@ -686,9 +670,9 @@ function presentScopeLayerValue(value: string): string {
  *
  * 比较次序固定为组织 → 医院 → 院区：多层同时不一致时只给出最上层的原因，与入参 `layers`
  * 的书写次序无关；比较两侧都取去空白后的值，避免两侧对同一编码的空白写法差异造成误报。
- * 院区层只做一致性比对：可信院区缺失属 S3-D22 档二正常形态，`null`、空串与纯空白归一为缺失，
+ * 院区层只做一致性比对：可信院区缺失属 S3-D22 的正常形态（院区取当前组织、医院下的第一项），`null`、空串与纯空白归一为缺失，
  * 记录值与现读值同为缺失即通过，一侧缺失另一侧有值即「已变化」；「现读不到」只用于组织、医院
- * 两层的现读空值。医院管理员页比组织、医院、院区三层，平台管理员页提交前只传院区一层。
+ * 两层的现读空值。平台管理员页提交前只传院区一层；医院管理员页不调用本出口，其现读可信组织或医院的拦截由页面自身在提交前判定。
  */
 export function recheckRecognitionAmountScope(
   input: RecognitionAmountScopeRecheckInput,

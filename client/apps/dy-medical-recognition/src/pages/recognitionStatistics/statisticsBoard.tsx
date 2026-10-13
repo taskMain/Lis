@@ -17,7 +17,7 @@
  * 3. 当页为空且总数为正时按服务端总数回退到最后一页一次（C19 越界自愈）；
  * 4. 同一条件下只采纳最后一次请求结果，过期响应直接丢弃（C9）。
  *
- * 失败面（汇总读取、明细读取、导出、弹窗读取）都只做本层恢复（D-06）：
+ * 失败面（汇总读取、明细读取、导出、弹窗读取）都只做本层恢复（既定口径：纯读取失败不渲染横幅）：
  * 查询读取失败不渲染错误横幅——静默保留已有数据、结束加载态；错误由宿主统一提示，重试经查询按钮；
  * 导出与弹窗读取的既有恢复形态保留，不显示本地接口错误提示。
  */
@@ -80,7 +80,7 @@ export interface StatisticsFilters {
   startTime: string
   endTime: string
   /**
-   * 本院页本侧院区（接收侧页为接收院区，来源侧页为来源院区）：恒为登录院区（D-05），
+   * 本院页本侧院区（接收侧页为接收院区，来源侧页为来源院区）：恒为登录院区，
    * 页面不提供院区选择；缺失属权限配置错误，页面零业务请求、以空态呈现（`missingScopeText`）；
    * 服务端全院统计契约仅为接口面保留（S6-D1），前端已不按其触发。
    */
@@ -98,7 +98,7 @@ export interface StatisticsFilters {
   nonAdoptionReasonCode?: string
 }
 
-/** 范围选择区的形态：平台页两组三级可选；本院页本侧固定展示（院区恒为登录院区，D-05）、对侧组医院/院区可选。 */
+/** 范围选择区的形态：平台页两组三级可选；本院页本侧固定展示（院区恒为登录院区、不提供院区选择）、对侧组医院/院区可选。 */
 export type StatisticsScopeSpec =
   | { kind: 'platform' }
   | { kind: 'branch'; organizationCode: string }
@@ -221,7 +221,7 @@ function sourceSummaryRowKey(row: SourceSummaryRow): string {
 function usageDrilldownPatch(row: UsageSummaryRow): Partial<StatisticsFilters> {
   switch (row.groupDimension) {
     case 1: return { receiverHospitalCode: row.receiverHospitalCode ?? undefined }
-    // 本侧院区恒为登录院区（D-05），院区维度的下钻不再回写 ownBranchCode。
+    // 本侧院区恒为登录院区（不提供院区选择），院区维度的下钻不再回写 ownBranchCode。
     case 2: return { receiverBranchCode: row.receiverBranchCode ?? undefined }
     case 3: return { recognitionDeptId: row.recognitionDeptId ?? undefined }
     case 4: return { itemType: row.itemType ?? undefined, standardProjectCode: row.standardProjectCode ?? undefined }
@@ -233,7 +233,7 @@ function usageDrilldownPatch(row: UsageSummaryRow): Partial<StatisticsFilters> {
 function sourceDrilldownPatch(row: SourceSummaryRow): Partial<StatisticsFilters> {
   switch (row.groupDimension) {
     case 1: return { sourceHospitalCode: row.sourceHospitalCode ?? undefined }
-    // 本侧院区恒为登录院区（D-05），院区维度的下钻不再回写 ownBranchCode。
+    // 本侧院区恒为登录院区（不提供院区选择），院区维度的下钻不再回写 ownBranchCode。
     case 2: return { sourceBranchCode: row.sourceBranchCode ?? undefined }
     case 4: return { itemType: row.itemType ?? undefined, standardProjectCode: row.standardProjectCode ?? undefined }
     default: return {}
@@ -798,7 +798,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
   return <div className='statistics-board'>
     <div className='statistics-board-header'>
       <div>
-        {/* 页面大标题层级与 margin 口径全站统一（TC-T02-14）：统计页无配套 CSS，margin 归零由内联样式承载。 */}
+        {/* 页面大标题层级与 margin 口径全站统一（标题层级口径：大标题与阻断态标题同层级）：统计页无配套 CSS，margin 归零由内联样式承载。 */}
         <Typography.Title level={3} style={{ margin: 0 }}>{title}</Typography.Title>
         <Typography.Text type='secondary'>{subtitle}</Typography.Text>
       </div>
@@ -840,8 +840,8 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
                 }} onChange={changeReceiverScope} />
               </div>
             </Space>
-      // 本院页页头范围区由共用范围条承载：单行只显「组织 / 医院 / 院区」名称，无编码（TC-T02-02）；
-      // 本侧院区恒为登录院区（D-05），不提供院区选择，只保留对侧（来源或接收）医院、院区选择。
+      // 本院页页头范围区由共用范围条承载：单行只显「组织 / 医院 / 院区」名称，无编码（页头范围条名称渲染口径）；
+      // 本侧院区恒为登录院区（不提供院区选择），只保留对侧（来源或接收）医院、院区选择。
       ) : <Space wrap>
           <CurrentScopeBar />
           <div role='group' aria-label={side === 'usage' ? '来源医院范围' : '接收医院范围'}>
@@ -857,7 +857,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
         </Space>}
     </div>
 
-    {/* 查询区（D-02、TC-T02-16）：inline Form 承载草稿控件；明细区的互认医生与不采纳原因两条件
+    {/* 查询区（D-02）按查询区结构口径：inline Form 承载草稿控件；明细区的互认医生与不采纳原因两条件
         并入同一份草稿，由页面级这一组「查询/重置」提交，一次提交同时作用于汇总与明细。 */}
     <div className='statistics-board-filters'>
       <Form layout='inline' onFinish={submitDraft}>
@@ -941,7 +941,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
         <Form.Item>
           <Space wrap>
             {/*
-              查询按钮逐字符合全站统一规格（TC-T02-06/16）：`aria-label` 声明可访问名称——
+              查询按钮逐字符合全站统一规格（框内查询图标按钮与查询区结构规格）：`aria-label` 声明可访问名称——
               `SearchOutlined` 自带英文 `aria-label`，会参与按钮名称计算，不声明就会读成「search 查询」；
               `autoInsertSpace={false}` 关闭 antd 对两个汉字之间自动插入的空格；颜色继承宿主主题 token，
               不覆盖样式。一次提交同时重读汇总与明细，任一读取在途时按钮进入 `loading`（与列表页同款，
@@ -984,7 +984,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
       {side === 'usage' && dimension === 3 ? <Typography.Text type='secondary' className='statistics-board-note'>
         互认科室维度不含未反馈项：该维度的提醒次数与同期互认率仅统计已反馈的匹配项，跨维度的提醒合计不可直接对账。
       </Typography.Text> : null}
-      {/* 汇总读取失败不渲染横幅（D-06）：已有数据静默保留，错误由宿主统一提示，重试经查询按钮。 */}
+      {/* 汇总读取失败不渲染横幅（既定口径）：已有数据静默保留，错误由宿主统一提示，重试经查询按钮。 */}
       {side === 'usage' ? <Table<UsageSummaryRow>
         rowKey={(row) => usageSummaryRowKey(row)}
         size='small'
@@ -1031,7 +1031,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
           onClick={() => { void runExport('details') }}
         >导出明细</Button>
       </Space>
-      {/* 明细读取失败同样不渲染横幅（D-06）：已有数据静默保留，错误由宿主统一提示，重试经查询按钮。 */}
+      {/* 明细读取失败同样不渲染横幅（既定口径）：已有数据静默保留，错误由宿主统一提示，重试经查询按钮。 */}
       {side === 'usage' ? <Table<UsageDetailRow>
         rowKey='recognitionMatchItemId'
         size='small'

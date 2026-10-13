@@ -9,7 +9,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
 /// <remarks>
 /// 组织与医院只取自可信上下文，请求不提交也不得覆盖，因此本请求不含组织与医院字段；
 /// 请求院区必须属于可信医院，不属于即拒绝，不返回其他医院的金额、也不降级为空集合。
-/// 按标准项目编码升序返回，不分页；不提供操作人、操作时间、内部标识、状态或授权结论字段。
+/// 按项目类型、分类名称、分组名称、标准项目名称逐级升序返回，名称相同再按分类、分组、项目与配置标识升序兜底，不分页；不提供操作人、操作时间、内部标识、状态或授权结论字段。
 /// </remarks>
 public sealed record BranchRecognitionAmountListQueryRequest
 {

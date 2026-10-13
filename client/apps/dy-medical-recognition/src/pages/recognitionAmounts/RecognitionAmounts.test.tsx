@@ -28,8 +28,10 @@
  *    订阅本文件的登录态并在通知后重新求值，`resignTrustedToken` 按宿主重新签发 token 的路径推进
  *    它，页面据此在渲染期现读新的可信院区（与医院管理员页用例的 `changeTrustedScope` 同一构造）。
  *
- * 5. 金额维护的编辑形态是行内编辑器（C32）：入口是当前金额格（值文本或「未配置」标记），
- *    回车提交、Esc 取消；测试只按可访问名称、文本与页面既有样式类定位，不断言编辑器的内部结构。
+ * 5. 金额维护的编辑形态是行内编辑器（C32）：入口是当前金额格的值按钮（值文本或「未配置」标记，
+ *    S3-D27 2026-10-12 修订，与可互认时间值按钮同款），编辑态为「输入框＋保存＋取消」，
+ *    回车与保存按钮提交、Esc 与取消按钮放弃，校验失败在编辑器内就地提示；
+ *    测试只按可访问名称、文本与页面既有样式类定位，不断言编辑器的内部结构。
  *
  * 仍属 Host 层、不在本文件覆盖：真实宿主菜单进入、真实范围选择器交互、宿主统一错误提示
  * （写失败时的业务拒绝文案由宿主展示）、C11/C12/C13/C14/C20/C22/C26 的宿主面。
@@ -439,6 +441,9 @@ const queryInlineAmountInput = () => screen.queryByLabelText('金额')
 /** 回车与 Esc 走异步 act：回车提交会启动写入与随后的整表重载，需要让微任务就地排空。 */
 const pressKey = (element: HTMLElement, key: string) => act(async () => {
   fireEvent.keyDown(element, { key })
+  // 真实键盘按键 keydown 与 keyup 成对出现；底层输入组件对 Enter 有键锁（keydown 置锁、keyup
+  // 复位），只发 keyDown 会吞掉同一输入框里的第二次回车。
+  fireEvent.keyUp(element, { key })
 })
 const pressEnter = (element: HTMLElement) => pressKey(element, 'Enter')
 const pressEscape = (element: HTMLElement) => pressKey(element, 'Escape')
@@ -463,30 +468,51 @@ const editAmount = (standardProjectName: string) => click(amountValueCell(standa
 const CONFIRM_TRUSTED_SCOPE = '可信范围已变化'
 const promptElement = () => document.querySelector<HTMLElement>('.recognition-amounts-prompt')
 
-/** 查询主按钮与关键字输入框：读取在途时主按钮呈加载态，关键字只在提交时下推服务端。 */
-const searchButton = () => screen.getByRole('button', { name: /查\s*询/ })
-const keywordInput = () => screen.getByLabelText('关键字') as HTMLInputElement
+/** 框内查询图标按钮与关键字输入框：读取在途时图标按钮呈加载态，关键字只在提交时下推服务端。 */
+const searchButton = () => screen.getByRole('button', { name: '查询' })
+const keywordInput = () => screen.getByLabelText('关键字筛选') as HTMLInputElement
 
 /**
- * 在查询区表单上触发 submit 事件（等价模拟输入框内回车提交）：jsdom 不实现文本框内回车的
- * 隐式提交（键盘默认动作不在模拟范围），真实浏览器的回车经表单隐式提交进入同一条 Form
- * onFinish 提交链路，这里以 submit 事件表达同一条链路。
+ * 输入框内回车提交：antd Input 的 `onPressEnter` 由 keydown Enter 触发，与框内查询图标按钮的
+ * 点击进入同一条 `submitKeyword` 提交链路。
  */
-const submitByEnter = () => {
-  const form = keywordInput().closest('form')
-  if (!form) throw new Error('查询区未以 Form 承载')
-  fireEvent.submit(form)
+const submitByEnter = () => pressEnter(keywordInput())
+
+/** 金额状态下拉选择把 aria-label 透传到 role=combobox；行内文字标签在 Select 外，不参与可访问名称。 */
+const amountStatusFilter = () => screen.getByRole('combobox', { name: '金额状态筛选' })
+
+/** 互认配置状态筛选为列表上沿页签（S3-D25 2026-10-13 修订），外层以 role=group 承载可访问名称。 */
+const configurationStatusTabs = () => screen.getByRole('group', { name: '配置状态筛选' })
+
+/** 当前配置状态筛选的选中项：Tabs 的选中页签带 .ant-tabs-tab-active。 */
+const selectedStatusTabLabels = () =>
+  [...configurationStatusTabs().querySelectorAll('.ant-tabs-tab-active')].map((node) => node.textContent?.trim())
+
+/** 按名称点击一个配置状态页签：切换即生效、本地裁剪、不触发读取。 */
+const clickConfigurationStatusTab = (name: string) => click(within(configurationStatusTabs()).getByRole('tab', { name }))
+
+/** 下拉选择当前档位的展示文本（antd Select 的选中值格为 `.ant-select-content`）。 */
+const selectedSelectValue = (combobox: HTMLElement) =>
+  combobox.closest('.ant-select')?.querySelector('.ant-select-content')?.textContent?.trim()
+
+/** 展开下拉并点击某个档位；档位只做本地裁剪，不触发读取。 */
+const pickSelectOption = async (combobox: HTMLElement, option: string) => {
+  fireEvent.mouseDown(combobox)
+  // 归属判定排除收起中的残留节点：测试环境两个 Select 的 id 都退化为同一占位值，aria-controls
+  // 不能区分归属；jsdom 不派发 transitionend，上一个下拉的 leave 动画类会残留，但正在展开
+  // 的归属下拉不带 leave 标记。两个下拉的「全部」档位同名，归属判错会点到上一个下拉。
+  const dropdown = await waitFor(() => {
+    const open = [...document.querySelectorAll<HTMLElement>('.ant-select-dropdown')]
+      .filter((node) => !node.classList.contains('ant-select-dropdown-hidden')
+        && !node.className.includes('ant-slide-up-leave'))
+    if (open.length !== 1) throw new Error('归属下拉未唯一展开')
+    return open[0]
+  })
+  const item = [...dropdown.querySelectorAll<HTMLElement>('.ant-select-item-option')]
+    .find((node) => node.textContent?.trim() === option)
+  if (!item) throw new Error(`档位未找到：${option}`)
+  click(item)
 }
-
-/** 两个状态 Segmented 把外部 aria-label 透传到 role=radiogroup（与互认项目配置页同一手法）。 */
-const amountStatusFilter = () => screen.getByRole('radiogroup', { name: '金额状态筛选' })
-const configurationStatusFilter = () => screen.getByRole('radiogroup', { name: '互认配置状态筛选' })
-
-const selectedSegmentLabels = (group: HTMLElement) =>
-  [...group.querySelectorAll('.ant-segmented-item-selected')].map((node) => node.textContent?.trim())
-
-/** 点击 Segmented 的某个档位；档位只做本地裁剪，不触发读取。 */
-const pickSegment = (group: HTMLElement, label: string) => click(within(group).getByText(label))
 
 const dataRows = () =>
   screen.getAllByRole('row').filter((node) => node.classList.contains('ant-table-row'))
@@ -607,16 +633,16 @@ describe('C1 范围选择与首次加载', () => {
 })
 
 describe('C5 列表字段集合', () => {
-  it('列为类型、分类、分组、项目与四个业务列，不展示三级名称与编码、项目类型、最后修改信息', async () => {
+  it('列为类型、分类、分组、项目与三个业务列，不展示三级名称与编码、项目类型、最后修改信息', async () => {
     await renderLoaded([amountRow()])
 
+    // 金额状态列随 S3-D24（2026-10-12 修订）删除：当前金额列的「未配置」标记与数值已完整表达配置与否。
     expect(columnHeaders()).toEqual([
       '类型',
       '分类',
       '分组',
       '项目',
       '当前金额',
-      '金额状态',
       '互认配置状态',
       '当前不可用原因',
     ])
@@ -632,6 +658,8 @@ describe('C5 列表字段集合', () => {
       '最后修改人',
       '标准项目编码',
       '标准项目名称',
+      // 金额状态列已删除（S3-D24 2026-10-12 修订），表头不再出现。
+      '金额状态',
       // 每行金额即行内编辑入口，不再设操作列。
       '操作',
     ]) {
@@ -669,13 +697,14 @@ describe('C6 / C7 未配置与零元的呈现差异', () => {
 
     const [zeroRow, unconfiguredRow] = dataRows()
 
-    // 零元：金额列是已配置的金额文本，金额状态为已配置，行内不出现「未配置」。
+    // 零元：金额列是已配置的金额文本 0.00，行内不出现「未配置」；金额状态徽标列已删除，
+    // 「已配置」不再以徽标出现在行内（S3-D24 2026-10-12 修订）。
     expect(within(zeroRow).getByText('0.00')).toBeInTheDocument()
-    expect(within(zeroRow).getByText('已配置')).toBeInTheDocument()
     expect(within(zeroRow).queryByText('未配置')).toBeNull()
+    expect(within(zeroRow).queryByText('已配置')).toBeNull()
 
-    // 未配置：金额列与金额状态都表达「未配置」，且整行不出现任何数值金额。
-    expect(within(unconfiguredRow).getAllByText('未配置')).toHaveLength(2)
+    // 未配置：金额列一处「未配置」标记（行内编辑入口），整行不出现任何数值金额与「已配置」徽标。
+    expect(within(unconfiguredRow).getAllByText('未配置')).toHaveLength(1)
     expect(within(unconfiguredRow).queryByText('0.00')).toBeNull()
     expect(within(unconfiguredRow).queryByText('已配置')).toBeNull()
     expect((unconfiguredRow.textContent ?? '').match(/\d+\.\d{2}/)).toBeNull()
@@ -683,7 +712,7 @@ describe('C6 / C7 未配置与零元的呈现差异', () => {
 })
 
 describe('C8 金额输入校验', () => {
-  it('负数、三位小数、双精度无法精确表示的大额与空值都以 message.error 提示，单元格内不再渲染校验红字，零写请求且保留编辑态与输入', async () => {
+  it('负数、三位小数、双精度无法精确表示的大额与空值都在编辑器内就地提示，零写请求且保留编辑态与输入', async () => {
     await renderLoaded([amountRow()])
 
     editAmount('血常规')
@@ -695,10 +724,9 @@ describe('C8 金额输入校验', () => {
     for (const invalid of ['-1', '1.234', '99999999999999.99']) {
       await change(inlineAmountInput(), invalid)
       await pressEnter(inlineAmountInput())
-      // 校验失败以 message.error 反馈（TC-T02-07）：同一文案可叠加多条提示，按「出现至少一条」断言。
-      expect((await screen.findAllByText('金额必须是不小于 0 且最多两位小数的数字')).length).toBeGreaterThan(0)
-      // 表格单元格内不再渲染任何校验红字。
-      expect(within(rowOf('血常规')).queryByText('金额必须是不小于 0 且最多两位小数的数字')).toBeNull()
+      // 校验失败在编辑器内就地提示（S3-D27 2026-10-12 修订，与可互认时间编辑器的就地提示同款）：
+      // 提示渲染在当前行内，不再经页面消息承载。
+      expect(await within(rowOf('血常规')).findByText('金额必须是不小于 0 且最多两位小数的数字')).toBeInTheDocument()
       // `invalid` 标记：校验在字段变更后重新求值，标记随之更新。
       await waitFor(() => expect(inlineAmountInput()).toHaveAttribute('aria-invalid', 'true'))
       expect(save()).not.toHaveBeenCalled()
@@ -708,8 +736,7 @@ describe('C8 金额输入校验', () => {
 
     await change(inlineAmountInput(), '')
     await pressEnter(inlineAmountInput())
-    expect((await screen.findAllByText('金额必填')).length).toBeGreaterThan(0)
-    expect(within(rowOf('血常规')).queryByText('金额必填')).toBeNull()
+    expect(await within(rowOf('血常规')).findByText('金额必填')).toBeInTheDocument()
     await waitFor(() => expect(inlineAmountInput()).toHaveAttribute('aria-invalid', 'true'))
     expect(save()).not.toHaveBeenCalled()
     expect(query()).toHaveBeenCalledTimes(1)
@@ -730,7 +757,7 @@ describe('C9 / C12 金额保存成功', () => {
     await pressEnter(inlineAmountInput())
 
     await waitFor(() => expect(save()).toHaveBeenCalledTimes(1))
-    // 保存成功给 message.success 反馈（TC-T02-07）；现状保存后没有任何成功提示。
+    // 保存成功经 message.success 反馈。
     expect(await screen.findByText('金额保存成功')).toBeInTheDocument()
     // C2：保存请求同样携带组织、医院、院区三个值；载荷只经适配层出口构造。
     expect(save().mock.calls[0][1]).toEqual({
@@ -788,7 +815,7 @@ describe('C10 金额保存被拒绝', () => {
       expect(screen.queryByText('写入已成功，数据待刷新')).not.toBeInTheDocument()
       expect(screen.queryByText('互认项目金额数据待刷新')).not.toBeInTheDocument()
       expect(screen.queryByText('业务拒绝')).not.toBeInTheDocument()
-      // 写失败不是成功：保存成功的 message 反馈同样不得出现（TC-T02-07 的分流口径）。
+      // 写失败与保存成功分流：保存成功的 message 反馈不得出现。
       expect(screen.queryByText('金额保存成功')).not.toBeInTheDocument()
       // 提交中状态归零：编辑态仍然可用，可以继续输入并重试。
       await waitFor(() => expect(inlineAmountInput()).toBeEnabled())
@@ -836,16 +863,16 @@ describe('C13 写成功但随后的刷新失败', () => {
   })
 })
 
-describe('C14 读取失败形态（D-06、TC-T02-11）', () => {
+describe('C14 读取失败形态（纯读取失败不渲染横幅、错误由宿主统一提示）', () => {
   it('查询失败不渲染错误横幅：旧数据保留、写入仍禁用，点查询可重试成功', async () => {
     await renderLoaded([amountRow()])
 
     const failing = armQuery()
-    // 空条件提交等价于刷新：搜索主按钮重新读取当前范围。
+    // 空条件提交等价于刷新：框内查询图标按钮重新读取当前范围。
     click(searchButton())
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
 
-    // 加载期间禁用写入（搜索主按钮呈加载态、当前金额格点击不进入编辑态）。
+    // 加载期间禁用写入（框内查询图标按钮呈加载态、当前金额格点击不进入编辑态）。
     // 加载态的提交晚于读取计数的观测，等它真正落到按钮上再断言。
     await waitFor(() => expect(searchButton()).toHaveClass('ant-btn-loading'))
     expect(amountValueCell('血常规')).toBeDisabled()
@@ -853,8 +880,8 @@ describe('C14 读取失败形态（D-06、TC-T02-11）', () => {
     expect(queryInlineAmountInput()).toBeNull()
 
     await failQuery(failing)
-    // 失败落地的观测点改为加载态结束：D-06 下读取失败不再渲染任何错误横幅，
-    // 错误由宿主统一提示，重试经查询按钮。
+    // 失败后的观测点改为加载态结束：读取失败不渲染任何错误横幅，
+    // 错误由宿主统一提示，重试经框内查询图标按钮。
     await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
     expect(screen.queryByText('互认项目金额数据待刷新')).not.toBeInTheDocument()
     expect(screen.queryByText(/待刷新|读取失败/)).not.toBeInTheDocument()
@@ -865,7 +892,7 @@ describe('C14 读取失败形态（D-06、TC-T02-11）', () => {
     expect(queryInlineAmountInput()).toBeNull()
     expect(save()).not.toHaveBeenCalled()
 
-    // 重试经查询按钮：重读成功后恢复可写。
+    // 重试经框内查询图标按钮：重读成功后恢复可写。
     const retry = armQuery()
     click(searchButton())
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
@@ -877,7 +904,7 @@ describe('C14 读取失败形态（D-06、TC-T02-11）', () => {
 })
 
 describe('C16 排序与不分页', () => {
-  it('C16：服务端交付的编码升序在列视图中原样渲染，页面不分页', async () => {
+  it('C16：服务端交付的层级升序在列视图中原样渲染，页面不分页', async () => {
     await renderLoaded([
       amountRow({ standardProjectCode: 'A01', standardProjectName: '项目一' }),
       amountRow({ standardProjectCode: 'A02', standardProjectName: '项目二' }),
@@ -924,7 +951,7 @@ describe('C17 空态', () => {
       amountRow({ standardProjectCode: 'A02', isAmountConfigured: true, currentAmount: node(20) }),
     ])
 
-    pickSegment(amountStatusFilter(), '未配置')
+    await pickSelectOption(amountStatusFilter(), '未配置')
 
     expect(screen.getByText('没有符合当前筛选条件的互认项目金额')).toBeInTheDocument()
     expect(dataRows()).toHaveLength(0)
@@ -983,86 +1010,43 @@ describe('C23 组件自身加载失败提示', () => {
 })
 
 /**
- * 用例名只描述行为：全站查询按钮逐字符合统一规格（T02 Client/design.md「查询按钮与查询区」、
- * testPlan.md TC-T02-06）。规格属性逐项断言；`autoInsertSpace={false}` 的效果以文本精确等于
- * 「查询」表达；`htmlType` 经 DOM 属性断言；条件为空提交等价于刷新由 C27 与读取时序用例覆盖。
+ * 用例名只描述行为：平台管理员页的查询入口为关键字输入框内嵌的查询图标按钮（S3-D25 修订，
+ * Client/design.md「筛选区」）。规格属性逐项断言；`autoInsertSpace={false}` 使纯图标按钮不插入
+ * 多余空格；本页不再有独立查询主按钮与「重置」按钮。
  */
-describe('TC-T02-06 查询按钮规格', () => {
-  it('筛选区查询按钮：主按钮、搜索图标、文本精确为「查询」、htmlType 为 submit', async () => {
+describe('查询图标按钮规格', () => {
+  it('关键字输入框内嵌查询图标按钮：文本型按钮、搜索图标、可访问名称精确为「查询」，查询区无独立查询主按钮与重置按钮', async () => {
     await renderLoaded([amountRow()])
 
     const button = searchButton()
-    expect(button).toHaveClass('ant-btn-primary')
+    expect(button).toHaveClass('ant-btn-text')
+    expect(button).not.toHaveClass('ant-btn-primary')
     expect(button.querySelector('.anticon-search')).not.toBeNull()
-    expect(button.textContent).toBe('查询')
-    expect(button.getAttribute('type')).toBe('submit')
+    expect(button.getAttribute('aria-label')).toBe('查询')
+    // 查询入口位于关键字输入框内（suffix 槽位），不是查询区的独立按钮。
+    expect(keywordInput().closest('.ant-input-affix-wrapper')?.contains(button)).toBe(true)
+    expect(screen.queryByRole('button', { name: '重置' })).toBeNull()
   })
 })
 
 /**
- * 用例名只描述行为：查询区以 inline Form 承载，查询与重置按钮位于行内最后一个 Form.Item 内并排
- * （T02 Client/design.md「查询按钮与查询区」、testPlan.md TC-T02-16）。重置恒命名「重置」、默认样式。
- * 重置口径与批 3 看板页一致：草稿与已生效条件一并恢复默认（关键字清空、两个状态档回「全部」），
- * 随后按默认条件重读一次；地址栏参数按默认值回写。两个状态档是即时生效控件、不进草稿：
- * 重置只是把它们恢复默认档，不改变「切换即生效、本地裁剪、不触发读取」的既有语义。
+ * 用例名只描述行为：平台管理员页查询区为「关键字输入框 + 金额状态下拉选择」的单行结构，
+ * 互认配置状态筛选为贴在列表上沿的页签（S3-D25 修订，Client/design.md「筛选区」）：不以 inline Form
+ * 承载，不渲染独立查询主按钮与「重置」按钮；金额状态下拉默认档「全部」，配置状态页签默认选中「全部」。
  */
-describe('TC-T02-16 查询区 Form 化与重置', () => {
-  it('查询区为 inline Form，查询与重置在行内最后一个 Form.Item 内并排', async () => {
+describe('查询区结构', () => {
+  it('查询区为关键字框加金额状态下拉选择，配置状态为列表上沿页签，不以 Form 承载，不渲染独立查询主按钮与重置按钮', async () => {
     await renderLoaded([amountRow()])
 
-    const form = document.querySelector('.recognition-amounts-filter form')
-    expect(form).not.toBeNull()
-    expect(form).toHaveClass('ant-form-inline')
-    const search = searchButton()
-    expect(search.getAttribute('type')).toBe('submit')
-    const reset = screen.getByRole('button', { name: '重置' })
-    expect(reset).not.toHaveClass('ant-btn-primary')
-    // 查询与重置并排：同属行内最后一个 Form.Item。
-    const sharedItem = search.closest('.ant-form-item')
-    expect(sharedItem).not.toBeNull()
-    expect(sharedItem).toBe(reset.closest('.ant-form-item'))
-  })
-
-  it('重置把关键字草稿与两个状态档恢复默认，按默认条件重读一次并回写地址栏', async () => {
-    await renderLoaded([
-      amountRow({ standardProjectCode: 'A01', standardProjectName: '血常规' }),
-      amountRow({ standardProjectCode: 'A02', standardProjectName: '尿常规' }),
-    ])
-
-    // 布置：关键字提交生效（第 2 次读取），两个状态档切到非默认（即时生效，不追加读取）。
-    await change(keywordInput(), '尿常规')
-    expect(query()).toHaveBeenCalledTimes(1)
-    const applied = armQuery()
-    submitByEnter()
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    await settle(applied, [
-      amountRow({ standardProjectCode: 'A02', standardProjectName: '尿常规' }),
-    ])
-    await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
-    pickSegment(amountStatusFilter(), '已配置')
-    pickSegment(configurationStatusFilter(), '停用')
-    expect(new URLSearchParams(window.location.search).get('keyword')).toBe('尿常规')
-    expect(new URLSearchParams(window.location.search).get('amountStatus')).toBe('configured')
-    expect(new URLSearchParams(window.location.search).get('configurationStatus')).toBe('disabled')
-
-    // 重置：草稿与已生效条件一并恢复默认，按空条件重读一次。
-    const resetLoad = armQuery()
-    click(screen.getByRole('button', { name: '重置' }))
-    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
-    expect(query().mock.calls[2][1]).toEqual({ organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' })
-    await settle(resetLoad, [
-      amountRow({ standardProjectCode: 'A01', standardProjectName: '血常规' }),
-      amountRow({ standardProjectCode: 'A02', standardProjectName: '尿常规' }),
-    ])
-
-    // 草稿清空、两个状态档回「全部」。
-    expect(keywordInput().value).toBe('')
-    expect(selectedSegmentLabels(amountStatusFilter())).toEqual(['全部'])
-    expect(selectedSegmentLabels(configurationStatusFilter())).toEqual(['全部'])
-    // 地址栏参数按默认值回写（三个参数删除）。
-    expect(new URLSearchParams(window.location.search).get('keyword')).toBeNull()
-    expect(new URLSearchParams(window.location.search).get('amountStatus')).toBeNull()
-    expect(new URLSearchParams(window.location.search).get('configurationStatus')).toBeNull()
+    const filterRegion = document.querySelector('.recognition-amounts-filter') as HTMLElement
+    expect(filterRegion).not.toBeNull()
+    expect(filterRegion.querySelector('form')).toBeNull()
+    // 行内文字标签在下拉选择之外；配置状态不在查询区内，由列表上沿页签承载。
+    expect(within(filterRegion).getByText('金额状态')).toBeInTheDocument()
+    expect(within(filterRegion).queryAllByRole('combobox')).toHaveLength(1)
+    expect(selectedSelectValue(amountStatusFilter())).toBe('全部')
+    expect(selectedStatusTabLabels()).toEqual(['全部'])
+    expect(screen.queryByRole('button', { name: '重置' })).toBeNull()
   })
 })
 
@@ -1077,7 +1061,7 @@ describe('C27 关键字搜索', () => {
     await change(keywordInput(), '尿常规')
     expect(query()).toHaveBeenCalledTimes(1)
     const second = armQuery()
-    submitByEnter()
+    await submitByEnter()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({
       organizationCode: 'ORG-A',
@@ -1112,7 +1096,7 @@ describe('C27 关键字搜索', () => {
 })
 
 describe('C28 状态筛选本地裁剪', () => {
-  it('两个 Segmented 只在服务端结果上本地裁剪：切换即生效、不追加读取、不下推请求', async () => {
+  it('金额状态下拉与配置状态页签都只在服务端结果上本地裁剪：切换即生效、不追加读取、不下推请求', async () => {
     await renderLoaded([
       amountRow({ standardProjectCode: 'A01', standardProjectName: '项目一', isAmountConfigured: true, currentAmount: node(12.5), configurationStatus: 1 }),
       amountRow({ standardProjectCode: 'A02', standardProjectName: '项目二', isAmountConfigured: false, currentAmount: null, configurationStatus: 1 }),
@@ -1121,21 +1105,23 @@ describe('C28 状态筛选本地裁剪', () => {
     expect(renderedCodes()).toEqual(['A01', 'A02', 'A03'])
     expect(query()).toHaveBeenCalledTimes(1)
 
-    pickSegment(amountStatusFilter(), '未配置')
+    await pickSelectOption(amountStatusFilter(), '未配置')
     expect(renderedCodes()).toEqual(['A02'])
-    expect(selectedSegmentLabels(amountStatusFilter())).toEqual(['未配置'])
+    expect(selectedSelectValue(amountStatusFilter())).toBe('未配置')
 
-    pickSegment(amountStatusFilter(), '已配置')
+    await pickSelectOption(amountStatusFilter(), '已配置')
     expect(renderedCodes()).toEqual(['A01', 'A03'])
 
-    pickSegment(configurationStatusFilter(), '停用')
+    clickConfigurationStatusTab('停用')
+    expect(renderedCodes()).toEqual(['A03'])
+    expect(selectedStatusTabLabels()).toEqual(['停用'])
+
+    await pickSelectOption(amountStatusFilter(), '全部')
     expect(renderedCodes()).toEqual(['A03'])
 
-    pickSegment(amountStatusFilter(), '全部')
-    expect(renderedCodes()).toEqual(['A03'])
-
-    pickSegment(configurationStatusFilter(), '全部')
+    clickConfigurationStatusTab('全部')
     expect(renderedCodes()).toEqual(['A01', 'A02', 'A03'])
+    expect(selectedStatusTabLabels()).toEqual(['全部'])
 
     // 本地裁剪全程不追加读取，也不把两个状态条件写进请求。
     expect(query()).toHaveBeenCalledTimes(1)
@@ -1158,15 +1144,15 @@ describe('C29 地址栏参数同步', () => {
     await settle(first, [amountRow({ standardProjectCode: 'A01', isAmountConfigured: false, currentAmount: null })])
     await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
 
-    // 进入按参数初始化：草稿取已生效关键字，两个 Segmented 取地址栏档位。
+    // 进入按参数初始化：草稿取已生效关键字，金额状态下拉与配置状态页签取地址栏档位。
     expect(keywordInput().value).toBe('血常规')
-    expect(selectedSegmentLabels(amountStatusFilter())).toEqual(['未配置'])
-    expect(selectedSegmentLabels(configurationStatusFilter())).toEqual(['启用'])
+    expect(selectedSelectValue(amountStatusFilter())).toBe('未配置')
+    expect(selectedStatusTabLabels()).toEqual(['启用'])
     expect(renderedCodes()).toEqual(['A01'])
 
     // 档位变化按替换当前历史项写回，且不追加读取。
     const historyLength = window.history.length
-    pickSegment(amountStatusFilter(), '已配置')
+    await pickSelectOption(amountStatusFilter(), '已配置')
     expect(new URLSearchParams(window.location.search).get('amountStatus')).toBe('configured')
     expect(window.history.length).toBe(historyLength)
     expect(query()).toHaveBeenCalledTimes(1)
@@ -1189,7 +1175,7 @@ describe('C29 地址栏参数同步', () => {
 
     // 回车提交：草稿成为已生效关键字，随请求下推并替换写入地址栏。
     const second = armQuery()
-    submitByEnter()
+    await submitByEnter()
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls.map((call) => call[1])).toEqual([
       { organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' },
@@ -1213,8 +1199,8 @@ describe('C29 地址栏参数同步', () => {
   })
 })
 
-describe('C30 院区恒定单值与三档默认', () => {
-  it('默认档一：可信组织、医院、院区齐全时初始范围即为可信范围', async () => {
+describe('C30 院区恒定单值', () => {
+  it('可信组织、医院、院区齐全时初始范围即为可信范围', async () => {
     trustedOrganizationRef.current = 'ORG-B'
     trustedHospitalRef.current = 'HOS-2'
     trustedBranchRef.current = 'BRA-3'
@@ -1231,7 +1217,7 @@ describe('C30 院区恒定单值与三档默认', () => {
     await settle(first, [amountRow()])
   })
 
-  it('默认档二：可信院区不属于当前组织、医院时取该院第一项', async () => {
+  it('可信院区不属于当前组织、医院时取该院第一项', async () => {
     trustedOrganizationRef.current = 'ORG-A'
     trustedHospitalRef.current = 'HOS-2'
     trustedBranchRef.current = 'BRA-9'
@@ -1248,7 +1234,7 @@ describe('C30 院区恒定单值与三档默认', () => {
     await settle(first, [amountRow()])
   })
 
-  it('默认档二：可信院区缺失时取当前组织、医院第一项', async () => {
+  it('可信院区缺失时取当前组织、医院第一项', async () => {
     trustedOrganizationRef.current = 'ORG-A'
     trustedHospitalRef.current = 'HOS-2'
     trustedBranchRef.current = null
@@ -1337,40 +1323,37 @@ describe('C30 院区恒定单值与三档默认', () => {
   })
 })
 
-describe('C31 页头范围条', () => {
-  it('页头由共用范围条承载：单行只显名称、不出现任何编码文本（TC-T02-02）', async () => {
+describe('C31 页头范围展示移除', () => {
+  it('页头不渲染范围展示：不挂载共用范围条、不出现三级名称与编码（S3-D23 修订）', async () => {
     await renderLoaded([amountRow()])
 
-    // 本用例环境的登录态（真实 LoginUserManager）没有三级编码，范围条按「未知」占位：
-    // 名称解析属组件层与目录反查用例的面，页面级此处固定「页头无编码」与范围条挂载两个事实。
-    expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
     const header = document.querySelector('.recognition-amounts-header') as HTMLElement
+    expect(header).not.toBeNull()
+    // 范围条（含「未知」占位形态）不再挂载；页头只保留标题与副标题。
+    expect(screen.queryByText('未知 / 未知 / 未知')).toBeNull()
+    expect(document.querySelector('.recognition-amounts-header-scope')).toBeNull()
     for (const code of ['ORG-A', 'HOS-1', 'BRA-1', 'ORG-B', 'HOS-2', 'BRA-2']) {
       expect(header.textContent).not.toContain(code)
     }
-    // 范围条不设「组织」这类文字标签，也不含名称行/编码行的旧双行结构。
-    expect(document.querySelector('.recognition-amounts-header-scope')).toBeNull()
     expect(within(header).queryByText('组织', { exact: true })).toBeNull()
   })
 
-  it('切换组织、医院选择后页头范围条不变：范围条指登录范围而非选定范围（D-05 接缝）', async () => {
+  it('切换组织、医院选择后页头仍无范围展示：范围只由正文选择器承载（S3-D23 修订）', async () => {
     await renderLoaded([amountRow()])
-    expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
 
     const second = armQuery()
     await pickScopeOption('组织', 'ORG-B')
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     await settle(second, [amountRow()])
 
-    // 范围条只反映登录可信范围，不随选择器的显式改选变化，也不出现新选定范围的编码。
-    expect(screen.getByText('未知 / 未知 / 未知')).toBeInTheDocument()
+    expect(screen.queryByText('未知 / 未知 / 未知')).toBeNull()
     const header = document.querySelector('.recognition-amounts-header') as HTMLElement
     expect(header.textContent).not.toContain('ORG-B')
   })
 })
 
-describe('TC-T02-04 可信范围不可用（平台页阻断）', () => {
-  it('token 缺失时整页只渲染标题与错误 Alert，零业务请求（TC-T02-04）', async () => {
+describe('可信范围不可用（平台页阻断）', () => {
+  it('token 缺失时整页只渲染标题与错误 Alert，零业务请求', async () => {
     authState.token = null
     renderPage()
 
@@ -1456,10 +1439,28 @@ describe('C32 行内编辑金额', () => {
     editAmount('血常规')
     expect(inlineAmountInput()).toBeInTheDocument()
 
-    pickSegment(amountStatusFilter(), '未配置')
+    await pickSelectOption(amountStatusFilter(), '未配置')
     expect(queryInlineAmountInput()).toBeNull()
     expect(save()).not.toHaveBeenCalled()
     expect(query()).toHaveBeenCalledTimes(1)
+  })
+
+  it('切换配置状态页签即收起进行中的行内编辑并放弃未保存输入（目标行仍在新档位行集内）', async () => {
+    await renderLoaded([
+      amountRow({ standardProjectCode: 'A01', standardProjectName: '血常规', currentAmount: node(12.5), isAmountConfigured: true, configurationStatus: 1 }),
+    ])
+
+    editAmount('血常规')
+    expect(inlineAmountInput()).toBeInTheDocument()
+    await change(inlineAmountInput(), '99')
+
+    // 目标行属于新档位的可见行集，但切换页签本身就收起编辑态、放弃未保存输入（S3-D25 2026-10-13 修订）。
+    clickConfigurationStatusTab('启用')
+    expect(queryInlineAmountInput()).toBeNull()
+    expect(save()).not.toHaveBeenCalled()
+    expect(query()).toHaveBeenCalledTimes(1)
+    expect(renderedCodes()).toEqual(['A01'])
+    expect(screen.getByText('12.50')).toBeInTheDocument()
   })
 
   it('搜索把目标行移出当前行集后不渲染编辑态', async () => {
@@ -1487,7 +1488,8 @@ describe('C32 行内编辑金额', () => {
 
     await change(inlineAmountInput(), '-1')
     await pressEnter(inlineAmountInput())
-    await screen.findByText('金额必须是不小于 0 且最多两位小数的数字')
+    // 就地提示渲染在当前行内（S3-D27 2026-10-12 修订）。
+    await within(rowOf('血常规')).findByText('金额必须是不小于 0 且最多两位小数的数字')
     await waitFor(() => expect(inlineAmountInput()).toHaveAttribute('aria-invalid', 'true'))
     expect(save()).not.toHaveBeenCalled()
     expect(query()).toHaveBeenCalledTimes(1)
@@ -1496,6 +1498,85 @@ describe('C32 行内编辑金额', () => {
     await change(inlineAmountInput(), '1.5')
     await waitFor(() => expect(inlineAmountInput()).not.toHaveAttribute('aria-invalid', 'true'))
     expect(inlineAmountInput().value).toBe('1.5')
+  })
+
+  it('保存按钮与回车同一条提交路径，取消按钮与 Esc 同一条放弃路径', async () => {
+    await renderLoaded([amountRow({ currentAmount: node(12.5), isAmountConfigured: true })])
+
+    // 取消按钮：收起编辑态、丢弃输入，与 Esc 同路径。
+    editAmount('血常规')
+    await change(inlineAmountInput(), '99')
+    click(screen.getByRole('button', { name: '取消修改金额：血常规' }))
+    expect(queryInlineAmountInput()).toBeNull()
+    expect(save()).not.toHaveBeenCalled()
+
+    // 保存按钮：与回车同一条提交路径，成功后收起编辑态并整表重载。
+    editAmount('血常规')
+    expect(inlineAmountInput().value).toBe('12.50')
+    await change(inlineAmountInput(), '15')
+    save().mockResolvedValueOnce(undefined)
+    const reload = armQuery()
+    click(screen.getByRole('button', { name: '保存金额：血常规' }))
+
+    await waitFor(() => expect(save()).toHaveBeenCalledTimes(1))
+    expect(save().mock.calls[0][1]).toEqual({
+      organizationCode: 'ORG-A',
+      hospitalCode: 'HOS-1',
+      branchCode: 'BRA-1',
+      standardProjectCode: 'A01',
+      currentAmount: 15,
+    })
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await settle(reload, [amountRow({ currentAmount: node(15), isAmountConfigured: true })])
+    await waitFor(() => expect(queryInlineAmountInput()).toBeNull())
+    await screen.findByText('15.00')
+  })
+
+  it('保存与取消为图标按钮，悬停提示与可访问名称同一文案', async () => {
+    await renderLoaded([amountRow({ currentAmount: node(12.5), isAmountConfigured: true })])
+
+    editAmount('血常规')
+
+    // 保存为图标主按钮、取消为图标默认按钮（S3-D27 2026-10-13 修订）：可访问名仍由 aria-label
+    // 组成（上面的按钮路径用例已覆盖点击行为），按钮文本不再出现文字。
+    const saveButton = screen.getByRole('button', { name: '保存金额：血常规' })
+    expect(saveButton).toHaveClass('ant-btn-primary', 'ant-btn-sm')
+    expect(saveButton.querySelector('.anticon-check')).not.toBeNull()
+    expect(saveButton.textContent).not.toContain('保存')
+
+    const cancelButton = screen.getByRole('button', { name: '取消修改金额：血常规' })
+    expect(cancelButton).toHaveClass('ant-btn-sm')
+    expect(cancelButton).not.toHaveClass('ant-btn-primary')
+    expect(cancelButton.querySelector('.anticon-close')).not.toBeNull()
+    expect(cancelButton.textContent).not.toContain('取消')
+
+    // 悬停提示与可访问名称同一文案；离开保存按钮再悬停取消按钮，离开动画在 jsdom 没有
+    // transitionend、残影可能滞留，按文案在任一 tooltip 节点中出现判定。
+    fireEvent.mouseEnter(saveButton)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('保存金额：血常规')
+    fireEvent.mouseLeave(saveButton)
+    fireEvent.mouseEnter(cancelButton)
+    await waitFor(() =>
+      expect(screen.getAllByRole('tooltip').some((node) => node.textContent?.includes('取消修改金额：血常规'))).toBe(true),
+    )
+  })
+
+  it('保存按钮禁用态下悬停仍出现同一文案的悬停提示', async () => {
+    await renderLoaded([amountRow({ currentAmount: node(12.5), isAmountConfigured: true })])
+
+    editAmount('血常规')
+    const pending = armQuery()
+    click(searchButton())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+
+    // 读取在途即写门控禁用保存按钮；真实浏览器里 disabled 按钮不派发悬停事件，悬停提示
+    // 须由包裹元素承接，文案仍与可访问名称一致（S3-D27 2026-10-13 修订）。
+    const saveButton = screen.getByRole('button', { name: '保存金额：血常规' })
+    await waitFor(() => expect(saveButton).toBeDisabled())
+    fireEvent.mouseEnter(saveButton)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('保存金额：血常规')
+
+    await settle(pending, [amountRow({ currentAmount: node(12.5), isAmountConfigured: true })])
   })
 })
 
@@ -1668,7 +1749,7 @@ describe('C33 可信范围变化确认框', () => {
     expect(scopeSelect('院区')).toHaveValue('BRA-1')
   })
 
-  it('只推进 token、不碰选择器：无未保存内容时按三档规则重取院区且不弹确认框', async () => {
+  it('只推进 token、不碰选择器：无未保存内容时按 S3-D22 重取院区且不弹确认框', async () => {
     trustedBranchRef.current = 'BRA-1'
     await renderLoaded([amountRow()])
 
@@ -1676,7 +1757,7 @@ describe('C33 可信范围变化确认框', () => {
     const next = armQuery()
     await resignTrustedToken('BRA-4')
 
-    // 当前组织、医院不变；可信院区 BRA-4 属于该院区清单：按档一直接选中它并据此重载（S3-D22）。
+    // 当前组织、医院不变；可信院区 BRA-4 属于该院区清单：直接选中它并据此重载（S3-D22）。
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({ organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-4' })
     expect(scopeSelect('院区')).toHaveValue('BRA-4')
@@ -1715,7 +1796,7 @@ describe('C33 可信范围变化确认框', () => {
     expect.soft(save()).not.toHaveBeenCalled()
   })
 
-  it('只推进 token、有未保存内容：确认框里不碰选择器直接放弃并切换，院区按三档规则现解析', async () => {
+  it('只推进 token、有未保存内容：确认框里不碰选择器直接放弃并切换，院区按 S3-D22 现解析', async () => {
     trustedBranchRef.current = 'BRA-1'
     await renderLoaded([amountRow()])
 
@@ -1730,7 +1811,7 @@ describe('C33 可信范围变化确认框', () => {
     click(within(dialog).getByRole('button', { name: '放弃并切换' }))
     await waitFor(() => expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false))
 
-    // 放弃并切换：按 S3-D22 三档规则现解析院区——可信 BRA-4 属于当前组织医院的清单，选中它并据此读取。
+    // 放弃并切换：按 S3-D22 现解析院区——可信 BRA-4 属于当前组织医院的清单，选中它并据此读取。
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({ organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-4' })
     await waitFor(() => expect(scopeSelect('院区')).toHaveValue('BRA-4'))
@@ -1755,7 +1836,7 @@ describe('C34 提交前现值复核', () => {
     api.recheckRecognitionAmountScope.mockImplementation(actual.recheckRecognitionAmountScope)
   })
 
-  /** 拦截提示必须齐备的三要素（Client/testPlan.md 第 42 行 C34 三场景）；提示以 message.error 承载（TC-T02-07）。 */
+  /** 拦截提示必须齐备的三要素（Client/testPlan.md 第 42 行 C34 三场景）；提示以 message.error 承载。 */
   const REASON_PATTERN = /可信范围已变化.*本次不提交写入.*切换到新可信范围/
 
   it('场景一：可信范围已变化且页面未应用（记录 BRA-1、现读缺失）：零写请求，以 message.error 给出切换到新可信范围的原因', async () => {
@@ -1782,15 +1863,15 @@ describe('C34 提交前现值复核', () => {
       layers: ['branch'],
     })
     expect(query()).toHaveBeenCalledTimes(1)
-    // 拦截原因以 message.error 反馈（TC-T02-07），且不再渲染在单元格内；旧版「页面范围为…请刷新页面后重试」不再出现。
+    // 拦截原因以 message.error 反馈，且不再渲染在单元格内；旧版「页面范围为…请刷新页面后重试」不再出现。
     expect(await screen.findByText(REASON_PATTERN)).toBeInTheDocument()
     expect(within(rowOf('血常规')).queryByText(REASON_PATTERN)).toBeNull()
     expect(within(rowOf('血常规')).queryByText(/请刷新页面后重试/)).not.toBeInTheDocument()
     expect(inlineAmountInput().value).toBe('18.00')
   })
 
-  it('场景二：档二已应用——记录的可信院区与现读同为缺失：不触发拦截，照常提交一次', async () => {
-    // S3-D22 档二：可信组织与医院在、可信院区缺失；页面按当前组织医院下的首项选定院区（BRA-1）。
+  it('场景二：可信院区缺失已应用——记录的可信院区与现读同为缺失：不触发拦截，照常提交一次', async () => {
+    // S3-D22 可信院区缺失情形：可信组织与医院在、可信院区缺失；页面按当前组织医院下的首项选定院区（BRA-1）。
     trustedOrganizationRef.current = 'ORG-A'
     trustedHospitalRef.current = 'HOS-1'
     trustedBranchRef.current = null
@@ -1868,8 +1949,8 @@ describe('C34 提交前现值复核', () => {
     await screen.findByText('8.00')
   })
 
-  it('记录的可信院区缺失而现读已有值（档二后范围变化、页面未应用）：零写请求，以 message.error 给出已变化的原因', async () => {
-    // 档二已应用：记录侧为缺失；随后宿主给出新的可信院区，页面尚未应用新可信范围。
+  it('记录的可信院区缺失而现读已有值（可信院区缺失后范围变化、页面未应用）：零写请求，以 message.error 给出已变化的原因', async () => {
+    // 可信院区缺失已应用：记录侧为缺失；随后宿主给出新的可信院区，页面尚未应用新可信范围。
     trustedBranchRef.current = null
     await renderLoaded([amountRow()])
 
@@ -1889,7 +1970,7 @@ describe('C34 提交前现值复核', () => {
       layers: ['branch'],
     })
     expect(query()).toHaveBeenCalledTimes(1)
-    // 拦截原因以 message.error 反馈（TC-T02-07），不再渲染在单元格内。
+    // 拦截原因以 message.error 反馈，不再渲染在单元格内。
     expect(await screen.findByText(REASON_PATTERN)).toBeInTheDocument()
     expect(within(rowOf('血常规')).queryByText(REASON_PATTERN)).toBeNull()
     expect(inlineAmountInput()).toBeInTheDocument()
@@ -1913,18 +1994,18 @@ describe('C35 页脚计数', () => {
 
     expect(screen.getByText('共 3 项')).toBeInTheDocument()
 
-    pickSegment(amountStatusFilter(), '未配置')
+    await pickSelectOption(amountStatusFilter(), '未配置')
     expect(screen.getByText('共 1 项')).toBeInTheDocument()
     expect(query()).toHaveBeenCalledTimes(1)
 
-    pickSegment(amountStatusFilter(), '全部')
+    await pickSelectOption(amountStatusFilter(), '全部')
     expect(screen.getByText('共 3 项')).toBeInTheDocument()
     expect(query()).toHaveBeenCalledTimes(1)
   })
 })
 
 describe('C36 读取在途写门控', () => {
-  it('读取在途时搜索主按钮呈加载态、金额格不进入编辑态，读取结束才恢复', async () => {
+  it('读取在途时框内查询图标按钮呈加载态、金额格不进入编辑态，读取结束才恢复', async () => {
     await renderLoaded([amountRow()])
 
     const pending = armQuery()
@@ -1946,7 +2027,7 @@ describe('C36 读取在途写门控', () => {
   })
 })
 
-describe('TC-T02-14 页面标题层级', () => {
+describe('页面标题层级', () => {
   it('页面大标题为 level 3', async () => {
     await renderLoaded([amountRow()])
 
@@ -1962,5 +2043,75 @@ describe('TC-T02-14 页面标题层级', () => {
     const rule = css.match(/\.recognition-amounts-header\s+h3\.ant-typography\s*\{[^}]*\}/)?.[0] ?? ''
     expect(rule).toContain('margin: 0')
     expect(css).not.toMatch(/\.recognition-amounts-header\s+h2\.ant-typography/)
+  })
+})
+
+describe('表格样式覆写提级', () => {
+  it('覆写 antd 默认样式的选择器提级到 .ant-table-wrapper 根', () => {
+    // jsdom 无布局：间距与表头底色按配套 CSS 的静态规则断言（Testing Baseline §1.4 静态证据）。
+    // antd 运行时注入的样式与未提级的覆写选择器同优先级且注入顺序靠后，未提级时宿主计算值仍是
+    // antd 默认值（宿主验收实测证据），提级后本页声明的间距与底色才生效。
+    const css = readFileSync(resolve(process.cwd(), 'src/pages/recognitionAmounts/RecognitionAmounts.css'), 'utf8')
+    const headCellRule = css.match(/\.recognition-amounts-table\.ant-table-wrapper \.ant-table-thead > tr > th\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(headCellRule).toContain('padding: 10px 12px')
+    expect(headCellRule).toContain('background: #f5f5f5')
+    const bodyCellRule = css.match(/\.recognition-amounts-table\.ant-table-wrapper \.ant-table-tbody > tr > td\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(bodyCellRule).toContain('padding: 10px 12px')
+  })
+})
+
+/**
+ * 列宽与配套版面与「互认项目」页统一（S3-D24 2026-10-13 修订，Client/design.md「列表」）：
+ * 列宽按渲染出的 col 内联宽度断言；外边距、字号、颜色等 jsdom 无布局的取值按配套 CSS 与组件
+ * 文本的静态规则断言（Testing Baseline §1.4 静态证据，与「表格样式覆写提级」同一机制）。
+ */
+describe('列表版面与互认项目页统一', () => {
+  it('类型、分类、分组列宽为 88/186/208，项目列弹性填充不带内联宽度', async () => {
+    await renderLoaded([amountRow()])
+
+    const widths = [...document.querySelectorAll<HTMLElement>('.recognition-amounts-table colgroup col')]
+      .map((col) => col.style.width)
+    // col 按列序渲染：类型、分类、分组、项目、当前金额、互认配置状态、当前不可用原因。
+    expect(widths).toEqual(['88px', '186px', '208px', '', '190px', '130px', '190px'])
+  })
+
+  it('互认配置状态徽标颜色与「互认项目」页同一推导：启用 success、停用默认色', async () => {
+    await renderLoaded([
+      amountRow({ standardProjectCode: 'A01', standardProjectName: '启用项目', configurationStatus: 1, configurationStatusText: '启用' }),
+      amountRow({ standardProjectCode: 'A02', standardProjectName: '停用项目', configurationStatus: 2, configurationStatusText: '停用' }),
+    ])
+
+    expect(rowOf('启用项目').querySelector('.ant-tag')?.classList.contains('ant-tag-success')).toBe(true)
+    const disabledTag = rowOf('停用项目').querySelector('.ant-tag')
+    expect(disabledTag?.classList.contains('ant-tag-success')).toBe(false)
+    expect(disabledTag?.classList.contains('ant-tag-warning')).toBe(false)
+  })
+
+  it('横向滚动基准与配套 CSS 版面规则取「互认项目」页同值', async () => {
+    await renderLoaded([amountRow()])
+
+    // 横向滚动基准按页面实际渲染断言（S3-D29 后列表经共用组件渲染，与医院管理员页先例同一手法）：
+    // rc-table 把该基准写成表格元素的内联宽度。
+    const scrollTable = document.querySelector<HTMLElement>('.recognition-amounts-table .ant-table-content > table')
+    expect(scrollTable?.style.width).toBe('1252px')
+
+    const css = readFileSync(resolve(process.cwd(), 'src/pages/recognitionAmounts/RecognitionAmounts.css'), 'utf8')
+    expect(css).toMatch(/\.recognition-amounts-table\.ant-table-wrapper\s*\{\s*margin-top: 14px;?\s*\}/)
+    // 页签贴合规则带 .ant-tabs 提级（与表格覆写提级同一根因：antd cssinjs 注入顺序靠后时，
+    // 未提级的同优先级覆写会被 antd 默认样式压住；导航切换路径下宿主实测过失效）。
+    expect(css).toMatch(/\.recognition-amounts-status-tabs\.ant-tabs\s*\{\s*margin-bottom: -1px;?\s*\}/)
+    expect(css).toMatch(/\.recognition-amounts-status-tabs\.ant-tabs > \.ant-tabs-nav\s*\{\s*margin-bottom: 0;?\s*\}/)
+    expect(css).toMatch(/\.recognition-amounts-filter\s*\{[^}]*gap: 8px/)
+    expect(css).toMatch(/\.recognition-amounts-filter\s*\{[^}]*margin: 16px 0 12px/)
+    // 关键字框宽度规则同样带命名空间提级（与表格覆写、页签贴合同一根因）：antd 的
+    // `:where(...).ant-input-affix-wrapper { width: 100% }` 与未提级的同优先级覆写并存时，
+    // 后注入的 antd 样式获胜，宿主实测关键字框被压成整行宽（1770px）而设计值为 320px。
+    expect(css).toMatch(/\.recognition-amounts-filter \.recognition-amounts-keyword\s*\{[^}]*width: 320px/)
+    expect(css).toMatch(/\.recognition-amounts-project-code\s*\{[^}]*color: #6b7280/)
+    expect(css).toMatch(/\.recognition-amounts-project-code\s*\{[^}]*font-size: 12px/)
+    const countRule = css.match(/\.recognition-amounts-count\s*\{[^}]*\}/)?.[0] ?? ''
+    expect(countRule).toContain('margin-top: 12px')
+    expect(countRule).toContain('tabular-nums')
+    expect(countRule).not.toContain('text-align: right')
   })
 })

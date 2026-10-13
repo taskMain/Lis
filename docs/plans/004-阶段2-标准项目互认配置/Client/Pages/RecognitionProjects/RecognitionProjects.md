@@ -9,9 +9,9 @@
 | 标题区 | 标题 + 副标题 | 页头不展示组织、医院、院区范围，不出现任何三级名称或编码（S2-D22）；可信组织由登录上下文确定，不由页面自由输入、页面不持有组织列表 |
 | 标题区 | 「新增互认项目」按钮 | 打开新增弹窗；不可操作时禁用。页头不设纯图标刷新，也不出现第二个动作 |
 | 查询区与状态页签 | 关键字输入框（框内右侧为查询图标按钮）、列表上沿的配置状态页签 | 关键字以输入原文为草稿，点击查询图标或在输入框内回车时**按该关键字向服务端查询配置列表**（页面读取只有配置列表 1 次），返回值即匹配集合，本地不再按关键字判定；配置状态页签切换即生效、只在服务端结果上本地裁剪、不触发读取；不设重置控件、不设独立刷新控件；读取在途时查询图标按钮进入 `loading` 形态，列表内行内操作一并禁用；提交后可见行集随之变化，行内编辑态一并清除（与改变本地筛选同一理由） |
-| 列视图 | 类型｜分类｜分组｜项目四栏恒定全显 | 行集是**本组织已配置的互认项目**（有效目录中未配置的项目不进列表），行的名称、类型、分类、分组与层级结构由配置列表查询实时关联标准目录交付，页面不再单独读取标准目录；层级格只在其名下存在已配置项目时出现；类型格与分类格纵向跨其名下全部行以表达从属关系；不展示创建/修改人与时间，不展示「标准目录有效」「可用于新匹配」；层级格按 `content-visibility: auto` 声明离屏跳过渲染 |
-| 项目行 | 编码 + 名称、配置状态徽标、可互认时间、启停 | 只呈现本组织已配置的行（含目录已停用但配置仍在的行）；停用配置仍可修改时间；启停独立确认，不改动其它字段；读取在途时行内操作一并禁用 |
-| 行内编辑（可互认时间） | 正整数天数输入 + 保存 / 取消 | 点击时间值进入编辑，同值也照常提交；非法输入拒绝保存、保留输入并就地提示；编辑器以当前行的天数为键重新挂载，因此后台刷新交付新值后回填当前值；目标行离开当前行集时不渲染编辑态 |
+| 列视图 | 类型｜分类｜分组｜项目｜可互认时间｜互认配置状态｜当前不可用原因｜操作八列恒定全显，列表由 antd `Table` 承载（S2-D16 2026-10-13 修订（第二次）） | 行集是**本组织已配置的互认项目**（有效目录中未配置的项目不进列表），行的名称、类型、分类、分组与层级结构由配置列表查询实时关联标准目录交付，页面不再单独读取标准目录；层级格只在其名下存在已配置项目时出现；类型、分类、分组格经 `rowSpan` 纵向跨其名下全部行以表达从属关系；层级格为纯文字样式（无分级底色与字重），样式口径与「互认项目金额维护」页一致；可互认时间、互认配置状态、当前不可用原因与操作各自独立成列，承载与款式同「互认项目金额维护」页对应列；不展示创建/修改人与时间，不展示「标准目录有效」「可用于新匹配」；层级单元格按 `content-visibility: auto` 声明离屏跳过渲染 |
+| 项目行 | 项目列编码 + 名称；可互认时间、互认配置状态徽标（含「目录已停用」）、当前不可用原因、启停按钮各在独立列 | 只呈现本组织已配置的行（含目录已停用但配置仍在的行）；停用配置仍可修改时间；启停独立确认，不改动其它字段；读取在途时行内操作一并禁用 |
+| 行内编辑（可互认时间） | 正整数天数输入 + 保存 / 取消（图标按钮） | 点击时间值进入编辑，同值也照常提交；非法输入拒绝保存、保留输入并就地提示；编辑器以当前行的天数为键重新挂载，因此后台刷新交付新值后回填当前值；目标行离开当前行集时不渲染编辑态；输入框弹性适配列宽 |
 | 新增弹窗 | 关键字搜索、全选当前结果、标准项目（按分类/分组分组）、可互认时间（天）、「重新读取」 | 本页**唯一的选择面**：打开时重新读取可新增标准项目（一次查询即「有效目录 − 本组织已配置」），可选集合按本次查询计算；关键字搜索按该关键字向服务端查询可新增标准项目、结果即当前搜索结果；「全选当前结果」一次勾选当前搜索结果的全部可新增项目，与层级整组勾选并存；选择条数超过单批上限（1000）时本地拦截并给出条数说明；项目行整行是勾选命中区；只提交标准项目编码 + 正整数天数；**不提交组织编码**；重读后剔除已失效的勾选并说明剔除条数 |
 | 启停确认框 | 确认文案 + 危险按钮（停用时） | 只改配置自身状态 |
 | 组织变化确认框 | 「放弃并切换」/「取消」 | 有未保存内容时确认放弃；取消保留内容并进入待切换提示态 |
@@ -25,7 +25,7 @@
 | 首次加载 | 挂载且可信组织可用 | 只读（写入口全禁用） | 成功 → 就绪；失败 → 读取失败 |
 | 就绪 | 配置列表读取成功（弹窗可选集合由弹窗自己的可新增项目查询交付，见补充规则） | 全部 | 搜索提交（条件为空时等价于刷新）/ 写操作 / 组织变化 |
 | 加载中（重新读取） | 页面进入、提交搜索、切换组织或写入成功后的重载 | 只读 | 同首次加载 |
-| 读取失败 | 任一读取源失败 | 只读 + 重试；**保留旧数据** | 重试成功 → 就绪 |
+| 读取失败 | 配置列表读取失败 | 只读 + 重试；**保留旧数据** | 重试成功 → 就绪 |
 | 写操作中 | 提交流程进行中 | 全部禁用；重复点击不再发请求 | 写成功 → 收起写界面并重载；写失败 → 保留写界面与输入 |
 | 刷新失败（写入成功后） | 写成功但随后的重载失败 | 只读 + 重试；**不改判为写失败** | 重试成功 → 就绪 |
 | 组织待切换（confirming） | 可信组织变化（宿主重新签发 token）且存在未保存内容 | 只读；二选一 | 确认放弃 → 清空并加载目标组织；取消 → 组织待切换（deferred） |
@@ -41,19 +41,19 @@
 | 编号 | 实现位置 | 待验证层级 |
 |---|---|---|
 | C1 | 查询入参 `organizationCode` 取自 `LoginUserManager.getOrgID()` | Component（声明层级为 Component；宿主菜单进入属 Ticket 08 的页面级验收，不改本用例声明的层级） |
-| C2 | 页面的 `selectableItems`（来自 `querySelectableStandardItems` 的可新增项目查询结果）与 `toSelectableColumnView`（弹窗可选集合；页面本体不出现未配置行） | Component |
+| C2 | 页面的 `catalogItems`（来自 `querySelectableStandardItems` 的可新增项目查询结果）与 `toSelectableColumnView`（弹窗可选集合；页面本体不出现未配置行） | Component |
 | C3 | 已配置项目的排除由服务端判定（可新增项目查询「有效目录 − 本组织已配置」，后端矩阵 V35 + SQL 语句 `QuerySelectableStandardItemList`）；客户端不再持有排除集合 | Component/Host（组件层由弹窗打开即取服务端查询结果覆盖，宿主层见 F23 宿主取证） |
 | C6 / C20 | `parseRecognitionDurationDays` / `buildDurationUpdatePayload` / 行内编辑 | Component/Host（Host 层归 Ticket 08） |
 | C8 | 启停确认框（取消、关闭、确认三分支） | Component/Host（Host 层归 Ticket 08） |
 | C10 | `requestIdRef` 请求序号守卫 | Component |
-| C11 / C15 | `Promise.allSettled` 合并 + `loadFailure` 阻断态（阻断态同时冻结新增弹窗与启停确认框的确定按钮、行内编辑的保存） | Component |
+| C11 / C15 | 配置列表查询失败进入 `loadFailure` 阻断态（阻断态同时冻结新增弹窗与启停确认框的确定按钮、行内编辑的保存） | Component |
 | C17 | 目标组织加载失败时不进入可操作状态、不误用旧组织数据 | Component（Host 层见末行） |
 | C13 / C14 | 加载 effect + `loading` 禁用写入口（`loading` 期间写界面同样冻结） | C13 Component/Host（Host 层归 Ticket 08）；C14 Component |
 | C16 | `applyOrganization` 统一清空列表、选择数据、筛选与弹窗 | Component |
 | C18 | 组织变化确认框 + 派生的 `switchPending` / `switchConfirming` / `switchDeferred`（取消记录在 `dismissedOrganizationCode`）；组织未对齐期间写界面冻结、提交前 `submitWrite` 以可信组织复核 | Component |
 | C19 | `submittingRef` 同步去重 | Component |
 | C21 | 写成功后 `load(..., 'refreshAfterWrite')` | Component |
-| C23 | `buildCreateConfigurationRequest` / `buildConfigurationListQuery` / `toConfigurationRows` | Component/Typecheck |
+| C23 | `buildBatchCreateConfigurationRequest` / `buildConfigurationListQuery` / `toConfigurationRows` | Component/Typecheck |
 | C35 | 弹窗关键字搜索（按关键字向服务端查询可新增标准项目）、全选当前结果、超单批上限的本地拦截 | Component/Host（Host 层归 Ticket 08） |
 | C36 | 已生效筛选与地址栏查询参数的双向一致（进入按参数初始化、条件变化回写、输入原文不写入） | Component/Host（Host 层归 Ticket 08） |
 | C37 | 弹窗可选集合来自可新增项目查询（打开即发起、失败只在弹窗内提示） | Component/Host（Host 层归 Ticket 08） |
@@ -75,22 +75,22 @@
 - **读取在途的写门控**：搜索、页面进入、切换组织与写入后的重载共用同一个读取状态，因此读取在途期间列表内的行内操作（改可互认时间、启停）与新增入口一律禁用（`canWrite` 含 `!loading`）。旧数据在这段时间只能查看、不能被修改，避免出现「看着旧数据还能改」。
 - **页头不展示三级范围（S2-D22）**：页头只有标题、副标题与主按钮，不出现组织、医院、院区名称或编码；页面不再发起范围查询，读取成败只按配置列表判定。可信组织的名称展示由共用范围查询与共用范围条组件承担，供金额、报告、统计等页面使用，本页不渲染该组件。
 - **新增弹窗的就地重读与发现能力（S2-D17、S2-D25、S2-D26、S2-D29）**：弹窗是本页唯一的选择面；打开时重新读取可新增标准项目（一次可新增项目查询，不重读配置列表），可选集合按本次查询结果计算，不沿用页面最近一次读取的快照；弹窗内提供文字「重新读取」；重读后已不在可选集合中的勾选被剔除并给出条数说明（不静默剔除）；整批创建被服务端拒绝时可就地重读（「重新读取」常驻弹窗底部；写失败文案由宿主统一展示，页面不自行捕获写失败，故入口不依赖页面知道失败原因）。弹窗自带**关键字搜索**（按该关键字向服务端查询可新增标准项目、结果即当前搜索结果）与**全选当前结果**（一次勾选当前搜索结果的全部可新增项目，与层级整组勾选并存）；选择条数超过单批上限（1000）时本地拦截并给出条数说明、不发请求；项目行整行是勾选命中区。
-- **长列表（S2-D28）**：层级格按 `content-visibility: auto` 声明离屏跳过渲染并给出固有尺寸估计；不做真正的窗口化（四栏跨行网格与变量行高下窗口化需重写版面），划分页口径仍按 S2-D7。
+- **长列表（S2-D28：长列表离屏渲染，定义见阶段 [design.md](../../design.md) 决策台账）**：层级单元格按 `content-visibility: auto` 声明离屏跳过渲染并给出固有尺寸估计；不做真正的窗口化（层级格跨行合并与变量行高下窗口化需另行处理跨行合并），划分页口径仍按 S2-D7。
 - **异步提示的可访问性**：读取失败提示、写入成功待刷新提示、弹窗内的提交失败与剔除说明、行内校验提示都在渲染位置上声明 `aria-live="polite"`；弹窗内容区声明 `overscroll-behavior: contain`，可点元素声明 `touch-action: manipulation`。
 - **不分页**（S2-D7）、**不展示创建修改信息**（S2-D9）、**不新增权限模型、错误拦截器、业务错误类型、状态管理库、依赖**。
 - **行标识规则**：行标识优先取接口唯一键 `configurationId`；缺失时用业务字段组合（标准项目编码、项目类型、名称、分类、分组）；同一组业务字段完全相同的多行只在组内回退到出现序号，保证行标识唯一、行内操作控件不串位。该序号不参与任何业务判定，也不作为字段提交或展示。**唯一性断言按 `data-row-key` 实际值**：组件层用例「业务字段完全相同的多行互不串位，操作与数值都指向各自那一行」取渲染到行上的 `data-row-key` 两两不同作为判据，不依赖 React 的重复 key 告警文本。
 - **页面状态只持页面视图模型**：配置行为适配层交付的行模型，行集只含本组织已配置项；弹窗的可选集合为可新增项目查询返回结果摊平后的候选集（`SelectableStandardItem[]`），由弹窗自己的读取维护，不进入页面读取状态；生成读模型（如 `EffectiveMedicalStandardCatalogReadModel`）只作为读取响应经过加载函数，不进入页面状态，契约形状变化在适配层吸收。
 - **枚举元数据不是组织范围数据**：服务端按 `enumName` 返回进程级静态枚举表（成员取值与中文），不读业务数据、不按调用方组织过滤；页面只在**可信组织可用**时请求（组织范围不可用时页面整体为阻断分支，不渲染需要枚举文案的区域，此时发请求只会产生一次必定被丢弃的调用）。缓存身份为「API Client 实例 + 枚举名」；若该接口将来改为按组织交付文案，缓存键与失效时机必须同步加入身份维度。
 - **空态与计数口径**：本组织零配置时显示本组织空态文案并保留主按钮作为唯一入口（S2-D16 之后列表行数与计数同源，"列表为空"只可能是零配置）；有条件但未命中时显示未命中空态文案；页脚报**当前显示条数**（「共 M 项配置」，S2-D24）。
-- **目录停用原因的截断**：原因在项目行内按固定上限截断（`max-width: 180px` 配 `text-overflow: ellipsis`），完整原因同时挂在元素的 `title` 上；视口变化下的截断位置由 CSS 决定。
+- **目录停用原因的截断**：原因在「当前不可用原因」列按列宽截断（`Table` 列 `ellipsis`，190px 列宽减单元格内边距），完整原因同时挂在单元格的 `title` 上；截断位置随列宽与视口变化。
 - 适配层不创建 Client、不读取 token、不解析平台错误响应；I/O 出口已接入生成的 **6** 个端点（Ticket 06/07 交付的 5 个见第 6 节；第 6 个是可新增标准项目查询 `querySelectableStandardItemList`，见 S2-D29）。
 
 ## 6. Ticket 06 之后的收敛项（Ticket 07 已执行）
 
 Ticket 07 已完成接线，`recognitionProjectsApi.ts` 中原有的手写契约镜像与占位出口已全部收敛；页面与测试只经适配层取类型，不存在第二套契约来源：
 
-1. **手写镜像类型替换为生成类型**：`RecognitionProjectConfigurationReadModel`、`EffectiveMedicalStandardCatalog*` 已删除，改为从 `@dy/api-client-medical-recognition` 导入生成类型；`ConfigurationListQuery` 的查询体由生成类型 `RecognitionProjectConfigurationListQueryRequest` 承载；`CreateConfigurationPayload` / `DurationUpdatePayload` / `EnabledUpdatePayload` 保留为**写前置校验载荷**（只含业务必填字段，不含生成端的 `changedProperties`/`additionalData`），在 I/O 出口逐字段展开为生成请求，页面仍不接触 Kiota 模型。
+1. **手写镜像类型替换为生成类型**：`RecognitionProjectConfigurationReadModel`、`EffectiveMedicalStandardCatalog*` 已删除，改为从 `@dy/api-client-medical-recognition` 导入生成类型；`ConfigurationListQuery` 的查询体由生成类型 `RecognitionProjectConfigurationListQueryRequest` 承载；`BatchCreateConfigurationPayload` / `DurationUpdatePayload` / `EnabledUpdatePayload` 保留为**写前置校验载荷**（只含业务必填字段，不含生成端的 `changedProperties`/`additionalData`），在 I/O 出口逐字段展开为生成请求，页面仍不接触 Kiota 模型。
 2. **数值枚举取值**：枚举契约缺陷已于 2026-09-16 修复（批次 10）：后端 OpenAPI 声明 `enum`/`x-enumNames`/`x-enumDescriptions`，生成入口归一并重生成后 `configurationStatus` / `itemType` 为 `number | null` 且走数值写出，缺陷期的空对象类型与回退类型已消失（见阶段 `testReport.md` 的枚举契约修复节）。适配层仍保留 `MEDICAL_ITEM_TYPES` / `CONFIGURATION_STATUSES` 最小映射作为取值来源与本地兜底，取值须与后端枚举声明一致（生成端不产出 TypeScript 枚举），未知取值一律映射为 `null`，页面只有这一套枚举判定。
-3. **`pendingIntegration()` 已彻底移除**：出口均调用生成端点（`queryRecognitionProjectConfigurationList`、`querySelectableStandardItemList`、`createMutualRecognitionItem`、`updateMutualRecognitionItemConfiguration`、`enableMutualRecognitionItem` / `disableMutualRecognitionItem`），无静默成功、无返回空集合、无硬编码 URL。
+3. **`pendingIntegration()` 已彻底移除**：出口均调用生成端点（`queryRecognitionProjectConfigurationList`、`querySelectableStandardItemList`、`createMutualRecognitionItems`、`updateMutualRecognitionItemConfiguration`、`enableMutualRecognitionItem` / `disableMutualRecognitionItem`），无静默成功、无返回空集合、无硬编码 URL。
 
 **配置状态筛选不下推服务端**：配置状态是离散二选一、保留「切换即生效」的交互，下推会把一次点击变成一次读取；关键字已按 S2-D29 下推，页面在服务端结果上只对配置状态做本地裁剪。

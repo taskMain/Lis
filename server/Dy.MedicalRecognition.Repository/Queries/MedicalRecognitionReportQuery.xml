@@ -123,7 +123,7 @@
     </Statement>
     <!--
       功能：查询指定组织范围内的互认项目配置，并实时关联标准项目所属分类、分组和标准项目，取得展示资料与标准目录三层的启用状态。
-      结果：返回互认配置标识、标准项目编码、标准项目名称、项目类型、分类名称、分组名称、可互认时间天数、配置启用状态，以及分类、分组和标准项目三层的启用状态；按标准项目编码升序、配置标识升序稳定排序，不分页；未传关键字或配置状态时对应条件不参与过滤；关键字按字面包含同时匹配标准项目编码、名称、分类名称与分组名称且不区分大小写。
+      结果：返回互认配置标识、标准项目编码、标准项目名称、项目类型、分类名称、分组名称、可互认时间天数、配置启用状态，以及分类、分组和标准项目三层的启用状态；按项目类型、分类名称、分组名称、标准项目名称逐级升序返回，名称相同再按分类、分组、项目与配置标识升序兜底，不分页；未传关键字或配置状态时对应条件不参与过滤；关键字按字面包含同时匹配标准项目编码、名称、分类名称与分组名称且不区分大小写。
     -->
     <Statement Id="QueryRecognitionProjectConfigurationList" ParameterMap="MedicalRecognitionBooleanParameters">
       select
@@ -159,12 +159,12 @@
         or lower(g.name) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
       )</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入关键字时按四列字面包含匹配，任一列命中即返回 -->
       <IsNotEmpty Prepend="and" Property="IsValid">m.is_valid = $IsValid</IsNotEmpty>  <!-- 可选筛选：按配置启用状态过滤，调用方已把启用/停用换算为布尔值，SQL 只比较布尔列 -->
-      order by m.standard_project_code asc, m.id asc  <!-- 排序：按标准项目编码升序，并以配置标识作为稳定兜底键；同一组织内配置编码唯一，兜底键只保证顺序稳定 -->
+      order by c.item_type asc, c.name asc, c.id asc, g.name asc, g.id asc, i.name asc, i.id asc, m.id asc  <!-- 排序：与有效目录查询一致，按项目类型、分类名称、分组名称、标准项目名称逐级升序，名称相同再按分类、分组、项目与配置标识升序兜底；配置标识为该行集的稳定兜底键，保证「互认项目」页与两个金额页共用同一层级名称序 -->
     </Statement>
 
     <!--
       功能：查询当前可信组织尚未建立互认配置、且三级均启用的标准项目目录，供新增互认项目选择。
-      结果：与有效目录同形（项目类型、分类、分组、标准项目），按项目类型、分类、分组、项目名称、项目标识稳定排序；不分页。
+      结果：与有效目录同形（项目类型、分类、分组、标准项目），按项目类型、分类名称、分组名称、标准项目名称逐级升序，名称相同再按分类、分组、项目标识升序兜底；不分页。
     -->
     <Statement Id="QuerySelectableStandardItemList">
       select
@@ -202,13 +202,13 @@
         or lower(c.name) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
         or lower(g.name) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
       )</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入关键字时按四列字面包含匹配，任一列命中即返回 -->
-      order by c.item_type asc, c.id asc, g.id asc, i.name asc, i.id asc  <!-- 排序：与有效目录查询一致，保证同一份数据下顺序稳定 -->
+      order by c.item_type asc, c.name asc, c.id asc, g.name asc, g.id asc, i.name asc, i.id asc  <!-- 排序：与有效目录查询一致，按项目类型、分类名称、分组名称、标准项目名称逐级升序，名称相同再按分类、分组、项目标识升序兜底，保证同一份数据下两次查询层级顺序一致 -->
     </Statement>
     <!--
       功能：查询指定组织、医院与院区范围内的互认项目金额列表，供平台管理员与医院管理员两个金额维护页面按标准项目查看当前金额与配置状态。
       结果：行集由该组织已建立的互认配置驱动，因此行数等于该组织已配置的标准项目数，包含配置已停用的项目、不筛配置启用状态；
       每行返回标准项目编码、标准项目名称、项目类型、分类名称、分组名称、当前金额、配置启用状态与标准目录三层的启用状态；
-      未配置金额的行金额列为空值，由应用层表达为“未配置”，不以 0 冒充；按标准项目编码升序返回，不分页；
+      未配置金额的行金额列为空值，由应用层表达为“未配置”，不以 0 冒充；按项目类型、分类名称、分组名称、标准项目名称逐级升序返回，名称相同再按分类、分组、项目与配置标识升序兜底，不分页；
       未传标准项目编码或关键字时对应条件不参与过滤；关键字按字面包含同时匹配标准项目编码、标准项目名称、所属分类名称与所属分组名称且不区分大小写。
     -->
     <Statement Id="QueryRecognitionAmountList">
@@ -263,7 +263,7 @@
         or lower(c.name) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
         or lower(g.name) like concat('%', lower(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_')), '%') escape '!'
       )</IsNotEmpty>  <!-- 可选筛选：仅当调用方传入关键字时按四列字面包含匹配，任一列命中即返回 -->
-      order by m.standard_project_code asc  <!-- 排序：按标准项目编码升序；同一组织内配置编码唯一，因此该键即为稳定顺序键，不分页也不做分页截断 -->
+      order by c.item_type asc, c.name asc, c.id asc, g.name asc, g.id asc, i.name asc, i.id asc, m.id asc  <!-- 排序：与有效目录查询一致，按项目类型、分类名称、分组名称、标准项目名称逐级升序，名称相同再按分类、分组、项目与配置标识升序兜底；配置标识为该行集的稳定兜底键，不分页也不做分页截断 -->
     </Statement>
 
     <!--

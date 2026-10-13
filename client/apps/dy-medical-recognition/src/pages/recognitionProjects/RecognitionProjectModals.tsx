@@ -222,7 +222,7 @@ export function RecognitionProjectBatchCreateModal({
   onSubmit: () => Promise<void>
 }) {
   /**
-   * 本地拦截原因按字段就近展示（TC-T02-07 字段级红字）：选择面的原因（未勾选、超上限）与
+   * 本地拦截原因按字段就近展示（message 反馈口径：字段级红字）：选择面的原因（未勾选、超上限）与
    * 可互认时间的原因（天数非法）各持一份，渲染在对应字段下方；只作弹窗内的即时反馈，
    * 不参与请求构造——真正的零写请求由页面按载荷构造结果拦截。
    */
@@ -296,7 +296,7 @@ export function RecognitionProjectBatchCreateModal({
 
   const submit = async () => {
     // 三条本地拦截都保留输入与选择，且不发出写请求：未勾选时无处提交，超上限与天数非法时提交必被服务端拒绝；
-    // 原因以字段级红字就近提示（TC-T02-07），弹窗保持打开、用户输入原样保留。
+    // 原因以字段级红字就近提示（message 反馈口径），弹窗保持打开、用户输入原样保留。
     if (selection.size === 0) {
       setSelectionError('请先勾选要新增的标准项目')
       return
@@ -345,7 +345,7 @@ export function RecognitionProjectBatchCreateModal({
         onPressEnter={() => onKeywordSearch(keywordDraft)}
       />
       {/*
-        弹窗查询按钮逐字符合全站统一规格（TC-T02-06）：`aria-label` 声明可访问名称——`SearchOutlined`
+        弹窗查询按钮逐字符合全站统一规格（框内查询图标按钮规格）：`aria-label` 声明可访问名称——`SearchOutlined`
         自带英文 `aria-label`，会参与按钮名称计算，不声明就会读成「search 查询」；`autoInsertSpace={false}`
         关闭两汉字间自动插入的空格，使按钮文本与可访问名称都是「查询」。`htmlType='submit'` 在
         查询区 Form 化后获得表单提交语义，当前无 Form 包裹不改变行为。
@@ -382,7 +382,7 @@ export function RecognitionProjectBatchCreateModal({
             : '标准目录数据待刷新'}
         />
       </div>
-      {/* 选择面的拦截原因以字段级红字落在选择区下方（TC-T02-07），不用 Alert；清除时机见 changeSelection。 */}
+      {/* 选择面的拦截原因以字段级红字位于选择区下方（message 反馈口径），不用 Alert；清除时机见 changeSelection。 */}
       {selectionError === null ? null : <div className='recognition-projects-batch-error'>
         <Typography.Text type='danger'>{selectionError}</Typography.Text>
       </div>}
@@ -408,7 +408,7 @@ export function RecognitionProjectBatchCreateModal({
         onClick={selectAllVisible}
       >全选当前结果</Button>
       <span className='recognition-projects-batch-count'>已选 {selection.size} 项</span>
-      {/* 天数拦截原因落在输入框正下方（TC-T02-07 字段级红字）；外层块级包裹让红字换行到字段下方，
+      {/* 天数拦截原因位于输入框正下方（message 反馈口径：字段级红字）；外层块级包裹让红字换行到字段下方，
           同时保持页脚 flex 布局把「标签 + 输入 + 原因」作为一个整体参与换行。 */}
       <div>
         <span className='recognition-projects-batch-days'>

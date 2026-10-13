@@ -6,7 +6,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
 /// <summary>
 /// 互认项目配置列表查询条件；关键字与状态筛选可选，缺省表示全部，同时传入时取交集。
 /// </summary>
-/// <remarks>按标准项目编码升序返回，不分页；关键字按字面包含同时匹配标准项目编码、名称、所属分类名称与所属分组名称（S2-D29）。</remarks>
+/// <remarks>按项目类型、分类名称、分组名称、标准项目名称逐级升序返回，名称相同再按分类、分组、项目与配置标识升序兜底，不分页；关键字按字面包含同时匹配标准项目编码、名称、所属分类名称与所属分组名称（S2-D29）。</remarks>
 public sealed record RecognitionProjectConfigurationListQueryRequest
 {
   /// <summary>

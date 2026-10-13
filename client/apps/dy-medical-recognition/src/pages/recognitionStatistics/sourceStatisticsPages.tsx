@@ -9,7 +9,7 @@
  * 只统计被互认次数，无金额、无明细类型切换与不采纳原因区（C22）；
  * 平台页来源组与接收组的组织、医院、院区三级都由页面选择并随请求提交；
  * 本院页来源组织与来源医院取可信上下文并固定展示，请求不提交这两项（由服务端注入），
- * 来源院区恒为登录院区（D-05，不提供院区选择；缺失属权限配置错误，页面零业务请求、以空态呈现，
+ * 来源院区恒为登录院区（不提供院区选择；缺失属权限配置错误，页面零业务请求、以空态呈现，
  * 服务端全院统计契约仅为接口面保留（S6-D1），前端已不按其触发），
  * 接收组只提交医院与院区（接收组织恒为可信组织）。
  * 来源侧明细不提供匹配记录入口（S6-D10），页面不注入匹配记录查询出口。
@@ -180,7 +180,7 @@ function SourceStatisticsPage({ version }: { version: StatisticsPageVersion }) {
     return built === null ? null : exportSourceStatistics(client, built, request.downloadFileName)
   }, [client, version])
 
-  // 本院页（D-05）：本侧院区恒为登录院区，作为初始条件交给主体；缺失属权限配置错误，查询出口经
+  // 本院页：本侧院区恒为登录院区（不提供院区选择），作为初始条件交给主体；缺失属权限配置错误，查询出口经
   // 适配层构造返回 null 阻断，主体零业务请求并以 missingScopeText 空态呈现（文案与金额、报告页同款）。
   const branchInitialFilters = useMemo<StatisticsFilters>(
     () => ({ ...initialFilters, ownBranchCode: trustedBranchCode ?? undefined }),

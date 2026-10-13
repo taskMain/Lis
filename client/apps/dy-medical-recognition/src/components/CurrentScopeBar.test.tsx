@@ -1,5 +1,5 @@
 /**
- * 页头当前范围条 CurrentScopeBar 的 Component 层用例（TC-T02-01、TC-T02-03、TC-T02-05 的组件面）。
+ * 页头当前范围条 CurrentScopeBar 的 Component 层用例（三级名称渲染、名称反查失败、随登录上下文取数的组件面）。
  *
  * 装配边界（遵循 Frontend Testing 第 2 节「mock 位于 Client/适配层边界，并保持真实契约形态」）：
  * 1. `@dy/api-client-base` 只替换 `createBaseApiClient`，替身交付与生成契约同形的
@@ -137,7 +137,7 @@ beforeEach(() => {
   baseClientRef.current = null
 })
 
-describe('TC-T02-01 三级名称渲染', () => {
+describe('页头范围条三级名称渲染', () => {
   it('三级名称齐全时渲染单行「组织名 / 医院名 / 院区名」，不含任何编码文本', async () => {
     givenOrganizationName('ORG-A', '组织甲')
     const { getHospitalById, getBranchById } = givenDirectory({
@@ -220,7 +220,7 @@ describe('TC-T02-01 三级名称渲染', () => {
   })
 })
 
-describe('TC-T02-03 名称反查失败', () => {
+describe('名称反查失败', () => {
   it('目录反查 reject 的层级显示「未知」，不渲染错误提示，其余层级正常', async () => {
     authState.state.organizationCode = 'ORG-6A'
     authState.state.hospitalCode = 'HOS-6A'
@@ -250,7 +250,7 @@ describe('TC-T02-03 名称反查失败', () => {
   })
 })
 
-describe('TC-T02-05 范围条随登录上下文（本批面：名称来自可信上下文与目录反查）', () => {
+describe('范围条随登录上下文（名称来自可信上下文与目录反查）', () => {
   it('token 重新签发且三级编码换绑后，范围条重新求值并展示新范围名称', async () => {
     authState.state.organizationCode = 'ORG-8A'
     authState.state.hospitalCode = 'HOS-8A'

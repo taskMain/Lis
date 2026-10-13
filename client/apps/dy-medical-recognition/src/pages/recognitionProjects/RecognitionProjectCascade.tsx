@@ -1,5 +1,5 @@
 /**
- * 互认项目列视图：类型｜分类｜分组｜项目四栏同时摊开，纵向位置表达从属关系。
+ * 互认项目列视图（新增弹窗专用）：类型｜分类｜分组｜项目四栏同时摊开，纵向位置表达从属关系。
  *
  * 版面用 CSS Grid 的显式定位表达：每个单元格自己声明 `gridColumn` 与 `gridRow`，不依赖自动排布。
  * 表头在第 1 行，正文的第一个分组行在第 2 行；一个分组占一行网格，该分组的全部项目行纵向排在
@@ -8,24 +8,36 @@
  *
  * 边界：本组件只负责渲染与点击回调，不读取组织、不发起请求、不做业务判断，
  * 也不持有高亮状态——高亮由调用方给出，点击只把被点中的层级格回传。
- * 层级格的用途由调用方决定：页面用它定位（高亮），新增弹窗用它整组勾选，
- * 后者通过 `levelActionText` 与 `renderLevelExtra` 复用同一套布局，不另建一套。
+ * 页面列表已改为 antd Table 承载（S2-D16 2026-10-13 修订），本组件只服务新增弹窗：
+ * 弹窗把层级格用作整组勾选，经 `levelActionText` 与 `renderLevelExtra` 复用同一套布局。
  *
  * 无障碍：层级格是原生 `button` 直接作为网格项，网格项默认在两条轴上拉伸，整个格因此都是点击区域，
  * 格内空白处同样可点；项目格只承载项目行与行内操作，自身不承担点击语义。
  */
 import type { ReactNode } from 'react'
-import type {
-  MedicalItemTypeValue,
-  RecognitionProjectColumnRow,
-  RecognitionProjectColumnView,
+import {
+  RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS,
+  type RecognitionProjectColumnRow,
+  type RecognitionProjectColumnView,
 } from './recognitionProjectsApi'
+import {
+  isCategoryHighlighted,
+  isGroupHighlighted,
+  isItemTypeHighlighted,
+  type RecognitionProjectHighlight,
+} from './recognitionProjectsHighlight'
 
-/** 被点中的层级格：只标识位置，不携带任何写操作。 */
-export type RecognitionProjectHighlight =
-  | { level: 'itemType'; itemType: MedicalItemTypeValue | null }
-  | { level: 'category'; itemType: MedicalItemTypeValue | null; categoryName: string }
-  | { level: 'group'; itemType: MedicalItemTypeValue | null; categoryName: string; groupName: string }
+// 高亮的目标类型与判定与页面列表（antd Table）共用 `recognitionProjectsHighlight`；
+// 本文件继续原样转出该类型，新增弹窗的既有导入路径不变。
+export type { RecognitionProjectHighlight } from './recognitionProjectsHighlight'
+
+/**
+ * 类型、分类、分组三列宽取共享常量（与页面表格列宽同一份事实，S2-D16）；项目列弹性占满剩余宽度，
+ * 下界 560px 保证窄视口下项目名与编码仍能横向摊开，不足部分由外层滚动容器承载。
+ */
+const GRID_TEMPLATE_COLUMNS = `${RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS.itemType}px `
+  + `${RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS.category}px `
+  + `${RECOGNITION_PROJECT_LEVEL_COLUMN_WIDTHS.group}px minmax(560px, 1fr)`
 
 export interface RecognitionProjectCascadeProps {
   /** 当前展示的列视图；空数组时只渲染空态，不渲染表头与网格。 */
@@ -58,53 +70,6 @@ const TYPE_COLUMN = 1
 const CATEGORY_COLUMN = 2
 const GROUP_COLUMN = 3
 const ITEM_COLUMN = 4
-
-/*
- * 三条判定对应规格 §4.1 的三种被点中的层级格，彼此互斥：一次点击只点亮被点中的格与它的下级，
- * 上层的格不因下级被点中而点亮。因此：
- * - 点类型格 → 该类型格、其下全部分类格、其下全部分组格；
- * - 点分类格 → 该分类格、其下全部分组格，类型格保持未高亮；
- * - 点分组格 → 只有该分组格，分类格与类型格都保持未高亮。
- */
-
-/**
- * 类型格高亮判定：只在该类型格本身被点中时成立。
- * 项目类型缺失的类型格同样参与判定，点它只高亮它自己与它的下级。
- */
-function isItemTypeHighlighted(highlight: RecognitionProjectHighlight | null, itemType: MedicalItemTypeValue | null): boolean {
-  return highlight !== null && highlight.level === 'itemType' && highlight.itemType === itemType
-}
-
-/**
- * 分类格高亮判定：所属类型格被点中时，该类型下的全部分类格一并高亮；
- * 分类格自己或它的下级分组格被点中时，只有它自己（或更下层）点亮。
- */
-function isCategoryHighlighted(
-  highlight: RecognitionProjectHighlight | null,
-  itemType: MedicalItemTypeValue | null,
-  categoryName: string,
-): boolean {
-  if (highlight === null) return false
-  if (highlight.level === 'itemType') return highlight.itemType === itemType
-  if (highlight.level === 'category') return highlight.itemType === itemType && highlight.categoryName === categoryName
-  return false
-}
-
-/**
- * 分组格高亮判定：所属分类格或所属类型格被点中时，该分组一并高亮；
- * 分组格自己被点中时按类型、分类、分组三者同时相等判定，因此点分组格只点亮该分组。
- */
-function isGroupHighlighted(
-  highlight: RecognitionProjectHighlight | null,
-  itemType: MedicalItemTypeValue | null,
-  categoryName: string,
-  groupName: string,
-): boolean {
-  if (highlight === null) return false
-  if (highlight.level === 'itemType') return highlight.itemType === itemType
-  if (highlight.level === 'category') return highlight.itemType === itemType && highlight.categoryName === categoryName
-  return highlight.itemType === itemType && highlight.categoryName === categoryName && highlight.groupName === groupName
-}
 
 /** 层级格的样式类：基础类提供整格可点与定位所需的外观，高亮类只改变背景，便于按类名定位与断言。 */
 function levelClassName(kind: 'item-type' | 'category' | 'group', highlighted: boolean): string {
@@ -243,5 +208,5 @@ export function RecognitionProjectCascade({
     cells.push(...typeCells)
   }
 
-  return <div className='recognition-projects-cascade'>{cells}</div>
+  return <div className='recognition-projects-cascade' style={{ gridTemplateColumns: GRID_TEMPLATE_COLUMNS }}>{cells}</div>
 }

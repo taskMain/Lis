@@ -6,7 +6,7 @@
  * 1. `./reportsApi` 只替换 4 个 I/O 出口，其余纯函数使用真实实现，行夹具经真实适配层 `toReportPage` 归一；
  * 2. `../../contexts/ApiClientContext` 只提供占位 client；
  * 3. 可信组织与可信医院两个接缝被替换为可控值，用于构造「可信范围就绪」与「可信范围不可用」两类场景。
- *    页面无范围选择器（D-05：院区恒取登录院区），不依赖 `@dy/components-base`，无需替换该包。
+ *    页面无范围选择器（院区恒取登录院区、不提供院区选择），不依赖 `@dy/components-base`，无需替换该包。
  *
  * 仍属 Host 层、不在本文件覆盖：真实宿主菜单进入、宿主统一错误提示与真实后端链路（C27–C31）。
  */
@@ -122,16 +122,16 @@ beforeEach(() => {
   api.downloadReportVersionPdf.mockResolvedValue(undefined)
 })
 
-describe('C23 医院管理员页可信范围（D-05）', () => {
+describe('C23 医院管理员页可信范围（院区恒取登录院区）', () => {
   it('组织与医院固定展示，页面无院区选择器', async () => {
     await renderLoaded()
 
     // 页头范围区由共用范围条承载：本用例环境的真实 LoginUserManager 无登录编码，三级按「未知」占位，
-    // 且页头不出现任何组织、医院编码文本（TC-T02-02）。
+    // 且页头不出现任何组织、医院编码文本（页头范围条名称渲染口径）。
     expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
     expect(document.querySelector('.report-management-header')?.textContent).not.toContain('ORG-A')
     expect(document.querySelector('.report-management-header')?.textContent).not.toContain('HOS-1')
-    // D-05：院区恒取登录院区，页面不再提供院区选择，不渲染任何院区选择项。
+    // 院区恒取登录院区：页面不再提供院区选择，不渲染任何院区选择项。
     expect(screen.queryByRole('combobox', { name: '院区' })).not.toBeInTheDocument()
   })
 
@@ -152,7 +152,7 @@ describe('C23 医院管理员页可信范围（D-05）', () => {
 
     expect(await screen.findByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveClass('ant-alert-error')
-    // 阻断态标题与正常态同一层级（TC-T02-14）。
+    // 阻断态标题与正常态同一层级（标题层级口径）。
     expect(screen.getByRole('heading', { name: '本院报告管理与历史版本', level: 3 })).toBeInTheDocument()
     // 阻断态不渲染院区选择项，也不发起列表查询。
     expect(screen.queryByRole('combobox', { name: '院区' })).not.toBeInTheDocument()
@@ -160,7 +160,7 @@ describe('C23 医院管理员页可信范围（D-05）', () => {
   })
 })
 
-describe('C24 医院管理员页登录院区与范围重置（D-05）', () => {
+describe('C24 医院管理员页登录院区与范围重置', () => {
   it('登录院区缺失属权限配置错误：零业务请求并以空态呈现', async () => {
     trustedScopeRef.hospital = { kind: 'ready', hospitalCode: 'HOS-1', branchCode: null }
     renderPage()
@@ -235,20 +235,20 @@ describe('C25 医院管理员页列表与详情', () => {
 })
 
 describe('C26 医院管理员页接口失败', () => {
-  it('列表读取失败不渲染错误横幅：保留数据、结束加载、点查询可重试、无本地错误提示（D-06、TC-T02-11）', async () => {
+  it('列表读取失败不渲染错误横幅：保留数据、结束加载、点查询可重试、无本地错误提示（读取失败形态：纯读取失败不渲染横幅）', async () => {
     await renderLoaded([generatedRow()])
 
     const failing = deferred<unknown>()
     api.queryBranchReportPage.mockReturnValueOnce(failing.promise)
     const { fireEvent } = await import('@testing-library/react')
-    // 页头刷新按钮已移除：查询按钮是重读唯一入口（T02 提交式筛选）。
+    // 页头刷新按钮已移除：查询按钮是重读唯一入口（提交式筛选）。
     fireEvent.click(screen.getByRole('button', { name: '查询' }))
     await waitFor(() => expect(api.queryBranchReportPage).toHaveBeenCalledTimes(2))
 
     const { act: actFn } = await import('@testing-library/react')
     await actFn(async () => { failing.reject(new Error('读取失败')) })
 
-    // D-06：读取失败不渲染错误横幅（错误由宿主统一提示），已有数据保留。
+    // 既定口径：读取失败不渲染错误横幅（错误由宿主统一提示），已有数据保留。
     expect(screen.getByText('R-1')).toBeInTheDocument()
     expect(screen.queryByText('报告列表数据待刷新')).not.toBeInTheDocument()
     expect(screen.queryByText(/待刷新|读取失败/)).not.toBeInTheDocument()
@@ -266,7 +266,7 @@ describe('C26 医院管理员页接口失败', () => {
   })
 })
 
-describe('TC-T02-14 页面标题层级', () => {
+describe('页面标题层级', () => {
   it('页面大标题为 level 3（正常态由共用主体渲染，阻断态断言见阻断用例）', async () => {
     await renderLoaded([generatedRow()])
 

@@ -428,7 +428,7 @@ describe('统计主体：明细表与匹配记录弹窗（C13、C14、C16、C17�
   })
 })
 
-describe('统计主体：明细表三行式（TC-T02-13）', () => {
+describe('统计主体：明细表三行式', () => {
   it('接收侧明细表来源方、接收方各一列，单元格三行只显名称，院区行为灰色小字，无归属编码列', async () => {
     renderBoard()
 
@@ -475,7 +475,7 @@ describe('统计主体：明细表三行式（TC-T02-13）', () => {
   })
 })
 
-describe('统计主体：下钻联动与导出入口（C12、C15、TC-T02-09）', () => {
+describe('统计主体：下钻联动与导出入口（C12、C15、下钻经提交路径重读）', () => {
   it('点击汇总指标数字预填筛选草稿并自动提交一次：汇总与明细各重读一次，明细类型切换即时生效', async () => {
     renderBoard()
     await waitSummaryText('医院一')
@@ -489,7 +489,7 @@ describe('统计主体：下钻联动与导出入口（C12、C15、TC-T02-09）'
       1,
       { pageIndex: 1, pageSize: 10 },
     ))
-    // 下钻走提交路径：一次提交同时重读汇总（TC-T02-09）。
+    // 下钻走提交路径：一次提交同时重读汇总（提交重读口径）。
     expect(summaryQuery).toHaveBeenCalledTimes(2)
     expect(detailsQuery).toHaveBeenCalledTimes(2)
 
@@ -509,7 +509,7 @@ describe('统计主体：下钻联动与导出入口（C12、C15、TC-T02-09）'
       3,
       expect.anything(),
     ))
-    // 提交路径同时重读汇总（TC-T02-09）。
+    // 提交路径同时重读汇总（提交重读口径）。
     expect(summaryQuery).toHaveBeenCalledTimes(2)
   })
 
@@ -541,7 +541,7 @@ describe('统计主体：下钻联动与导出入口（C12、C15、TC-T02-09）'
   })
 })
 
-describe('统计主体：提交式筛选与查询区（TC-T02-08、TC-T02-09、TC-T02-16）', () => {
+describe('统计主体：提交式筛选与查询区（提交式筛选、提交重读、查询区结构）', () => {
   it('范围与筛选改动只进草稿零请求；点查询后汇总与明细各重读一次并携带全部已生效条件', async () => {
     renderBoard()
     await waitSummaryText('医院一')
@@ -557,7 +557,7 @@ describe('统计主体：提交式筛选与查询区（TC-T02-08、TC-T02-09、T
     fireEvent.change(screen.getByLabelText('标准项目编码筛选'), { target: { value: 'A01' } })
     fireEvent.change(screen.getByLabelText('互认医生筛选'), { target: { value: 'DOC-9' } })
 
-    // 草稿改动不发起任何请求（TC-T02-08）。
+    // 草稿改动不发起任何请求（提交式筛选口径）。
     expect(summaryQuery).toHaveBeenCalledTimes(1)
     expect(detailsQuery).toHaveBeenCalledTimes(1)
 
@@ -570,7 +570,7 @@ describe('统计主体：提交式筛选与查询区（TC-T02-08、TC-T02-09、T
         itemType: 1,
         standardProjectCode: 'A01',
       }), 1, expect.anything()))
-    // 一次提交同时重读汇总与明细（TC-T02-09）；互认医生只进明细查询。
+    // 一次提交同时重读汇总与明细（提交重读口径）；互认医生只进明细查询。
     await waitFor(() => expect(detailsQuery).toHaveBeenLastCalledWith(
       expect.objectContaining({
         receiverHospitalCode: 'HOS2',
@@ -581,7 +581,7 @@ describe('统计主体：提交式筛选与查询区（TC-T02-08、TC-T02-09、T
     expect(detailsQuery).toHaveBeenCalledTimes(2)
   })
 
-  it('重置清空草稿并恢复默认条件，按默认条件重读（TC-T02-08）', async () => {
+  it('重置清空草稿并恢复默认条件，按默认条件重读（提交式筛选口径）', async () => {
     renderBoard()
     await waitSummaryText('医院一')
 
@@ -602,7 +602,7 @@ describe('统计主体：提交式筛选与查询区（TC-T02-08、TC-T02-09、T
     expect(screen.getByLabelText('互认科室筛选')).toHaveValue('')
   })
 
-  it('视图切换即时生效，翻页基于已生效条件读取（TC-T02-10）', async () => {
+  it('视图切换即时生效，翻页基于已生效条件读取', async () => {
     summaryQuery.mockImplementation(() =>
       Promise.resolve({ items: [usageSummaryRow], pageIndex: 1, pageSize: 10, totalCount: 40 }))
     renderBoard()
@@ -626,7 +626,7 @@ describe('统计主体：提交式筛选与查询区（TC-T02-08、TC-T02-09、T
       expect.anything(), 2, { pageIndex: 1, pageSize: 10 }))
   })
 
-  it('明细类型切换即时生效且不进草稿（TC-T02-10）', async () => {
+  it('明细类型切换即时生效且不进草稿', async () => {
     renderBoard()
     await waitSummaryText('医院一')
 
@@ -635,7 +635,7 @@ describe('统计主体：提交式筛选与查询区（TC-T02-08、TC-T02-09、T
     expect(summaryQuery).toHaveBeenCalledTimes(1)
   })
 
-  it('查询区为 inline Form，查询与重置在行内最后一个 Form.Item 内并排（TC-T02-16）', async () => {
+  it('查询区为 inline Form，查询与重置在行内最后一个 Form.Item 内并排（查询区结构口径）', async () => {
     renderBoard()
 
     const form = document.querySelector('.statistics-board-filters form')
@@ -652,7 +652,7 @@ describe('统计主体：提交式筛选与查询区（TC-T02-08、TC-T02-09、T
   })
 })
 
-describe('统计主体：范围筛选与本院形态（TC-T02-05、TC-T02-08）', () => {
+describe('统计主体：范围筛选与本院形态（范围随登录上下文取数、提交式筛选）', () => {
   it('本院形态：无本院院区选择，请求院区恒为登录院区；对侧医院、院区选择经草稿提交', async () => {
     renderBoard(boardProps({
       scopeKey: 'ORG-A|HOS-1|BRA1',
@@ -664,7 +664,7 @@ describe('统计主体：范围筛选与本院形态（TC-T02-05、TC-T02-08）'
     // 本院页范围区的只读编码副文案由共用范围条取代：本用例环境无登录编码，三级按「未知」占位。
     expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
     expect(screen.queryByText(/可信范围（只读）/)).not.toBeInTheDocument()
-    // D-05：本院页不再渲染本院院区选择，请求院区参数恒为登录院区。
+    // 院区恒取登录院区：本院页不再渲染本院院区选择，请求院区参数恒为登录院区。
     expect(screen.queryByRole('group', { name: '本院院区' })).toBeNull()
     expect(summaryQuery).toHaveBeenCalledWith(
       expect.objectContaining({ ownBranchCode: 'BRA1' }), 1, expect.anything())
@@ -674,7 +674,7 @@ describe('统计主体：范围筛选与本院形态（TC-T02-05、TC-T02-08）'
     expect(oppositeGroup.getAllByRole('combobox')).toHaveLength(2)
     fireEvent.change(oppositeGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS2' } })
     fireEvent.change(oppositeGroup.getByRole('combobox', { name: '院区' }), { target: { value: 'BRA2' } })
-    // 草稿改动零请求（TC-T02-08）。
+    // 草稿改动零请求（提交式筛选口径）。
     expect(summaryQuery.mock.calls.length).toBe(callCountAfterInitial)
 
     fireEvent.click(screen.getByRole('button', { name: '查询' }))
@@ -742,7 +742,7 @@ describe('统计主体：判定面替身取证（C9、C13、C18、C19）', () =>
     expect(within(summarySection()).queryByText('医院一')).toBeNull()
   })
 
-  it('汇总读取失败不渲染错误横幅：已有数据保留、加载态结束，点查询重试成功（C18、D-06、TC-T02-11）', async () => {
+  it('汇总读取失败不渲染错误横幅：已有数据保留、加载态结束，点查询重试成功（C18、读取失败形态：纯读取失败不渲染横幅）', async () => {
     renderBoard()
     await waitSummaryText('医院一')
 
@@ -753,7 +753,7 @@ describe('统计主体：判定面替身取证（C9、C13、C18、C19）', () =>
     // 让失败落地：拒绝在微任务即被读取入口吸收，一轮宏任务后加载态必然结束。
     await act(async () => {})
 
-    // D-06：读取失败不渲染错误横幅（错误由宿主统一提示）；已有数据保留，具体错误文本不进入页面。
+    // 既定口径：读取失败不渲染错误横幅（错误由宿主统一提示）；已有数据保留，具体错误文本不进入页面。
     expect(within(summarySection()).getByText('医院一')).toBeInTheDocument()
     expect(within(summarySection()).queryByText('汇总数据待刷新')).toBeNull()
     expect(within(detailsSection()).queryByText('明细数据待刷新')).toBeNull()
@@ -809,7 +809,7 @@ describe('统计主体：判定面替身取证（C9、C13、C18、C19）', () =>
     expect(summaryQuery).toHaveBeenCalledTimes(3)
   })
 
-  it('互认医生筛选改动只进草稿，点查询后随明细查询请求提交（C13、TC-T02-08）', async () => {
+  it('互认医生筛选改动只进草稿，点查询后随明细查询请求提交（C13、提交式筛选口径）', async () => {
     renderBoard()
     await waitSummaryText('医院一')
 
@@ -859,7 +859,7 @@ describe('统计主体：判定面替身取证（C9、C13、C18、C19）', () =>
   })
 })
 
-describe('TC-T02-14 页面标题层级', () => {
+describe('页面标题层级', () => {
   it('页面大标题为 level 3，margin 归零（统计页无配套 CSS，由标题内联样式承载）', () => {
     renderBoard()
 

@@ -554,7 +554,7 @@ describe('四栏层级列视图：类型 → 分类 → 分组 → 项目行', (
   const amountRow = (overrides: Partial<RecognitionAmountReadModelLike>): RecognitionAmountRow =>
     toRecognitionAmountRows([readModel(overrides)])[0]
 
-  it('按类型、分类、分组归类排序，类型格与分类格记录跨其名下全部行的行数', () => {
+  it('按输入行序折叠：类型、分类、分组的格次序与组内项目行序都与输入一致，层级归属与行数不变', () => {
     const view = toRecognitionAmountColumnView([
       amountRow({ standardProjectCode: 'B02', itemType: 1, categoryName: 'CHECK-CAT', groupName: 'G2' }),
       amountRow({ standardProjectCode: 'A03', itemType: 0, categoryName: 'LAB-CAT', groupName: 'G2' }),
@@ -563,23 +563,26 @@ describe('四栏层级列视图：类型 → 分类 → 分组 → 项目行', (
       amountRow({ standardProjectCode: 'A00', itemType: 0, categoryName: 'B-CAT', groupName: 'G9' }),
     ])
 
-    expect(view.types.map((type) => type.itemType)).toEqual([0, 1])
-    const [labType, checkType] = view.types
-    expect(labType.itemTypeText).toBe('检验')
-    expect(labType.rowSpan).toBe(4)
+    // 输入以「检查」行开头：类型格的次序与输入首次出现的次序一致（行序由服务端交付，本层只折叠）。
+    expect(view.types.map((type) => type.itemType)).toEqual([1, 0])
+    const [checkType, labType] = view.types
     expect(checkType.itemTypeText).toBe('检查')
     expect(checkType.rowSpan).toBe(1)
+    expect(labType.itemTypeText).toBe('检验')
+    expect(labType.rowSpan).toBe(4)
 
-    expect(labType.categories.map((category) => category.categoryName)).toEqual(['B-CAT', 'LAB-CAT'])
-    expect(labType.categories[0].rowSpan).toBe(1)
-    expect(labType.categories[1].rowSpan).toBe(3)
+    // 分类格按该类型内首次出现的次序排列：LAB-CAT 先于 B-CAT。
+    expect(labType.categories.map((category) => category.categoryName)).toEqual(['LAB-CAT', 'B-CAT'])
+    expect(labType.categories[0].rowSpan).toBe(3)
+    expect(labType.categories[1].rowSpan).toBe(1)
 
-    const labCategory = labType.categories[1]
-    expect(labCategory.groups.map((group) => group.groupName)).toEqual(['G1', 'G2'])
-    expect(labCategory.groups[0].rowSpan).toBe(2)
-    expect(labCategory.groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A01', 'A02'])
-    expect(labCategory.groups[1].rowSpan).toBe(1)
-    expect(labCategory.groups[1].rows.map((row) => row.standardProjectCode)).toEqual(['A03'])
+    // 分组格按该分类内首次出现的次序排列，组内项目行保持输入行序。
+    const labCategory = labType.categories[0]
+    expect(labCategory.groups.map((group) => group.groupName)).toEqual(['G2', 'G1'])
+    expect(labCategory.groups[0].rowSpan).toBe(1)
+    expect(labCategory.groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A03'])
+    expect(labCategory.groups[1].rowSpan).toBe(2)
+    expect(labCategory.groups[1].rows.map((row) => row.standardProjectCode)).toEqual(['A01', 'A02'])
 
     const checkCategory = checkType.categories[0]
     expect(checkCategory.rowSpan).toBe(1)
@@ -587,21 +590,22 @@ describe('四栏层级列视图：类型 → 分类 → 分组 → 项目行', (
     expect(checkCategory.groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['B02'])
   })
 
-  it('未知类型排在已知类型之后，组内按标准项目编码升序', () => {
+  it('同名行归入同一格：未知类型的位置随输入行序，组内项目行保持输入行序', () => {
     const view = toRecognitionAmountColumnView([
       amountRow({ standardProjectCode: 'A05', itemType: 7, categoryName: 'CAT', groupName: 'G' }),
       amountRow({ standardProjectCode: 'A02', itemType: 0, categoryName: 'CAT', groupName: 'G' }),
       amountRow({ standardProjectCode: 'A01', itemType: 0, categoryName: 'CAT', groupName: 'G' }),
     ])
 
-    expect(view.types.map((type) => type.itemType)).toEqual([0, null])
-    expect(view.types[0].itemTypeText).toBe('检验')
-    expect(view.types[1].itemTypeText).toBe('未知类型')
-    expect(view.types[0].categories[0].groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A01', 'A02'])
-    expect(view.types[1].categories[0].groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A05'])
+    // 未知类型在输入中最先出现，其类型格就排在最前，类型数值没有单独的排序规则。
+    expect(view.types.map((type) => type.itemType)).toEqual([null, 0])
+    expect(view.types[0].itemTypeText).toBe('未知类型')
+    expect(view.types[1].itemTypeText).toBe('检验')
+    expect(view.types[0].categories[0].groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A05'])
+    expect(view.types[1].categories[0].groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A02', 'A01'])
   })
 
-  it('分类名与分组名为空时按空串参与升序，空值排在同类型同级的最前', () => {
+  it('分类名与分组名为 null 时按独立键折叠，格次序随输入首次出现的次序', () => {
     const view = toRecognitionAmountColumnView([
       amountRow({ standardProjectCode: 'A04', categoryName: 'B分类', groupName: 'G2' }),
       amountRow({ standardProjectCode: 'A03', categoryName: 'B分类', groupName: null }),
@@ -610,20 +614,22 @@ describe('四栏层级列视图：类型 → 分类 → 分组 → 项目行', (
     ])
 
     const [labType] = view.types
-    // 分类级：`null` 按空串升序，排在非空分类之前；同为 `null` 的行归入同一分类格。
-    expect(labType.categories.map((category) => category.categoryName)).toEqual([null, 'B分类'])
     expect(labType.rowSpan).toBe(4)
+    // 分类级：B分类 先出现排在前，null 分类在后；同名行的 `null` 归入同一分类格。
+    expect(labType.categories.map((category) => category.categoryName)).toEqual(['B分类', null])
+    expect(labType.categories[0].rowSpan).toBe(2)
+    expect(labType.categories[1].rowSpan).toBe(2)
 
-    // 分组级：同一分类内 `null` 分组同样按空串升序排在最前。
-    const nullCategory = labType.categories[0]
-    expect(nullCategory.groups.map((group) => group.groupName)).toEqual([null, 'G1'])
-    expect(nullCategory.groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A01'])
-    expect(nullCategory.groups[1].rows.map((row) => row.standardProjectCode)).toEqual(['A02'])
+    // 分组级：null 与具名分组各自成格，格次序随输入。
+    const bCategory = labType.categories[0]
+    expect(bCategory.groups.map((group) => group.groupName)).toEqual(['G2', null])
+    expect(bCategory.groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A04'])
+    expect(bCategory.groups[1].rows.map((row) => row.standardProjectCode)).toEqual(['A03'])
 
-    const bCategory = labType.categories[1]
-    expect(bCategory.groups.map((group) => group.groupName)).toEqual([null, 'G2'])
-    expect(bCategory.groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A03'])
-    expect(bCategory.groups[1].rows.map((row) => row.standardProjectCode)).toEqual(['A04'])
+    const nullCategory = labType.categories[1]
+    expect(nullCategory.groups.map((group) => group.groupName)).toEqual(['G1', null])
+    expect(nullCategory.groups[0].rows.map((row) => row.standardProjectCode)).toEqual(['A02'])
+    expect(nullCategory.groups[1].rows.map((row) => row.standardProjectCode)).toEqual(['A01'])
   })
 
   it('项目行承载编码、名称、当前金额、已配置标记、配置状态值与其中文、不可用原因', () => {
@@ -888,7 +894,7 @@ describe('保存前的可信范围复核：不一致即失败，院区层按缺�
     expect(result.reason).toContain('院区')
   })
 
-  it('院区层：记录与现读同为缺失即通过（可信院区缺失属 S3-D22 档二正常形态）', () => {
+  it('院区层：记录与现读同为缺失即通过（可信院区缺失属 S3-D22 正常形态）', () => {
     // 两侧都为 null：缺失归一后相等，给出通过结论（旧口径在这里把现读侧给成读不到）。
     const bothNull = recheckRecognitionAmountScope({
       applied: platformScope({ branchCode: null }),

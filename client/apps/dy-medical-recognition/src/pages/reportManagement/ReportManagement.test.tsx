@@ -552,7 +552,7 @@ describe('C11 首次进入自动加载第一页与筛选区形态', () => {
     // 范围不完整：适配层会拒绝构造请求，页面据此不下发部分范围查询，也不退化为全局查询。
     expect(query()).not.toHaveBeenCalled()
     expect(screen.getByText('请选择组织、医院与院区后查看报告')).toBeInTheDocument()
-    // 页头刷新按钮已移除：查询是重读唯一入口（T02 提交式筛选）。
+    // 页头刷新按钮已移除：查询是重读唯一入口（提交式筛选）。
     expect(screen.queryByLabelText('重新读取报告列表')).toBeNull()
     expect(screen.getByRole('button', { name: '查询' })).toBeInTheDocument()
   })
@@ -581,7 +581,7 @@ describe('C11 首次进入自动加载第一页与筛选区形态', () => {
   })
 })
 
-describe('TC-T02-08 提交式筛选', () => {
+describe('提交式筛选', () => {
   it('筛选改动只进草稿零请求；点查询按已生效条件与第 1 页读取', async () => {
     await renderLoaded([generatedRow()])
     expect(query()).toHaveBeenCalledTimes(1)
@@ -619,7 +619,7 @@ describe('TC-T02-08 提交式筛选', () => {
     await act(async () => { reset.resolve(listResponse([generatedRow()], 1, 10, 1)) })
   })
 
-  it('查询区为 inline Form，查询与重置在行内最后一个 Form.Item 内并排（TC-T02-16）', async () => {
+  it('查询区为 inline Form，查询与重置在行内最后一个 Form.Item 内并排（查询区结构口径）', async () => {
     await renderLoaded([generatedRow()])
 
     const form = document.querySelector('.report-management-filters form')
@@ -637,7 +637,7 @@ describe('TC-T02-08 提交式筛选', () => {
     expect(sharedItem).toBe(reset.closest('.ant-form-item'))
   })
 
-  it('来源方一列三行式：组织、医院、灰色小字院区，无来源组织/医院/院区独立列（TC-T02-13）', async () => {
+  it('来源方一列三行式：组织、医院、灰色小字院区，无来源组织/医院/院区独立列（三行式单元格口径）', async () => {
     await renderLoaded([generatedRow()])
 
     const table = screen.getByRole('table')
@@ -735,7 +735,7 @@ describe('C14 空结果', () => {
 })
 
 describe('C15 列表加载失败与重试', () => {
-  it('查询失败不渲染错误横幅：旧数据保留、结束加载态，点查询可重试成功（D-06、TC-T02-11）', async () => {
+  it('查询失败不渲染错误横幅：旧数据保留、结束加载态，点查询可重试成功（读取失败形态：纯读取失败不渲染横幅）', async () => {
     await renderLoaded([generatedRow()])
 
     const failing = deferred<unknown>()
@@ -744,7 +744,7 @@ describe('C15 列表加载失败与重试', () => {
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     await act(async () => { failing.reject(new Error('读取失败')) })
 
-    // D-06：读取失败不渲染错误横幅（错误由宿主统一提示），已有数据保留。
+    // 既定口径：读取失败不渲染错误横幅（错误由宿主统一提示），已有数据保留。
     expect(screen.getByText('R-1')).toBeInTheDocument()
     expect(screen.queryByText('报告列表数据待刷新')).not.toBeInTheDocument()
     expect(screen.queryByText(/待刷新|读取失败/)).not.toBeInTheDocument()
@@ -945,14 +945,14 @@ describe('C20 详情内 PDF 下载', () => {
     await act(async () => { pending.resolve() })
   })
 
-  it('下载失败不渲染错误横幅：详情与版本选择保留、不重载列表、下载入口恢复（D-06）', async () => {
+  it('下载失败不渲染错误横幅：详情与版本选择保留、不重载列表、下载入口恢复（纯读取失败不渲染横幅）', async () => {
     await renderLoaded([generatedRow()])
     await openDetail('R-1', [versionRow()], laboratoryDetail())
 
     download().mockRejectedValueOnce(new Error('下载失败'))
     click(screen.getByLabelText('下载第 2 版 PDF'))
 
-    // D-06：下载失败同样不渲染错误横幅（错误由宿主统一提示）；失败落地的观测点是下载入口恢复可用。
+    // 既定口径：下载失败同样不渲染错误横幅（错误由宿主统一提示）；下载失败后的观测点是下载入口恢复可用。
     await waitFor(() => expect(screen.getByLabelText('下载第 2 版 PDF')).toBeEnabled())
     expect(screen.queryByText('报告 PDF 下载未完成')).not.toBeInTheDocument()
     expect(screen.queryByText(/待刷新|下载未完成/)).not.toBeInTheDocument()
@@ -1073,7 +1073,7 @@ describe('C10 过期响应丢弃与提交在途门禁', () => {
   })
 })
 
-describe('TC-T02-14 页面标题层级', () => {
+describe('页面标题层级', () => {
   it('页面大标题为 level 3', async () => {
     await renderLoaded([generatedRow()])
 

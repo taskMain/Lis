@@ -12,7 +12,7 @@
  * 3. 当页为空且总数为正时按服务端总数回退到最后一页一次，避免越界页长期空转；
  * 4. 同一筛选条件下的连续操作只采纳最后一次请求结果，过期响应直接丢弃。
  *
- * 失败面四类（列表读取、版本列表读取、版本详情读取、PDF 下载）都只做本层恢复（D-06）：
+ * 失败面四类（列表读取、版本列表读取、版本详情读取、PDF 下载）都只做本层恢复（既定口径：纯读取失败不渲染横幅）：
  * 读取失败不渲染错误横幅——静默保留已有数据与当前版本选择、结束加载态；错误由宿主统一提示，
  * 列表重试经查询按钮，版本内容经重新选择版本恢复。不解析错误响应体、不新增请求拦截器。
  */
@@ -75,7 +75,7 @@ function PartyCell(props: { organizationName?: string | null; hospitalName?: str
 }
 
 /**
- * 列表读取失败态（D-06）：不渲染横幅，状态仅用于挂起「空页自愈」（失败时旧数据与旧总数
+ * 列表读取失败态（既定口径）：不渲染横幅，状态仅用于挂起「空页自愈」（失败时旧数据与旧总数
  * 不是服务端事实，自愈不得基于它们触发）。
  */
 type ListFailure = null | 'load'
@@ -250,7 +250,7 @@ export function ReportManagementBoard<Query>({
     return () => window.clearTimeout(task)
   }, [listFailure, loading, pageIndex, pageSize, reload, rows.length, scopeKey, totalCount])
 
-  /** 读取某个版本的内容；失败保留当前版本选择与上一个版本的已有内容，结束加载态（D-06，无横幅）。 */
+  /** 读取某个版本的内容；失败保留当前版本选择与上一个版本的已有内容，结束加载态（既定口径：不渲染横幅）。 */
   const loadVersionDetail = useCallback(async (reportId: string, reportVersionId: string) => {
     const requestId = ++detailRequestIdRef.current
     setSelectedVersionId(reportVersionId)
@@ -263,7 +263,7 @@ export function ReportManagementBoard<Query>({
     } catch {
       if (requestId !== detailRequestIdRef.current) return
       setDetailLoading(false)
-      // 详情读取失败保留当前版本选择与上一个版本的已有内容；错误由宿主统一提示（D-06）。
+      // 详情读取失败保留当前版本选择与上一个版本的已有内容；错误由宿主统一提示（既定口径）。
     }
   }, [queryDetail])
 
@@ -289,7 +289,7 @@ export function ReportManagementBoard<Query>({
       void loadVersionDetail(reportId, versions[versions.length - 1].reportVersionId)
     } catch {
       if (requestId !== versionRequestIdRef.current) return
-      // 版本列表读取失败保留空态详情；错误由宿主统一提示（D-06，无横幅）。
+      // 版本列表读取失败保留空态详情；错误由宿主统一提示（既定口径：不渲染横幅）。
       setVersionsLoading(false)
     }
   }, [loadVersionDetail, queryVersions])
@@ -305,7 +305,7 @@ export function ReportManagementBoard<Query>({
 
   /**
    * 下载指定版本的 PDF：下载名取该版本保存的下载名。
-   * 下载失败保留当前详情与版本选择、不重载列表、不把失败路径当成功；错误由宿主统一提示（D-06，无横幅）。
+   * 下载失败保留当前详情与版本选择、不重载列表、不把失败路径当成功；错误由宿主统一提示（既定口径：不渲染横幅）。
    */
   const download = async (row: ReportVersionRow) => {
     if (detail === null) return
@@ -384,7 +384,7 @@ export function ReportManagementBoard<Query>({
 
     {selector}
 
-    {/* 查询区（D-02、TC-T02-16）：inline Form 承载草稿控件；查询、重置位于行内最后一个 Form.Item 内并排。 */}
+    {/* 查询区（D-02）按查询区结构口径：inline Form 承载草稿控件；查询、重置位于行内最后一个 Form.Item 内并排。 */}
     <div className='report-management-filters'>
       <Form layout='inline' onFinish={submitDraft}>
         <Form.Item>
@@ -459,7 +459,7 @@ export function ReportManagementBoard<Query>({
         <Form.Item>
           <Space wrap>
             {/*
-              查询按钮逐字符合全站统一规格（TC-T02-06/16）：`aria-label` 声明可访问名称——
+              查询按钮逐字符合全站统一规格（框内查询图标按钮与查询区结构规格）：`aria-label` 声明可访问名称——
               `SearchOutlined` 自带英文 `aria-label`，会参与按钮名称计算，不声明就会读成「search 查询」；
               `autoInsertSpace={false}` 关闭 antd 对两个汉字之间自动插入的空格；颜色继承宿主主题 token，
               不覆盖样式。提交触发重新读取，读取在途时按钮进入 `loading`（与列表页同款，在途期间
@@ -480,7 +480,7 @@ export function ReportManagementBoard<Query>({
       </Form>
     </div>
 
-    {/* 读取失败不渲染错误横幅（D-06）：失败静默保留旧数据，错误由宿主统一提示，重试经查询按钮。 */}
+    {/* 读取失败不渲染错误横幅（既定口径）：失败静默保留旧数据，错误由宿主统一提示，重试经查询按钮。 */}
     <Table
       rowKey='rowIdentity'
       size='small'

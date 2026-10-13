@@ -2,7 +2,7 @@
  * 「本院报告管理与历史版本」医院管理员页
  * （宿主路径 `/subApps/medical-recognition/branch-report-management`）。
  *
- * 组织与医院取可信上下文并固定展示；院区恒取 `LoginUserManager.getBranchID()` 的登录院区（D-05），
+ * 组织与医院取可信上下文并固定展示；院区恒取 `LoginUserManager.getBranchID()` 的登录院区，
  * 不提供院区选择，查询请求只携带登录院区与筛选条件（组织与医院由服务端从可信上下文注入）。
  * 登录院区缺失属权限配置错误：页面不兜底、不伪造院区、不本地补默认，适配层对空院区拒绝构造请求
  * （`buildBranchReportListQuery` 返回 `null`，范围不可用），页面零业务请求并以空态呈现，
@@ -37,7 +37,7 @@ export function BranchReportManagement() {
   const organizationCode = trustedOrganization.kind === 'ready' ? trustedOrganization.organizationCode : null
   const hospitalCode = trustedHospital.kind === 'ready' ? trustedHospital.hospitalCode : null
   const trustedBranchCode = trustedHospital.kind === 'ready' ? trustedHospital.branchCode : null
-  /** 院区恒取登录院区（D-05）；缺失时为 `undefined`，由适配层拒绝构造请求实现零业务请求。 */
+  /** 院区恒取登录院区（不提供院区选择）；缺失时为 `undefined`，由适配层拒绝构造请求实现零业务请求。 */
   const branchId = trustedBranchCode ?? undefined
 
   /**
@@ -90,7 +90,7 @@ export function BranchReportManagement() {
   return <ReportManagementBoard<BranchReportListQuery>
     title='本院报告管理与历史版本'
     subtitle={<CurrentScopeBar />}
-    // D-05：本院页无范围选择器（院区恒取登录院区），选择器位置传空即不渲染。
+    // 本院页无范围选择器（院区恒取登录院区、不提供院区选择），选择器位置传空即不渲染。
     selector={null}
     // 登录院区缺失（权限配置错误）时的空态文案，与金额本院页同口径。
     missingScopeText='当前登录身份未携带院区，无法查询本院报告'

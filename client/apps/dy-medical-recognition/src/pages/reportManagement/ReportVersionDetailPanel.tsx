@@ -6,7 +6,7 @@
  * 差异比较、修改、删除、恢复、重新设为当前版本或重新启用，也不展示更正原因与版本变更原因。
  *
  * 失败面三类落在本区域：版本列表读取失败、版本详情读取失败与 PDF 下载失败。
- * 三者都不渲染错误横幅（D-06）：静默保留已有数据与当前版本选择、结束加载态；错误由宿主统一提示，
+ * 三者都不渲染错误横幅：静默保留已有数据与当前版本选择、结束加载态；错误由宿主统一提示，
  * 版本列表经「查看详情」重读、版本内容经重新选择版本恢复、下载经版本行按钮重新发起。
  */
 import { DownloadOutlined } from '@ant-design/icons'
@@ -136,7 +136,7 @@ export function ReportVersionDetailPanel({
       <Button size='small' onClick={onClose}>关闭详情</Button>
     </div>
 
-    {/* 版本列表读取失败不渲染横幅（D-06）：已有版本静默保留，错误由宿主统一提示。 */}
+    {/* 版本列表读取失败不渲染横幅：已有版本静默保留，错误由宿主统一提示。 */}
     <Table
       rowKey='reportVersionId'
       size='small'
@@ -153,7 +153,7 @@ export function ReportVersionDetailPanel({
         版本内容{selectedVersionId === null ? '' : `（第 ${detail?.versionSequence ?? MISSING_TEXT} 版）`}
       </Typography.Title>
 
-      {/* 版本内容与 PDF 下载失败同样不渲染横幅（D-06）：当前选择与已有内容静默保留，
+      {/* 版本内容与 PDF 下载失败同样不渲染横幅：当前选择与已有内容静默保留，
           错误由宿主统一提示，可重新选择版本或再次下载。 */}
 
       {detailLoading ? <Spin /> : detail === null ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description='请选择要查看的版本' /> : <>

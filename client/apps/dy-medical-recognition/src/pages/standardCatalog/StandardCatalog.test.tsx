@@ -1383,7 +1383,7 @@ describe('审查 R2-18：宽度替身生效守卫', () => {
   })
 })
 
-describe('TC-T02-14 页面标题层级', () => {
+describe('页面标题层级', () => {
   it('页面大标题为 level 3', async () => {
     await renderLoaded({ categories: [cat('c-1', '启用分类')], groups: [], items: [] })
 

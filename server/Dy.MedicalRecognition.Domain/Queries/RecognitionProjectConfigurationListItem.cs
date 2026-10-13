@@ -14,7 +14,7 @@ public sealed record RecognitionProjectConfigurationListItem
   /// </summary>
   public Guid ConfigurationId { get; init; }
   /// <summary>
-  /// 标准项目编码；查询结果按该编码升序排列。
+  /// 标准项目编码；查询结果按项目类型、分类名称、分组名称、标准项目名称逐级升序排列，名称相同再按分类、分组、项目与配置标识升序兜底。
   /// </summary>
   public string StandardProjectCode { get; init; } = string.Empty;
   /// <summary>
