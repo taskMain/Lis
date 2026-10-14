@@ -1,6 +1,6 @@
 # 阶段 3 前端实施
 
-**本阶段已收口（阶段状态 `Complete`，2026-09-17 负责人裁定）**，详见阶段根 [impl.md](../impl.md) 与 [testReport.md](../testReport.md)。本文件只登记顺序与前置。
+**本阶段已收口（阶段状态 `Complete`，2026-09-17）**，详见阶段根 [impl.md](../impl.md) 与 [testReport.md](../testReport.md)。本文件只登记顺序与前置。
 
 设计见 [design.md](design.md)，矩阵见 [testPlan.md](testPlan.md)。
 
