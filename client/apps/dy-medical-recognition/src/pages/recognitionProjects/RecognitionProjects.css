@@ -8,6 +8,12 @@
  */
 .recognition-projects-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 12px; }
 .recognition-projects-filters .ant-input-affix-wrapper { width: 320px; max-width: 100%; }
+/*
+ * 配置状态页签行右侧承载导出入口（三页统一承载位置）：页签占左、按钮贴行右缘，
+ * 页签底边与列表容器边框重合的原口径不变；窄视口由 flex-wrap 换行，按钮随行落到页签下方。
+ */
+.recognition-projects-status-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.recognition-projects-status-toolbar > [role='group'] { flex: 1 1 auto; min-width: 0; }
 .recognition-projects-status-tabs { margin-bottom: -1px; }
 .recognition-projects-status-tabs .ant-tabs-nav { margin-bottom: 0; }
 .recognition-projects-summary { display: block; margin-top: 12px; font-variant-numeric: tabular-nums; }

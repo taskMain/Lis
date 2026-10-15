@@ -1,6 +1,7 @@
 import type {
   EffectiveMedicalStandardCatalogReadModel,
   MedicalRecognitionClient,
+  RecognitionProjectConfigurationExportRequest,
   RecognitionProjectConfigurationListQueryRequest,
   RecognitionProjectConfigurationReadModel,
   SelectableStandardItemListQueryRequest,
@@ -10,6 +11,7 @@ import {
   medicalItemTypeText,
   type MedicalItemTypeValue,
 } from '../../shared/medicalItemType'
+import { buildExportFileName } from '../../shared/exportFileDownload'
 import {
   CONFIGURATION_STATUSES,
   CONFIGURATION_STATUS_TEXTS,
@@ -27,6 +29,7 @@ import {
 export type {
   EffectiveMedicalStandardCatalogReadModel,
   MedicalRecognitionClient,
+  RecognitionProjectConfigurationExportRequest,
   RecognitionProjectConfigurationListQueryRequest,
   RecognitionProjectConfigurationReadModel,
   SelectableStandardItemListQueryRequest,
@@ -704,4 +707,51 @@ export async function setRecognitionProjectConfigurationEnabled(
   const body = { id: request.id }
   if (request.enabled) await client.api.medicalRecognitionReport.enableMutualRecognitionItem.post(body)
   else await client.api.medicalRecognitionReport.disableMutualRecognitionItem.post(body)
+}
+
+// ========== 项目导出（调用形态与阶段 6 统计导出同款：经生成端点取回二进制字节，保存交共享下载模块） ==========
+
+/**
+ * 项目导出请求载荷：组织编码必填，关键字缺省时不下发（与列表查询同一构造口径）。
+ * 配置状态页签档位不参与导出：导出只承载页面可产生的服务端查询条件（范围值 + 关键字），
+ * 与页签档位解耦——在任一页签下导出得到的都是该查询条件的全量文件。
+ */
+export interface RecognitionProjectExportPayload {
+  organizationCode: string
+  keyword?: string
+}
+
+/**
+ * 构造导出请求；组织编码缺失或空白时返回 `null`，调用方据此零请求（与查询构造同一防御）。
+ * 关键字取**已生效**值（已提交为服务端查询条件的那一份），按值下发、空白不下发，
+ * 使「未筛选」与「筛选为空」在导出请求上同样可区分。
+ */
+export function buildRecognitionProjectExportPayload(organizationCode: string, keyword: string): RecognitionProjectExportPayload | null {
+  const code = organizationCode.trim()
+  if (code.length === 0) return null
+  const effectiveKeyword = keyword.trim()
+  return { organizationCode: code, ...(effectiveKeyword.length === 0 ? {} : { keyword: effectiveKeyword }) }
+}
+
+/**
+ * 导出下载名：页面名 + 发起时刻的 14 位时间戳 + `.xlsx`。生成端只透出字节体、不透出响应头，
+ * 下载名由调用方（前端）给定，响应头文件名不作权威来源（阶段 6 下载模块同款口径）。
+ */
+export function buildRecognitionProjectExportDownloadName(now: Date = new Date()): string {
+  return buildExportFileName('互认项目', now)
+}
+
+/**
+ * 导出互认项目配置：调用生成端点取回工作簿字节并**原样返回**，保存由调用方经共享下载模块触发
+ * （0 字节契约错误的抛出点在共享模块，本层只把生成端可空的缺省归一为 0 长度交它判定）。
+ * 本层不解析错误响应体：业务拒绝与网络失败都原样上抛，由宿主统一提示。
+ */
+export async function exportRecognitionProjectConfigurations(
+  client: MedicalRecognitionClient,
+  request: RecognitionProjectExportPayload,
+): Promise<ArrayBuffer> {
+  const body: RecognitionProjectConfigurationExportRequest = { organizationCode: request.organizationCode }
+  if (request.keyword !== undefined) body.keyword = request.keyword
+  const content = await client.api.v1.recognitionExport.recognitionProjects.post(body)
+  return content ?? new ArrayBuffer(0)
 }

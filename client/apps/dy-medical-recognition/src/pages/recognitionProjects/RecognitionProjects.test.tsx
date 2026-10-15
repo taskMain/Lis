@@ -88,7 +88,14 @@ const api = vi.hoisted(() => ({
   createRecognitionProjectConfigurations: vi.fn(),
   updateRecognitionDuration: vi.fn(),
   setRecognitionProjectConfigurationEnabled: vi.fn(),
+  exportRecognitionProjectConfigurations: vi.fn(),
 }))
+
+/**
+ * 共享下载模块在 Client/适配层边界替换：页面取得导出字节后经它触发保存，
+ * 断言只看「交了什么字节、给了什么下载名」，不真正构造 Blob 与锚点（页面不触碰下载实现）。
+ */
+const exportDownload = vi.hoisted(() => ({ saveExportWorkbook: vi.fn() }))
 
 /**
  * 占位 client：显式提供枚举元数据端点，默认**拒绝**，使"元数据不可用 → 走兜底文案"成为用例的显式前提，
@@ -110,6 +117,8 @@ vi.mock('./recognitionProjectsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./recognitionProjectsApi')>()
   return { ...actual, ...api }
 })
+
+vi.mock('../../shared/exportFileDownload', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../shared/exportFileDownload')>()), saveExportWorkbook: exportDownload.saveExportWorkbook }))
 
 vi.mock('../../contexts/ApiClientContext', () => ({
   ApiClientProvider: ({ children }: { children: unknown }) => children,
@@ -552,6 +561,7 @@ beforeEach(() => {
   // 上一条用例回写的条件会带进下一条，因此每条用例开始前清掉查询串。
   window.history.replaceState(null, '', window.location.pathname)
   for (const fn of Object.values(api)) fn.mockReset()
+  exportDownload.saveExportWorkbook.mockReset()
   // 每条用例一个 client 实例（隔离 hook 的按实例缓存），枚举元数据端点默认不可用。
   clientRef.post.mockReset()
   // 范围查询端点是探测桩：页面（含页头）不再发起该请求，一旦被调用即构成断言可观测的违规。
@@ -3319,5 +3329,271 @@ describe('页面标题层级', () => {
     const rule = css.match(/\.recognition-projects-header\s+h3\.ant-typography\s*\{[^}]*\}/)?.[0] ?? ''
     expect(rule).toContain('margin: 0')
     expect(css).not.toMatch(/\.recognition-projects-header\s+h2\.ant-typography/)
+  })
+})
+
+/*
+ * 项目导出链的组件层用例（页面与交互口径见项目导出阶段 Client 设计「导出按钮门控与状态」与
+ * 「点击导出的行为」两节）：
+ * 1. 导出按钮承载在配置状态页签行右侧，标准按钮语义与可访问名称，键盘焦点顺序随 DOM 顺序；
+ * 2. 门控与既有写门控同口径的两态禁用（组织已变化未应用、读取失败或写后刷新失败），零请求；
+ *    列表读取在途与行内编辑进行中不限制导出，既有写门控不因导出改变；
+ * 3. 请求体只有当前组织与已生效关键字（配置状态页签档位不参与）；在途 loading 并防重复；
+ * 4. 取得字节后经共享下载模块保存，下载名由前端按发起时刻给定；失败结束加载、保留列表与筛选、
+ *    不误刷新、不新增页面级提示层（错误由宿主统一处理）；导出不写本页路由查询参数。
+ */
+/** 导出按钮按可访问名称定位：名称表达页面与动作（可见文本为「导出」）。 */
+const exportButton = () => screen.getByRole('button', { name: '导出互认项目' })
+
+/** 排队一次导出交付，并断言当前没有任何导出请求被发起（禁用态零请求用例的公共收尾）。 */
+async function expectNoExportRequest() {
+  api.exportRecognitionProjectConfigurations.mockResolvedValueOnce(new ArrayBuffer(4))
+  click(exportButton())
+  await act(async () => {})
+  expect(api.exportRecognitionProjectConfigurations).not.toHaveBeenCalled()
+}
+
+describe('项目导出按钮的承载位置与阻断态不可达', () => {
+  it('导出按钮与配置状态页签同处一个工具行、随 DOM 顺序在页签之后，页面其余区块不变', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')])
+
+    const button = exportButton()
+    // 标准按钮语义：承载元素就是 button（可见文本「导出」，可访问名称补充页面语境）。
+    expect(button.tagName).toBe('BUTTON')
+    // 同一行承载：按钮与页签容器同处一个工具行（页签行右侧由该容器的两端布局承载）。
+    const toolbar = button.closest('.recognition-projects-status-toolbar')
+    expect(toolbar).not.toBeNull()
+    const group = within(toolbar as HTMLElement).getByRole('group', { name: '配置状态筛选' })
+    // DOM 顺序：页签在前、按钮在后（键盘焦点顺序随 DOM 顺序）。
+    expect(group.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    // 页面其余区块不因导出能力变化：八列列头与页脚计数保持原样。
+    expect(tableHeads().map((node) => node.textContent)).toEqual(TABLE_HEAD_TEXTS)
+    expect(screen.getByText(/共 \d+ 项配置/)).toBeInTheDocument()
+  })
+
+  it('可信上下文缺失的整页阻断态不渲染导出按钮（凭证缺失与组织空白同口径）', async () => {
+    authState.change({ organizationCode: null, token: null })
+    renderPage()
+    expect(screen.getByRole('heading', { name: '互认项目', level: 3 })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '导出互认项目' })).not.toBeInTheDocument()
+    expect(query()).not.toHaveBeenCalled()
+
+    await act(async () => {
+      authState.change({ organizationCode: '   ', token: 'token-x' })
+    })
+    expect(screen.queryByRole('button', { name: '导出互认项目' })).not.toBeInTheDocument()
+  })
+})
+
+describe('项目导出的请求体与在途防重', () => {
+  it('请求体只有当前组织与已生效关键字；配置状态页签档位不参与请求', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规'), row('c2', 'A02', '尿常规', 2)])
+    await applyKeywordFilter('血')
+    // 在「停用」页签下导出：档位只是本地裁剪，不进入导出请求（导出与页签档位解耦）。
+    clickStatusTab('停用')
+    api.exportRecognitionProjectConfigurations.mockResolvedValueOnce(new ArrayBuffer(4))
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportRecognitionProjectConfigurations).toHaveBeenCalledTimes(1))
+
+    // 页面把 client 原样交给适配层出口；请求体恰为组织与已生效关键字两个字段。
+    expect(api.exportRecognitionProjectConfigurations.mock.calls[0][0]).toBe(clientRef.current)
+    const payload = api.exportRecognitionProjectConfigurations.mock.calls[0][1] as Record<string, unknown>
+    expect(payload).toEqual({ organizationCode: 'ORG-A', keyword: '血' })
+    expect(Object.keys(payload)).toEqual(['organizationCode', 'keyword'])
+  })
+
+  it('已生效关键字为空时请求体只有组织编码', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')])
+    api.exportRecognitionProjectConfigurations.mockResolvedValueOnce(new ArrayBuffer(4))
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportRecognitionProjectConfigurations).toHaveBeenCalledTimes(1))
+
+    const payload = api.exportRecognitionProjectConfigurations.mock.calls[0][1] as Record<string, unknown>
+    expect(payload).toEqual({ organizationCode: 'ORG-A' })
+    expect(Object.keys(payload)).toEqual(['organizationCode'])
+  })
+
+  it('导出在途按钮进入 loading 且再次点击不发起新请求，完成后恢复可用', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')])
+    const payload = deferred<ArrayBuffer>()
+    api.exportRecognitionProjectConfigurations.mockReturnValueOnce(payload.promise)
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportRecognitionProjectConfigurations).toHaveBeenCalledTimes(1))
+    expect(exportButton()).toHaveClass('ant-btn-loading')
+    expect(exportButton()).toBeDisabled()
+
+    click(exportButton())
+    await act(async () => {})
+    expect(api.exportRecognitionProjectConfigurations).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      payload.resolve(new ArrayBuffer(4))
+    })
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(exportButton()).toBeEnabled())
+  })
+})
+
+describe('项目导出成功后的保存', () => {
+  it('取得字节后经共享下载模块触发保存，文件名为「互认项目 + 发起时刻 14 位时间戳 + .xlsx」', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')])
+    const bytes = new ArrayBuffer(8)
+    api.exportRecognitionProjectConfigurations.mockResolvedValueOnce(bytes)
+
+    click(exportButton())
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+
+    // 字节原样交给共享模块；下载名按发起时刻构造（时间戳精确格式由适配层用例固定）。
+    expect(exportDownload.saveExportWorkbook.mock.calls[0][0]).toBe(bytes)
+    expect(exportDownload.saveExportWorkbook.mock.calls[0][1]).toMatch(/^互认项目\d{14}\.xlsx$/)
+    await waitFor(() => expect(exportButton()).toBeEnabled())
+  })
+})
+
+describe('项目导出失败的恢复', () => {
+  it('导出请求失败：结束加载、保留列表与已生效筛选，不重读、不新增页面级错误层', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')])
+    await applyKeywordFilter('血')
+    api.exportRecognitionProjectConfigurations.mockRejectedValueOnce(new Error('业务拒绝：当前条件下无可导出数据。'))
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportRecognitionProjectConfigurations).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(exportButton()).toBeEnabled())
+
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    expect((screen.getByLabelText('关键字筛选') as HTMLInputElement).value).toBe('血')
+    // 导出失败不触发列表重读：读取只有进入页面与关键字提交两次。
+    expect(query()).toHaveBeenCalledTimes(2)
+    // 页面不解析错误响应体、不新增提示层：常驻 live region 里没有出现 Alert。
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('共享下载模块对 0 字节内容按契约错误抛出时走同一失败路径，不产生保存成功假象', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')])
+    api.exportRecognitionProjectConfigurations.mockResolvedValueOnce(new ArrayBuffer(0))
+    exportDownload.saveExportWorkbook.mockRejectedValueOnce(new Error('导出未返回文件内容。'))
+
+    click(exportButton())
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(exportButton()).toBeEnabled())
+
+    expect(exportDownload.saveExportWorkbook.mock.calls[0][0].byteLength).toBe(0)
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    // 契约错误同走失败路径：不重读、不新增页面级错误层。
+    expect(query()).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+describe('项目导出与页面其他状态的共存', () => {
+  it('列表读取在途与行内编辑进行中不限制导出，导出在途也不阻塞列表读取与写入口', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')])
+
+    // 列表读取在途：导出保持可用（导出是只读链，不与读取在途互斥）。
+    const refresh = armLoad(pendingLoad())
+    submitSearch()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    expect(exportButton()).toBeEnabled()
+    await settle(refresh, [row('c1', 'A01', '血常规')])
+
+    // 行内编辑进行中（无范围变化）：导出不受限制。
+    click(screen.getByLabelText('修改可互认时间：血常规'))
+    await screen.findByLabelText('可互认时间（天）')
+    expect(exportButton()).toBeEnabled()
+
+    // 导出在途：既有写门控不因导出改变——提交查询仍会发起一次列表读取，新增入口保持可用。
+    const payload = deferred<ArrayBuffer>()
+    api.exportRecognitionProjectConfigurations.mockReturnValueOnce(payload.promise)
+    click(exportButton())
+    await waitFor(() => expect(api.exportRecognitionProjectConfigurations).toHaveBeenCalledTimes(1))
+
+    const reload = armLoad(pendingLoad())
+    submitSearch()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    await settle(reload, [row('c1', 'A01', '血常规')])
+    expect(addButton()).toBeEnabled()
+
+    await act(async () => {
+      payload.resolve(new ArrayBuffer(4))
+    })
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+  })
+
+  it('导出在途时切换配置状态页签不被阻塞，也不发起第二次导出', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规'), row('c2', 'A02', '尿常规', 2)])
+    const payload = deferred<ArrayBuffer>()
+    api.exportRecognitionProjectConfigurations.mockReturnValueOnce(payload.promise)
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportRecognitionProjectConfigurations).toHaveBeenCalledTimes(1))
+
+    clickStatusTab('停用')
+    expect(selectedStatusLabels()).toEqual(['停用'])
+    expect(api.exportRecognitionProjectConfigurations).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      payload.resolve(new ArrayBuffer(4))
+    })
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+  })
+
+  it('导出动作与条件不写入本页路由查询参数', async () => {
+    await renderLoaded([row('c1', 'A01', '血常规')])
+    api.exportRecognitionProjectConfigurations.mockResolvedValueOnce(new ArrayBuffer(4))
+
+    expect(window.location.search).toBe('')
+    click(exportButton())
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+    expect(window.location.search).toBe('')
+  })
+
+  it('组织已变化且页面尚未应用（提示态）导出按钮禁用且零请求', async () => {
+    stubUnarmedLoads()
+    await renderLoaded([row('c1', 'A01', '血常规')])
+    await openBatchCreate(['尿常规（A02）'], '30')
+
+    // 还有未保存内容：组织切换停在提示态，页面仍展示旧组织数据（导出所取范围与展示不一致）。
+    await switchTrustedOrganization('ORG-B')
+    const confirm = await findModal('切换组织将放弃未保存内容')
+    click(within(confirm).getByRole('button', { name: /取\s*消/ }))
+    await expectModalClosed('切换组织将放弃未保存内容')
+    await screen.findByText('宿主组织已变化，尚有未保存内容')
+
+    expect(exportButton()).toBeDisabled()
+    await expectNoExportRequest()
+  })
+
+  it('读取失败导出按钮禁用且零请求', async () => {
+    stubUnarmedLoads()
+    await renderLoaded([row('c1', 'A01', '血常规')])
+
+    const failing = armLoad(pendingLoad())
+    submitSearch()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await failLoad(failing)
+    await screen.findByText('互认配置数据待刷新')
+
+    expect(exportButton()).toBeDisabled()
+    await expectNoExportRequest()
+  })
+
+  it('写入后刷新失败导出按钮禁用且零请求', async () => {
+    stubUnarmedLoads()
+    await renderLoaded([row('c1', 'A01', '血常规')])
+
+    // 启停写入成功、随后的重载失败：页面提示「写入已成功，数据待刷新」，门控与读取失败一致。
+    click(screen.getByLabelText('停用配置：血常规（当前启用）'))
+    const confirm = await findModal('停用互认项目配置')
+    const reload = armLoad(pendingLoad())
+    click(within(confirm).getByRole('button', { name: /确认停用/ }))
+    await waitFor(() => expect(api.setRecognitionProjectConfigurationEnabled).toHaveBeenCalledTimes(1))
+    await failLoad(reload)
+    await screen.findByText('写入已成功，数据待刷新')
+
+    expect(exportButton()).toBeDisabled()
+    await expectNoExportRequest()
   })
 })

@@ -3,7 +3,8 @@
  * 医院管理员页的界面实现集中在本文件，两个页面只保留各自的数据接线外壳。
  *
  * 集中承载的内容：页头（标题、副标题与可选右侧插槽）、范围选择器插槽、写后刷新门禁横幅、
- * 查询区（关键字框＋框内查询图标按钮＋金额状态下拉）、待切换提示态插槽、互认配置状态页签、
+ * 查询区（关键字框＋框内查询图标按钮＋金额状态下拉）、待切换提示态插槽、互认配置状态页签
+ * （页签行右侧以可选承载放置导出按钮，传入导出参数才渲染）、
  * 四栏层级列表（列集合、列宽、样式覆写与页脚完全一致）、金额行内编辑器、页脚计数、三态空态，
  * 以及关键字与状态筛选、读取与提交状态机、未保存输入的清空时机与写门控。界面口径变化只修改
  * 本文件一处，两个页面不再分叉。
@@ -80,6 +81,23 @@ interface RecognitionAmountTableRow {
   groupFirst: boolean
 }
 
+/**
+ * 导出承载（可选）：传入才渲染导出按钮，两个金额页共用一处实现；不传就不渲染
+ * （不出现无能力的死按钮）。门控分工：范围未解析（组织、医院、院区任一缺失）与读取失败或
+ * 写入后刷新失败由组件按自身状态禁用、零请求；调用方判定的额外禁用（平台页「可信范围已变化
+ * 且页面尚未应用」的待切换提示态）经 `disabled` 传入；导出在途的 loading 形态与防重复点击由
+ * `exporting` 承载。点击把**已生效关键字**交回调用方，请求编排在页面层完成（点击时刻的范围
+ * 复核由页面保证）。
+ */
+export interface RecognitionAmountExportBinding {
+  /** 导出是否在途：按钮进入 loading 形态并禁用，防重复点击。 */
+  exporting: boolean
+  /** 调用方判定的额外禁用：平台页在「可信范围已变化且页面尚未应用」时禁用、零请求。 */
+  disabled?: boolean
+  /** 点击导出：组件把已生效关键字交给调用方；请求编排在页面层完成。 */
+  onExport: (keywordApplied: string) => void
+}
+
 export interface RecognitionAmountListViewProps<Query> {
   title: string
   subtitle: string
@@ -97,6 +115,8 @@ export interface RecognitionAmountListViewProps<Query> {
   editTarget: string | null
   /** 换绑挂起中（平台管理员页的确认框或待切换提示态）：期间入口禁用、回车零写返回，行内输入仍可编辑。 */
   writeSuspended?: boolean
+  /** 导出承载：传入才渲染导出按钮（页签行右侧，与互认项目页同款式），不传不渲染。 */
+  exportBinding?: RecognitionAmountExportBinding
   /** 进入或退出行内编辑；目标行离开当前行集时由本组件同步清空。 */
   onEditTargetChange: (standardProjectCode: string | null) => void
   /**
@@ -150,6 +170,7 @@ export function RecognitionAmountListView<Query>({
   scope,
   editTarget,
   writeSuspended = false,
+  exportBinding,
   onEditTargetChange,
   buildQuery,
   queryRows,
@@ -254,6 +275,17 @@ export function RecognitionAmountListView<Query>({
 
   /** 写能力：范围完整、读取未失败、读取不在途且无在途提交（加载期间禁用写入）。 */
   const canWrite = scope !== null && loadFailure === null && !loading && !submitting
+
+  /**
+   * 导出按钮禁用只取与既有写门控同口径的状态（仅在传入导出承载时有意义）：
+   * 范围未解析（组织、医院、院区任一缺失）与读取失败或写入后刷新失败（页面数据不可靠，
+   * 恢复以重试为先）两态禁用、零请求；调用方传入的额外禁用（平台页「可信范围已变化且页面
+   * 尚未应用」的待切换提示态）同样零请求。列表读取在途与行内编辑进行中**不**限制导出
+   * （导出是只读链，不产生写冲突，既有写门控不因导出改变）；导出在途的禁用与 loading
+   * 形态由按钮属性共同承载。
+   */
+  const exportDisabled = exportBinding !== undefined
+    && (scope === null || loadFailure !== null || exportBinding.disabled === true)
 
   /** 写后刷新门禁的重试入口：只服务 `refreshAfterWrite` 态；纯读取失败的重试经框内查询图标按钮。 */
   const retry = () => {
@@ -492,19 +524,31 @@ export function RecognitionAmountListView<Query>({
       互认配置状态页签（S3-D25 2026-10-13 修订）：贴在列表上沿的视图切换控件——
       切换即生效、只在服务端结果上本地裁剪、不触发读取；切换时收起进行中的行内编辑并放弃
       未保存输入（与「互认项目」页切换页签清编辑态同一口径）。
+      页签行右侧承载导出入口（三页统一承载位置，与互认项目页同款式）：与页签同一工具行、
+      随 DOM 顺序在页签之后（键盘焦点顺序随之）；门控与在途形态见 `exportDisabled` 与
+      `exportBinding`。未传导出参数（页面不提供导出能力）时按钮不渲染，不留死按钮。
     */}
-    <div role='group' aria-label='配置状态筛选'>
-      <Tabs
-        className='recognition-amounts-status-tabs'
-        activeKey={configurationStatus}
-        items={CONFIGURATION_STATUS_OPTIONS.map((option) => ({ key: option.value, label: option.label }))}
-        onChange={(key) => {
-          const option = CONFIGURATION_STATUS_OPTIONS.find((item) => item.value === key)
-          if (!option) return
-          onEditTargetChange(null)
-          setConfigurationStatus(option.value)
-        }}
-      />
+    <div className='recognition-amounts-status-toolbar'>
+      <div role='group' aria-label='配置状态筛选'>
+        <Tabs
+          className='recognition-amounts-status-tabs'
+          activeKey={configurationStatus}
+          items={CONFIGURATION_STATUS_OPTIONS.map((option) => ({ key: option.value, label: option.label }))}
+          onChange={(key) => {
+            const option = CONFIGURATION_STATUS_OPTIONS.find((item) => item.value === key)
+            if (!option) return
+            onEditTargetChange(null)
+            setConfigurationStatus(option.value)
+          }}
+        />
+      </div>
+      {exportBinding === undefined ? null : <Button
+        className='recognition-amounts-export'
+        aria-label='导出互认项目金额'
+        disabled={exportDisabled || exportBinding.exporting}
+        loading={exportBinding.exporting}
+        onClick={() => exportBinding.onExport(keywordApplied)}
+      >导出</Button>}
     </div>
 
     <Table

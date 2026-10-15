@@ -5,19 +5,25 @@
  * 默认规则解析且恒定单值），查询与保存请求都携带这三个值；页头、查询区、四栏层级列表与金额行内
  * 编辑由两个金额页共用的 `RecognitionAmountListView` 承载（S3-D29），页面只把范围与数据出口接上去。
  * 本页专属的两道防线状态（可信范围变化的确认框与待切换提示态、保存前的现值复核）留在页面，
- * 经共用组件的挂起态与写前复核属性接入。页面不实现角色判断、不做权限二次确认，也不下推枚举筛选。
+ * 经共用组件的挂起态与写前复核属性接入。平台金额导出经共用组件的导出承载接入：请求编排在页面完成
+ * （点击时刻重读当前选定范围并要求与已应用范围一致），门控状态（可信范围已变化未应用）经导出承载
+ * 的禁用属性传入。页面不实现角色判断、不做权限二次确认，也不下推枚举筛选。
  */
 import { Button, Modal } from 'antd'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@dy/auth-react'
 import { BaseScopeSelector, type BaseScopeSelectorChangeMeta, type BaseScopeValue } from '@dy/components-base'
 import { ScopeUnavailablePanel } from '../../components/ScopeUnavailablePanel'
 import { useApiClientContext } from '../../contexts/ApiClientContext'
+import { saveExportWorkbook } from '../../shared/exportFileDownload'
 import { readTrustedBranchCode, readTrustedHospitalCode } from '../reportManagement/reportsTrustedScope'
 import { readTrustedOrganizationCode } from '../recognitionProjects/recognitionProjectsOrganizationScope'
 import {
+  buildRecognitionAmountExportDownloadName,
+  buildRecognitionAmountExportPayload,
   buildRecognitionAmountListQuery,
   buildRecognitionAmountSavePayload,
+  exportRecognitionAmounts,
   queryRecognitionAmountRows,
   recheckRecognitionAmountScope,
   saveOrganizationHospitalBranchRecognitionAmount,
@@ -153,6 +159,11 @@ export function RecognitionAmounts() {
   const scopeBlocked = trustedOrganizationCode === null || trustedHospitalCode === null
 
   const [selection, setSelection] = useState<ScopeSelection | null>(null)
+  /**
+   * 已应用范围选择的**同步镜像**，只在 `applySelection` 一处与它一起赋值，不构成第二个状态源；
+   * 保留它的唯一用途是让导出的点击时刻复核读到现值（见 `runExport`）。
+   */
+  const selectionRef = useRef<ScopeSelection | null>(null)
   /** 行内编辑目标行的项目编码；共用列表视图负责在目标行离开当前行集时清空它。
    *  未保存内容消失后待切换提示态的自动完成由上面的可信变化效果按派生状态处理（C33）。 */
   const [editTarget, setEditTarget] = useState<string | null>(null)
@@ -162,9 +173,14 @@ export function RecognitionAmounts() {
   const [dismissedTrustedBranch, setDismissedTrustedBranch] = useState<string | null | undefined>(undefined)
   /** 挂起期间选择器回调交付的目标范围：确认或提示态再次确认时按它完成切换。 */
   const [switchTarget, setSwitchTarget] = useState<ScopeSelection | null>(null)
+  /** 导出是否在途：按钮进入 loading 形态；导出是只读链，不参与既有写门控。 */
+  const [exporting, setExporting] = useState(false)
+  /** `exporting` 的同步镜像：同一动作内的再次点击在状态落地前就由它拦下。 */
+  const exportingRef = useRef(false)
 
   /** 应用一次范围切换：记录现读可信院区，清空编辑目标与挂起状态。 */
   const applySelection = useCallback((next: ScopeSelection, trustedBranchCode: string | null) => {
+    selectionRef.current = next
     setAppliedTrustedBranch(trustedBranchCode)
     setSelection(next)
     setEditTarget(null)
@@ -326,6 +342,42 @@ export function RecognitionAmounts() {
     </div>
   ) : null
 
+  /**
+   * 发起平台金额导出。请求体只有当前选定的组织、医院、院区与已生效关键字（配置状态页签与
+   * 金额状态档位不参与，导出与档位解耦）：点击时刻经镜像重读当前选定范围，并要求它与已应用
+   * （正在驱动列表读取）的范围一致——页面尚未应用新范围或三值不齐即零请求（与互认项目页
+   * 点击时刻复核同口径，导出侧整段放弃而不是换范围提交）。
+   * 取得字节后经共享下载模块触发保存，下载名按**发起时刻**由前端给定（在请求发出之前构造）；
+   * 失败（含共享模块对 0 字节内容的契约错误）由宿主统一展示，本层只结束加载态并保留列表与筛选，
+   * 不误刷新、不新增提示层。导出动作与条件不写入路由查询参数（导出不是页面视图状态）。
+   */
+  const runExport = useCallback(async (keywordApplied: string) => {
+    if (exportingRef.current) return
+    const current = selectionRef.current
+    if (current === null || appliedScope === null) return
+    if (current.scope.orgId !== appliedScope.query.organizationCode
+      || current.scope.hosId !== appliedScope.query.hospitalCode
+      || current.scope.branchId !== appliedScope.query.branchCode) return
+    const payload = buildRecognitionAmountExportPayload(
+      { organizationCode: current.scope.orgId, hospitalCode: current.scope.hosId, branchCode: current.scope.branchId },
+      keywordApplied,
+    )
+    // 范围三值不齐不构造导出请求（与查询构造同一防御）；共用组件的门控已禁用按钮，这里兜住残余路径。
+    if (payload === null) return
+    exportingRef.current = true
+    setExporting(true)
+    try {
+      const downloadName = buildRecognitionAmountExportDownloadName()
+      const bytes = await exportRecognitionAmounts(client, payload)
+      saveExportWorkbook(bytes, downloadName)
+    } catch {
+      // 导出失败不误报成功也不误刷新；页面不解析错误响应体、不新增提示层（与互认项目页导出同款恢复形态）。
+    } finally {
+      exportingRef.current = false
+      setExporting(false)
+    }
+  }, [appliedScope, client])
+
   // 可信组织或医院缺失即整页阻断：阻断面板不渲染选择器与列表视图，选择器不装载选项、
   // 列表视图不挂载，因此零业务请求（早退在全部钩子之后，钩子挂载顺序不随阻断变化）。
   if (scopeBlocked) {
@@ -355,6 +407,13 @@ export function RecognitionAmounts() {
       scope={appliedScope}
       editTarget={editTarget}
       writeSuspended={switchPending}
+      exportBinding={{
+        exporting,
+        // 可信范围已变化且页面尚未应用（含确认框存续期间与待切换提示态）：导出所取范围与页面展示
+        // 不一致，按钮禁用、零请求（与既有写门控同口径）。
+        disabled: trustedBranchChanged,
+        onExport: (keywordApplied) => { void runExport(keywordApplied) },
+      }}
       onEditTargetChange={setEditTarget}
       buildQuery={buildQuery}
       queryRows={queryRows}

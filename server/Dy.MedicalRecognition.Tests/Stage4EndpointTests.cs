@@ -100,6 +100,33 @@ public sealed class Stage4EndpointTests
   ];
 
   /// <summary>
+  /// 页面导出新增的查询入口方法名；由手工导出控制器的对应 POST 动作承载，
+  /// 应用层入口以 NonAction 声明排除自动端点暴露。
+  /// </summary>
+  private static readonly string[] RecognitionProjectExportMethods =
+  [
+    "GetRecognitionProjectConfigurationExportAsync"
+  ];
+
+  /// <summary>
+  /// 平台金额页导出新增的查询入口方法名；由手工导出控制器的平台金额 POST 动作承载，
+  /// 应用层入口以 NonAction 声明排除自动端点暴露。
+  /// </summary>
+  private static readonly string[] RecognitionAmountExportMethods =
+  [
+    "GetRecognitionAmountExportAsync"
+  ];
+
+  /// <summary>
+  /// 本院区金额页导出新增的查询入口方法名；由手工导出控制器的本院区金额 POST 动作承载，
+  /// 应用层入口以 NonAction 声明排除自动端点暴露。
+  /// </summary>
+  private static readonly string[] BranchRecognitionAmountExportMethods =
+  [
+    "GetBranchRecognitionAmountExportAsync"
+  ];
+
+  /// <summary>
   /// 两个提交入口方法：它们同时是医院接入的提交入口与事务边界。
   /// </summary>
   private static readonly string[] SubmissionMethods =
@@ -174,12 +201,12 @@ public sealed class Stage4EndpointTests
   }
 
   /// <summary>
-  /// V83：报告查询入口的公开方法集合与阶段 4 至阶段 6 新增后的完整清单逐项相等。
+  /// V83：报告查询入口的公开方法集合与阶段 4 至阶段 6 及页面导出新增后的完整清单逐项相等。
   /// </summary>
   [Fact]
   public void Query_contract_method_set_matches_the_published_endpoint_inventory()
   {
-    string[] expected = [.. ExistingQueryMethods.Concat(Stage4QueryMethods).Concat(Stage5QueryMethods).Concat(Stage6QueryMethods).OrderBy(name => name, StringComparer.Ordinal)];
+    string[] expected = [.. ExistingQueryMethods.Concat(Stage4QueryMethods).Concat(Stage5QueryMethods).Concat(Stage6QueryMethods).Concat(RecognitionProjectExportMethods).Concat(RecognitionAmountExportMethods).Concat(BranchRecognitionAmountExportMethods).OrderBy(name => name, StringComparer.Ordinal)];
     string[] actual = MethodNamesAscending(typeof(IMedicalRecognitionReportQueryAppService));
 
     Assert.Equal(expected, actual);

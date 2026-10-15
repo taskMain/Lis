@@ -110,6 +110,31 @@
 
 页头范围查询链：Host → `IMedicalRecognitionReportQueryAppService.QueryTrustedOrganizationScopeAsync` → `MedicalRecognitionReportQueryAppService` 经 `TrustedOrganizationResolver` 取可信组织 → `OrganizationPathResolver` 解析该组织层 → Application 映射 `TrustedOrganizationScopeReadModel`。该链不进入 Repository，不读取本平台数据库。
 
+### 互认项目导出
+
+导出是既有配置列表查询之上的文件组装能力（决策 S2-D30）：零新增表、零迁移、零新增 SQL，全程无写入、无事件、无事务声明。
+
+**契约与分层。** 新增导出 Request `RecognitionProjectConfigurationExportRequest`（C/`Queries/MutualRecognition/`）：`OrganizationCode`（必填，`Required` + `NonEmpty`）与 `Keyword`（可选，`NonEmpty`，传入空白文本按校验拒绝，与列表请求一致）；不设配置状态字段、不携带分页对象、不接收可信用户字段。查询契约以分部文件 `IMedicalRecognitionReportQueryAppService.Export.cs` 扩展（与既有 `.Statistics.cs` 分部同形），分部声明互认项目、平台金额与本院区金额三个导出方法（后两者归阶段 3 链路），应用层实现分部 `MedicalRecognitionReportQueryAppService.Export.cs` 的三个入口均以 `NonAction` 声明排除框架自动端点暴露。新增导出文件读模型 `ConfigurationExportFileReadModel`（C/`ReadModels/`）：`FileName`、`FileFormat`、`FileStream`（字节数组）三字段；不复用阶段 6 的统计导出读模型——复用需把已交付契约中性化改名或迁移，触及已交付对象且收益仅为消除三字段重复。三个端点由手工控制器 `RecognitionExportController`（H/`Controllers/`，路由前缀 `api/v1/recognition-export`）承载，本阶段链路对应 `recognition-projects` POST 动作（`recognition-amounts`、`branch-recognition-amounts` 两动作归阶段 3），动作绑定请求体并返回禁止缓存的文件流（`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`，响应头设置禁止缓存）；文件名为「互认项目 + `yyyyMMddHHmmss`（组装时刻）+ `.xlsx`」。
+
+**调用链。**
+
+```text
+RecognitionProjectConfigurationExportRequest（Contracts）
+-> MedicalRecognitionReportQueryAppService.Export 分部
+   （范围校验 -> 复用列表查询取全量 -> 零记录/行数上限校验 -> 工作簿组装）
+   -> TrustedOrganizationResolver（请求组织去首尾空白后须等于可信当前组织，不等即拒绝）
+   -> IMedicalRecognitionReportQueryRepository.QueryRecognitionProjectConfigurationListAsync
+      （组织 + 关键字非空原样下传、配置状态参数恒为 null，行集含启用与停用配置）
+-> ConfigurationExportFileReadModel（FileName / FileFormat / FileStream）
+-> RecognitionExportController.RecognitionProjects -> File(bytes, xlsx, fileName)（禁止缓存响应头）
+```
+
+范围校验与对应列表查询逐字同链：请求组织必须等于服务端可信当前组织（`HttpRequestInfo.OrgId`，经 `TrustedOrganizationResolver` 去首尾空白解析），不等即拒绝、不降级为空集合；可信组织缺失或纯空白拒绝。关键字非空时原样下传仓储（四列字面包含匹配与转义口径同 S2-D29）；调用列表查询时配置状态参数恒为 `null`，行集因此同时包含启用与停用配置，排序与列表查询同键（S2-D16 所属查询排序口径）。防御口径：当前条件下无记录时业务拒绝「当前条件下无可导出数据」，不生成文件读模型、不扩大查询范围；取回行数超过 100000 时业务拒绝并提示缩小查询条件（上限校验在取回后执行，防御文件组装与响应传输面；列表查询自身的不分页全量读取面已由 S2-D7 接受，本能力不改变该面）。工作簿组装：单工作表、工作表名「互认项目」、表头行加粗、冻结首行、列宽按内容适配；九列列集按 S2-D30 执行，序号 1..N 按导出行序；项目类型与互认配置状态输出服务端文本（`ItemTypeText` 为 `null` 时单元格输出空、不伪造类型名），可互认时间写数值单元格（整数格式）；当前不可用原因为空输出空。组装以 ClosedXML 在内存完成，属查询链上的数据转换，不实现外部文件系统、HTTP 或消息协议适配。
+
+### 导出链静态守卫
+
+既有静态断言只扩清单、不放宽，登记的最终清单为：①冻结 OpenAPI 路径集合断言（`Stage2EnumContractTests`）与冻结路径计数断言（`Stage7ExclusionGuardTests`）含三个导出端点，快照终值 **60 条**（`recognition-projects`、`recognition-amounts`、`branch-recognition-amounts` 三条导出路径在其内）；②手写控制器冻结集合断言（`Stage5ConstraintTests` 的 `Host_keeps_the_frozen_handwritten_controller_set`）含 `RecognitionExportController`；③查询入口方法集合断言与契约分部文件清单/数量断言含三个导出方法（分部文件清单扩为五个）；④分页契约禁用字段守卫的逐类型清单含三个导出请求（均无分页对象）；⑤导出链零写入静态守卫的扫描文件清单含导出链三文件（契约分部、应用层分部与导出控制器），该扫描面为显式清单，新增链上文件须同批登记。
+
 ## Command、事件与事务
 
 | Command/FacadeCommand | 主要 DomainEvent | 成功条件 | 关键事件字段 | 登记位置 | 失败/幂等语义 |
@@ -185,7 +210,7 @@ SqlMap 的 `Scope` 和每个 DataMapper 调用点统一改为 `MutualRecognition
 
 ## 验证矩阵
 
-V1-V27 编号保留，V26-V27补充并发和跨组织写入；V11验证命令可信组织，V19验证查询组织授权；V13验证单层停用，V20验证多层停用优先级，不合并或挪号。重开轮新增 V28-V33（批量创建），页头范围展示轮新增 V34（可信组织范围查询），沿用同一编号空间。
+V1-V27 编号保留，V26-V27补充并发和跨组织写入；V11验证命令可信组织，V19验证查询组织授权；V13验证单层停用，V20验证多层停用优先级，不合并或挪号。重开轮新增 V28-V33（批量创建），页头范围展示轮新增 V34（可信组织范围查询），沿用同一编号空间。互认项目导出能力新增 V36-V44（导出契约、范围校验、行集、防御、组装、静态守卫与宿主链路），同批沿用；V35 之后的编号顺延，不改既有行。
 
 ### 测试数据边界
 
@@ -234,3 +259,12 @@ V16单元验证事件构造/登记规则，不能替代V24真实生产调度；V
 | V33 | 批量读取无 N+1 | Application/Domain/Repository | 目录按编码集合、配置按组织+编码集合各一次读取完成校验与查重，调用次数不随行数增长 | 否 | 否 | 计数替身断言批量读取方法调用次数 |
 | V34 | 可信组织范围查询 | Application/Contract | 不接收入参；可信组织取自请求上下文并按去首尾空白判定；返回该组织的编码与名称，名称来自组织路径解析点；可信组织缺失、为空或纯空白时拒绝；组织不存在、已停用或外部组织服务失败时拒绝，不返回空值也不降级为只回编码；该查询不访问本平台数据库、不产生写入、不与配置列表行数相关 | 否 | 否 | 可信请求上下文 + 组织服务替身（含命中、不存在、停用三类返回） |
 | V35 | 可新增标准项目查询 | Application/Contract | 不接收组织入参，组织只取自可信上下文；入参只有可选 `Keyword`，非空时原样下传仓储；返回与有效目录同形的层级只读模型（项目类型→分类→分组→标准项目），无可新增项目时各层级为空；空白关键字在进入查询前被拒绝 | 否 | 否 | 可信请求上下文 + 仓储替身（含命中、空结果两类返回） |
+| V36 | 互认项目导出契约形状 | Contract | 导出请求恰「组织必填（`Required` + `NonEmpty`）+ 可选关键字（`NonEmpty`，传入空白文本按校验拒绝）」两字段，不携带配置状态字段与分页对象；导出文件读模型恰文件名、文件格式、文件字节三字段；查询契约分部恰声明互认项目、平台金额与本院区金额三个导出方法且签名冻结（后两条链路的请求形状归阶段 3 矩阵）；应用层导出入口带 `NonAction`、不带事务声明；导出控制器动作路由冻结为 `recognition-projects`／`recognition-amounts`／`branch-recognition-amounts` 并绑定各自请求体类型 | 否 | 否 | 稳定契约 |
+| V37 | 互认项目导出范围校验 | Application | 请求组织与可信当前组织不一致按业务拒绝且查询端口 0 次调用、不降级为空集合；可信组织缺失或纯空白拒绝；关键字传入空白文本按校验拒绝且 0 次调用；组织同源时按去空白后的可信值下传，关键字非空原样下传、配置状态参数恒为 `null` | 否 | 否 | 可信上下文替身、仓储替身 |
+| V38 | 互认项目导出行集与排序一致性 | Query | 导出与配置列表查询同一语句、同筛选、同排序（项目类型、分类名称、分组名称、标准项目名称逐级升序加标识兜底），行序由查询端口原样保持；不按配置状态过滤，行集含启用与停用配置；真实库面行集与列表同源同量 | 是 | 否 | 同一范围多条配置（含停用配置） |
+| V39 | 互认项目导出零记录拒绝 | Application | 当前条件下无记录时业务拒绝「当前条件下无可导出数据」，取数恰 1 次、不生成文件读模型、不产生空工作簿 | 否 | 否 | 空结果替身 |
+| V40 | 互认项目导出行数上限 | Application | 取回行数超过 100000 时业务拒绝并提示缩小查询条件；恰 100000 行正常组装（上限按「超过才拒绝」解释）；上限校验在取回后执行，防御组装与传输面 | 否 | 否 | 集合计数替身 |
+| V41 | 互认项目导出列集与取值 | Application | 恰九列且列名顺序符合 S2-D30；序号 1..N 连续；项目类型与互认配置状态输出服务端文本，类型未登记时单元格输出空、不伪造类型名；可互认时间为数值单元格、整数格式；当前不可用原因为空输出空，目录停用行照常导出 | 否 | 否 | 混合行替身（含停用配置、目录停用、类型未登记） |
+| V42 | 互认项目导出工作簿组装与文件名 | Application | 单工作表、工作表名「互认项目」、表头加粗、冻结首行、列宽按内容适配；文件名匹配「互认项目 + 14 位时间戳 + `.xlsx`」、文件格式为工作簿内容类型；组装过程无仓储写入、无事件登记 | 否 | 否 | 一般行集替身 |
+| V43 | 导出链静态守卫 | Static | 冻结 OpenAPI 路径集合断言与路径计数断言含三个导出端点（计数终值 60）；手写控制器冻结集合断言登记 `RecognitionExportController`；查询入口方法集合与分部文件清单断言含三个导出方法；分页禁用字段守卫清单含三个导出请求；零写入扫描清单登记导出链三文件；既有断言未放宽 | 否 | 否 | 无 |
+| V44 | 互认项目导出文件响应与宿主链路 | Host | `POST api/v1/recognition-export/recognition-projects` 返回 `.xlsx` 文件流、Content-Type 正确、响应头禁止缓存、Content-Disposition 文件名符合「互认项目 + `yyyyMMddHHmmss` + `.xlsx`」格式；已鉴权客户端可取回字节且文件可打开；零记录拒绝时不返回文件响应；未认证请求返回 401 | 是 | 否 | 宿主可用；真实业务数据 |

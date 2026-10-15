@@ -50,7 +50,9 @@ public sealed class SourceGuardReuseTests
     // 阶段 6 的收口守卫按语法节点核对统计与导出链的零写入面与统计语句的只读动词，登记为共享语法工具的消费方。
     "Stage6ConstraintTests.cs",
     // 阶段 7 的排除项守卫按语法节点核对端点、路由与关键字扫描，登记为共享语法工具的消费方。
-    "Stage7ExclusionGuardTests.cs"
+    "Stage7ExclusionGuardTests.cs",
+    // 互认项目页导出的契约守卫按语法节点核对导出请求、读模型、契约分片与导出控制器，登记为共享语法工具的消费方。
+    "RecognitionProjectExportContractTests.cs"
   ];
 
   /// <summary>测试工程内不得重复声明的方法名：这两份私有实现历史上各复制过一次。</summary>

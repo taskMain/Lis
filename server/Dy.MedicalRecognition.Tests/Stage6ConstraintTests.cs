@@ -23,7 +23,8 @@ public sealed class Stage6ConstraintTests
   /// </summary>
   /// <remarks>
   /// 链由查询入口接口分片、应用层统计分片、应用层导出分片、查询端口 Statistics 分片、
-  /// 查询仓储 Statistics 分片与导出控制器组成。查询侧仓储与查询端口的写入面缺口由阶段 5 收口守卫的
+  /// 查询仓储 Statistics 分片与导出控制器组成；互认项目页导出分片（契约与应用层）与导出控制器随同批登记。
+  /// 查询侧仓储与查询端口的写入面缺口由阶段 5 收口守卫的
   /// 按目录全量断言补齐（Statistics 分片自动纳入其扫描面），本清单负责链内逐文件的
   /// 事务、事件、状态变化与异常处理四类判定。
   /// </remarks>
@@ -32,9 +33,12 @@ public sealed class Stage6ConstraintTests
     "server/Dy.MedicalRecognition.Application.Contracts/Queries/IMedicalRecognitionReportQueryAppService.Statistics.cs",
     "server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Statistics.cs",
     "server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.StatisticsExport.cs",
+    "server/Dy.MedicalRecognition.Application.Contracts/Queries/IMedicalRecognitionReportQueryAppService.Export.cs",
+    "server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Export.cs",
     "server/Dy.MedicalRecognition.Domain/Queries/Ports/IMedicalRecognitionReportQueryRepository.Statistics.cs",
     "server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.Statistics.cs",
-    "server/Dy.MedicalRecognition/Controllers/RecognitionStatisticsExportController.cs"
+    "server/Dy.MedicalRecognition/Controllers/RecognitionStatisticsExportController.cs",
+    "server/Dy.MedicalRecognition/Controllers/RecognitionExportController.cs"
   ];
 
   /// <summary>阶段 6 追加进查询作用域的十七条统计语句标识，按映射文件内的声明顺序排列。</summary>

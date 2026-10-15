@@ -623,11 +623,11 @@ public sealed class Stage5ConstraintTests
   }
 
   /// <summary>
-  /// 实现约束核对：宿主工程的手写控制器集合与已交付清单一致，导出控制器随阶段 6 登记。
+  /// 实现约束核对：宿主工程的手写控制器集合与已交付清单一致，统计导出与互认项目页导出两个导出控制器随各自批次登记。
   /// </summary>
   /// <remarks>
-  /// 阶段 6 的统计导出为文件流响应新增手写导出控制器（设计「外部调用、失败语义与静态守卫」节登记的允许位置）；
-  /// 手写控制器集合按目录清单逐文件冻结，新增清单之外的第 4 个控制器文件即失败。
+  /// 阶段 6 的统计导出与互认项目页导出各自为文件流响应新增手写导出控制器（设计「静态守卫同批」节登记的允许位置）；
+  /// 手写控制器集合按目录清单逐文件冻结，新增清单之外的第 5 个控制器文件即失败。
   /// </remarks>
   [Fact]
   public void Host_keeps_the_frozen_handwritten_controller_set()
@@ -642,10 +642,10 @@ public sealed class Stage5ConstraintTests
         .OrderBy(name => name, StringComparer.Ordinal)
     ];
     Assert.Equal(
-      ["RecognitionStatisticsExportController.cs", "ReportPdfFileController.cs", "ReportSubmissionForm.cs"],
+      ["RecognitionExportController.cs", "RecognitionStatisticsExportController.cs", "ReportPdfFileController.cs", "ReportSubmissionForm.cs"],
       controllerFiles);
 
-    // 三个文件声明的全部类型都是已交付的类型：两个控制器与一个提交表单。
+    // 四个文件声明的全部类型都是已交付的类型：两个导出控制器、一个 PDF 控制器与一个提交表单。
     string[] declaredTypes =
     [
       .. controllerFiles.SelectMany(name => SourceSyntaxGuard
@@ -654,7 +654,7 @@ public sealed class Stage5ConstraintTests
         .Select(declaration => declaration.Identifier.ValueText))
     ];
     Assert.Equal(
-      ["RecognitionStatisticsExportController", "ReportPdfFileController", "ReportSubmissionForm"],
+      ["RecognitionExportController", "RecognitionStatisticsExportController", "ReportPdfFileController", "ReportSubmissionForm"],
       declaredTypes.OrderBy(name => name, StringComparer.Ordinal));
 
     // 变异证据：加入一个不存在的控制器文件名后，同一清单等值判定必须不相等。

@@ -188,7 +188,7 @@ public sealed class Stage6StatisticsContractTests
 
   /// <summary>
   /// V1：统计契约分片恰好声明八个查询、一个导出入口与一个匹配记录视图共十个方法，
-  /// 且每个方法的返回类型与参数冻结；接口的分部声明文件恰为既有三个分片加统计分片共四个。
+  /// 且每个方法的返回类型与参数冻结；接口的分部声明文件恰为既有三个分片、统计分片与互认项目页导出分片共五个。
   /// </summary>
   [Fact]
   public void Statistics_contract_partial_declares_exactly_ten_methods_with_frozen_signatures()
@@ -198,6 +198,7 @@ public sealed class Stage6StatisticsContractTests
     Assert.Equal(
       [
         "server/Dy.MedicalRecognition.Application.Contracts/Queries/IMedicalRecognitionReportQueryAppService.Citation.cs",
+        "server/Dy.MedicalRecognition.Application.Contracts/Queries/IMedicalRecognitionReportQueryAppService.Export.cs",
         "server/Dy.MedicalRecognition.Application.Contracts/Queries/IMedicalRecognitionReportQueryAppService.Reports.cs",
         StatisticsContractPath,
         "server/Dy.MedicalRecognition.Application.Contracts/Queries/IMedicalRecognitionReportQueryAppService.cs"

@@ -13,10 +13,16 @@ import {
   buildAmountFilterSearch,
   buildBranchAmountListQuery,
   buildBranchAmountSavePayload,
+  buildBranchRecognitionAmountExportDownloadName,
+  buildBranchRecognitionAmountExportPayload,
+  buildRecognitionAmountExportDownloadName,
+  buildRecognitionAmountExportPayload,
   buildRecognitionAmountListQuery,
   buildRecognitionAmountSavePayload,
   configurationStatusText,
   currentAmountText,
+  exportBranchRecognitionAmounts,
+  exportRecognitionAmounts,
   filterRecognitionAmountRows,
   isConfigurationStatusValue,
   isMedicalItemTypeValue,
@@ -53,6 +59,12 @@ function stubClient(handlers: Record<string, unknown> = {}) {
       medicalRecognitionReportQuery: {
         queryBranchRecognitionAmountList: { post: post('queryBranch') },
         queryRecognitionAmountList: { post: post('queryPlatform') },
+      },
+      v1: {
+        recognitionExport: {
+          branchRecognitionAmounts: { post: post('exportBranchAmounts') },
+          recognitionAmounts: { post: post('exportAmounts') },
+        },
       },
     },
   }
@@ -967,5 +979,108 @@ describe('保存前的可信范围复核：不一致即失败，院区层按缺�
     })
     expect(trustedBlank.ok).toBe(false)
     expect(trustedBlank.reason).toContain('读取')
+  })
+})
+
+/**
+ * 平台金额页导出适配（调用形态与互认项目页导出同款：经生成端点取回二进制字节，保存交共享下载模块）。
+ * 导出只承载页面可产生的服务端查询条件——组织、医院、院区三值加已生效关键字；
+ * 配置状态页签与金额状态档位不参与请求。
+ */
+describe('平台金额页导出适配', () => {
+  it('构造导出请求：组织、医院、院区三值必填去空白，关键字按值下发、空白不下发', () => {
+    expect(buildRecognitionAmountExportPayload(
+      { organizationCode: ' ORG-A ', hospitalCode: ' HOS-1 ', branchCode: ' BRA-1 ' },
+      ' 血 ',
+    )).toEqual({ organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1', keyword: '血' })
+    expect(Object.keys(buildRecognitionAmountExportPayload(
+      { organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' },
+      '   ',
+    ) as object)).toEqual(['organizationCode', 'hospitalCode', 'branchCode'])
+    // 三值任一缺失或空白都不构造导出请求，不退化为全局导出或硬编码范围。
+    expect(buildRecognitionAmountExportPayload({ organizationCode: '', hospitalCode: 'HOS-1', branchCode: 'BRA-1' }, '血')).toBeNull()
+    expect(buildRecognitionAmountExportPayload({ organizationCode: 'ORG-A', hospitalCode: '   ', branchCode: 'BRA-1' }, '血')).toBeNull()
+    expect(buildRecognitionAmountExportPayload({ organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: '' }, '血')).toBeNull()
+  })
+
+  it('下载名由前端给定：固定前缀「互认项目金额维护」+ 发起时刻 14 位时间戳 + .xlsx', () => {
+    expect(buildRecognitionAmountExportDownloadName(new Date(2026, 9, 14, 15, 30, 45))).toBe('互认项目金额维护20261014153045.xlsx')
+    // 个位月、日、时、分、秒一律补零。
+    expect(buildRecognitionAmountExportDownloadName(new Date(2026, 0, 2, 3, 4, 5))).toBe('互认项目金额维护20260102030405.xlsx')
+  })
+
+  it('导出请求体恰为范围三值加关键字（页签与金额状态档位不参与），字节按生成端原样返回', async () => {
+    const content = new ArrayBuffer(8)
+    const client = stubClient({ exportAmounts: content })
+    const bytes = await exportRecognitionAmounts(
+      client,
+      { organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1', keyword: '血' },
+    )
+
+    const body = bodyOf(client.api.v1.recognitionExport.recognitionAmounts.post)
+    expect(body).toEqual({ organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1', keyword: '血' })
+    expect(Object.keys(body)).toEqual(['organizationCode', 'hospitalCode', 'branchCode', 'keyword'])
+    expect(bytes).toBe(content)
+  })
+
+  it('关键字为空时请求体只有范围三值；生成端未返回字节归一为 0 长度，交共享模块按契约错误抛出', async () => {
+    const client = stubClient()
+    const bytes = await exportRecognitionAmounts(
+      client,
+      { organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' },
+    )
+
+    const body = bodyOf(client.api.v1.recognitionExport.recognitionAmounts.post)
+    expect(body).toEqual({ organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' })
+    expect(Object.keys(body)).toEqual(['organizationCode', 'hospitalCode', 'branchCode'])
+    expect(bytes.byteLength).toBe(0)
+  })
+})
+
+/**
+ * 本院区金额页导出适配（与平台金额页导出同款调用形态；差异只在范围来源——登录院区一个值，
+ * 组织与医院由服务端从可信上下文解析，页面不提交）。导出只承载页面可产生的服务端查询条件
+ * ——登录院区加已生效关键字；配置状态页签与金额状态档位不参与请求。
+ */
+describe('本院区金额页导出适配', () => {
+  it('构造导出请求：登录院区必填去空白，关键字按值下发、空白不下发；院区缺失不构造请求', () => {
+    expect(buildBranchRecognitionAmountExportPayload({ branchCode: ' BRA-1 ' }, ' 血 '))
+      .toEqual({ branchCode: 'BRA-1', keyword: '血' })
+    expect(Object.keys(buildBranchRecognitionAmountExportPayload({ branchCode: 'BRA-1' }, '   ') as object))
+      .toEqual(['branchCode'])
+    // 登录院区缺失或空白都不构造导出请求（权限配置错误零请求，不用空院区或默认值兜底）。
+    expect(buildBranchRecognitionAmountExportPayload({ branchCode: '' }, '血')).toBeNull()
+    expect(buildBranchRecognitionAmountExportPayload({ branchCode: '   ' }, '血')).toBeNull()
+  })
+
+  it('下载名由前端给定：固定前缀「本院区互认项目金额」+ 发起时刻 14 位时间戳 + .xlsx', () => {
+    expect(buildBranchRecognitionAmountExportDownloadName(new Date(2026, 9, 14, 15, 30, 45)))
+      .toBe('本院区互认项目金额20261014153045.xlsx')
+    // 个位月、日、时、分、秒一律补零。
+    expect(buildBranchRecognitionAmountExportDownloadName(new Date(2026, 0, 2, 3, 4, 5)))
+      .toBe('本院区互认项目金额20260102030405.xlsx')
+  })
+
+  it('导出请求体恰为登录院区加关键字（组织与医院不提交，档位不参与），字节按生成端原样返回', async () => {
+    const content = new ArrayBuffer(8)
+    const client = stubClient({ exportBranchAmounts: content })
+    const bytes = await exportBranchRecognitionAmounts(client, { branchCode: 'BRA-1', keyword: '血' })
+
+    const body = bodyOf(client.api.v1.recognitionExport.branchRecognitionAmounts.post)
+    expect(body).toEqual({ branchCode: 'BRA-1', keyword: '血' })
+    expect(Object.keys(body)).toEqual(['branchCode', 'keyword'])
+    expect(body).not.toHaveProperty('organizationCode')
+    expect(body).not.toHaveProperty('hospitalCode')
+    expect(bytes).toBe(content)
+  })
+
+  it('关键字为空时请求体只有登录院区；生成端未返回字节归一为 0 长度，交共享模块按契约错误抛出', async () => {
+    const client = stubClient()
+    const bytes = await exportBranchRecognitionAmounts(client, { branchCode: 'BRA-1' })
+
+    const body = bodyOf(client.api.v1.recognitionExport.branchRecognitionAmounts.post)
+    expect(body).toEqual({ branchCode: 'BRA-1' })
+    expect(Object.keys(body)).toEqual(['branchCode'])
+    expect(bytes.byteLength).toBe(0)
   })
 })

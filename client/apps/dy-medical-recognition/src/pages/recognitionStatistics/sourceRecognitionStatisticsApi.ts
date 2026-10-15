@@ -29,7 +29,7 @@ import {
   type StatisticsPageInput,
   type SourceExportTypeValue,
 } from './recognitionStatisticsValues'
-import { saveExportWorkbook } from './statisticsExportDownload'
+import { saveExportWorkbook } from '../../shared/exportFileDownload'
 
 /**
  * 生成的契约类型经本模块转出，页面与测试只从适配层取类型，不依赖生成包深层路径或

@@ -56,7 +56,13 @@ const api = vi.hoisted(() => ({
   saveOrganizationHospitalBranchRecognitionAmount: vi.fn(),
   saveBranchRecognitionAmount: vi.fn(),
   recheckRecognitionAmountScope: vi.fn(),
+  exportRecognitionAmounts: vi.fn(),
 }))
+
+/** 共享下载模块在 Client/适配层边界替换：页面取得导出字节后经它触发保存。 */
+const exportDownload = vi.hoisted(() => ({ saveExportWorkbook: vi.fn() }))
+
+vi.mock('../../shared/exportFileDownload', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../shared/exportFileDownload')>()), saveExportWorkbook: exportDownload.saveExportWorkbook }))
 
 vi.mock('@dy/components-base', async () => {
   const { createElement, useEffect, useRef, useState } = await import('react')
@@ -541,6 +547,7 @@ beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset()
   // 保存前的可信范围复核缺省通过；需要失败结论的用例（C34）按次覆盖返回值。
   api.recheckRecognitionAmountScope.mockReturnValue({ ok: true, reason: null })
+  exportDownload.saveExportWorkbook.mockReset()
   clientRef.current = {}
   baseClient = createBaseClient()
   // 地址栏与可信三层都回到缺省状态：上一个用例的已生效条件不得泄漏进本用例。
@@ -1003,7 +1010,8 @@ describe('C23 组件自身加载失败提示', () => {
     expect(save()).not.toHaveBeenCalled()
     expect(screen.queryByText('互认项目金额数据待刷新')).not.toBeInTheDocument()
     // 操作列删除后写入口就是金额格：此时范围未解析、行集为空，页面没有任何可写入口（由上面的零请求与空态共同体现）。
-    expect(screen.queryAllByRole('button', { name: /金额/ })).toHaveLength(0)
+    // 导出按钮（可访问名称含「金额」）不是写入口：范围未解析时它呈禁用态，不在此断言面内。
+    expect(screen.queryAllByRole('button', { name: /修改金额/ })).toHaveLength(0)
     // 范围未解析：给出范围未选全的空态，页面不进入可操作状态。
     expect(screen.getByText('请选择组织、医院与院区后查看互认项目金额')).toBeInTheDocument()
   })
@@ -2113,5 +2121,313 @@ describe('列表版面与互认项目页统一', () => {
     expect(countRule).toContain('margin-top: 12px')
     expect(countRule).toContain('tabular-nums')
     expect(countRule).not.toContain('text-align: right')
+  })
+})
+
+/*
+ * 平台金额页导出链的组件层用例（页面与交互口径见项目导出阶段 Client 设计「导出按钮门控与状态」
+ * 与「点击导出的行为」两节）：
+ * 1. 导出按钮承载在配置状态页签行右侧（与互认项目页同款式，经两个金额页共用的列表视图组件一次落地），
+ *    标准按钮语义与可访问名称，键盘焦点顺序随 DOM 顺序；
+ * 2. 门控：范围未选全、可信范围已变化且页面尚未应用（待切换提示态）、读取失败或写入后刷新失败
+ *    禁用且零请求；导出在途 loading 防重复；列表读取在途与行内编辑进行中不限制导出，既有写门控零改动；
+ * 3. 请求体为选定范围三值加已生效关键字（配置状态页签与金额状态档位不参与）；取得字节后经共享
+ *    下载模块保存，下载名按发起时刻给定；失败结束加载、保留列表与筛选、不新增页面级提示层；
+ *    导出不写本页路由查询参数。
+ */
+/** 导出按钮按可访问名称定位：名称表达页面与动作（可见文本为「导出」）。 */
+const exportButton = () => screen.getByRole('button', { name: '导出互认项目金额' })
+const queryExportButton = () => screen.queryByRole('button', { name: '导出互认项目金额' })
+
+/**
+ * 「不新增页面级错误层」按页面根容器断言：页面自身的 message holder 挂在列表视图根部，
+ * 而同文件更早用例经 antd 静态 message 弹出的提示渲染在 body 上、jsdom 无动画不消失，
+ * 按 document 断言会命中与本用例无关的残留节点。
+ */
+const pageRoot = () => document.querySelector('.recognition-amounts-page') as HTMLElement
+const queryPageAlert = () => within(pageRoot()).queryByRole('alert')
+
+/** 排队一次导出交付，并断言当前没有任何导出请求被发起（禁用态零请求用例的公共收尾）。 */
+async function expectNoAmountExportRequest() {
+  api.exportRecognitionAmounts.mockResolvedValueOnce(new ArrayBuffer(4))
+  click(exportButton())
+  await act(async () => {})
+  expect(api.exportRecognitionAmounts).not.toHaveBeenCalled()
+}
+
+describe('平台金额页导出的承载位置与请求体', () => {
+  it('导出按钮与配置状态页签同处一个工具行、随 DOM 顺序在页签之后，页面其余区块不变', async () => {
+    await renderLoaded([amountRow()])
+
+    const button = exportButton()
+    // 标准按钮语义：承载元素就是 button（可见文本「导出」，可访问名称补充页面语境）。
+    expect(button.tagName).toBe('BUTTON')
+    // 同一行承载：按钮与页签容器同处一个工具行（页签行右侧由该容器的两端布局承载）。
+    const toolbar = button.closest('.recognition-amounts-status-toolbar')
+    expect(toolbar).not.toBeNull()
+    const group = within(toolbar as HTMLElement).getByRole('group', { name: '配置状态筛选' })
+    // DOM 顺序：页签在前、按钮在后（键盘焦点顺序随 DOM 顺序）。
+    expect(group.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    // 页面其余区块不因导出能力变化：七列列头与页脚计数保持原样。
+    expect(columnHeaders()).toEqual(['类型', '分类', '分组', '项目', '当前金额', '互认配置状态', '当前不可用原因'])
+    expect(screen.getByText(/共 \d+ 项/)).toBeInTheDocument()
+  })
+
+  it('请求体为选定范围三值加已生效关键字；配置状态页签与金额状态档位不参与请求', async () => {
+    await renderLoaded([amountRow()])
+    await change(keywordInput(), '血')
+    const second = armQuery()
+    await submitByEnter()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await settle(second, [amountRow()])
+
+    // 两个档位只是本地裁剪：在「停用」页签与金额状态「已配置」档位下导出，档位都不进入请求。
+    clickConfigurationStatusTab('停用')
+    await pickSelectOption(amountStatusFilter(), '已配置')
+    api.exportRecognitionAmounts.mockResolvedValueOnce(new ArrayBuffer(4))
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportRecognitionAmounts).toHaveBeenCalledTimes(1))
+
+    // 页面把 client 原样交给适配层出口；请求体恰为范围三值与已生效关键字。
+    expect(api.exportRecognitionAmounts.mock.calls[0][0]).toBe(clientRef.current)
+    const payload = api.exportRecognitionAmounts.mock.calls[0][1] as Record<string, unknown>
+    expect(payload).toEqual({ organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1', keyword: '血' })
+    expect(Object.keys(payload)).toEqual(['organizationCode', 'hospitalCode', 'branchCode', 'keyword'])
+  })
+
+  it('已生效关键字为空时请求体只有范围三值', async () => {
+    await renderLoaded([amountRow()])
+    api.exportRecognitionAmounts.mockResolvedValueOnce(new ArrayBuffer(4))
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportRecognitionAmounts).toHaveBeenCalledTimes(1))
+
+    const payload = api.exportRecognitionAmounts.mock.calls[0][1] as Record<string, unknown>
+    expect(payload).toEqual({ organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1' })
+    expect(Object.keys(payload)).toEqual(['organizationCode', 'hospitalCode', 'branchCode'])
+  })
+
+  it('范围未选全（院区清单为空致三值不齐）导出按钮禁用且零请求', async () => {
+    // 院区清单为空：选择器解析不出院区，页面不接受三值不齐的回调，列表停留在范围空态。
+    baseClient = createBaseClient()
+    baseClient.api.organization.queryAllValidBranchByOrgId.post = vi.fn(async () => [])
+    configureBaseComponents({ client: baseClient as unknown as BaseComponentsConfig['client'] })
+
+    renderPage()
+    await screen.findByText('请选择组织、医院与院区后查看互认项目金额')
+
+    expect(exportButton()).toBeDisabled()
+    await expectNoAmountExportRequest()
+  })
+
+  it('导出在途按钮进入 loading 且再次点击不发起新请求，完成后恢复可用', async () => {
+    await renderLoaded([amountRow()])
+    const payload = deferred<ArrayBuffer>()
+    api.exportRecognitionAmounts.mockReturnValueOnce(payload.promise)
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportRecognitionAmounts).toHaveBeenCalledTimes(1))
+    expect(exportButton()).toHaveClass('ant-btn-loading')
+    expect(exportButton()).toBeDisabled()
+
+    click(exportButton())
+    await act(async () => {})
+    expect(api.exportRecognitionAmounts).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      payload.resolve(new ArrayBuffer(4))
+    })
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(exportButton()).toBeEnabled())
+  })
+})
+
+describe('平台金额页导出成功后的保存与失败恢复', () => {
+  it('取得字节后经共享下载模块触发保存，文件名为「互认项目金额维护 + 发起时刻 14 位时间戳 + .xlsx」', async () => {
+    await renderLoaded([amountRow()])
+    const bytes = new ArrayBuffer(8)
+    api.exportRecognitionAmounts.mockResolvedValueOnce(bytes)
+
+    click(exportButton())
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+
+    // 字节原样交给共享模块；下载名按发起时刻构造（时间戳精确格式由适配层用例固定）。
+    expect(exportDownload.saveExportWorkbook.mock.calls[0][0]).toBe(bytes)
+    expect(exportDownload.saveExportWorkbook.mock.calls[0][1]).toMatch(/^互认项目金额维护\d{14}\.xlsx$/)
+    await waitFor(() => expect(exportButton()).toBeEnabled())
+  })
+
+  it('导出请求失败：结束加载、保留列表与已生效筛选，不重读、不新增页面级错误层', async () => {
+    await renderLoaded([amountRow()])
+    await change(keywordInput(), '血')
+    const second = armQuery()
+    await submitByEnter()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await settle(second, [amountRow()])
+    api.exportRecognitionAmounts.mockRejectedValueOnce(new Error('业务拒绝：当前条件下无可导出数据。'))
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportRecognitionAmounts).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(exportButton()).toBeEnabled())
+
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    expect((screen.getByLabelText('关键字筛选') as HTMLInputElement).value).toBe('血')
+    // 导出失败不触发列表重读：读取只有进入页面与关键字提交两次。
+    expect(query()).toHaveBeenCalledTimes(2)
+    // 页面不解析错误响应体、不新增提示层：页面根容器内不出现 Alert。
+    expect(queryPageAlert()).not.toBeInTheDocument()
+  })
+
+  it('共享下载模块对 0 字节内容按契约错误抛出时走同一失败路径，不产生保存成功假象', async () => {
+    await renderLoaded([amountRow()])
+    api.exportRecognitionAmounts.mockResolvedValueOnce(new ArrayBuffer(0))
+    exportDownload.saveExportWorkbook.mockRejectedValueOnce(new Error('导出未返回文件内容。'))
+
+    click(exportButton())
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(exportButton()).toBeEnabled())
+
+    expect(exportDownload.saveExportWorkbook.mock.calls[0][0].byteLength).toBe(0)
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    // 契约错误同走失败路径：不重读、不新增页面级错误层。
+    expect(query()).toHaveBeenCalledTimes(1)
+    expect(queryPageAlert()).not.toBeInTheDocument()
+  })
+})
+
+describe('平台金额页导出与页面其他状态的共存', () => {
+  it('列表读取在途与行内编辑进行中不限制导出，导出在途也不阻塞列表读取与金额写入口', async () => {
+    await renderLoaded([amountRow()])
+
+    // 列表读取在途：导出保持可用（导出是只读链，不与读取在途互斥）。
+    const refresh = armQuery()
+    click(searchButton())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    expect(exportButton()).toBeEnabled()
+    await settle(refresh, [amountRow()])
+    await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
+
+    // 行内编辑进行中（无范围变化）：导出不受限制。
+    editAmount('血常规')
+    await screen.findByLabelText('金额')
+    expect(exportButton()).toBeEnabled()
+
+    // 导出在途：既有写门控不因导出改变——提交查询仍会发起一次列表读取。
+    const payload = deferred<ArrayBuffer>()
+    api.exportRecognitionAmounts.mockReturnValueOnce(payload.promise)
+    click(exportButton())
+    await waitFor(() => expect(api.exportRecognitionAmounts).toHaveBeenCalledTimes(1))
+
+    const reload = armQuery()
+    click(searchButton())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    await settle(reload, [amountRow()])
+
+    // 收起行内编辑后写入口按既有门控恢复：导出在途不禁用它。
+    click(screen.getByRole('button', { name: '取消修改金额：血常规' }))
+    await waitFor(() => expect(queryInlineAmountInput()).toBeNull())
+    await waitFor(() => expect(amountValueCell('血常规')).toBeEnabled())
+
+    await act(async () => {
+      payload.resolve(new ArrayBuffer(4))
+    })
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+  })
+
+  it('导出在途时切换配置状态页签不被阻塞，也不发起第二次导出', async () => {
+    await renderLoaded([amountRow()])
+    const payload = deferred<ArrayBuffer>()
+    api.exportRecognitionAmounts.mockReturnValueOnce(payload.promise)
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportRecognitionAmounts).toHaveBeenCalledTimes(1))
+
+    clickConfigurationStatusTab('停用')
+    expect(selectedStatusTabLabels()).toEqual(['停用'])
+    expect(api.exportRecognitionAmounts).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      payload.resolve(new ArrayBuffer(4))
+    })
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+  })
+
+  it('导出动作与条件不写入本页路由查询参数', async () => {
+    await renderLoaded([amountRow()])
+    api.exportRecognitionAmounts.mockResolvedValueOnce(new ArrayBuffer(4))
+
+    expect(window.location.search).toBe('')
+    click(exportButton())
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+    expect(window.location.search).toBe('')
+  })
+
+  it('可信范围已变化且页面尚未应用（待切换提示态）导出按钮禁用且零请求', async () => {
+    trustedBranchRef.current = 'BRA-1'
+    await renderLoaded([amountRow()])
+
+    // 行内编辑输入未保存：可信院区变化后页面停在确认框，取消后进入待切换提示态，
+    // 页面仍展示已应用范围的列表（导出所取范围与页面展示不一致）。
+    editAmount('血常规')
+    await change(inlineAmountInput(), '99')
+    await resignTrustedToken('BRA-4')
+    const dialog = await findModal(CONFIRM_TRUSTED_SCOPE)
+    click(within(dialog).getByRole('button', { name: /取\s*消/ }))
+    await waitFor(() => expect(modalExists(CONFIRM_TRUSTED_SCOPE)).toBe(false))
+    expect(promptElement()).not.toBeNull()
+
+    expect(query()).toHaveBeenCalledTimes(1)
+    expect(exportButton()).toBeDisabled()
+    await expectNoAmountExportRequest()
+  })
+
+  it('读取失败导出按钮禁用且零请求', async () => {
+    await renderLoaded([amountRow()])
+
+    const failing = armQuery()
+    click(searchButton())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await failQuery(failing)
+    await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
+
+    expect(exportButton()).toBeDisabled()
+    await expectNoAmountExportRequest()
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+  })
+
+  it('写入后刷新失败导出按钮禁用且零请求', async () => {
+    await renderLoaded([amountRow()])
+
+    // 金额保存成功、随后的整表重载失败：页面提示「写入已成功，数据待刷新」，门控与读取失败一致。
+    editAmount('血常规')
+    await change(inlineAmountInput(), '20.00')
+    save().mockResolvedValueOnce(undefined)
+    const failing = armQuery()
+    await pressEnter(inlineAmountInput())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await failQuery(failing)
+    await screen.findByText('写入已成功，数据待刷新')
+
+    expect(exportButton()).toBeDisabled()
+    await expectNoAmountExportRequest()
+  })
+})
+
+describe('平台金额页整页阻断态导出不可达', () => {
+  it('可信组织缺失的整页阻断态不渲染导出按钮，医院缺失同样不可达', async () => {
+    trustedOrganizationRef.current = null
+    renderPage()
+    expect(await screen.findByRole('heading', { name: '互认项目金额维护', level: 3 })).toBeInTheDocument()
+    expect(queryExportButton()).not.toBeInTheDocument()
+    expect(query()).not.toHaveBeenCalled()
+
+    await act(async () => {
+      trustedOrganizationRef.current = 'ORG-A'
+      trustedHospitalRef.current = null
+      authState.notify()
+    })
+    expect(screen.getByRole('heading', { name: '互认项目金额维护', level: 3 })).toBeInTheDocument()
+    expect(queryExportButton()).not.toBeInTheDocument()
   })
 })

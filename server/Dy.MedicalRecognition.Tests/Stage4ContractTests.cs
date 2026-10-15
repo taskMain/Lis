@@ -94,7 +94,8 @@ public sealed class Stage4ContractTests
   /// <remarks>
   /// 这四个名字分别暗示客户端推进分页、把框架分页对象直接对外、暴露窗口起点与页数，都与服务端分页的约定不符；
   /// 它们一旦出现在对外类型上，生成端与页面就会按另一套分页模型实现。
-  /// 守卫覆盖公共分页类型与阶段 6 的四个统计查询请求：后者以内嵌分页对象承载分页，顶层与响应都不得出现这些名字。
+  /// 守卫覆盖公共分页类型、阶段 6 的四个统计查询请求与三个页面导出请求：导出请求不承载分页对象，
+  /// 顶层同样不得出现这些名字。
   /// </remarks>
   [Fact]
   public void Paging_contract_does_not_expose_derived_or_internal_paging_fields()
@@ -105,7 +106,10 @@ public sealed class Stage4ContractTests
       typeof(Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionStatistics.RecognitionUsageSummaryQueryRequest),
       typeof(Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionStatistics.BranchRecognitionUsageSummaryQueryRequest),
       typeof(Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionStatistics.RecognitionUsageDetailsQueryRequest),
-      typeof(Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionStatistics.BranchRecognitionUsageDetailsQueryRequest)
+      typeof(Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionStatistics.BranchRecognitionUsageDetailsQueryRequest),
+      typeof(Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition.RecognitionProjectConfigurationExportRequest),
+      typeof(Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount.RecognitionAmountExportRequest),
+      typeof(Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount.BranchRecognitionAmountExportRequest)
     ];
     string[] banned = ["HasNext", "Pagination", "SkipCount", "PageCount"];
 

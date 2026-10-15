@@ -18,6 +18,11 @@
    未提级的同优先级覆写会被 antd 默认样式压住；导航切换路径下宿主实测过失效）。 */
 .recognition-amounts-status-tabs.ant-tabs { margin-bottom: -1px; }
 .recognition-amounts-status-tabs.ant-tabs > .ant-tabs-nav { margin-bottom: 0; }
+/* 配置状态页签行右侧承载导出入口（三页统一承载位置，与「互认项目」页同款式）：
+   页签占左、按钮贴行右缘，页签底边与列表容器边框重合的原口径不变；
+   窄视口由 flex-wrap 换行，按钮随行落到页签下方。 */
+.recognition-amounts-status-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.recognition-amounts-status-toolbar > [role='group'] { flex: 1 1 auto; min-width: 0; }
 /* 层级格纵向跨多行：内容顶端与「互认项目」页层级格一致，离屏时跳过渲染并声明固有尺寸估计。 */
 .recognition-amounts-level-cell { vertical-align: top; content-visibility: auto; contain-intrinsic-size: auto 48px; }
 .recognition-amounts-project { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }

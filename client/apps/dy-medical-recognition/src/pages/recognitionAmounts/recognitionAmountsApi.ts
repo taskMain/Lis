@@ -1,6 +1,8 @@
 import type {
+  BranchRecognitionAmountExportRequest,
   BranchRecognitionAmountListQueryRequest,
   MedicalRecognitionClient,
+  RecognitionAmountExportRequest,
   RecognitionAmountListQueryRequest,
   RecognitionAmountReadModel,
   SaveBranchRecognitionAmountRequest,
@@ -11,6 +13,7 @@ import {
   medicalItemTypeText,
   type MedicalItemTypeValue,
 } from '../../shared/medicalItemType'
+import { buildExportFileName } from '../../shared/exportFileDownload'
 import {
   CONFIGURATION_STATUSES,
   CONFIGURATION_STATUS_TEXTS,
@@ -26,8 +29,10 @@ import {
  * 生成包的传递依赖（`@microsoft/kiota-abstractions` 不是本子应用的直接依赖）。
  */
 export type {
+  BranchRecognitionAmountExportRequest,
   BranchRecognitionAmountListQueryRequest,
   MedicalRecognitionClient,
+  RecognitionAmountExportRequest,
   RecognitionAmountListQueryRequest,
   RecognitionAmountReadModel,
   SaveBranchRecognitionAmountRequest,
@@ -770,4 +775,124 @@ export async function saveBranchRecognitionAmount(
     currentAmount: { value: payload.currentAmount, getValue: () => payload.currentAmount },
   }
   await client.api.medicalRecognitionReport.saveBranchRecognitionAmount.post(body)
+}
+
+// ========== 平台金额导出（调用形态与互认项目页导出同款：经生成端点取回二进制字节，保存交共享下载模块） ==========
+
+/**
+ * 平台金额导出请求载荷：组织、医院、院区三值必填（去空白后显式下发），关键字缺省时不下发
+ * （与列表查询同一构造口径）。配置状态页签与金额状态档位不参与导出：导出只承载页面可产生的
+ * 服务端查询条件（范围三值 + 关键字），与档位解耦——在任一档位下导出得到的都是该查询条件的全量文件。
+ */
+export interface RecognitionAmountExportPayload {
+  organizationCode: string
+  hospitalCode: string
+  branchCode: string
+  keyword?: string
+}
+
+/**
+ * 构造平台金额导出请求；组织、医院、院区任一缺失或空白时返回 `null`，调用方据此**零请求**
+ * （与查询构造同一防御，不退化为全局导出）。关键字取**已生效**值（已提交为服务端查询条件的那一份），
+ * 按值下发、空白不下发，使「未筛选」与「筛选为空」在导出请求上同样可区分。
+ */
+export function buildRecognitionAmountExportPayload(
+  input: { organizationCode: string; hospitalCode: string; branchCode: string },
+  keyword: string,
+): RecognitionAmountExportPayload | null {
+  const organizationCode = input.organizationCode.trim()
+  const hospitalCode = input.hospitalCode.trim()
+  const branchCode = input.branchCode.trim()
+  if (organizationCode.length === 0 || hospitalCode.length === 0 || branchCode.length === 0) return null
+  const effectiveKeyword = keyword.trim()
+  return {
+    organizationCode,
+    hospitalCode,
+    branchCode,
+    ...(effectiveKeyword.length === 0 ? {} : { keyword: effectiveKeyword }),
+  }
+}
+
+/**
+ * 导出下载名：固定前缀「互认项目金额维护」+ 发起时刻的 14 位时间戳 + `.xlsx`。
+ * 生成端只透出字节体、不透出响应头，下载名由调用方（前端）给定，响应头文件名不作权威来源；
+ * 时间戳在导出请求**发起之前**构造（调用方保证），表达的是「发起时刻」而非完成时刻。
+ */
+export function buildRecognitionAmountExportDownloadName(now: Date = new Date()): string {
+  return buildExportFileName('互认项目金额维护', now)
+}
+
+/**
+ * 导出平台金额维护工作簿：调用生成端点取回工作簿字节并**原样返回**，保存由调用方经共享下载模块触发
+ * （0 字节契约错误的抛出点在共享模块，本层只把生成端可空的缺省归一为 0 长度交它判定）。
+ * 本层不解析错误响应体：业务拒绝与网络失败都原样上抛，由宿主统一提示。
+ */
+export async function exportRecognitionAmounts(
+  client: MedicalRecognitionClient,
+  request: RecognitionAmountExportPayload,
+): Promise<ArrayBuffer> {
+  const body: RecognitionAmountExportRequest = {
+    organizationCode: request.organizationCode,
+    hospitalCode: request.hospitalCode,
+    branchCode: request.branchCode,
+  }
+  if (request.keyword !== undefined) body.keyword = request.keyword
+  const content = await client.api.v1.recognitionExport.recognitionAmounts.post(body)
+  return content ?? new ArrayBuffer(0)
+}
+
+// ========== 本院区金额导出（与平台金额导出同款调用形态；范围来源只有登录院区一个值，组织与医院由服务端从可信上下文解析，页面不提交） ==========
+
+/**
+ * 本院区金额导出请求载荷：登录院区必填（去空白后显式下发），关键字缺省时不下发
+ * （与本院区列表查询同一构造口径）。配置状态页签与金额状态档位不参与导出：导出只承载页面可产生的
+ * 服务端查询条件（登录院区 + 关键字），与档位解耦——在任一档位下导出得到的都是该查询条件的全量文件；
+ * 组织与医院不进请求体，由服务端从可信上下文解析，本层不得替它补上。
+ */
+export interface BranchRecognitionAmountExportPayload {
+  branchCode: string
+  keyword?: string
+}
+
+/**
+ * 构造本院区金额导出请求；登录院区缺失或空白时返回 `null`，调用方据此**零请求**
+ * （与本院区查询构造同一防御：院区缺失属权限配置错误，不用空院区或默认值兜底，也不退化为全局导出）。
+ * 关键字取**已生效**值（已提交为服务端查询条件的那一份），按值下发、空白不下发，
+ * 使「未筛选」与「筛选为空」在导出请求上同样可区分。
+ */
+export function buildBranchRecognitionAmountExportPayload(
+  input: { branchCode: string },
+  keyword: string,
+): BranchRecognitionAmountExportPayload | null {
+  const branchCode = input.branchCode.trim()
+  if (branchCode.length === 0) return null
+  const effectiveKeyword = keyword.trim()
+  return {
+    branchCode,
+    ...(effectiveKeyword.length === 0 ? {} : { keyword: effectiveKeyword }),
+  }
+}
+
+/**
+ * 导出下载名：固定前缀「本院区互认项目金额」+ 发起时刻的 14 位时间戳 + `.xlsx`。
+ * 生成端只透出字节体、不透出响应头，下载名由调用方（前端）给定，响应头文件名不作权威来源；
+ * 时间戳在导出请求**发起之前**构造（调用方保证），表达的是「发起时刻」而非完成时刻。
+ */
+export function buildBranchRecognitionAmountExportDownloadName(now: Date = new Date()): string {
+  return buildExportFileName('本院区互认项目金额', now)
+}
+
+/**
+ * 导出本院区金额工作簿：调用生成端点取回工作簿字节并**原样返回**，保存由调用方经共享下载模块触发
+ * （0 字节契约错误的抛出点在共享模块，本层只把生成端可空的缺省归一为 0 长度交它判定）。
+ * 本层不解析错误响应体：业务拒绝与网络失败都原样上抛，由宿主统一提示。
+ */
+export async function exportBranchRecognitionAmounts(
+  client: MedicalRecognitionClient,
+  request: BranchRecognitionAmountExportPayload,
+): Promise<ArrayBuffer> {
+  const body: BranchRecognitionAmountExportRequest = { branchCode: request.branchCode }
+  if (request.keyword !== undefined) body.keyword = request.keyword
+  const content = await client.api.v1.recognitionExport.branchRecognitionAmounts.post(body)
+  return content ?? new ArrayBuffer(0)
 }

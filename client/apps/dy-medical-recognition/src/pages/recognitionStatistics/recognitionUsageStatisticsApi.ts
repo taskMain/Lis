@@ -37,7 +37,7 @@ import {
   type UsageDetailTypeValue,
   type UsageExportTypeValue,
 } from './recognitionStatisticsValues'
-import { saveExportWorkbook } from './statisticsExportDownload'
+import { saveExportWorkbook } from '../../shared/exportFileDownload'
 
 /**
  * 生成的契约类型与两个适配层共享的视图结构经本模块转出，

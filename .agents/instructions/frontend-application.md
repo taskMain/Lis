@@ -20,6 +20,7 @@
 | `src/shared/tablePagination.ts` | 服务端分页的 Table 受控配置出口：页容量可选值与上限、总数展示、加载中禁用、改变页容量回到第 1 页；页面只传状态与回调，不各自拼装 antd 分页字段 | [Pagination](pagination.md) |
 | `src/shared/medicalItemType.ts` | 项目类型取值域、取值域判定与兜底文案 | 阶段 1 设计 |
 | `src/shared/configurationStatus.ts` | 配置状态取值域、取值域判定与兜底文案 | 阶段 1 设计 |
+| `src/shared/exportFileDownload.ts` | 导出文件下载出口：工作簿字节转 Blob 触发浏览器保存并释放对象地址，字节缺失或 0 字节按契约错误抛出（「导出未返回文件内容。」）；下载名由调用方给定，模块只按契约抛出、错误提示由宿主统一处理 | 阶段 6 设计（下载模块先例）；导出能力出处：阶段 2 设计（S2-D30）、阶段 3 设计（S3-D30） |
 
 新增共享模块前先完成复用检索（见 [C# Documentation And Reuse](csharp-documentation-and-reuse.md) 的复用检索闸门），并在本表补一行。
 

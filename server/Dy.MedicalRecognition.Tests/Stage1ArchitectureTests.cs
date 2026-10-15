@@ -262,7 +262,14 @@ public sealed class Stage1ArchitectureTests
     (nameof(IMedicalRecognitionReportQueryAppService.GetStatisticsExportAsync),
       "Task<StatisticsExportFileReadModel>", ["RecognitionStatisticsExportRequest request"]),
     (nameof(IMedicalRecognitionReportQueryAppService.QueryRecognitionMatchRecordAsync),
-      "Task<RecognitionMatchRecordReadModel>", ["RecognitionMatchRecordQueryRequest request"])
+      "Task<RecognitionMatchRecordReadModel>", ["RecognitionMatchRecordQueryRequest request"]),
+    // 页面导出入口由手工导出控制器的 POST 动作调用，不自动暴露为端点。
+    ("GetRecognitionProjectConfigurationExportAsync",
+      "Task<ConfigurationExportFileReadModel>", ["RecognitionProjectConfigurationExportRequest request"]),
+    ("GetRecognitionAmountExportAsync",
+      "Task<ConfigurationExportFileReadModel>", ["RecognitionAmountExportRequest request"]),
+    ("GetBranchRecognitionAmountExportAsync",
+      "Task<ConfigurationExportFileReadModel>", ["BranchRecognitionAmountExportRequest request"])
   ];
 
   /// <summary>
@@ -530,8 +537,8 @@ public sealed class Stage1ArchitectureTests
   /// <summary>
   /// 校验读写契约分离：查询契约只继承应用服务标记而不含写方法，查询契约与查询仓储实现可相互赋值，
   /// 查询契约的方法集合固定为阶段 1 的四个目录查询、阶段 2 的互认配置列表查询、阶段 3 的两个金额列表查询、
-  /// 阶段 4 的报告列表与版本查询、阶段 5 的引用详情查询，以及阶段 6 的八个统计查询、统计导出入口与匹配记录视图，
-  /// 且写入口契约中不得出现只读查询方法。
+  /// 阶段 4 的报告列表与版本查询、阶段 5 的引用详情查询、阶段 6 的八个统计查询、统计导出入口与匹配记录视图，
+  /// 以及三个页面导出入口，且写入口契约中不得出现只读查询方法。
   /// </summary>
   [Fact]
   public void Query_contract_is_separated_from_write_service_and_repository_implementation()
@@ -542,7 +549,8 @@ public sealed class Stage1ArchitectureTests
 
     string[] expectedQueryMethods =
     [
-      "GetStatisticsExportAsync", "QueryBranchMedicalReportListAsync", "QueryBranchRecognitionAmountListAsync",
+      "GetBranchRecognitionAmountExportAsync", "GetRecognitionAmountExportAsync", "GetRecognitionProjectConfigurationExportAsync", "GetStatisticsExportAsync",
+      "QueryBranchMedicalReportListAsync", "QueryBranchRecognitionAmountListAsync",
       "QueryBranchRecognitionUsageDetailsAsync", "QueryBranchRecognitionUsageSummaryAsync",
       "QueryBranchSourceRecognitionDetailsAsync", "QueryBranchSourceRecognitionSummaryAsync",
       "QueryEffectiveMedicalStandardCatalogAsync", "QueryMedicalReportListAsync", "QueryMedicalReportVersionDetailAsync",

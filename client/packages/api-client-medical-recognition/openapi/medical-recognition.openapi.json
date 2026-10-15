@@ -43,6 +43,156 @@
         ]
       }
     },
+    "/api/v1/recognition-export/recognition-projects": {
+      "post": {
+        "tags": [
+          "RecognitionExport"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProjectConfigurationExportRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProjectConfigurationExportRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProjectConfigurationExportRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProjectConfigurationExportRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProjectConfigurationExportRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionProjectConfigurationExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/api/v1/recognition-export/recognition-amounts": {
+      "post": {
+        "tags": [
+          "RecognitionExport"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionAmountExportRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionAmountExportRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionAmountExportRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionAmountExportRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionAmountExportRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/RecognitionAmountExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
+    "/api/v1/recognition-export/branch-recognition-amounts": {
+      "post": {
+        "tags": [
+          "RecognitionExport"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionAmountExportRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionAmountExportRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionAmountExportRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionAmountExportRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionAmountExportRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchRecognitionAmountExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {}
+        ]
+      }
+    },
     "/api/v1/statistics-export/platform": {
       "post": {
         "tags": [
@@ -4313,6 +4463,23 @@
   },
   "components": {
     "schemas": {
+      "BranchRecognitionAmountExportRequest": {
+        "required": [
+          "branchCode"
+        ],
+        "type": "object",
+        "properties": {
+          "branchCode": {
+            "type": "string"
+          },
+          "keyword": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "BranchRecognitionAmountListQueryRequest": {
         "required": [
           "branchCode"
@@ -6571,6 +6738,31 @@
           }
         }
       },
+      "RecognitionAmountExportRequest": {
+        "required": [
+          "organizationCode",
+          "hospitalCode",
+          "branchCode"
+        ],
+        "type": "object",
+        "properties": {
+          "organizationCode": {
+            "type": "string"
+          },
+          "hospitalCode": {
+            "type": "string"
+          },
+          "branchCode": {
+            "type": "string"
+          },
+          "keyword": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "RecognitionAmountListQueryRequest": {
         "required": [
           "organizationCode",
@@ -7271,6 +7463,23 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "RecognitionProjectConfigurationExportRequest": {
+        "required": [
+          "organizationCode"
+        ],
+        "type": "object",
+        "properties": {
+          "organizationCode": {
+            "type": "string"
+          },
+          "keyword": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -8950,6 +9159,9 @@
   "tags": [
     {
       "name": "Authentication"
+    },
+    {
+      "name": "RecognitionExport"
     },
     {
       "name": "RecognitionStatisticsExport"

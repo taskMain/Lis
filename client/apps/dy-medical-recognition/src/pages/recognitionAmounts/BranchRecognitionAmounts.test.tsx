@@ -64,7 +64,13 @@ const api = vi.hoisted(() => ({
   queryBranchRecognitionAmountRows: vi.fn(),
   saveOrganizationHospitalBranchRecognitionAmount: vi.fn(),
   saveBranchRecognitionAmount: vi.fn(),
+  exportBranchRecognitionAmounts: vi.fn(),
 }))
+
+/** 共享下载模块在 Client/适配层边界替换：页面取得导出字节后经它触发保存。 */
+const exportDownload = vi.hoisted(() => ({ saveExportWorkbook: vi.fn() }))
+
+vi.mock('../../shared/exportFileDownload', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../shared/exportFileDownload')>()), saveExportWorkbook: exportDownload.saveExportWorkbook }))
 
 /** 基础目录替身注入点：范围条按编码反查医院、院区名称（编码到名称的固定映射，避开行夹具名称）。 */
 const baseDirectoryRef = vi.hoisted(() => ({ current: null as unknown }))
@@ -308,6 +314,7 @@ beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset()
   // 列表读取缺省给出明确拒绝：用例须先 armQuery 排队，未排队的读取以可读的失败暴露，避免以 undefined 静默通过。
   query().mockRejectedValue(new Error('用例未排队列表读取：先调用 armQuery'))
+  exportDownload.saveExportWorkbook.mockReset()
   clientRef.current = {}
   // restoreMocks 会让上一用例的 vi.fn() 实现失效：目录替身每用例重建。
   baseDirectoryRef.current = createBaseDirectory()
@@ -1413,5 +1420,280 @@ describe('列表版面与两页统一', () => {
     const disabledTag = rowOf('停用项目').querySelector('.ant-tag')
     expect(disabledTag?.classList.contains('ant-tag-success')).toBe(false)
     expect(disabledTag?.classList.contains('ant-tag-warning')).toBe(false)
+  })
+})
+
+/*
+ * 本院区金额页导出链的组件层用例（页面与交互口径见项目导出阶段 Client 设计「导出按钮门控与状态」
+ * 与「点击导出的行为」两节，形态与平台金额页同款；差异只在范围来源与门控来源）：
+ * 1. 导出按钮由共用列表视图组件承载在配置状态页签行右侧，可访问名称与平台金额页一致；
+ * 2. 请求体只有登录院区与已生效关键字（组织与医院由服务端从可信上下文解析，页面不提交；
+ *    配置状态页签与金额状态档位不参与）；
+ * 3. 门控：登录院区缺失随空态禁用（本页不整页阻断，与平台页「范围未选全」不同源——本页没有
+ *    范围选择器）、读取失败或写入后刷新失败由共用组件按既有写门控禁用，均零请求；导出在途
+ *    loading 防重复；列表读取在途与行内编辑进行中不限制导出，既有写门控零改动；
+ * 4. 点击时刻现读登录院区并要求与已应用一致；成功经共享下载模块保存（下载名按发起时刻构造）；
+ *    失败仅结束 loading、保留列表与筛选、不新增页面级提示层；导出不写本页路由查询参数。
+ */
+/** 导出按钮按可访问名称定位：名称表达页面与动作（可见文本为「导出」）。 */
+const exportButton = () => screen.getByRole('button', { name: '导出互认项目金额' })
+const queryExportButton = () => screen.queryByRole('button', { name: '导出互认项目金额' })
+
+/**
+ * 「不新增页面级错误层」按页面根容器断言（与平台金额页同款）：页面自身的 message holder 挂在
+ * 列表视图根部，而同文件更早用例经 antd 静态 message 弹出的提示渲染在 body 上、jsdom 无动画
+ * 不消失，按 document 断言会命中与本用例无关的残留节点。
+ */
+const pageRoot = () => document.querySelector('.recognition-amounts-page') as HTMLElement
+const queryPageAlert = () => within(pageRoot()).queryByRole('alert')
+
+/** 排队一次导出交付，并断言当前没有任何导出请求被发起（禁用态零请求用例的公共收尾）。 */
+async function expectNoBranchExportRequest() {
+  api.exportBranchRecognitionAmounts.mockResolvedValueOnce(new ArrayBuffer(4))
+  click(exportButton())
+  await act(async () => {})
+  expect(api.exportBranchRecognitionAmounts).not.toHaveBeenCalled()
+}
+
+describe('本院区金额页导出的承载位置与请求体', () => {
+  it('导出按钮与配置状态页签同处一个工具行、随 DOM 顺序在页签之后，页面其余区块不变', async () => {
+    await renderLoaded([amountRow()])
+
+    const button = exportButton()
+    // 标准按钮语义：承载元素就是 button（可见文本「导出」，可访问名称补充页面语境）。
+    expect(button.tagName).toBe('BUTTON')
+    // 同一行承载：按钮与页签容器同处一个工具行（页签行右侧由该容器的两端布局承载）。
+    const toolbar = button.closest('.recognition-amounts-status-toolbar')
+    expect(toolbar).not.toBeNull()
+    const group = within(toolbar as HTMLElement).getByRole('group', { name: '配置状态筛选' })
+    // DOM 顺序：页签在前、按钮在后（键盘焦点顺序随 DOM 顺序）。
+    expect(group.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    // 页面其余区块不因导出能力变化：七列列头与页脚计数保持原样。
+    expect(columnHeaders()).toEqual(['类型', '分类', '分组', '项目', '当前金额', '互认配置状态', '当前不可用原因'])
+    expect(screen.getByText(/共 \d+ 项/)).toBeInTheDocument()
+  })
+
+  it('请求体只有登录院区与已生效关键字；配置状态页签与金额状态档位不参与请求', async () => {
+    await renderLoaded([amountRow()])
+    await change(keywordInput(), '血')
+    const second = armQuery()
+    await submitByEnter()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await settle(second, [amountRow()])
+
+    // 两个档位只是本地裁剪：在「停用」页签与金额状态「已配置」档位下导出，档位都不进入请求。
+    clickConfigurationStatusTab('停用')
+    await pickSelectOption(amountStatusFilter(), '已配置')
+    api.exportBranchRecognitionAmounts.mockResolvedValueOnce(new ArrayBuffer(4))
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportBranchRecognitionAmounts).toHaveBeenCalledTimes(1))
+
+    // 页面把 client 原样交给适配层出口；请求体恰为登录院区与已生效关键字，
+    // 组织与医院不提交（由服务端从可信上下文解析）。
+    expect(api.exportBranchRecognitionAmounts.mock.calls[0][0]).toBe(clientRef.current)
+    const payload = api.exportBranchRecognitionAmounts.mock.calls[0][1] as Record<string, unknown>
+    expect(payload).toEqual({ branchCode: 'BRA-1', keyword: '血' })
+    expect(Object.keys(payload)).toEqual(['branchCode', 'keyword'])
+    expect(payload).not.toHaveProperty('organizationCode')
+    expect(payload).not.toHaveProperty('hospitalCode')
+  })
+
+  it('已生效关键字为空时请求体只有登录院区', async () => {
+    await renderLoaded([amountRow()])
+    api.exportBranchRecognitionAmounts.mockResolvedValueOnce(new ArrayBuffer(4))
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportBranchRecognitionAmounts).toHaveBeenCalledTimes(1))
+
+    const payload = api.exportBranchRecognitionAmounts.mock.calls[0][1] as Record<string, unknown>
+    expect(payload).toEqual({ branchCode: 'BRA-1' })
+    expect(Object.keys(payload)).toEqual(['branchCode'])
+  })
+
+  it('导出在途按钮进入 loading 且再次点击不发起新请求，完成后恢复可用', async () => {
+    await renderLoaded([amountRow()])
+    const payload = deferred<ArrayBuffer>()
+    api.exportBranchRecognitionAmounts.mockReturnValueOnce(payload.promise)
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportBranchRecognitionAmounts).toHaveBeenCalledTimes(1))
+    expect(exportButton()).toHaveClass('ant-btn-loading')
+    expect(exportButton()).toBeDisabled()
+
+    click(exportButton())
+    await act(async () => {})
+    expect(api.exportBranchRecognitionAmounts).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      payload.resolve(new ArrayBuffer(4))
+    })
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(exportButton()).toBeEnabled())
+  })
+})
+
+describe('本院区金额页导出成功后的保存与失败恢复', () => {
+  it('取得字节后经共享下载模块触发保存，文件名为「本院区互认项目金额 + 发起时刻 14 位时间戳 + .xlsx」', async () => {
+    await renderLoaded([amountRow()])
+    const bytes = new ArrayBuffer(8)
+    api.exportBranchRecognitionAmounts.mockResolvedValueOnce(bytes)
+
+    click(exportButton())
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+
+    // 字节原样交给共享模块；下载名按发起时刻构造（时间戳精确格式由适配层用例固定）。
+    expect(exportDownload.saveExportWorkbook.mock.calls[0][0]).toBe(bytes)
+    expect(exportDownload.saveExportWorkbook.mock.calls[0][1]).toMatch(/^本院区互认项目金额\d{14}\.xlsx$/)
+    await waitFor(() => expect(exportButton()).toBeEnabled())
+  })
+
+  it('导出请求失败：结束加载、保留列表与已生效筛选，不重读、不新增页面级错误层', async () => {
+    await renderLoaded([amountRow()])
+    await change(keywordInput(), '血')
+    const second = armQuery()
+    await submitByEnter()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    await settle(second, [amountRow()])
+    api.exportBranchRecognitionAmounts.mockRejectedValueOnce(new Error('业务拒绝：当前条件下无可导出数据。'))
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportBranchRecognitionAmounts).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(exportButton()).toBeEnabled())
+
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    expect((screen.getByLabelText('关键字筛选') as HTMLInputElement).value).toBe('血')
+    // 导出失败不触发列表重读：读取只有进入页面与关键字提交两次。
+    expect(query()).toHaveBeenCalledTimes(2)
+    // 页面不解析错误响应体、不新增提示层：页面根容器内不出现 Alert。
+    expect(queryPageAlert()).not.toBeInTheDocument()
+  })
+
+  it('共享下载模块对 0 字节内容按契约错误抛出时走同一失败路径，不产生保存成功假象', async () => {
+    await renderLoaded([amountRow()])
+    api.exportBranchRecognitionAmounts.mockResolvedValueOnce(new ArrayBuffer(0))
+    exportDownload.saveExportWorkbook.mockRejectedValueOnce(new Error('导出未返回文件内容。'))
+
+    click(exportButton())
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(exportButton()).toBeEnabled())
+
+    expect(exportDownload.saveExportWorkbook.mock.calls[0][0].byteLength).toBe(0)
+    expect(screen.getByText('血常规')).toBeInTheDocument()
+    // 契约错误同走失败路径：不重读、不新增页面级错误层。
+    expect(query()).toHaveBeenCalledTimes(1)
+    expect(queryPageAlert()).not.toBeInTheDocument()
+  })
+})
+
+describe('本院区金额页导出与页面其他状态的共存', () => {
+  it('列表读取在途与行内编辑进行中不限制导出，导出在途也不阻塞列表读取与金额写入口', async () => {
+    await renderLoaded([amountRow()])
+
+    // 列表读取在途：导出保持可用（导出是只读链，不与读取在途互斥）。
+    const refresh = armQuery()
+    click(searchButton())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
+    expect(exportButton()).toBeEnabled()
+    await settle(refresh, [amountRow()])
+    await waitFor(() => expect(searchButton()).not.toHaveClass('ant-btn-loading'))
+
+    // 行内编辑进行中（无范围变化）：导出不受限制。
+    editAmount('血常规')
+    await screen.findByLabelText('金额')
+    expect(exportButton()).toBeEnabled()
+
+    // 导出在途：既有写门控不因导出改变——提交查询仍会发起一次列表读取。
+    const payload = deferred<ArrayBuffer>()
+    api.exportBranchRecognitionAmounts.mockReturnValueOnce(payload.promise)
+    click(exportButton())
+    await waitFor(() => expect(api.exportBranchRecognitionAmounts).toHaveBeenCalledTimes(1))
+
+    const reload = armQuery()
+    click(searchButton())
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
+    await settle(reload, [amountRow()])
+
+    // 收起行内编辑后写入口按既有门控恢复：导出在途不禁用它。
+    click(screen.getByRole('button', { name: '取消修改金额：血常规' }))
+    await waitFor(() => expect(queryInlineAmountInput()).toBeNull())
+    await waitFor(() => expect(amountValueCell('血常规')).toBeEnabled())
+
+    await act(async () => {
+      payload.resolve(new ArrayBuffer(4))
+    })
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+  })
+
+  it('导出在途时切换配置状态页签不被阻塞，也不发起第二次导出', async () => {
+    await renderLoaded([amountRow()])
+    const payload = deferred<ArrayBuffer>()
+    api.exportBranchRecognitionAmounts.mockReturnValueOnce(payload.promise)
+
+    click(exportButton())
+    await waitFor(() => expect(api.exportBranchRecognitionAmounts).toHaveBeenCalledTimes(1))
+
+    clickConfigurationStatusTab('停用')
+    expect(selectedStatusTabLabels()).toEqual(['停用'])
+    expect(api.exportBranchRecognitionAmounts).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      payload.resolve(new ArrayBuffer(4))
+    })
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+  })
+
+  it('导出动作与条件不写入本页路由查询参数', async () => {
+    await renderLoaded([amountRow()])
+    api.exportBranchRecognitionAmounts.mockResolvedValueOnce(new ArrayBuffer(4))
+
+    expect(window.location.search).toBe('')
+    click(exportButton())
+    await waitFor(() => expect(exportDownload.saveExportWorkbook).toHaveBeenCalledTimes(1))
+    expect(window.location.search).toBe('')
+  })
+
+  it('点击时刻现读登录院区与已应用不一致（宿主改绑、页面尚未应用）零请求', async () => {
+    await renderLoaded([amountRow()])
+
+    // 只推进命令式现读的登录院区、不通知订阅者：页面仍展示已应用院区 BRA-1 的行集，
+    // 点击导出时现读 BRA-3 与已应用不一致，整段放弃（零请求）。
+    authState.branchCode = 'BRA-3'
+    await expectNoBranchExportRequest()
+  })
+})
+
+/*
+ * 导出按钮的可达与禁用面（本页已接线导出，工单 04 的「本页不接线导出不可达」守卫按新事实改写：
+ * 正常态按钮存在且可用；阻断态不可达（页面早退路径上，共用组件不挂载）；登录院区缺失态本页
+ * 不整页阻断，按钮随空态禁用、零请求——原「空态不渲染按钮」的断言随接线翻转）。
+ */
+describe('本院区金额页导出按钮的可达与禁用面', () => {
+  it('正常态（列表已加载）导出按钮存在且可用', async () => {
+    await renderLoaded([amountRow()])
+    await screen.findByText('血常规')
+
+    expect(queryExportButton()).toBeInTheDocument()
+    expect(exportButton()).toBeEnabled()
+  })
+
+  it('可信组织缺失的整页阻断态不渲染导出按钮，也不发起业务请求', async () => {
+    authState.organizationCode = null
+    renderPage()
+    await screen.findByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')
+
+    expect(queryExportButton()).not.toBeInTheDocument()
+    expect(query()).not.toHaveBeenCalled()
+  })
+
+  it('登录院区缺失的空态导出按钮禁用且零请求（本页不整页阻断）', async () => {
+    authState.branchCode = null
+    renderPage()
+    await screen.findByText('当前登录身份未携带院区，无法查询互认项目金额')
+
+    expect(queryExportButton()).toBeInTheDocument()
+    expect(exportButton()).toBeDisabled()
+    await expectNoBranchExportRequest()
+    expect(query()).not.toHaveBeenCalled()
   })
 })

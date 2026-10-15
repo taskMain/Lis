@@ -36,9 +36,12 @@ import {
   buildBatchCreateConfigurationRequest,
   buildConfigurationListQuery,
   buildDurationUpdatePayload,
+  buildRecognitionProjectExportDownloadName,
+  buildRecognitionProjectExportPayload,
   configurationStatusActionText,
   countColumnRows,
   createRecognitionProjectConfigurations,
+  exportRecognitionProjectConfigurations,
   filterRecognitionProjectColumnView,
   queryRecognitionProjectConfigurations,
   querySelectableStandardItems,
@@ -58,6 +61,7 @@ import {
   type SelectableStandardItem,
 } from './recognitionProjectsApi'
 import { readTrustedOrganizationCode, useTrustedOrganizationScope } from './recognitionProjectsOrganizationScope'
+import { saveExportWorkbook } from '../../shared/exportFileDownload'
 import './RecognitionProjects.css'
 
 type ModalState =
@@ -193,6 +197,8 @@ export function RecognitionProjects() {
   const [keywordDraft, setKeywordDraft] = useState(() => readFilterFromLocation().keyword)
   const [modal, setModal] = useState<ModalState>({ kind: 'none' })
   const [submitting, setSubmitting] = useState(false)
+  /** 导出是否在途：按钮进入 loading 形态；导出是只读链，不参与既有写门控。 */
+  const [exporting, setExporting] = useState(false)
   /** 被点中的层级格；`null` 表示没有高亮。高亮只标识位置，不携带任何写操作。 */
   const [highlight, setHighlight] = useState<RecognitionProjectHighlight | null>(null)
   /**
@@ -288,6 +294,8 @@ export function RecognitionProjects() {
    */
   const appliedOrganizationRef = useRef<string | null>(trustedOrganizationCode)
   const submittingRef = useRef(false)
+  /** `exporting` 的同步镜像：同一动作内的再次点击在状态落地前就由它拦下（与 `submittingRef` 同一口径）。 */
+  const exportingRef = useRef(false)
 
   /**
    * 配置状态选项来自枚举元数据接口（服务端声明的中文），不可用时回退到适配层的兜底选项。
@@ -643,6 +651,34 @@ export function RecognitionProjects() {
     syncFilterToLocation(filter)
   }, [filter])
 
+  /**
+   * 发起项目导出。请求体只有当前组织与已生效关键字（配置状态页签档位不参与，导出与档位解耦）：
+   * 组织在点击时刻取宿主认证上下文**现值**，并要求与页面已应用组织一致——两者不一致说明页面展示的
+   * 还是上一个组织的列表（组织变化尚未应用），此时导出所取范围与页面展示不一致，由按钮禁用态与
+   * 这里的复核共同保证零请求（与写路径的提交期复核同一窗口，导出侧的选择是整段放弃而不是换组织提交）。
+   * 取得字节后经共享下载模块触发保存，下载名按发起时刻由前端给定；
+   * 失败（含共享模块对 0 字节内容的契约错误）由宿主统一展示，本层只结束加载态并保留列表与筛选。
+   */
+  const runExport = useCallback(async () => {
+    if (exportingRef.current) return
+    const organizationCode = readTrustedOrganizationCode()
+    if (organizationCode === null || organizationCode !== appliedOrganizationRef.current) return
+    const payload = buildRecognitionProjectExportPayload(organizationCode, filterRef.current.keyword)
+    if (payload === null) return
+    exportingRef.current = true
+    setExporting(true)
+    try {
+      const downloadName = buildRecognitionProjectExportDownloadName()
+      const bytes = await exportRecognitionProjectConfigurations(client, payload)
+      saveExportWorkbook(bytes, downloadName)
+    } catch {
+      // 导出失败不误报成功也不误刷新；页面不解析错误响应体、不新增提示层（与统计页导出同款恢复形态）。
+    } finally {
+      exportingRef.current = false
+      setExporting(false)
+    }
+  }, [client])
+
   const canWrite = organizationReady && loadFailure === null && !loading && !submitting
   /**
    * 新增入口只按 `canWrite` 判定：页面读取成功即允许打开弹窗。原先"目录未读到就禁用"的前提已经不存在——
@@ -659,6 +695,13 @@ export function RecognitionProjects() {
    * 与「组织未一致」同属组织类阻断，在写界面内优先于读取类原因显示。
    */
   const writeGate: RecognitionProjectWriteGate = { organizationReady, canWrite, loadFailure, organizationRecheckFailure: writeRecheckFailure }
+  /**
+   * 导出按钮禁用只取与既有写门控同口径的两态：可信组织已变化且页面尚未应用（导出所取范围与页面展示
+   * 不一致）、读取失败或写入后刷新失败（页面数据不可靠，恢复以重试为先），两态下均零请求。
+   * 列表读取在途与行内编辑进行中**不**限制导出（导出是只读链，不产生写冲突，既有写门控不因导出改变）；
+   * 导出在途的防重复由按钮 loading 与动作内复核共同承载。
+   */
+  const exportDisabled = organizationChanged || loadFailure !== null
   /** 是否存在生效的本地筛选：用于把「本组织没有配置」与「筛选后没有匹配项」两种空态分开。 */
   const filtering = filter.keyword.trim().length > 0 || filter.status !== 'all'
   const retry = () => {
@@ -744,17 +787,28 @@ export function RecognitionProjects() {
     {/*
       配置状态页签（S2-D21）：贴在列表上沿，是「视图切换」而非查询条件——
       切换即生效、只在服务端结果上本地裁剪、不触发读取。
+      页签行右侧承载项目导出入口：与页签同一工具行、随 DOM 顺序在页签之后（键盘焦点顺序随之）；
+      请求体只有当前组织与已生效关键字（页签档位不参与导出），门控与在途形态见 `exportDisabled` 与 `runExport`。
     */}
-    <div role='group' aria-label='配置状态筛选'>
-      <Tabs
-        className='recognition-projects-status-tabs'
-        activeKey={String(filter.status)}
-        items={statusTabOptions.map((option) => ({ key: String(option.value), label: option.label }))}
-        onChange={(key) => {
-          const option = statusTabOptions.find((item) => String(item.value) === key)
-          if (option) changeFilter((previous) => ({ ...previous, status: option.value }))
-        }}
-      />
+    <div className='recognition-projects-status-toolbar'>
+      <div role='group' aria-label='配置状态筛选'>
+        <Tabs
+          className='recognition-projects-status-tabs'
+          activeKey={String(filter.status)}
+          items={statusTabOptions.map((option) => ({ key: String(option.value), label: option.label }))}
+          onChange={(key) => {
+            const option = statusTabOptions.find((item) => String(item.value) === key)
+            if (option) changeFilter((previous) => ({ ...previous, status: option.value }))
+          }}
+        />
+      </div>
+      <Button
+        className='recognition-projects-export'
+        aria-label='导出互认项目'
+        disabled={exportDisabled || exporting}
+        loading={exporting}
+        onClick={() => { void runExport() }}
+      >导出</Button>
     </div>
 
     {/*

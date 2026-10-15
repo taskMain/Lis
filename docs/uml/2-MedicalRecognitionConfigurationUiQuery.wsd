@@ -169,9 +169,16 @@ Query('QueryRecognitionProjectConfigurationList')[
     查询标准项目互认配置
     --入参--
     组织编码(OrganizationCode String)
-    标准项目编码(StandardProjectCode String?)
+    关键字(Keyword String?)
     配置状态(ConfigurationStatus ConfigurationStatus?)
 ]
+note right of QueryRecognitionProjectConfigurationList
+  组织编码必须等于服务端可信当前组织，不等即拒绝。
+  关键字是单个查询条件，按字面包含匹配标准项目编码、标准项目名称、
+  所属分类名称、所属分组名称，不区分大小写，% 与 _ 按普通字符转义；
+  传入空白文本按校验拒绝（S2-D21、S2-D29）。
+  配置状态由页面页签本地裁剪，服务端保留该可选参数。
+end note
 Query('QueryRecognitionAmountList')[
     查询医院院区互认项目金额
     --入参--
@@ -199,6 +206,49 @@ note right of QueryBranchRecognitionAmountList
   医院管理员入口：组织与医院取自可信上下文，请求只提交院区。
   服务端校验该院区存在、启用且属于可信医院。
   可选关键字口径与 QueryRecognitionAmountList 相同（S3-D26）。
+end note
+ReadModel('ConfigurationExportFileReadModel')[
+    互认配置导出文件
+    --属性--
+    文件名(FileName String)
+    文件格式(FileFormat String)
+    文件流(FileStream ByteArray)
+]
+Query('GetRecognitionProjectConfigurationExport')[
+    获取互认项目导出（POST）
+    --入参--
+    组织编码(OrganizationCode String)
+    关键字(Keyword String?)
+]
+note right of GetRecognitionProjectConfigurationExport
+  导出为 POST + 全部查询条件体，不使用页面分页，请求不携带分页对象与状态筛选字段。
+  组织编码须等于服务端可信当前组织；关键字口径与配置列表查询相同，
+  传入空白文本按校验拒绝；行集与配置列表查询同一语句同一口径，含启用与停用配置。
+  当前条件下无记录时不生成文件、不扩大查询范围；取回行数超过 100000 时拒绝并提示缩小查询条件。
+end note
+Query('GetRecognitionAmountExport')[
+    获取互认项目金额导出（POST）
+    --入参--
+    组织编码(OrganizationCode String)
+    医院编码(HospitalCode String)
+    院区编码(BranchCode String)
+    关键字(Keyword String?)
+]
+note right of GetRecognitionAmountExport
+  平台管理员入口：组织、医院、院区均取自请求，服务端校验三者存在、启用且父子归属正确，
+  不要求等于可信组织（与列表查询同口径）；关键字缺失或空白视为未提供。
+  行集与金额列表查询同一语句同一口径，含未配置金额行；零记录与行数上限口径同互认项目导出。
+end note
+Query('GetBranchRecognitionAmountExport')[
+    获取本院区互认项目金额导出（POST）
+    --入参--
+    院区编码(BranchCode String)
+    关键字(Keyword String?)
+]
+note right of GetBranchRecognitionAmountExport
+  医院管理员入口：组织与医院由可信上下文解析（令牌优先、缺失层由用户档案补齐、
+  不一致即拒绝），请求院区须存在、启用且属于可信医院；关键字缺失或空白视为未提供。
+  行集、零记录与行数上限口径与 GetRecognitionAmountExport 相同。
 end note
 
 ReadModel('MedicalReportListReadModel')[
@@ -500,8 +550,11 @@ MedicalStandardCatalogManagementModule --> QueryMedicalStandardGroupList
 MedicalStandardCatalogManagementModule --> QueryMedicalStandardItemList
 MedicalRecognitionConfigurationModule --> QueryEffectiveMedicalStandardCatalog
 MedicalRecognitionConfigurationModule --> QueryRecognitionProjectConfigurationList
+MedicalRecognitionConfigurationModule --> GetRecognitionProjectConfigurationExport
 RecognitionAmountManagementModule --> QueryRecognitionAmountList
 RecognitionAmountManagementModule --> QueryBranchRecognitionAmountList
+RecognitionAmountManagementModule --> GetRecognitionAmountExport
+RecognitionAmountManagementModule --> GetBranchRecognitionAmountExport
 MedicalReportManagementModule --> QueryMedicalReportList
 MedicalReportManagementModule --> QueryMedicalReportVersionList
 MedicalReportManagementModule --> GetMedicalReportVersionDetail
@@ -511,8 +564,11 @@ QueryMedicalStandardGroupList .. MedicalStandardGroupListReadModel
 QueryMedicalStandardItemList .. MedicalStandardItemListReadModel
 QueryEffectiveMedicalStandardCatalog .. EffectiveMedicalStandardCatalogReadModel
 QueryRecognitionProjectConfigurationList .. RecognitionProjectConfigurationReadModel
+GetRecognitionProjectConfigurationExport .. ConfigurationExportFileReadModel
 QueryRecognitionAmountList .. RecognitionAmountReadModel
 QueryBranchRecognitionAmountList .. RecognitionAmountReadModel
+GetRecognitionAmountExport .. ConfigurationExportFileReadModel
+GetBranchRecognitionAmountExport .. ConfigurationExportFileReadModel
 QueryMedicalReportList .. MedicalReportListReadModel
 QueryMedicalReportVersionList .. MedicalReportVersionListReadModel
 GetMedicalReportVersionDetail .. MedicalReportVersionDetailQueryReadModel

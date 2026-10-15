@@ -10,19 +10,26 @@
  * 业务请求，也不伪造组织或降级为空值。页头范围区经共用组件的页头插槽由共用范围条承载：单行只显
  * 「组织 / 医院 / 院区」名称，无编码。页头、查询区、四栏层级列表、金额行内编辑器与页脚计数由
  * 两个金额页共用的 `RecognitionAmountListView` 承载（S3-D29），本页只保留可信范围解析与数据接线。
- * 页面不实现角色判断、不做权限二次确认，也不下推枚举筛选。
+ * 本院区金额导出经共用组件的导出承载接入：请求编排在页面完成（请求体只有登录院区与已生效关键字，
+ * 点击时刻现读登录院区并要求与已应用一致），门控状态与两道防线共用既有状态——登录院区缺失时
+ * 页面不整页阻断（与既有空态一致），按钮随范围未解析禁用；读取失败与写入后刷新失败由共用组件
+ * 按既有写门控禁用。页面不实现角色判断、不做权限二次确认，也不下推枚举筛选。
  */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@dy/auth-react'
 import { LoginUserManager } from '@dy/auth'
 import { CurrentScopeBar } from '../../components/CurrentScopeBar'
 import { ScopeUnavailablePanel } from '../../components/ScopeUnavailablePanel'
 import { useApiClientContext } from '../../contexts/ApiClientContext'
+import { saveExportWorkbook } from '../../shared/exportFileDownload'
 import { readTrustedHospitalCode } from '../reportManagement/reportsTrustedScope'
 import { readTrustedOrganizationCode } from '../recognitionProjects/recognitionProjectsOrganizationScope'
 import {
   buildBranchAmountListQuery,
   buildBranchAmountSavePayload,
+  buildBranchRecognitionAmountExportDownloadName,
+  buildBranchRecognitionAmountExportPayload,
+  exportBranchRecognitionAmounts,
   queryBranchRecognitionAmountRows,
   saveBranchRecognitionAmount,
   type BranchAmountListQuery,
@@ -78,6 +85,10 @@ export function BranchRecognitionAmounts() {
   const trusted = useTrustedBranchScope()
   /** 行内编辑目标行的项目编码；共用列表视图负责在目标行离开当前行集时清空它。 */
   const [editTarget, setEditTarget] = useState<string | null>(null)
+  /** 导出是否在途：按钮进入 loading 形态；导出是只读链，不参与既有写门控。 */
+  const [exporting, setExporting] = useState(false)
+  /** `exporting` 的同步镜像：同一动作内的再次点击在状态落地前就由它拦下。 */
+  const exportingRef = useRef(false)
 
   const queryRows = useCallback(
     (query: BranchAmountListQuery) => queryBranchRecognitionAmountRows(client, query),
@@ -127,6 +138,37 @@ export function BranchRecognitionAmounts() {
     }
   }, [trusted.branchCode, trusted.hospitalCode, trusted.organizationCode])
 
+  /**
+   * 发起本院区金额导出。请求体只有登录院区与已生效关键字（组织与医院由服务端从可信上下文解析，
+   * 页面不提交；配置状态页签与金额状态档位不参与，导出与档位解耦）：点击时刻**现读**登录院区
+   * （命令式出口，不经渲染期闭包——与写前复核同一手法，兜住宿主重签 token 到页面重渲染之间的
+   * 窗口），并要求它与已应用（正在驱动列表读取）的登录院区一致，不一致即整段放弃、零请求。
+   * 登录院区缺失不构造导出请求（共用组件的门控已随空态禁用按钮，这里兜住残余路径）。
+   * 取得字节后经共享下载模块触发保存，下载名按**发起时刻**由前端给定（在请求发出之前构造）；
+   * 失败（含共享模块对 0 字节内容的契约错误）由宿主统一展示，本层只结束加载态并保留列表与筛选，
+   * 不误刷新、不新增提示层。导出动作与条件不写入路由查询参数（导出不是页面视图状态）。
+   */
+  const runExport = useCallback(async (keywordApplied: string) => {
+    if (exportingRef.current) return
+    const applied = appliedScope
+    if (applied === null) return
+    if (readTrustedCode(LoginUserManager.getBranchID()) !== applied.query.branchCode) return
+    const payload = buildBranchRecognitionAmountExportPayload({ branchCode: applied.query.branchCode }, keywordApplied)
+    if (payload === null) return
+    exportingRef.current = true
+    setExporting(true)
+    try {
+      const downloadName = buildBranchRecognitionAmountExportDownloadName()
+      const bytes = await exportBranchRecognitionAmounts(client, payload)
+      saveExportWorkbook(bytes, downloadName)
+    } catch {
+      // 导出失败不误报成功也不误刷新；页面不解析错误响应体、不新增提示层（与平台金额页导出同款恢复形态）。
+    } finally {
+      exportingRef.current = false
+      setExporting(false)
+    }
+  }, [appliedScope, client])
+
   // 可信组织或医院缺失即整页阻断：阻断面板不渲染列表视图，因此零业务请求。
   if (trusted.organizationCode === null || trusted.hospitalCode === null) {
     return <div className='recognition-amounts-page'>
@@ -146,6 +188,12 @@ export function BranchRecognitionAmounts() {
     headerExtra={<CurrentScopeBar />}
     scope={appliedScope}
     editTarget={editTarget}
+    exportBinding={{
+      exporting,
+      // 登录院区缺失时 `appliedScope` 为 `null`，共用组件按范围未解析禁用按钮（本页不整页阻断，
+      // 与既有空态一致）；读取失败与写入后刷新失败由共用组件按既有写门控禁用，均零请求。
+      onExport: (keywordApplied) => { void runExport(keywordApplied) },
+    }}
     onEditTargetChange={setEditTarget}
     buildQuery={buildQuery}
     queryRows={queryRows}

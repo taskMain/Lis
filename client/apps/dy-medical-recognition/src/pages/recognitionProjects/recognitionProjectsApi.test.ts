@@ -17,12 +17,15 @@ import {
   buildBatchCreateConfigurationRequest,
   buildConfigurationListQuery,
   buildDurationUpdatePayload,
+  buildRecognitionProjectExportDownloadName,
+  buildRecognitionProjectExportPayload,
   configurationStatusActionText,
   configurationStatusTagColor,
   configurationStatusText,
   countColumnRows,
   createRecognitionProjectConfigurations,
   exceedsBatchCreateLimit,
+  exportRecognitionProjectConfigurations,
   filterRecognitionProjectColumnView,
   parseRecognitionDurationDays,
   queryRecognitionProjectConfigurations,
@@ -45,13 +48,14 @@ import {
 } from './recognitionProjectsApi'
 
 /**
- * 生成端的伪 Client：只保留被测适配层实际调用的端点，`post` 记录请求体。
- * 返回体保持生成端可空形态（`undefined` / `null`），由适配层负责归一。
+ * 生成端的伪 Client：只保留被测适配层实际调用的端点（页面列表与弹窗读取、三个写入、项目导出），
+ * `post` 记录请求体。返回体保持生成端可空形态（`undefined` / `null`），由适配层负责归一。
  */
 function stubClient(handlers: Record<string, unknown> = {}) {
   const post = (name: string) => vi.fn(async () => handlers[name] ?? undefined)
   const client = {
     api: {
+      v1: { recognitionExport: { recognitionProjects: { post: post('export') } } },
       medicalRecognitionReportQuery: {
         queryRecognitionProjectConfigurationList: { post: post('queryList') },
         queryEffectiveMedicalStandardCatalog: { post: post('queryCatalog') },
@@ -810,4 +814,46 @@ describe('C1 / C23 接线后的真实请求体形状（适配层 I/O 出口）',
     expect(bodyOf(filled.api.medicalRecognitionReportQuery.querySelectableStandardItemList.post)).toEqual({ keyword: '血' })
   })
 
+})
+
+/**
+ * 项目导出适配（调用形态与阶段 6 统计导出同款：经生成端点取回二进制字节，保存交共享下载模块）。
+ * 导出只承载页面可产生的服务端查询条件——组织编码加已生效关键字；配置状态页签档位不参与请求。
+ */
+describe('项目导出适配', () => {
+  it('构造导出请求：组织编码必填去空白，关键字按值下发、空白不下发', () => {
+    expect(buildRecognitionProjectExportPayload(' ORG-A ', ' 血 ')).toEqual({ organizationCode: 'ORG-A', keyword: '血' })
+    expect(buildRecognitionProjectExportPayload('ORG-A', '   ')).toEqual({ organizationCode: 'ORG-A' })
+    expect(Object.keys(buildRecognitionProjectExportPayload('ORG-A', '') as object)).toEqual(['organizationCode'])
+    // 组织缺失或空白不构造导出请求，不退化为全局导出或硬编码组织。
+    expect(buildRecognitionProjectExportPayload('', '血')).toBeNull()
+    expect(buildRecognitionProjectExportPayload('   ', '血')).toBeNull()
+  })
+
+  it('下载名由前端给定：页面名 + 发起时刻 14 位时间戳 + .xlsx', () => {
+    expect(buildRecognitionProjectExportDownloadName(new Date(2026, 9, 14, 15, 30, 45))).toBe('互认项目20261014153045.xlsx')
+    // 个位月、日、时、分、秒一律补零。
+    expect(buildRecognitionProjectExportDownloadName(new Date(2026, 0, 2, 3, 4, 5))).toBe('互认项目20260102030405.xlsx')
+  })
+
+  it('导出请求体恰为组织与关键字两字段（不含配置状态档位），字节按生成端原样返回', async () => {
+    const content = new ArrayBuffer(8)
+    const client = stubClient({ export: content })
+    const bytes = await exportRecognitionProjectConfigurations(client, { organizationCode: 'ORG-A', keyword: '血' })
+
+    const body = bodyOf(client.api.v1.recognitionExport.recognitionProjects.post)
+    expect(body).toEqual({ organizationCode: 'ORG-A', keyword: '血' })
+    expect(Object.keys(body)).toEqual(['organizationCode', 'keyword'])
+    expect(bytes).toBe(content)
+  })
+
+  it('关键字为空时请求体只有组织编码；生成端未返回字节归一为 0 长度，交共享模块按契约错误抛出', async () => {
+    const client = stubClient()
+    const bytes = await exportRecognitionProjectConfigurations(client, { organizationCode: 'ORG-A' })
+
+    const body = bodyOf(client.api.v1.recognitionExport.recognitionProjects.post)
+    expect(body).toEqual({ organizationCode: 'ORG-A' })
+    expect(Object.keys(body)).toEqual(['organizationCode'])
+    expect(bytes.byteLength).toBe(0)
+  })
 })

@@ -4,6 +4,16 @@
 // @ts-ignore
 import { createUntypedNodeFromDiscriminatorValue, type AdditionalDataHolder, type DateOnly, type Guid, type Parsable, type ParseNode, type SerializationWriter, type UntypedNode } from '@microsoft/kiota-abstractions';
 
+export interface BranchRecognitionAmountExportRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The branchCode property
+     */
+    branchCode?: string | null;
+    /**
+     * The keyword property
+     */
+    keyword?: string | null;
+}
 export interface BranchRecognitionAmountListQueryRequest extends AdditionalDataHolder, Parsable {
     /**
      * The branchCode property
@@ -341,6 +351,15 @@ export interface CompleteReportSubmissionRequest extends AdditionalDataHolder, P
      * The reportJson property
      */
     reportJson?: string | null;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {BranchRecognitionAmountExportRequest}
+ */
+// @ts-ignore
+export function createBranchRecognitionAmountExportRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoBranchRecognitionAmountExportRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -993,6 +1012,15 @@ export function createReceiverOrganizationReadModelFromDiscriminatorValue(parseN
 /**
  * Creates a new instance of the appropriate class based on discriminator value
  * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionAmountExportRequest}
+ */
+// @ts-ignore
+export function createRecognitionAmountExportRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionAmountExportRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
  * @returns {RecognitionAmountListQueryRequest}
  */
 // @ts-ignore
@@ -1160,6 +1188,15 @@ export function createRecognitionProcessingResultItemRequestFromDiscriminatorVal
 // @ts-ignore
 export function createRecognitionProcessingResultSubmissionRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoRecognitionProcessingResultSubmissionRequest;
+}
+/**
+ * Creates a new instance of the appropriate class based on discriminator value
+ * @param parseNode The parse node to use to read the discriminator value and create the object
+ * @returns {RecognitionProjectConfigurationExportRequest}
+ */
+// @ts-ignore
+export function createRecognitionProjectConfigurationExportRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
+    return deserializeIntoRecognitionProjectConfigurationExportRequest;
 }
 /**
  * Creates a new instance of the appropriate class based on discriminator value
@@ -1403,6 +1440,18 @@ export function createUpdateMedicalStandardGroupRequestFromDiscriminatorValue(pa
 // @ts-ignore
 export function createUpdateMutualRecognitionItemConfigurationRequestFromDiscriminatorValue(parseNode: ParseNode | undefined) : ((instance?: Parsable) => Record<string, (node: ParseNode) => void>) {
     return deserializeIntoUpdateMutualRecognitionItemConfigurationRequest;
+}
+/**
+ * The deserialization information for the current model
+ * @param BranchRecognitionAmountExportRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoBranchRecognitionAmountExportRequest(branchRecognitionAmountExportRequest: Partial<BranchRecognitionAmountExportRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branchCode": n => { branchRecognitionAmountExportRequest.branchCode = n.getStringValue(); },
+        "keyword": n => { branchRecognitionAmountExportRequest.keyword = n.getStringValue(); },
+    }
 }
 /**
  * The deserialization information for the current model
@@ -2378,6 +2427,20 @@ export function deserializeIntoReceiverOrganizationReadModel(receiverOrganizatio
 }
 /**
  * The deserialization information for the current model
+ * @param RecognitionAmountExportRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionAmountExportRequest(recognitionAmountExportRequest: Partial<RecognitionAmountExportRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "branchCode": n => { recognitionAmountExportRequest.branchCode = n.getStringValue(); },
+        "hospitalCode": n => { recognitionAmountExportRequest.hospitalCode = n.getStringValue(); },
+        "keyword": n => { recognitionAmountExportRequest.keyword = n.getStringValue(); },
+        "organizationCode": n => { recognitionAmountExportRequest.organizationCode = n.getStringValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
  * @param RecognitionAmountListQueryRequest The instance to deserialize into.
  * @returns {Record<string, (node: ParseNode) => void>}
  */
@@ -2690,6 +2753,18 @@ export function deserializeIntoRecognitionProcessingResultSubmissionRequest(reco
         "recognitionDoctorName": n => { recognitionProcessingResultSubmissionRequest.recognitionDoctorName = n.getStringValue(); },
         "recognitionMatchRecordId": n => { recognitionProcessingResultSubmissionRequest.recognitionMatchRecordId = n.getGuidValue(); },
         "recognitionTime": n => { recognitionProcessingResultSubmissionRequest.recognitionTime = n.getDateValue(); },
+    }
+}
+/**
+ * The deserialization information for the current model
+ * @param RecognitionProjectConfigurationExportRequest The instance to deserialize into.
+ * @returns {Record<string, (node: ParseNode) => void>}
+ */
+// @ts-ignore
+export function deserializeIntoRecognitionProjectConfigurationExportRequest(recognitionProjectConfigurationExportRequest: Partial<RecognitionProjectConfigurationExportRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
+    return {
+        "keyword": n => { recognitionProjectConfigurationExportRequest.keyword = n.getStringValue(); },
+        "organizationCode": n => { recognitionProjectConfigurationExportRequest.organizationCode = n.getStringValue(); },
     }
 }
 /**
@@ -4352,6 +4427,24 @@ export interface ReceiverOrganizationReadModel extends AdditionalDataHolder, Par
      */
     organizationName?: string | null;
 }
+export interface RecognitionAmountExportRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The branchCode property
+     */
+    branchCode?: string | null;
+    /**
+     * The hospitalCode property
+     */
+    hospitalCode?: string | null;
+    /**
+     * The keyword property
+     */
+    keyword?: string | null;
+    /**
+     * The organizationCode property
+     */
+    organizationCode?: string | null;
+}
 export interface RecognitionAmountListQueryRequest extends AdditionalDataHolder, Parsable {
     /**
      * The branchCode property
@@ -4893,6 +4986,16 @@ export interface RecognitionProcessingResultSubmissionRequest extends Additional
      * The recognitionTime property
      */
     recognitionTime?: Date | null;
+}
+export interface RecognitionProjectConfigurationExportRequest extends AdditionalDataHolder, Parsable {
+    /**
+     * The keyword property
+     */
+    keyword?: string | null;
+    /**
+     * The organizationCode property
+     */
+    organizationCode?: string | null;
 }
 export interface RecognitionProjectConfigurationListQueryRequest extends AdditionalDataHolder, Parsable {
     /**
@@ -5733,6 +5836,19 @@ export interface SelectableStandardItemListQueryRequest extends AdditionalDataHo
      * The keyword property
      */
     keyword?: string | null;
+}
+/**
+ * Serializes information the current object
+ * @param BranchRecognitionAmountExportRequest The instance to serialize from.
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeBranchRecognitionAmountExportRequest(writer: SerializationWriter, branchRecognitionAmountExportRequest: Partial<BranchRecognitionAmountExportRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!branchRecognitionAmountExportRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branchCode", branchRecognitionAmountExportRequest.branchCode);
+    writer.writeStringValue("keyword", branchRecognitionAmountExportRequest.keyword);
+    writer.writeAdditionalData(branchRecognitionAmountExportRequest.additionalData);
 }
 /**
  * Serializes information the current object
@@ -6771,6 +6887,21 @@ export function serializeReceiverOrganizationReadModel(writer: SerializationWrit
 /**
  * Serializes information the current object
  * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionAmountExportRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionAmountExportRequest(writer: SerializationWriter, recognitionAmountExportRequest: Partial<RecognitionAmountExportRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionAmountExportRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("branchCode", recognitionAmountExportRequest.branchCode);
+    writer.writeStringValue("hospitalCode", recognitionAmountExportRequest.hospitalCode);
+    writer.writeStringValue("keyword", recognitionAmountExportRequest.keyword);
+    writer.writeStringValue("organizationCode", recognitionAmountExportRequest.organizationCode);
+    writer.writeAdditionalData(recognitionAmountExportRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
  * @param RecognitionAmountListQueryRequest The instance to serialize from.
  * @param writer Serialization writer to use to serialize this model
  */
@@ -7102,6 +7233,19 @@ export function serializeRecognitionProcessingResultSubmissionRequest(writer: Se
     writer.writeGuidValue("recognitionMatchRecordId", recognitionProcessingResultSubmissionRequest.recognitionMatchRecordId);
     writer.writeDateValue("recognitionTime", recognitionProcessingResultSubmissionRequest.recognitionTime);
     writer.writeAdditionalData(recognitionProcessingResultSubmissionRequest.additionalData);
+}
+/**
+ * Serializes information the current object
+ * @param isSerializingDerivedType A boolean indicating whether the serialization is for a derived type.
+ * @param RecognitionProjectConfigurationExportRequest The instance to serialize from.
+ * @param writer Serialization writer to use to serialize this model
+ */
+// @ts-ignore
+export function serializeRecognitionProjectConfigurationExportRequest(writer: SerializationWriter, recognitionProjectConfigurationExportRequest: Partial<RecognitionProjectConfigurationExportRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
+    if (!recognitionProjectConfigurationExportRequest || isSerializingDerivedType) { return; }
+    writer.writeStringValue("keyword", recognitionProjectConfigurationExportRequest.keyword);
+    writer.writeStringValue("organizationCode", recognitionProjectConfigurationExportRequest.organizationCode);
+    writer.writeAdditionalData(recognitionProjectConfigurationExportRequest.additionalData);
 }
 /**
  * Serializes information the current object
