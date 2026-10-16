@@ -279,21 +279,26 @@
       <IsNotEmpty Prepend="and" Property="ReportTimeFrom">r.report_time &gt;= $ReportTimeFrom</IsNotEmpty>  <!-- 可选筛选：报告时间下界，含边界 -->
       <IsNotEmpty Prepend="and" Property="ReportTimeTo">r.report_time &lt; $ReportTimeTo</IsNotEmpty>  <!-- 可选筛选：报告时间上界，不含上界（结束日次日零点） -->
       <IsNotEmpty Prepend="and" Property="ReportType">r.report_type = $ReportType</IsNotEmpty>  <!-- 可选筛选：报告类型 -->
-      <IsNotEmpty Prepend="and" Property="ReportNo">r.report_no = $ReportNo</IsNotEmpty>  <!-- 可选筛选：报告单号精确匹配 -->
       <!--
-        处理：对用户输入的前缀值把转义符 ! 先加倍，再将 % 转义为 !%、_ 转义为 !_，然后只在末尾拼接通配符并用 escape '!' 声明转义符。
+        处理：统一关键字按「单号精确、证件前缀、姓名前缀」三列任一命中匹配。对关键字把转义符 ! 先加倍，再将 % 转义为 !%、_ 转义为 !_，
+        前缀匹配只在末尾拼接通配符并用 escape '!' 声明转义符。
         原因：不转义时用户输入的 % 和 _ 会被当作通配符，使“前缀匹配”退化为任意模糊匹配，返回超出预期的报告；
-        前缀匹配的匹配口径必须与报告主体上的文本前缀索引（text_pattern_ops）一致。
-        结果：按证件号码前缀匹配，用户输入的通配符字符只作为普通字符参与比较。
+        前缀匹配的匹配口径必须与报告主体上的文本前缀索引（text_pattern_ops）一致；
+        证件检索列以规范大写形态保存，大小写不敏感由参数侧 upper 承担，姓名不做大小写折叠。
+        结果：关键字任一列命中即返回，用户输入的通配符字符只作为普通字符参与比较。
       -->
-      <IsNotEmpty Prepend="and" Property="IdentityDocumentNoPrefix">r.identity_document_no like replace(replace(replace($IdentityDocumentNoPrefix, '!', '!!'), '%', '!%'), '_', '!_') || '%' escape '!'</IsNotEmpty>  <!-- 可选筛选：患者证件号码前缀 -->
-      <IsNotEmpty Prepend="and" Property="PatientNamePrefix">r.patient_name like replace(replace(replace($PatientNamePrefix, '!', '!!'), '%', '!%'), '_', '!_') || '%' escape '!'</IsNotEmpty>  <!-- 可选筛选：患者姓名前缀 -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        r.report_no = $Keyword
+        or r.identity_document_no like replace(replace(replace(upper($Keyword), '!', '!!'), '%', '!%'), '_', '!_') || '%' escape '!'
+        or r.patient_name like replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_') || '%' escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字三列任一命中，仅当调用方传入关键字时拼接 -->
+      <IsNotEmpty Prepend="and" Property="ReportStatus">r.status = $ReportStatus</IsNotEmpty>  <!-- 可选筛选：报告生命周期状态 -->
     </Statement>
     <!--
       功能：取报告列表的当页数据，供平台管理员与医院管理员两个入口共用的服务端分页。
       结果：返回报告标识、来源归属、报告类型、报告单号、报告时间、当前版本序号、患者姓名与证件号码、生命周期状态；
       排序为报告时间倒序加报告标识倒序，报告时间恒有值（取自当前版本，随版本追加更新）；
-      当前版本序号按报告的当前版本指向关联报告版本取得；时间范围左闭右开；患者筛选按前缀匹配。
+      当前版本序号按报告的当前版本指向关联报告版本取得；时间范围左闭右开；关键字按单号精确、证件前缀与姓名前缀三列任一命中匹配。
     -->
     <Statement Id="QueryMedicalReportList">
       select
@@ -321,10 +326,13 @@
       <IsNotEmpty Prepend="and" Property="ReportTimeFrom">r.report_time &gt;= $ReportTimeFrom</IsNotEmpty>  <!-- 可选筛选：报告时间下界，含边界 -->
       <IsNotEmpty Prepend="and" Property="ReportTimeTo">r.report_time &lt; $ReportTimeTo</IsNotEmpty>  <!-- 可选筛选：报告时间上界，不含上界（结束日次日零点） -->
       <IsNotEmpty Prepend="and" Property="ReportType">r.report_type = $ReportType</IsNotEmpty>  <!-- 可选筛选：报告类型 -->
-      <IsNotEmpty Prepend="and" Property="ReportNo">r.report_no = $ReportNo</IsNotEmpty>  <!-- 可选筛选：报告单号精确匹配 -->
-      <!-- 前缀匹配与转义口径同计数语句：证件号码与姓名在应用层已按规范形式处理后再传入。 -->
-      <IsNotEmpty Prepend="and" Property="IdentityDocumentNoPrefix">r.identity_document_no like replace(replace(replace($IdentityDocumentNoPrefix, '!', '!!'), '%', '!%'), '_', '!_') || '%' escape '!'</IsNotEmpty>  <!-- 可选筛选：患者证件号码前缀 -->
-      <IsNotEmpty Prepend="and" Property="PatientNamePrefix">r.patient_name like replace(replace(replace($PatientNamePrefix, '!', '!!'), '%', '!%'), '_', '!_') || '%' escape '!'</IsNotEmpty>  <!-- 可选筛选：患者姓名前缀 -->
+      <!-- 关键字三列任一命中与转义口径同计数语句：关键字在应用层已去首尾空白，证件列大小写折叠由参数侧 upper 承担。 -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        r.report_no = $Keyword
+        or r.identity_document_no like replace(replace(replace(upper($Keyword), '!', '!!'), '%', '!%'), '_', '!_') || '%' escape '!'
+        or r.patient_name like replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_') || '%' escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字三列任一命中，仅当调用方传入关键字时拼接 -->
+      <IsNotEmpty Prepend="and" Property="ReportStatus">r.status = $ReportStatus</IsNotEmpty>  <!-- 可选筛选：报告生命周期状态 -->
       order by r.report_time desc, r.id desc  <!-- 排序：报告时间倒序加报告标识倒序，与分页窗口排序逐字一致；分页窗口由数据映射器的 Provider 适配层附加，本语句保持 Provider 中立 -->
     </Statement>
     <!--

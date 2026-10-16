@@ -49,9 +49,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ReportTimeFrom = ToStartOfDay(request.ReportDateFrom),
       ReportTimeTo = ToStartOfNextDay(request.ReportDateTo),
       ReportType = request.ReportType,
-      ReportNo = request.ReportNo?.Trim(),
-      IdentityDocumentNoPrefix = NormalizeDocumentNoPrefix(request.IdentityDocumentNo),
-      PatientNamePrefix = NormalizeNamePrefix(request.PatientName)
+      ReportStatus = request.ReportStatus,
+      Keyword = NullIfBlank(request.Keyword)
     };
 
     PageSlice<MedicalReportListItem> slice = await ReadReportPageAsync(filter, window);
@@ -89,9 +88,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ReportTimeFrom = ToStartOfDay(request.ReportDateFrom),
       ReportTimeTo = ToStartOfNextDay(request.ReportDateTo),
       ReportType = request.ReportType,
-      ReportNo = request.ReportNo?.Trim(),
-      IdentityDocumentNoPrefix = NormalizeDocumentNoPrefix(request.IdentityDocumentNo),
-      PatientNamePrefix = NormalizeNamePrefix(request.PatientName)
+      ReportStatus = request.ReportStatus,
+      Keyword = NullIfBlank(request.Keyword)
     };
 
     PageSlice<MedicalReportListItem> slice = await ReadReportPageAsync(filter, window);
@@ -591,28 +589,6 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <returns>结束日次日零点；无输入时返回 <see langword="null"/>。</returns>
   private static DateTime? ToStartOfNextDay(DateOnly? date) =>
     date?.AddDays(1).ToDateTime(TimeOnly.MinValue);
-
-  /// <summary>
-  /// 按规范形式处理证件号码筛选输入：去首尾空白并统一大写。
-  /// </summary>
-  /// <param name="value">用户输入。</param>
-  /// <returns>规范形式后的前缀；输入缺失或处理后为空时返回 <see langword="null"/>，表示不施加该筛选条件。</returns>
-  private static string? NormalizeDocumentNoPrefix(string? value)
-  {
-    string normalized = value?.Trim().ToUpperInvariant() ?? string.Empty;
-    return normalized.Length == 0 ? null : normalized;
-  }
-
-  /// <summary>
-  /// 按规范形式处理姓名筛选输入：去首尾空白。
-  /// </summary>
-  /// <param name="value">用户输入。</param>
-  /// <returns>规范形式后的前缀；输入缺失或处理后为空时返回 <see langword="null"/>，表示不施加该筛选条件。</returns>
-  private static string? NormalizeNamePrefix(string? value)
-  {
-    string normalized = value?.Trim() ?? string.Empty;
-    return normalized.Length == 0 ? null : normalized;
-  }
 
   /// <summary>
   /// 把空白文本归一为 <see langword="null"/>，使「来源未提供」与「提供空串」在返回契约上是同一事实。

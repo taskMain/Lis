@@ -4760,23 +4760,14 @@
           "reportType": {
             "$ref": "#/components/schemas/MedicalReportType"
           },
-          "reportNo": {
+          "keyword": {
             "type": [
               "null",
               "string"
             ]
           },
-          "identityDocumentNo": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "patientName": {
-            "type": [
-              "null",
-              "string"
-            ]
+          "reportStatus": {
+            "$ref": "#/components/schemas/MedicalReportLifecycleStatus"
           }
         }
       },
@@ -8378,23 +8369,14 @@
           "reportType": {
             "$ref": "#/components/schemas/MedicalReportType"
           },
-          "reportNo": {
+          "keyword": {
             "type": [
               "null",
               "string"
             ]
           },
-          "identityDocumentNo": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "patientName": {
-            "type": [
-              "null",
-              "string"
-            ]
+          "reportStatus": {
+            "$ref": "#/components/schemas/MedicalReportLifecycleStatus"
           }
         }
       },

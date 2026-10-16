@@ -1,48 +1,58 @@
 /**
- * 报告管理端两个页面共用的列表与详情主体（阶段 4 票 14、15；提交式筛选改造起承载提交式筛选与来源方三行式）。
+ * 报告管理端两个页面共用的列表主体（提交式筛选、状态页签、默认时间窗与来源方三行式）。
  *
  * 取值来源与范围固定由调用方注入：平台管理员页把组织、医院、院区作为请求条件提交，
  * 医院管理员页只提交院区、组织与医院由服务端从可信上下文注入。主体自身不读取可信上下文、
- * 不构造请求载荷，也不接触生成的 Kiota 类型。
+ * 不构造请求载荷，也不接触生成的 Kiota 类型。详情呈现由详情路由页承载，主体只负责：
+ * 「查看详情」跳转详情子路由（行概要经会话级缓存传递，键为 reportId）与来源行高亮标记，
+ * 以及返回后的滚动位置还原与来源行焦点还原（列表保持挂载由入口容器执行）。
  *
  * 本文件承载的服务端分页口径：
  * 1. 分页由服务端完成，页面不排序、不做本地过滤、不做本地分页；
- * 2. 提交式筛选（D-02）：筛选控件改动只进草稿、零请求，点「查询」把草稿提交为已生效条件并回到第 1 页，
- *    「重置」清空草稿并恢复默认条件；翻页基于已生效条件自动读取；
+ * 2. 提交式筛选（D-02）：筛选控件改动只进草稿、零请求，点「查询」把草稿提交为已生效条件并回到第 1 页；
+ *    不设「重置」；关键字与报告类型可清空、清空后经「查询」生效，报告时间区间不可清空（默认窗口见第 5 条）；
+ *    列表上沿报告状态页签不进草稿，改动即提交；翻页基于已生效条件自动读取；
  * 3. 当页为空且总数为正时按服务端总数回退到最后一页一次，避免越界页长期空转；
- * 4. 同一筛选条件下的连续操作只采纳最后一次请求结果，过期响应直接丢弃。
+ * 4. 同一筛选条件下的连续操作只采纳最后一次请求结果，过期响应直接丢弃；
+ * 5. 默认条件（2026-10-15 修订）：初始与范围切换复位的已生效条件与草稿都携带默认时间窗（近 30 天，与「近30天」预设同义），
+ *    因此每次读取恒带时间边界；范围解析由调用方完成，主体只在范围齐备后读取。
  *
- * 失败面四类（列表读取、版本列表读取、版本详情读取、PDF 下载）都只做本层恢复（既定口径：纯读取失败不渲染横幅）：
- * 读取失败不渲染错误横幅——静默保留已有数据与当前版本选择、结束加载态；错误由宿主统一提示，
- * 列表重试经查询按钮，版本内容经重新选择版本恢复。不解析错误响应体、不新增请求拦截器。
+ * 失败面（列表读取失败）只做本层恢复（既定口径：纯读取失败不渲染横幅）：
+ * 读取失败静默保留已有数据与旧总数、结束加载态；错误由宿主统一提示，重试经查询按钮。
+ * 不解析错误响应体、不新增请求拦截器。
  */
 import { SearchOutlined } from '@ant-design/icons'
 import {
   Button,
+  DatePicker,
   Empty,
   Form,
   Input,
   Select,
-  Space,
   Table,
+  Tabs,
   Tag,
   Typography,
   type TableColumnsType,
 } from 'antd'
+import dayjs, { type Dayjs } from 'dayjs'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useEnumMetadata, type EnumMetadataOption } from '../../hooks/useEnumMetadata'
 import { createTablePagination } from '../../shared/tablePagination'
 import {
+  isReportStatusValue,
   MAX_PAGE_SIZE,
   toDisplayDate,
   VOIDED_REPORT_STATUS,
   type ReportFilters,
   type ReportPage,
   type ReportRow,
-  type ReportVersionDetail,
-  type ReportVersionRow,
 } from './reportsApi'
-import { ReportVersionDetailPanel } from './ReportVersionDetailPanel'
+import { setRowSummary } from './reportRowSummaryCache'
+import { scrollContainerOf } from './reportDetailShared'
+import { REPORT_DETAIL_SEGMENT } from './reportManagementRoutes'
+import { IdNumberText } from './IdNumberText'
 import './ReportManagement.css'
 
 /** 报告类型筛选的本地兜底选项；服务端枚举元数据可用时改取服务端声明。 */
@@ -51,8 +61,39 @@ const REPORT_TYPE_METADATA_FALLBACK: readonly EnumMetadataOption[] = [
   { value: 2, name: 'Examination', label: '检查报告' },
 ]
 
-/** 空筛选条件。 */
-const EMPTY_FILTERS: ReportFilters = {}
+/** 报告状态页签的本地兜底选项；服务端枚举元数据可用时改取服务端声明。 */
+const REPORT_STATUS_METADATA_FALLBACK: readonly EnumMetadataOption[] = [
+  { value: 1, name: 'Effective', label: '有效' },
+  { value: 2, name: 'Voided', label: '已作废' },
+]
+
+/** 状态页签「全部」的键；不携带 reportStatus 字段。 */
+const ALL_STATUS_KEY = 'all'
+
+/**
+ * 默认报告时间窗（2026-10-15 修订）：近 30 天（今天往前 29 天到今天的滚动窗），与「近30天」预设同义；
+ * 报告时间区间不可清空，进入页面与范围切换复位的初始条件都携带该窗口。
+ */
+function buildDefaultReportDateWindow(now: Dayjs): { reportDateFrom: string; reportDateTo: string } {
+  return {
+    reportDateFrom: now.subtract(29, 'day').format('YYYY-MM-DD'),
+    reportDateTo: now.format('YYYY-MM-DD'),
+  }
+}
+
+/** 默认筛选条件：报告时间取默认窗口；其余条件未施加。 */
+function buildDefaultFilters(now: Dayjs = dayjs()): ReportFilters {
+  return buildDefaultReportDateWindow(now)
+}
+
+/** 报告时间快捷预设：今天、近 7 天与近 30 天；「近30天」与默认窗口同一口径（含当天共 30 天）。 */
+function buildReportDatePresets(today: Dayjs): { label: string; value: [Dayjs, Dayjs] }[] {
+  return [
+    { label: '今天', value: [today, today] },
+    { label: '近7天', value: [today.subtract(6, 'day'), today] },
+    { label: '近30天', value: [today.subtract(29, 'day'), today] },
+  ]
+}
 
 /**
  * 归属名称的单元格文本（D-04）：只显名称、绝不回退编码；名称缺失显示「未知」。
@@ -95,28 +136,15 @@ export interface ReportManagementBoardProps<Query> {
   selector: ReactNode
   /** `null` 表示范围不完整：不发起请求、不进入可操作状态，也不退化为全局查询。 */
   scope: ReportManagementScope<Query> | null
+  /** 详情子路由是否激活（由入口容器按 URL 判定）：激活时列表被隐藏承载，返回非激活时主体还原滚动与来源行焦点。 */
+  detailActive: boolean
   /** 按筛选条件与分页参数读取当页；请求体由调用方经适配层构造。 */
   queryPage: (query: Query, filters: ReportFilters, page: { pageIndex: number; pageSize: number }) => Promise<ReportPage>
-  /** 读取某个报告的全部版本。 */
-  queryVersions: (reportId: string) => Promise<ReportVersionRow[]>
-  /** 读取某个报告版本的完整内容。 */
-  queryDetail: (reportId: string, reportVersionId: string) => Promise<ReportVersionDetail>
-  /** 下载某个报告版本的原始 PDF；下载名取该版本保存的下载名。 */
-  downloadVersion: (reportId: string, version: ReportVersionRow) => Promise<void>
 }
 
 /** 表格行 = 列表行模型 + 仅在页面内使用的稳定行标识（不作为业务字段提交或展示）。 */
 interface TableRow extends ReportRow {
   rowIdentity: string
-}
-
-/** 已展开报告的会话状态：报告身份与版本列表。 */
-interface DetailState {
-  reportId: string
-  reportNo: string
-  reportTypeText: string
-  reportStatusText: string
-  versions: ReportVersionRow[]
 }
 
 export function ReportManagementBoard<Query>({
@@ -125,47 +153,49 @@ export function ReportManagementBoard<Query>({
   missingScopeText,
   selector,
   scope,
+  detailActive,
   queryPage,
-  queryVersions,
-  queryDetail,
-  downloadVersion,
 }: ReportManagementBoardProps<Query>) {
+  const navigate = useNavigate()
   const scopeKey = scope?.key ?? null
+  /** 本次挂载的默认筛选条件；预设按同一窗口的结束日派生，因此默认状态与点一次「近30天」预设等价。 */
+  const [defaultFilters] = useState<ReportFilters>(() => buildDefaultFilters())
+  const datePresets = useMemo(() => buildReportDatePresets(dayjs(defaultFilters.reportDateTo)), [defaultFilters])
   const [pageState, setPageState] = useState<{
     key: string | null
     filters: ReportFilters
     pageIndex: number
     pageSize: number
-  }>({ key: scopeKey, filters: EMPTY_FILTERS, pageIndex: 1, pageSize: 10 })
+  }>({ key: scopeKey, filters: defaultFilters, pageIndex: 1, pageSize: 10 })
   /**
    * 提交式筛选（D-02）：草稿承载未提交的控件改动（零请求），已生效条件在 `pageState.filters` 里
    * 驱动读取。两份状态分离是提交式的核心：控件 onChange 只写草稿，「查询」才把草稿提交为已生效条件。
    */
-  const [draftFilters, setDraftFilters] = useState<ReportFilters>(EMPTY_FILTERS)
+  const [draftFilters, setDraftFilters] = useState<ReportFilters>(defaultFilters)
   const [rows, setRows] = useState<ReportRow[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(false)
   const [listFailure, setListFailure] = useState<ListFailure>(null)
-  const [detail, setDetail] = useState<DetailState | null>(null)
-  const [versionsLoading, setVersionsLoading] = useState(false)
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
-  const [versionDetail, setVersionDetail] = useState<ReportVersionDetail | null>(null)
-  const [detailLoading, setDetailLoading] = useState(false)
-  const [downloadingVersionId, setDownloadingVersionId] = useState<string | null>(null)
+  /**
+   * 来源行标识（D-03）：刚从该行进入详情。返回列表后该行渲染高亮样式并作为焦点还原目标；
+   * 范围切换复位时清除，重新进入任一详情时更新为新的来源行。
+   */
+  const [highlightReportId, setHighlightReportId] = useState<string | null>(null)
 
   /**
-   * 范围切换在渲染期复位：等到 effect 再复位，旧范围的行、筛选、页码与详情会先渲染一帧。
+   * 范围切换在渲染期复位：等到 effect 再复位，旧范围的行、筛选与页码会先渲染一帧。
    * 复位后页码状态的 `key` 恒等于当前范围键，晚到的旧范围响应既不改写新范围的数据，也不改写失败态。
    */
   if (pageState.key !== scopeKey) {
-    setPageState({ key: scopeKey, filters: EMPTY_FILTERS, pageIndex: 1, pageSize: pageState.pageSize })
-    setDraftFilters(EMPTY_FILTERS)
+    // 范围切换复位为新的默认条件：默认时间窗按复位时刻计算（跨天后切换范围得到新的窗口）。
+    const defaultFiltersAtReset = buildDefaultFilters()
+    setPageState({ key: scopeKey, filters: defaultFiltersAtReset, pageIndex: 1, pageSize: pageState.pageSize })
+    setDraftFilters(defaultFiltersAtReset)
     setRows([])
     setTotalCount(0)
     setListFailure(null)
-    setDetail(null)
-    setSelectedVersionId(null)
-    setVersionDetail(null)
+    // 范围切换复位时清除来源行标识（D-03）：旧范围的高亮不带入新范围。
+    setHighlightReportId(null)
   }
 
   const filters = pageState.filters
@@ -178,16 +208,27 @@ export function ReportManagementBoard<Query>({
    * 旧请求仍会在网络上跑完，但它的结果因序号不符而被丢弃。
    */
   const listRequestIdRef = useRef(0)
-  const versionRequestIdRef = useRef(0)
-  const detailRequestIdRef = useRef(0)
   /** 越界回退只做一次：记录已经回退过的范围键与页码，避免空页反复触发回退。 */
   const fallbackGuardRef = useRef<string | null>(null)
+  /** 主体根节点：滚动容器定位与来源行按钮定位都从这里出发。 */
+  const pageRootRef = useRef<HTMLDivElement>(null)
+  /** 跳转详情前记录的滚动容器位置；深链直开没有该记录，返回路径据此跳过还原。 */
+  const savedScrollRef = useRef<number | null>(null)
+  /** 上一渲染的详情激活态：由激活转为非激活即「从详情返回」。 */
+  const wasDetailActiveRef = useRef(false)
 
   const reportTypeOptions = useEnumMetadata('MedicalReportType', REPORT_TYPE_METADATA_FALLBACK, { enabled: scope !== null })
   const reportTypeSelectOptions = useMemo(
     () => reportTypeOptions.map((option) => ({ value: option.value, label: option.label })),
     [reportTypeOptions],
   )
+
+  const reportStatusOptions = useEnumMetadata('MedicalReportLifecycleStatus', REPORT_STATUS_METADATA_FALLBACK, { enabled: scope !== null })
+  const statusTabItems = useMemo(
+    () => [{ key: ALL_STATUS_KEY, label: '全部' }, ...reportStatusOptions.map((option) => ({ key: String(option.value), label: option.label }))],
+    [reportStatusOptions],
+  )
+  const activeStatusKey = filters.reportStatus === undefined ? ALL_STATUS_KEY : String(filters.reportStatus)
 
   const load = useCallback(async (
     query: Query,
@@ -250,75 +291,38 @@ export function ReportManagementBoard<Query>({
     return () => window.clearTimeout(task)
   }, [listFailure, loading, pageIndex, pageSize, reload, rows.length, scopeKey, totalCount])
 
-  /** 读取某个版本的内容；失败保留当前版本选择与上一个版本的已有内容，结束加载态（既定口径：不渲染横幅）。 */
-  const loadVersionDetail = useCallback(async (reportId: string, reportVersionId: string) => {
-    const requestId = ++detailRequestIdRef.current
-    setSelectedVersionId(reportVersionId)
-    setDetailLoading(true)
-    try {
-      const value = await queryDetail(reportId, reportVersionId)
-      if (requestId !== detailRequestIdRef.current) return
-      setVersionDetail(value)
-      setDetailLoading(false)
-    } catch {
-      if (requestId !== detailRequestIdRef.current) return
-      setDetailLoading(false)
-      // 详情读取失败保留当前版本选择与上一个版本的已有内容；错误由宿主统一提示（既定口径）。
-    }
-  }, [queryDetail])
-
   /**
-   * 载入被展开报告的版本列表，并默认选中平台形成顺序的最新版本。
-   *
-   * 版本列表与详情分两次读取：版本列表失败时详情区保留空态、列表仍可见，可经「查看详情」重读；
-   * 两次读取的响应都按序号作废，关闭详情或展开另一份报告后迟到的响应不会写回状态。
+   * 进入详情（D-01/D-03）：记录来源行概要与来源行标识并跳转详情子路由。行概要经会话级缓存
+   * 传递（宿主 MicroSDK 接管 history，`navigate` 的 state 会被 SDK 包装的 push 丢弃），
+   * 供详情页概要头部即时呈现；列表保持挂载，可见性由入口容器切换。
    */
-  const loadDetail = useCallback(async (reportId: string, reportNo: string, reportTypeText: string, reportStatusText: string) => {
-    const requestId = ++versionRequestIdRef.current
-    detailRequestIdRef.current += 1
-    setDetail({ reportId, reportNo, reportTypeText, reportStatusText, versions: [] })
-    setSelectedVersionId(null)
-    setVersionDetail(null)
-    setVersionsLoading(true)
-    try {
-      const versions = await queryVersions(reportId)
-      if (requestId !== versionRequestIdRef.current) return
-      setDetail({ reportId, reportNo, reportTypeText, reportStatusText, versions })
-      setVersionsLoading(false)
-      if (versions.length === 0) return
-      void loadVersionDetail(reportId, versions[versions.length - 1].reportVersionId)
-    } catch {
-      if (requestId !== versionRequestIdRef.current) return
-      // 版本列表读取失败保留空态详情；错误由宿主统一提示（既定口径：不渲染横幅）。
-      setVersionsLoading(false)
-    }
-  }, [loadVersionDetail, queryVersions])
-
-  /** 关闭详情：作废在途的版本与详情响应，避免关闭后迟到的响应重新写回已清空的详情。 */
-  const closeDetail = () => {
-    versionRequestIdRef.current += 1
-    detailRequestIdRef.current += 1
-    setDetail(null)
-    setSelectedVersionId(null)
-    setVersionDetail(null)
+  const showDetail = (row: ReportRow) => {
+    // display:none 会重置滚动容器位置：跳转前记录 MainLayout Content（overflow:auto）的 scrollTop。
+    const scrollContainer = scrollContainerOf(pageRootRef.current)
+    savedScrollRef.current = scrollContainer?.scrollTop ?? null
+    setRowSummary(row.reportId, row)
+    setHighlightReportId(row.reportId)
+    navigate(`${REPORT_DETAIL_SEGMENT}/${row.reportId}`)
   }
 
   /**
-   * 下载指定版本的 PDF：下载名取该版本保存的下载名。
-   * 下载失败保留当前详情与版本选择、不重载列表、不把失败路径当成功；错误由宿主统一提示（既定口径：不渲染横幅）。
+   * 返回列表后的还原（D-03）：详情激活转为非激活时，先恢复跳转前记录的 scrollTop
+   * （display:none 期间浏览器已重置滚动位置），再聚焦来源行「查看详情」按钮；
+   * `preventScroll` 避免焦点动作再次改变已恢复的滚动位置。深链直开没有记录值，返回路径跳过还原。
    */
-  const download = async (row: ReportVersionRow) => {
-    if (detail === null) return
-    if (downloadingVersionId !== null) return
-    setDownloadingVersionId(row.reportVersionId)
-    try {
-      await downloadVersion(detail.reportId, row)
-    } catch {
-      // 下载失败只结束加载态：版本行按钮恢复可用，可再次发起下载。
-    } finally {
-      setDownloadingVersionId(null)
-    }
-  }
+  useEffect(() => {
+    const returning = wasDetailActiveRef.current && !detailActive
+    wasDetailActiveRef.current = detailActive
+    if (!returning) return
+    const saved = savedScrollRef.current
+    savedScrollRef.current = null
+    if (saved === null) return
+    const scrollContainer = scrollContainerOf(pageRootRef.current)
+    if (scrollContainer !== null) scrollContainer.scrollTop = saved
+    if (highlightReportId === null) return
+    const sourceButton = pageRootRef.current?.querySelector<HTMLButtonElement>(`button[data-report-id="${CSS.escape(highlightReportId)}"]`) ?? null
+    sourceButton?.focus({ preventScroll: true })
+  }, [detailActive, highlightReportId])
 
   /** 草稿条件变化：只改草稿，不发请求、不动分页（D-02）。 */
   const applyDraft = (patch: ReportFilters) => {
@@ -330,11 +334,27 @@ export function ReportManagementBoard<Query>({
     setPageState((previous) => ({ ...previous, filters: { ...draftFilters }, pageIndex: 1 }))
   }
 
-  /** 重置：清空草稿并恢复默认条件（空筛选），已生效条件一并复位并重读。 */
-  const resetDraft = () => {
-    setDraftFilters(EMPTY_FILTERS)
-    setPageState((previous) => ({ ...previous, filters: {}, pageIndex: 1 }))
+  /**
+   * 报告状态页签改动即提交（列表上沿页签口径）：不进草稿，直接写已生效条件并回到第 1 页；
+   * 「全部」不下发状态字段。其余草稿控件不随页签提交，保持各自的草稿值。
+   */
+  const changeReportStatus = (key: string) => {
+    if (key === ALL_STATUS_KEY) {
+      setPageState((previous) => ({ ...previous, filters: { ...previous.filters, reportStatus: undefined }, pageIndex: 1 }))
+      return
+    }
+    const option = reportStatusOptions.find((item) => String(item.value) === key)
+    if (!option || !isReportStatusValue(option.value)) return
+    setPageState((previous) => ({ ...previous, filters: { ...previous.filters, reportStatus: option.value }, pageIndex: 1 }))
   }
+
+  /** 草稿时间区间的受控值：来自草稿的年月日文本；两端都为空时为未选择。 */
+  const draftRangeValue: [Dayjs | null, Dayjs | null] | null = (draftFilters.reportDateFrom ?? '') !== '' || (draftFilters.reportDateTo ?? '') !== ''
+    ? [
+        draftFilters.reportDateFrom ? dayjs(draftFilters.reportDateFrom) : null,
+        draftFilters.reportDateTo ? dayjs(draftFilters.reportDateTo) : null,
+      ]
+    : null
 
   const tableRows = useMemo<TableRow[]>(() => {
     const occurrences = new Map<string, number>()
@@ -352,7 +372,12 @@ export function ReportManagementBoard<Query>({
     // 来源方三行式（D-04）：组织、医院、院区三列合并，名称取读模型交付字段。
     { title: '来源方', width: 180, ellipsis: true, render: (_: unknown, row) => <PartyCell {...row} /> },
     { title: '患者姓名', dataIndex: 'patientName', width: 100 },
-    { title: '证件号码', dataIndex: 'identityDocumentNo', width: 170 },
+    {
+      title: '证件号码',
+      dataIndex: 'identityDocumentNo',
+      width: 170,
+      render: (value: string | null) => <IdNumberText value={value} />,
+    },
     { title: '当前版本序号', dataIndex: 'currentVersionSequence', width: 110 },
     {
       title: '报告状态',
@@ -367,14 +392,14 @@ export function ReportManagementBoard<Query>({
         type='link'
         size='small'
         aria-label={`查看报告详情：${row.reportNo}`}
-        onClick={() => {
-          void loadDetail(row.reportId, row.reportNo, row.reportTypeText, row.statusText)
-        }}
+        // 来源行按钮的定位锚点：返回列表后按该标识还原焦点（preventScroll）。
+        data-report-id={row.reportId}
+        onClick={() => showDetail(row)}
       >查看详情</Button>,
     },
   ]
 
-  return <div className='report-management-page'>
+  return <div className='report-management-page' ref={pageRootRef}>
     <div className='report-management-header'>
       <div>
         <Typography.Title level={3}>{title}</Typography.Title>
@@ -384,36 +409,24 @@ export function ReportManagementBoard<Query>({
 
     {selector}
 
-    {/* 查询区（D-02）按查询区结构口径：inline Form 承载草稿控件；查询、重置位于行内最后一个 Form.Item 内并排。 */}
+    {/* 查询区（提交式）：inline Form 承载草稿控件；控件改动只进草稿零请求，「查询」把草稿提交为已生效条件并回到第 1 页。
+        不设「重置」：各控件可清空，清空后经「查询」生效。报告状态不进草稿，页签改动即提交。 */}
     <div className='report-management-filters'>
       <Form layout='inline' onFinish={submitDraft}>
         <Form.Item>
           {/*
-            报告时间筛选使用浏览器原生日期输入：受控值是 `YYYY-MM-DD` 文本，只提交起止日期，
-            因此不拼接时分秒、也不把本地时区偏移写进请求值；区间边界由服务端按左闭右开处理。
+            统一关键字：报告单号、患者证件号码与患者姓名合并为单一条件，服务端按单号精确、证件前缀
+            （大小写不敏感）与姓名前缀三列任一命中匹配；输入按用户原文提交，规范化由服务端完成。
           */}
-          <label className='report-management-date-label'>
-            报告时间
-            <input
-              type='date'
-              aria-label='报告时间起始日'
-              className='report-management-date'
-              value={draftFilters.reportDateFrom ?? ''}
-              onChange={(event) => applyDraft({ reportDateFrom: event.target.value || undefined })}
-            />
-          </label>
-        </Form.Item>
-        <Form.Item>
-          <label className='report-management-date-label'>
-            至
-            <input
-              type='date'
-              aria-label='报告时间结束日'
-              className='report-management-date'
-              value={draftFilters.reportDateTo ?? ''}
-              onChange={(event) => applyDraft({ reportDateTo: event.target.value || undefined })}
-            />
-          </label>
+          <Input
+            placeholder='报告单号 / 证件号码 / 患者姓名'
+            aria-label='关键字筛选'
+            autoComplete='off'
+            allowClear
+            style={{ width: 320 }}
+            value={draftFilters.keyword ?? ''}
+            onChange={(event) => applyDraft({ keyword: event.target.value })}
+          />
         </Form.Item>
         <Form.Item>
           <Select<number>
@@ -423,61 +436,57 @@ export function ReportManagementBoard<Query>({
             style={{ width: 140 }}
             value={draftFilters.reportType}
             options={reportTypeSelectOptions}
-            onChange={(value) => applyDraft({ reportType: value ?? undefined })}
+            onChange={(value) => applyDraft({ reportType: value })}
           />
         </Form.Item>
         <Form.Item>
-          <Input
-            placeholder='报告单号'
-            aria-label='报告单号筛选'
-            autoComplete='off'
-            allowClear
-            value={draftFilters.reportNo ?? ''}
-            onChange={(event) => applyDraft({ reportNo: event.target.value })}
+          {/*
+            报告时间筛选使用 antd RangePicker：受控值来自草稿的年月日文本，只提交起止日期，
+            不拼接时分秒、也不把本地时区偏移写进请求值；区间边界由服务端按左闭右开处理。
+            区间不可清空（默认近 30 天窗口，与「近30天」预设同义）：报告列表查询恒带时间边界；
+            预设提供今天、近 7 天与近 30 天三个快捷区间。
+          */}
+          <DatePicker.RangePicker
+            allowClear={false}
+            aria-label='报告时间范围'
+            placeholder={['开始日期', '结束日期']}
+            presets={datePresets}
+            value={draftRangeValue}
+            onChange={(_dates, dateStrings) => applyDraft({
+              reportDateFrom: dateStrings[0] || undefined,
+              reportDateTo: dateStrings[1] || undefined,
+            })}
           />
         </Form.Item>
         <Form.Item>
-          <Input
-            placeholder='患者证件号码'
-            aria-label='患者证件号码筛选'
-            autoComplete='off'
-            allowClear
-            value={draftFilters.identityDocumentNo ?? ''}
-            onChange={(event) => applyDraft({ identityDocumentNo: event.target.value })}
-          />
-        </Form.Item>
-        <Form.Item>
-          <Input
-            placeholder='患者姓名'
-            aria-label='患者姓名筛选'
-            autoComplete='off'
-            allowClear
-            value={draftFilters.patientName ?? ''}
-            onChange={(event) => applyDraft({ patientName: event.target.value })}
-          />
-        </Form.Item>
-        <Form.Item>
-          <Space wrap>
-            {/*
-              查询按钮逐字符合全站统一规格（框内查询图标按钮与查询区结构规格）：`aria-label` 声明可访问名称——
-              `SearchOutlined` 自带英文 `aria-label`，会参与按钮名称计算，不声明就会读成「search 查询」；
-              `autoInsertSpace={false}` 关闭 antd 对两个汉字之间自动插入的空格；颜色继承宿主主题 token，
-              不覆盖样式。提交触发重新读取，读取在途时按钮进入 `loading`（与列表页同款，在途期间
-              antd loading 阻止点击提交、不会重复发起读取）；交叠请求仍由序号作废机制收敛为
-              「只采纳最后一次」。重置恒命名「重置」、默认样式。
-            */}
-            <Button
-              type='primary'
-              icon={<SearchOutlined />}
-              aria-label='查询'
-              autoInsertSpace={false}
-              htmlType='submit'
-              loading={loading}
-            >查询</Button>
-            <Button autoInsertSpace={false} onClick={resetDraft}>重置</Button>
-          </Space>
+          {/*
+            查询按钮：`aria-label` 声明可访问名称——`SearchOutlined` 自带英文 `aria-label`，会参与按钮名称计算，
+            不声明就会读成「search 查询」；`autoInsertSpace={false}` 关闭 antd 对两个汉字之间自动插入的空格；
+            颜色继承宿主主题 token，不覆盖样式。提交触发重新读取，读取在途时按钮进入 `loading`
+            （在途期间 antd loading 阻止点击提交、不会重复发起读取）；交叠请求仍由序号作废机制收敛为「只采纳最后一次」。
+          */}
+          <Button
+            type='primary'
+            icon={<SearchOutlined />}
+            aria-label='查询'
+            autoInsertSpace={false}
+            htmlType='submit'
+            loading={loading}
+          >查询</Button>
         </Form.Item>
       </Form>
+    </div>
+
+    {/* 报告状态页签（列表上沿，与互认项目页配置状态页签同款交互）：改动即提交为已生效条件并回到第 1 页。 */}
+    <div className='report-management-status-toolbar'>
+      <div role='group' aria-label='报告状态筛选'>
+        <Tabs
+          className='report-management-status-tabs'
+          activeKey={activeStatusKey}
+          items={statusTabItems}
+          onChange={changeReportStatus}
+        />
+      </div>
     </div>
 
     {/* 读取失败不渲染错误横幅（既定口径）：失败静默保留旧数据，错误由宿主统一提示，重试经查询按钮。 */}
@@ -487,6 +496,8 @@ export function ReportManagementBoard<Query>({
       columns={columns}
       dataSource={tableRows}
       loading={loading && rows.length === 0}
+      // 来源行高亮（D-03）：rowClassName 仅命中当前页数据中的来源行，样式由配套 CSS 承载。
+      rowClassName={(row) => (row.reportId === highlightReportId ? 'report-management-detail-row-source' : '')}
       // 来源方三列并一列后横向宽度收窄（D-04）：各列宽度合计 1140。
       scroll={{ x: 1140 }}
       // 受控分页：由共享分页配置提供页容量可选值、总数展示与「改变页容量回到第 1 页」的收敛规则。
@@ -512,22 +523,5 @@ export function ReportManagementBoard<Query>({
     <Typography.Text type='secondary' className='report-management-summary'>
       当前筛选共 {totalCount} 份报告；第 {pageIndex} 页，每页 {pageSize} 条（服务端分页上限 {MAX_PAGE_SIZE} 条）
     </Typography.Text>
-
-    {detail === null ? null : <ReportVersionDetailPanel
-      reportNo={detail.reportNo}
-      reportTypeText={detail.reportTypeText}
-      reportStatusText={detail.reportStatusText}
-      versions={detail.versions}
-      versionsLoading={versionsLoading}
-      selectedVersionId={selectedVersionId}
-      detail={versionDetail}
-      detailLoading={detailLoading}
-      downloadingVersionId={downloadingVersionId}
-      onSelectVersion={(reportVersionId) => {
-        void loadVersionDetail(detail.reportId, reportVersionId)
-      }}
-      onDownload={download}
-      onClose={closeDetail}
-    />}
   </div>
 }

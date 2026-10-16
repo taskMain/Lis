@@ -208,17 +208,13 @@ export interface BranchReportListQueryRequest extends AdditionalDataHolder, Pars
      */
     branchCode?: string | null;
     /**
-     * The identityDocumentNo property
+     * The keyword property
      */
-    identityDocumentNo?: string | null;
+    keyword?: string | null;
     /**
      * The page property
      */
     page?: PageRequestDto | null;
-    /**
-     * The patientName property
-     */
-    patientName?: string | null;
     /**
      * The reportDateFrom property
      */
@@ -228,9 +224,9 @@ export interface BranchReportListQueryRequest extends AdditionalDataHolder, Pars
      */
     reportDateTo?: DateOnly | null;
     /**
-     * The reportNo property
+     * The reportStatus property
      */
-    reportNo?: string | null;
+    reportStatus?: number | null;
     /**
      * The reportType property
      */
@@ -1547,12 +1543,11 @@ export function deserializeIntoBranchRecognitionUsageSummaryQueryRequest(branchR
 export function deserializeIntoBranchReportListQueryRequest(branchReportListQueryRequest: Partial<BranchReportListQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "branchCode": n => { branchReportListQueryRequest.branchCode = n.getStringValue(); },
-        "identityDocumentNo": n => { branchReportListQueryRequest.identityDocumentNo = n.getStringValue(); },
+        "keyword": n => { branchReportListQueryRequest.keyword = n.getStringValue(); },
         "page": n => { branchReportListQueryRequest.page = n.getObjectValue<PageRequestDto>(createPageRequestDtoFromDiscriminatorValue); },
-        "patientName": n => { branchReportListQueryRequest.patientName = n.getStringValue(); },
         "reportDateFrom": n => { branchReportListQueryRequest.reportDateFrom = n.getDateOnlyValue(); },
         "reportDateTo": n => { branchReportListQueryRequest.reportDateTo = n.getDateOnlyValue(); },
-        "reportNo": n => { branchReportListQueryRequest.reportNo = n.getStringValue(); },
+        "reportStatus": n => { branchReportListQueryRequest.reportStatus = n.getNumberValue(); },
         "reportType": n => { branchReportListQueryRequest.reportType = n.getNumberValue(); },
     }
 }
@@ -3044,13 +3039,12 @@ export function deserializeIntoReportListQueryRequest(reportListQueryRequest: Pa
     return {
         "branchCode": n => { reportListQueryRequest.branchCode = n.getStringValue(); },
         "hospitalCode": n => { reportListQueryRequest.hospitalCode = n.getStringValue(); },
-        "identityDocumentNo": n => { reportListQueryRequest.identityDocumentNo = n.getStringValue(); },
+        "keyword": n => { reportListQueryRequest.keyword = n.getStringValue(); },
         "organizationCode": n => { reportListQueryRequest.organizationCode = n.getStringValue(); },
         "page": n => { reportListQueryRequest.page = n.getObjectValue<PageRequestDto>(createPageRequestDtoFromDiscriminatorValue); },
-        "patientName": n => { reportListQueryRequest.patientName = n.getStringValue(); },
         "reportDateFrom": n => { reportListQueryRequest.reportDateFrom = n.getDateOnlyValue(); },
         "reportDateTo": n => { reportListQueryRequest.reportDateTo = n.getDateOnlyValue(); },
-        "reportNo": n => { reportListQueryRequest.reportNo = n.getStringValue(); },
+        "reportStatus": n => { reportListQueryRequest.reportStatus = n.getNumberValue(); },
         "reportType": n => { reportListQueryRequest.reportType = n.getNumberValue(); },
     }
 }
@@ -5619,9 +5613,9 @@ export interface ReportListQueryRequest extends AdditionalDataHolder, Parsable {
      */
     hospitalCode?: string | null;
     /**
-     * The identityDocumentNo property
+     * The keyword property
      */
-    identityDocumentNo?: string | null;
+    keyword?: string | null;
     /**
      * The organizationCode property
      */
@@ -5631,10 +5625,6 @@ export interface ReportListQueryRequest extends AdditionalDataHolder, Parsable {
      */
     page?: PageRequestDto | null;
     /**
-     * The patientName property
-     */
-    patientName?: string | null;
-    /**
      * The reportDateFrom property
      */
     reportDateFrom?: DateOnly | null;
@@ -5643,9 +5633,9 @@ export interface ReportListQueryRequest extends AdditionalDataHolder, Parsable {
      */
     reportDateTo?: DateOnly | null;
     /**
-     * The reportNo property
+     * The reportStatus property
      */
-    reportNo?: string | null;
+    reportStatus?: number | null;
     /**
      * The reportType property
      */
@@ -5949,12 +5939,11 @@ export function serializeBranchRecognitionUsageSummaryQueryRequest(writer: Seria
 export function serializeBranchReportListQueryRequest(writer: SerializationWriter, branchReportListQueryRequest: Partial<BranchReportListQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!branchReportListQueryRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("branchCode", branchReportListQueryRequest.branchCode);
-    writer.writeStringValue("identityDocumentNo", branchReportListQueryRequest.identityDocumentNo);
+    writer.writeStringValue("keyword", branchReportListQueryRequest.keyword);
     writer.writeObjectValue<PageRequestDto>("page", branchReportListQueryRequest.page, serializePageRequestDto);
-    writer.writeStringValue("patientName", branchReportListQueryRequest.patientName);
     writer.writeDateOnlyValue("reportDateFrom", branchReportListQueryRequest.reportDateFrom);
     writer.writeDateOnlyValue("reportDateTo", branchReportListQueryRequest.reportDateTo);
-    writer.writeStringValue("reportNo", branchReportListQueryRequest.reportNo);
+    writer.writeNumberValue("reportStatus", branchReportListQueryRequest.reportStatus);
     writer.writeNumberValue("reportType", branchReportListQueryRequest.reportType);
     writer.writeAdditionalData(branchReportListQueryRequest.additionalData);
 }
@@ -7537,13 +7526,12 @@ export function serializeReportListQueryRequest(writer: SerializationWriter, rep
     if (!reportListQueryRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("branchCode", reportListQueryRequest.branchCode);
     writer.writeStringValue("hospitalCode", reportListQueryRequest.hospitalCode);
-    writer.writeStringValue("identityDocumentNo", reportListQueryRequest.identityDocumentNo);
+    writer.writeStringValue("keyword", reportListQueryRequest.keyword);
     writer.writeStringValue("organizationCode", reportListQueryRequest.organizationCode);
     writer.writeObjectValue<PageRequestDto>("page", reportListQueryRequest.page, serializePageRequestDto);
-    writer.writeStringValue("patientName", reportListQueryRequest.patientName);
     writer.writeDateOnlyValue("reportDateFrom", reportListQueryRequest.reportDateFrom);
     writer.writeDateOnlyValue("reportDateTo", reportListQueryRequest.reportDateTo);
-    writer.writeStringValue("reportNo", reportListQueryRequest.reportNo);
+    writer.writeNumberValue("reportStatus", reportListQueryRequest.reportStatus);
     writer.writeNumberValue("reportType", reportListQueryRequest.reportType);
     writer.writeAdditionalData(reportListQueryRequest.additionalData);
 }

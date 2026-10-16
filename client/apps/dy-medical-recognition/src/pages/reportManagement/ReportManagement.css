@@ -2,15 +2,190 @@
 .report-management-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .report-management-header h3.ant-typography { margin: 0; }
 .report-management-scope { margin-bottom: 16px; }
-.report-management-filters { margin-bottom: 12px; }
-.report-management-date-label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
-.report-management-date { height: 32px; padding: 0 8px; border: 1px solid var(--ant-color-border, #d9d9d9); border-radius: 6px; background: transparent; color: inherit; }
+.report-management-filters { margin-bottom: 4px; }
+.report-management-status-tabs { margin-bottom: 8px; }
+.report-management-status-tabs .ant-tabs-nav { margin-bottom: 0; }
 .report-management-summary { display: block; margin-top: 12px; }
-.report-management-detail { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--ant-color-border, #f0f0f0); }
-.report-management-detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
-.report-management-detail-header h4.ant-typography { margin: 0 0 4px; }
-.report-management-version-body { margin-top: 20px; }
-.report-management-descriptions { margin-bottom: 16px; }
-.report-management-content { margin-top: 16px; }
-.report-management-bacteria { margin-bottom: 16px; }
-.report-management-examination-item { margin-bottom: 16px; }
+
+/* 详情页（报告详情路由页，根 design.md 5.2）：两层结构——外壳整宽承载粘性顶栏，
+   内容行 max-width 1080 水平居中、padding 24，滚动归属为整页文档流。
+   内容行进入动效（根 design.md 6.10）：opacity 0→1 加 translateY 8px→0、200ms ease-out 曲线
+   （与压暗过渡同一曲线形制），动画属性只在 keyframes 内显式声明 transform 与 opacity；
+   reduced-motion 下动画禁用（下方归零规则）。 */
+@keyframes report-management-detail-content-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.report-management-detail-content { max-width: 1080px; margin: 0 auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; animation: report-management-detail-content-enter 200ms cubic-bezier(0, 0, 0.2, 1) both; }
+/* 顶部粘性条：吸顶承载返回按钮、面包屑、单号与版本切换控件位。 */
+.report-management-detail-topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 24px; background: var(--ant-color-bg-container, #fff); border-bottom: 1px solid var(--ant-color-split, #f0f0f0); }
+.report-management-detail-heading { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.report-management-detail-no { margin: 0; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.report-management-detail-no:focus { outline: 2px solid var(--ant-color-primary, #1677ff); outline-offset: 2px; }
+.report-management-detail-version-slot { margin-left: auto; display: flex; align-items: center; }
+.report-management-detail-summary { display: flex; flex-wrap: wrap; gap: 8px 32px; }
+.report-management-detail-summary-label { font-size: 12px; color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); }
+.report-management-detail-summary-value { font-size: 14px; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); font-variant-numeric: tabular-nums; word-break: break-word; }
+.report-management-detail-summary-secondary { display: block; font-size: 12px; color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); }
+/* 概要头部两行（根 design.md 6.1）：标题行（单号 + 类型/状态 Tag）在上、概要字段行在下。 */
+.report-management-detail-summary-header { display: flex; flex-direction: column; gap: 12px; }
+.report-management-detail-summary-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.report-management-detail-summary-title .report-management-detail-summary-no { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* 公共信息四组（根 design.md 6.5）：组名 13px/600 secondary，组间距 16px、行距 8px；
+   label tertiary、值 colorText，颜色一律 antd token。 */
+.report-management-detail-public { display: flex; flex-direction: column; gap: 16px; container-type: inline-size; }
+.report-management-detail-public-group-title { margin: 0; font-size: 13px; font-weight: 600; color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65)); }
+.report-management-detail-public .ant-descriptions-item-label { color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); }
+.report-management-detail-public .ant-descriptions-item-content { color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); }
+.report-management-detail-public .ant-descriptions .ant-descriptions-row > th,
+.report-management-detail-public .ant-descriptions .ant-descriptions-row > td { padding-bottom: 8px; }
+/* 「名称（ID）」对的降级呈现（根 design.md 6.6）：名称主行 + ID 次行小字（12px tertiary、tabular-nums）。 */
+.report-management-detail-name-id { min-width: 0; }
+.report-management-detail-name-id-code { display: block; font-size: 12px; color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); font-variant-numeric: tabular-nums; word-break: break-all; }
+/* 来源保密标识非「否」时的呈现（根 design.md 6.5）：warning「保密」Tag 加原文。 */
+.report-management-detail-public-confidential { display: inline-flex; align-items: center; gap: 4px; }
+/* 公共信息窄容器两列（根 design.md 6.5、Client 设计 §7）：容器宽度不足 900px 时每组降两列。
+   Descriptions 为 table 形制，两列经 display 重排承载：表格转块级、行释放为格子、
+   格子按两列网格排列（与 antd column=2 的横向 label/值对同构）。 */
+@container (max-width: 899.9px) {
+  .report-management-detail-public .ant-descriptions .ant-descriptions-view > table { display: block; }
+  .report-management-detail-public .ant-descriptions tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
+  .report-management-detail-public .ant-descriptions .ant-descriptions-row { display: contents; }
+}
+/* 视觉隐藏（加载播报等辅助文案）：仅保留给读屏与辅助技术。 */
+.report-management-detail-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* 版本切换 Segmented 选项（根 design.md 6.2）：当前有效版本选项的 8px colorPrimary 实心圆点。 */
+.report-management-detail-version-dot { display: inline-block; width: 8px; height: 8px; margin-right: 4px; border-radius: 50%; background: var(--ant-color-primary, #1677ff); }
+
+/* 版本元信息条（根 design.md 6.3）：label 12px 在上、值 14px 在下，横向 wrap，列距 24px 行距 8px。 */
+.report-management-detail-meta { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.report-management-detail-meta-label { font-size: 12px; color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); }
+.report-management-detail-meta-value { font-size: 14px; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); font-variant-numeric: tabular-nums; word-break: break-word; }
+.report-management-detail-meta-pdf { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+/* PDF 文件名中段截断由组件层 JS 完成（保留头部与扩展名、中段「…」占位，根 design.md 6.3），
+   完整文件名经 Tooltip 呈现；此处 max-width 180px 仅作超限兜底，不再做尾段省略。 */
+.report-management-detail-pdf-name { max-width: 180px; }
+/* 来源报告备注独立次行：两行截断，展开后不截断（根 design.md 6.3）。 */
+.report-management-detail-meta-remark { flex-basis: 100%; min-width: 0; }
+.report-management-detail-remark { font-size: 14px; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); word-break: break-word; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.report-management-detail-remark-expanded { font-size: 14px; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); word-break: break-word; }
+.report-management-detail-remark-toggle { padding: 0; }
+
+/* 版本相关卡的切换在途形态（根 design.md 6.9）：旧内容压暗 + pointer-events 关闭 + 居中加载，布局不跳动；
+   动效只动 opacity 并显式声明过渡属性（根 design.md 6.10），reduced-motion 下过渡时长归零。 */
+.report-management-detail-versioned { position: relative; }
+.report-management-detail-versioned-cards { display: flex; flex-direction: column; gap: 16px; transition: opacity 200ms cubic-bezier(0, 0, 0.2, 1); }
+.report-management-detail-versioned-cards-loading { opacity: 0.5; pointer-events: none; }
+.report-management-detail-loading-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10; }
+/* reduced-motion 归零规则（根 design.md 6.10）：过渡时长归零、动画禁用，
+   覆盖详情内容行进入动效、版本相关卡的压暗过渡与表格行底色过渡。 */
+@media (prefers-reduced-motion: reduce) {
+  .report-management-detail-content { animation: none; }
+  .report-management-detail-versioned-cards { transition: none; }
+  .report-management-detail-lab .ant-table-tbody > tr > td { transition: none; }
+}
+
+/* 来源行高亮（D-03）：行底 colorPrimaryBg、行左内嵌 2px colorPrimary 竖条；
+   仅当前页数据中的来源行由 rowClassName 命中；来源行单元格悬停时保持高亮底色
+   （选择器压过 antd 的 .ant-table-cell-row-hover 悬停底色，避免悬停覆盖高亮）。 */
+.ant-table-tbody > tr.report-management-detail-row-source > td { background: var(--ant-color-primary-bg, #e6f4ff); }
+.ant-table .ant-table-tbody > .ant-table-row.report-management-detail-row-source > .ant-table-cell-row-hover { background: var(--ant-color-primary-bg, #e6f4ff); }
+.ant-table-tbody > tr.report-management-detail-row-source > td:first-child { box-shadow: inset 2px 0 0 var(--ant-color-primary, #1677ff); }
+
+/* 检验内容卡（根 design.md 6.7）：标本信息带、结果表三级编码、菌种卡与药敏表；
+   颜色一律 antd token，数字列 tabular-nums，结果表字号 13px（表头底沿用 antd 默认 colorFillAlter）。 */
+.report-management-detail-lab { display: flex; flex-direction: column; gap: 16px; }
+/* 标本信息带：colorFillQuaternary 浅底、圆角 8px、padding 12px 16px，label 在上值在下、两行 flex wrap。 */
+.report-management-detail-lab-specimen { position: relative; display: flex; flex-direction: column; gap: 8px; background: var(--ant-color-fill-quaternary, rgba(0, 0, 0, 0.04)); border-radius: 8px; padding: 12px 16px; }
+.report-management-detail-lab-specimen-row { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.report-management-detail-lab-specimen-flag { position: absolute; top: 12px; right: 16px; }
+.report-management-detail-lab-field-label { font-size: 12px; color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); }
+.report-management-detail-lab-field-value { font-size: 14px; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); font-variant-numeric: tabular-nums; word-break: break-word; }
+/* 编码/类型等次行小字（根 design.md 6.6）：12px tertiary、tabular-nums，缺失不占行。 */
+.report-management-detail-lab-sub { display: block; font-size: 12px; color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); font-variant-numeric: tabular-nums; word-break: break-all; }
+/* 报告备注独立行（根 design.md 6.7）：break-words。 */
+.report-management-detail-lab-remark { font-size: 14px; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); word-break: break-word; }
+/* 内容节标题（普通检验结果 / 细菌鉴定结果与药敏结果）。 */
+.report-management-detail-lab-group-title { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65)); }
+/* L1 正常与无危急：灰「—」（colorTextQuaternary），红色编码保留给异常与危急。 */
+.report-management-detail-lab-muted { color: var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25)); }
+/* 结果列原文：14px/600、tabular-nums、break-words（根 design.md 6.7 第 3 列）。 */
+.report-management-detail-lab-result-text { font-size: 14px; font-weight: 600; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); font-variant-numeric: tabular-nums; word-break: break-word; }
+/* 数字列 tabular-nums（序号列右对齐由 antd column align 承载）；参考范围长文本 break-words。 */
+.report-management-detail-lab-num { font-variant-numeric: tabular-nums; }
+.report-management-detail-lab-wrap { word-break: break-word; }
+/* 结果表与药敏表字号 13px（根 design.md 6.7 表格规格；纵向 padding 8px 由 size="small" 默认承载）。 */
+.report-management-detail-lab .ant-table { font-size: 13px; }
+/* 悬停与选中的底色过渡（根 design.md 6.10）：危急行染底、行悬停底色变化按 150ms ease-out 过渡。 */
+.report-management-detail-lab .ant-table-tbody > tr > td { transition: background-color 150ms ease-out; }
+/* 检测条件三行堆叠：每行 12px，前置小标签 tertiary、右距 4px。 */
+.report-management-detail-lab-cond { display: inline-flex; flex-direction: column; gap: 2px; }
+.report-management-detail-lab-cond-line { font-size: 12px; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); }
+.report-management-detail-lab-cond-tag { margin-right: 4px; color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); }
+/* L3 危急行（根 design.md 6.7）：整行染底 colorErrorBg、行左内嵌 3px colorError 竖条、
+   行悬停保持 colorErrorBgHover（选择器压过 antd 悬停底色，避免悬停覆盖染底）。 */
+.report-management-detail-lab .ant-table-tbody > tr.report-management-detail-lab-row-critical > td { background: var(--ant-color-error-bg, #fff2f0); }
+.report-management-detail-lab .ant-table-tbody > tr.report-management-detail-lab-row-critical > td:first-child { box-shadow: inset 3px 0 0 var(--ant-color-error, #ff4d4f); }
+.report-management-detail-lab .ant-table .ant-table-tbody > .ant-table-row.report-management-detail-lab-row-critical > .ant-table-cell-row-hover { background: var(--ant-color-error-bg-hover, #ffccc7); }
+/* L3 危急 Tag 实心形态（根 design.md 6.7）：底 colorError、白字、字重 600；
+   借检验内容卡祖先提升特异度，压过 antd .ant-tag 默认底色，颜色一律 antd token。 */
+.report-management-detail-lab .report-management-detail-lab-critical-tag { background: var(--ant-color-error, #ff4d4f); color: var(--ant-color-text-light-solid, #fff); font-weight: 600; }
+/* 菌种卡（根 design.md 6.7）：卡间距 12px；卡头三要素同行排布。 */
+.report-management-detail-lab-bacteria { display: flex; flex-direction: column; gap: 12px; }
+.report-management-detail-lab-bacteria-card .ant-card-head { min-height: 0; }
+.report-management-detail-lab-bacteria-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; }
+.report-management-detail-lab-bacteria-name { font-size: 14px; font-weight: 600; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); }
+.report-management-detail-lab-bacteria-colony { font-size: 15px; font-weight: 600; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); font-variant-numeric: tabular-nums; }
+.report-management-detail-lab-bacteria-conclusion { font-size: 14px; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); }
+/* 培养条件带：label 12px tertiary、值 13px、横向 wrap。 */
+.report-management-detail-lab-culture { display: flex; flex-wrap: wrap; gap: 4px 24px; }
+.report-management-detail-lab-culture-label { font-size: 12px; color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); }
+.report-management-detail-lab-culture-value { font-size: 13px; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); }
+/* 原始结果文本折叠内容：break-words；药敏表与折叠块留出行距。 */
+.report-management-detail-lab-raw { font-size: 13px; color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65)); word-break: break-word; }
+.report-management-detail-lab-susceptibility { margin-top: 8px; }
+
+/* 检查内容卡（根 design.md 6.8）：六个层次自上而下单列纵排，层间距 16px；颜色一律 antd token。 */
+.report-management-detail-exam { display: flex; flex-direction: column; gap: 16px; }
+/* 节标题与检验内容卡同一形制（13px/600 secondary）。 */
+.report-management-detail-exam-group-title { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65)); }
+/* 第 1 层检查结论 callout：colorFillQuaternary 底、左 3px colorPrimary 竖线、圆角 8px、padding 12px 16px。 */
+.report-management-detail-exam-conclusion { background: var(--ant-color-fill-quaternary, rgba(0, 0, 0, 0.04)); border-left: 3px solid var(--ant-color-primary, #1677ff); border-radius: 8px; padding: 12px 16px; }
+.report-management-detail-exam-conclusion-head { display: flex; align-items: center; gap: 8px; }
+.report-management-detail-exam-conclusion-head .report-management-detail-exam-group-title { margin: 0; }
+/* 结论正文：15px、行高 1.7、break-words（结论原文含换行时按原样换行呈现）。 */
+.report-management-detail-exam-conclusion-text { font-size: 15px; line-height: 1.7; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); word-break: break-word; white-space: pre-wrap; }
+/* 第 2 层检查所见：14px、行高 1.7、最大行宽 72ch、break-words。 */
+.report-management-detail-exam-findings { margin: 0; max-width: 72ch; font-size: 14px; line-height: 1.7; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); word-break: break-word; }
+/* 检查信息 Descriptions 着色（与公共信息组同一口径）。 */
+.report-management-detail-exam .ant-descriptions-item-label { color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); }
+.report-management-detail-exam .ant-descriptions-item-content { color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); }
+/* 第 4 层临床背景：折叠头摘要 12px tertiary；展开后的字段文本 break-words。 */
+.report-management-detail-exam-clinic-head { display: inline-flex; align-items: baseline; gap: 8px; }
+.report-management-detail-exam-clinic-summary { font-size: 12px; color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); }
+.report-management-detail-exam-clinic-text { color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); word-break: break-word; }
+/* 第 6 层检查项目与部位：每项左 2px colorBorderSecondary 竖线 + 左 padding 12px，块间距 12px。 */
+.report-management-detail-exam-items { display: flex; flex-direction: column; gap: 12px; }
+.report-management-detail-exam-item { border-left: 2px solid var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06)); padding-left: 12px; }
+.report-management-detail-exam-item-name { font-size: 14px; font-weight: 600; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); }
+.report-management-detail-exam-item-sites { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+.report-management-detail-exam-site-name { font-size: 13px; }
+.report-management-detail-exam-site-code { margin-left: 4px; font-size: 11px; color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); font-variant-numeric: tabular-nums; }
+.report-management-detail-exam-site-empty { font-size: 12px; color: var(--ant-color-text-tertiary, rgba(0, 0, 0, 0.45)); }
+
+/* 历史版本时间线（根 design.md 6.4）：节点纵排，版本序号 tabular-nums/600；
+   三态圆点——当前 colorPrimary 实心、已被替代 colorBorder 空心、已作废 colorTextQuaternary 空心。 */
+.report-management-detail-timeline-node { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.report-management-detail-timeline-node-head { display: flex; align-items: center; gap: 8px; }
+.report-management-detail-timeline-version { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ant-color-text, rgba(0, 0, 0, 0.88)); }
+.report-management-detail-timeline-rows { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.report-management-detail-timeline-row { font-size: 13px; color: var(--ant-color-text-secondary, rgba(0, 0, 0, 0.65)); font-variant-numeric: tabular-nums; }
+/* 来源备注单行截断（根 design.md 6.4）。 */
+.report-management-detail-timeline-row-remark { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.report-management-detail-timeline-actions { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.report-management-detail-timeline-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; box-sizing: border-box; }
+.report-management-detail-timeline-dot-current { background: var(--ant-color-primary, #1677ff); }
+.report-management-detail-timeline-dot-superseded { border: 2px solid var(--ant-color-border, #d9d9d9); background: var(--ant-color-bg-container, #fff); }
+.report-management-detail-timeline-dot-voided { border: 2px solid var(--ant-color-text-quaternary, rgba(0, 0, 0, 0.25)); background: var(--ant-color-bg-container, #fff); }

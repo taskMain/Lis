@@ -8,6 +8,11 @@ import { RecognitionAmounts } from '../pages/recognitionAmounts/RecognitionAmoun
 import { BranchRecognitionAmounts } from '../pages/recognitionAmounts/BranchRecognitionAmounts'
 import { ReportManagement } from '../pages/reportManagement/ReportManagement'
 import { BranchReportManagement } from '../pages/reportManagement/BranchReportManagement'
+import {
+  BRANCH_REPORT_MANAGEMENT_PATH,
+  REPORT_DETAIL_SUBPATH,
+  REPORT_MANAGEMENT_PATH,
+} from '../pages/reportManagement/reportManagementRoutes'
 import { RecognitionUsageStatistics } from '../pages/recognitionStatistics/usageStatisticsPages'
 import { BranchRecognitionUsageStatistics } from '../pages/recognitionStatistics/usageStatisticsPages'
 import { SourceRecognitionStatistics } from '../pages/recognitionStatistics/sourceStatisticsPages'
@@ -49,10 +54,22 @@ export const routes: RouteObject[] = [
       // 「报告管理与历史版本」平台管理员页：组织、医院、院区三级由页面选择并随列表查询请求提交，
       // 数据范围就是所选组织、医院与院区（服务端校验其存在、启用与父子归属）；页面为只读页，
       // 只提供列表、历史版本查看与 PDF 下载，不实现角色判断，菜单名称与授权由权限系统配置。
-      { path: 'report-management', element: <ReportManagement /> },
+      {
+        path: REPORT_MANAGEMENT_PATH,
+        element: <ReportManagement />,
+        // 「报告详情」平台入口子路由：报告标识取路径 `reportId`，经列表行「查看详情」进入或深链直开；
+        // 详情页由入口容器条件渲染（激活时列表保持挂载、仅隐藏），此处只注册路径供 URL 匹配，
+        // 不渲染独立元素。数据范围同列表入口，页面只读。
+        children: [{ path: REPORT_DETAIL_SUBPATH }],
+      },
       // 「本院报告管理与历史版本」医院管理员页：组织与医院取可信上下文并以只读方式固定展示，
       // 只有院区可选且必须属于可信医院；请求不提交组织与医院两项，由服务端从可信上下文注入。
-      { path: 'branch-report-management', element: <BranchReportManagement /> },
+      {
+        path: BRANCH_REPORT_MANAGEMENT_PATH,
+        element: <BranchReportManagement />,
+        // 「本院报告详情」医院入口子路由：口径同平台入口详情子路由，数据范围同本院列表入口（只读）。
+        children: [{ path: REPORT_DETAIL_SUBPATH }],
+      },
       // 「接收医院互认使用统计」平台管理员页：接收组与来源组的组织、医院、院区三级都由页面选择
       // 并随汇总、明细与导出请求提交（服务端校验取值的组织归属）；页面为只读统计页，
       // 不实现角色判断，菜单名称与授权由权限系统配置。

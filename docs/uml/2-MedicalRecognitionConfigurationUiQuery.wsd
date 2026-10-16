@@ -278,9 +278,8 @@ Query('QueryMedicalReportList')[
     开始时间(StartTime DateTime?)
     结束时间(EndTime DateTime?)
     报告类型(ReportType MedicalReportType?)
-    报告单号(ReportNo String?)
-    证件号码(IdentityDocumentNo String?)
-    患者姓名(PatientName String?)
+    统一关键字(Keyword String?)
+    报告状态(ReportStatus MedicalReportLifecycleStatus?)
 ]
 ReadModel('MedicalReportVersionListReadModel')[
     报告历史版本列表

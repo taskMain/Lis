@@ -30,7 +30,7 @@ import { MAX_SELECTABLE_PAGE_SIZE } from '../../shared/tablePagination'
  *       不伪造分页状态；
  *    c) 日期筛选字段生成端为 `DateOnly`，请求侧只提交年月日（不含时分秒、不写本地时区偏移），
  *       响应侧统一归一为本地日期文本供页面展示。
- * 5. 患者证件号码与姓名按用户输入原样提交（不做本地大小写或空白改写），规范化由服务端完成。
+ * 5. 统一关键字按用户输入原样提交（不做本地大小写或空白改写）；单号精确、证件前缀与姓名前缀的规范化与命中口径由服务端完成。
  */
 
 export type {
@@ -161,9 +161,9 @@ export interface ReportFilters {
   reportDateFrom?: string
   reportDateTo?: string
   reportType?: number
-  reportNo?: string
-  identityDocumentNo?: string
-  patientName?: string
+  /** 统一关键字：服务端按单号精确、证件前缀（大小写不敏感）与姓名前缀三列任一命中匹配。 */
+  keyword?: string
+  reportStatus?: number
 }
 
 /** 平台管理员入口的查询：组织、医院、院区随请求提交。 */
@@ -277,15 +277,12 @@ function applyFilters(
   const reportType = filters.reportType
   if (typeof reportType === 'number' && isReportTypeValue(reportType)) body.reportType = reportType
 
-  const reportNo = filters.reportNo?.trim() ?? ''
-  if (reportNo.length > 0) body.reportNo = reportNo
+  const reportStatus = filters.reportStatus
+  if (typeof reportStatus === 'number' && isReportStatusValue(reportStatus)) body.reportStatus = reportStatus
 
-  // 患者条件按用户输入原样提交：规范化（去空白、证件号码统一大写）由服务端完成，页面不改写。
-  const identityDocumentNo = filters.identityDocumentNo ?? ''
-  if (identityDocumentNo.length > 0) body.identityDocumentNo = identityDocumentNo
-
-  const patientName = filters.patientName ?? ''
-  if (patientName.length > 0) body.patientName = patientName
+  // 统一关键字按用户输入原样提交：规范化（去空白、证件号码大小写折叠）由服务端完成，页面不改写。
+  const keyword = filters.keyword ?? ''
+  if (keyword.length > 0) body.keyword = keyword
 
   const reportDateFrom = toRequestDate(filters.reportDateFrom)
   if (reportDateFrom !== null) body.reportDateFrom = reportDateFrom

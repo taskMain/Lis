@@ -79,9 +79,8 @@ const LIST_FILTERS: ReportFilters = {
   reportDateFrom: '2026-09-01',
   reportDateTo: '2026-09-30',
   reportType: 1,
-  reportNo: 'R-1',
-  identityDocumentNo: '110101199001011234',
-  patientName: '张三',
+  keyword: 'R-1',
+  reportStatus: 1,
 }
 
 const PAGE = { pageIndex: 2, pageSize: 20 }
@@ -92,18 +91,17 @@ describe('C4 平台管理员入口的请求映射', () => {
 
     expect(query).not.toBeNull()
     expect(query).toEqual({ ...LIST_FILTERS, pageIndex: 2, pageSize: 20 })
-    // 患者条件分页参数与筛选条件同层下发，不嵌套。
+    // 关键字与状态等筛选条件和分页参数同层下发，不嵌套。
     expect(Object.keys(query as object).sort()).toEqual([
       'branchCode',
       'hospitalCode',
-      'identityDocumentNo',
+      'keyword',
       'organizationCode',
       'pageIndex',
       'pageSize',
-      'patientName',
       'reportDateFrom',
       'reportDateTo',
-      'reportNo',
+      'reportStatus',
       'reportType',
     ])
   })
@@ -116,9 +114,7 @@ describe('C4 平台管理员入口的请求映射', () => {
       organizationCode: 'ORG-A',
       hospitalCode: 'HOS-1',
       branchCode: 'BRA-1',
-      reportNo: '   ',
-      identityDocumentNo: '',
-      patientName: '   ',
+      keyword: '',
       reportDateFrom: '',
       reportDateTo: '   ',
     }
@@ -127,15 +123,11 @@ describe('C4 平台管理员入口的请求映射', () => {
     expect(query).not.toBeNull()
     await queryReportPage(client, query as NonNullable<typeof query>)
 
-    // 请求体侧按去空白结果判定：空白报告单号、空证件号码与无法解析的日期都不下发。
+    // 请求体侧按空值判定：空关键字与无法解析的日期都不下发。
     const sent = bodyOf(client.api.medicalRecognitionReportQuery.queryMedicalReportList.post)
-    expect(sent).not.toHaveProperty('reportNo')
-    expect(sent).not.toHaveProperty('identityDocumentNo')
+    expect(sent).not.toHaveProperty('keyword')
     expect(sent).not.toHaveProperty('reportDateFrom')
     expect(sent).not.toHaveProperty('reportDateTo')
-    // 患者姓名与证件号码按用户输入原样提交：空白姓名同样按原值下发，规范化（去空白、证件号码统一大写）
-    // 由服务端完成，页面不做本地改写；服务端按规范化后为空处理该条件。
-    expect(sent).toHaveProperty('patientName', '   ')
     expect(sent).toMatchObject({ organizationCode: 'ORG-A', hospitalCode: 'HOS-1', branchCode: 'BRA-1', page: { pageIndex: 2, pageSize: 20 } })
   })
 
@@ -143,28 +135,27 @@ describe('C4 平台管理员入口的请求映射', () => {
     const client = stubClient({
       queryPlatform: { items: [], page: { pageIndex: 1, pageSize: 10, totalCount: 0 } },
     })
-    const query = buildReportListQuery({ ...LIST_FILTERS, reportType: 9 }, { pageIndex: 1, pageSize: 10 })
+    const query = buildReportListQuery({ ...LIST_FILTERS, reportType: 9, reportStatus: 9 }, { pageIndex: 1, pageSize: 10 })
     await queryReportPage(client, query as NonNullable<typeof query>)
 
     const sent = bodyOf(client.api.medicalRecognitionReportQuery.queryMedicalReportList.post)
     expect(sent).not.toHaveProperty('reportType')
+    expect(sent).not.toHaveProperty('reportStatus')
     // 区间与其余筛选条件不受影响。
     expect(sent).toHaveProperty('organizationCode', 'ORG-A')
     // 日期按下发形状提交日历日，不携带时刻与时区。
     expect(sent.reportDateFrom).toEqual({ year: 2026, month: 9, day: 1 })
   })
 
-  it('患者证件号码与姓名按用户输入原样提交，不做本地大小写或空白改写', () => {
+  it('统一关键字按用户输入原样提交，不做本地大小写或空白改写', () => {
     const query = buildReportListQuery({
       organizationCode: 'ORG-A',
       hospitalCode: 'HOS-1',
       branchCode: 'BRA-1',
-      identityDocumentNo: ' 11010119900101123x ',
-      patientName: ' 张三 ',
+      keyword: ' 11010119900101123x ',
     }, PAGE)
 
-    expect(query?.identityDocumentNo).toBe(' 11010119900101123x ')
-    expect(query?.patientName).toBe(' 张三 ')
+    expect(query?.keyword).toBe(' 11010119900101123x ')
   })
 
   it('范围不完整或分页取值非法时返回 null，禁止退化为全局查询与越界窗口', () => {
@@ -187,10 +178,9 @@ describe('C4 平台管理员入口的请求映射', () => {
     const requestInformation = client.api.medicalRecognitionReportQuery.queryMedicalReportList.toPostRequestInformation(
       bodyOf(client.api.medicalRecognitionReportQuery.queryMedicalReportList.post) as never,
     )
-    // 生成端把筛选与分页都放在请求体：地址栏查询参数为空，证件号码与姓名不进入 URL。
+    // 生成端把筛选与分页都放在请求体：地址栏查询参数为空，关键字（含证件号码与姓名形态的输入）不进入 URL。
     expect(requestInformation.queryParameters).toEqual({})
-    expect(requestInformation.URL).not.toContain('110101199001011234')
-    expect(requestInformation.URL).not.toContain('张三')
+    expect(requestInformation.URL).not.toContain('R-1')
   })
 
   it('查询把适配层构造的请求体原样交给生成端点，并按服务端响应收敛为页面分页模型', async () => {
@@ -223,12 +213,12 @@ describe('C4 医院管理员入口的请求映射', () => {
     const client = stubClient({
       queryBranch: { items: [], page: { pageIndex: 1, pageSize: 10, totalCount: 0 } },
     })
-    const query = buildBranchReportListQuery({ branchCode: 'BRA-1', patientName: '张三' }, { pageIndex: 1, pageSize: 10 })
+    const query = buildBranchReportListQuery({ branchCode: 'BRA-1', keyword: '张三' }, { pageIndex: 1, pageSize: 10 })
     expect(query).not.toBeNull()
     await queryBranchReportPage(client, query as NonNullable<typeof query>)
 
     const sent = bodyOf(client.api.medicalRecognitionReportQuery.queryBranchMedicalReportList.post)
-    expect(Object.keys(sent).sort()).toEqual(['branchCode', 'page', 'patientName'])
+    expect(Object.keys(sent).sort()).toEqual(['branchCode', 'keyword', 'page'])
     expect(sent.page).toEqual({ pageIndex: 1, pageSize: 10 })
     expect(sent).not.toHaveProperty('organizationCode')
     expect(sent).not.toHaveProperty('hospitalCode')

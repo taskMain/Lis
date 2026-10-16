@@ -10,11 +10,14 @@
  *
  * 仍属 Host 层、不在本文件覆盖：真实宿主菜单进入、宿主统一错误提示与真实后端链路（C27–C31）。
  */
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toReportPage } from './reportsApi'
+import { clearRowSummaries } from './reportRowSummaryCache'
 import type { TrustedHospitalScope } from './reportsTrustedScope'
 import { BranchReportManagement } from './BranchReportManagement'
 
@@ -90,8 +93,35 @@ function generatedRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function renderPage() {
-  return render(<ConfigProvider locale={zhCN}><BranchReportManagement /></ConfigProvider>)
+/** 页面装配：与应用路由同构（详情子路由注册在列表路由之下，元素由入口容器条件渲染）。 */
+function pageElement(initialPath = '/branch-report-management') {
+  return (
+    <ConfigProvider locale={zhCN}>
+      <MemoryRouter initialEntries={[initialPath]}>
+        <LocationProbe />
+        <Routes>
+          <Route path='/branch-report-management' element={<BranchReportManagement />}>
+            <Route path='detail/:reportId' element={null} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </ConfigProvider>
+  )
+}
+
+/** 路由观测点：受控观测真实 Router 交付的路径（断言 URL 行为，不刺探路由内部实现）。 */
+const locationRef = { current: '' }
+
+function LocationProbe() {
+  const location = useLocation()
+  useEffect(() => {
+    locationRef.current = location.pathname
+  }, [location])
+  return null
+}
+
+function renderPage(initialPath = '/branch-report-management') {
+  return render(pageElement(initialPath))
 }
 
 /** 手动控制完成时机的 Promise，用于断言加载中与失败态这类时序敏感行为。 */
@@ -120,6 +150,8 @@ beforeEach(() => {
   api.queryReportVersions.mockResolvedValue([])
   api.queryReportVersionDetail.mockResolvedValue(null)
   api.downloadReportVersionPdf.mockResolvedValue(undefined)
+  // 来源行概要缓存是模块级状态：每个用例从空缓存开始（深链口径依赖缓存未命中）。
+  clearRowSummaries()
 })
 
 describe('C23 医院管理员页可信范围（院区恒取登录院区）', () => {
@@ -182,7 +214,7 @@ describe('C24 医院管理员页登录院区与范围重置', () => {
     const second = deferred<unknown>()
     api.queryBranchReportPage.mockReturnValueOnce(second.promise)
     trustedScopeRef.hospital = { kind: 'ready', hospitalCode: 'HOS-1', branchCode: 'BRA-2' }
-    view.rerender(<ConfigProvider locale={zhCN}><BranchReportManagement /></ConfigProvider>)
+    view.rerender(pageElement())
 
     await waitFor(() => expect(api.queryBranchReportPage).toHaveBeenCalledTimes(2))
     const secondQuery = api.queryBranchReportPage.mock.calls[1]?.[1] as { branchCode?: string }
@@ -198,20 +230,20 @@ describe('C24 医院管理员页登录院区与范围重置', () => {
     const view = await renderLoaded()
     const { fireEvent } = await import('@testing-library/react')
     // 只设置草稿，不提交：范围切换把草稿与旧数据一并清空。
-    fireEvent.change(screen.getByLabelText('报告单号筛选'), { target: { value: 'R-9' } })
+    fireEvent.change(screen.getByLabelText('关键字筛选'), { target: { value: 'R-9' } })
 
     const switched = deferred<unknown>()
     api.queryBranchReportPage.mockReturnValueOnce(switched.promise)
     // 可信医院变化而登录院区编码不变：范围键含三层（组织、医院、院区），同样整表重读。
     trustedScopeRef.hospital = { kind: 'ready', hospitalCode: 'HOS-2', branchCode: 'BRA-1' }
-    view.rerender(<ConfigProvider locale={zhCN}><BranchReportManagement /></ConfigProvider>)
+    view.rerender(pageElement())
 
     await waitFor(() => expect(api.queryBranchReportPage).toHaveBeenCalledTimes(2))
     const switchedQuery = api.queryBranchReportPage.mock.calls[1]?.[1] as { branchCode?: string }
     expect(switchedQuery.branchCode).toBe('BRA-1')
     // 旧范围数据与未提交筛选一并清空。
     expect(screen.queryByText('R-1')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('报告单号筛选')).toHaveValue('')
+    expect(screen.getByLabelText('关键字筛选')).toHaveValue('')
 
     await act(async () => { switched.resolve(listResponse([generatedRow({ reportNo: 'R-3', hospitalCode: 'HOS-2' })], 1, 10, 1)) })
     expect(await screen.findByText('R-3')).toBeInTheDocument()
@@ -224,8 +256,8 @@ describe('C25 医院管理员页列表与详情', () => {
 
     expect(screen.getByText('本院报告管理与历史版本')).toBeInTheDocument()
     expect(screen.getByText('R-1')).toBeInTheDocument()
-    expect(screen.getByText('检验报告')).toBeInTheDocument()
-    expect(screen.getByText('有效')).toBeInTheDocument()
+    // 状态文案按表格范围断言：列表上沿状态页签也持有「有效」等页签文案，行内断言圈定在表格内。
+    expect(within(screen.getByRole('table')).getByText('有效')).toBeInTheDocument()
     // 来源组织与医院名称由服务端回填后按行渲染；按表格范围断言行内归属名称。
     expect(screen.getByText('组织一')).toBeInTheDocument()
     expect(screen.getByText('医院一')).toBeInTheDocument()
@@ -272,5 +304,34 @@ describe('页面标题层级', () => {
 
     expect(screen.getByRole('heading', { name: '本院报告管理与历史版本', level: 3 })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: '本院报告管理与历史版本', level: 2 })).toBeNull()
+  })
+})
+
+/**
+ * T02 医院入口详情路由（测试矩阵 C01「列表行「查看详情」进入详情路由」与 C12「深链首开」的医院入口同构面，
+ * docs/plans/_temporary/T02-.../Client/testPlan.md；宿主同构验收见 C16，不在此覆盖）。
+ */
+describe('T02 医院入口详情路由（C01/C12 医院入口同构）', () => {
+  it('点击查看详情跳转本院详情子路由：URL 变更、列表隐藏保持挂载、面包屑为本院入口', async () => {
+    await renderLoaded()
+    api.queryReportVersions.mockResolvedValueOnce([])
+
+    fireEvent.click(screen.getByLabelText('查看报告详情：R-1'))
+
+    await waitFor(() => expect(locationRef.current).toBe('/branch-report-management/detail/REP-1'))
+    // 详情页呈现，面包屑父级为本院入口名称。
+    expect(screen.getByLabelText('返回报告列表')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '本院报告管理' })).toBeInTheDocument()
+    // 列表保持挂载且处于隐藏态。
+    expect(screen.getByLabelText('关键字筛选')).not.toBeVisible()
+  })
+
+  it('深链直开返回：跳回本院列表父路由', async () => {
+    api.queryReportVersions.mockResolvedValueOnce([])
+    renderPage('/branch-report-management/detail/REP-1')
+
+    fireEvent.click(await screen.findByLabelText('返回报告列表'))
+    await waitFor(() => expect(locationRef.current).toBe('/branch-report-management'))
+    expect(screen.getByLabelText('关键字筛选')).toBeVisible()
   })
 })

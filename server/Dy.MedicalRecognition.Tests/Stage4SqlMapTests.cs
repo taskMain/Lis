@@ -548,7 +548,7 @@ public sealed class Stage4SqlMapTests
     Dictionary<string, string> queryStatements = LoadStatements(File.ReadAllText(FindRepositorySqlMap("MedicalRecognitionReportQuery.xml")));
     string count = queryStatements["CountMedicalReportList"];
     string page = queryStatements["QueryMedicalReportList"];
-    foreach (string filter in new[] { "$OrganizationCode", "$HospitalCode", "$BranchCode", "$ReportTimeFrom", "$ReportTimeTo", "$ReportType", "$ReportNo", "$IdentityDocumentNoPrefix", "$PatientNamePrefix" })
+    foreach (string filter in new[] { "$OrganizationCode", "$HospitalCode", "$BranchCode", "$ReportTimeFrom", "$ReportTimeTo", "$ReportType", "$Keyword", "$ReportStatus" })
     {
       Assert.Contains(filter, count, StringComparison.Ordinal);
       Assert.Contains(filter, page, StringComparison.Ordinal);

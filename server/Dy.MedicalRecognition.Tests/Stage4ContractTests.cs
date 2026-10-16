@@ -5,6 +5,7 @@ using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggreg
 using Dy.MedicalRecognition.Application.Contracts.Queries.Pagination;
 using Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
+using Dy.MedicalRecognition.Domain.Queries;
 using Dy.MedicalRecognition.Domain.Share.Enums;
 using Xunit;
 
@@ -126,14 +127,14 @@ public sealed class Stage4ContractTests
   }
 
   /// <summary>
-  /// 平台管理员入口的列表请求承载三级范围与八类筛选条件，且都是可选条件。
+  /// 平台管理员入口的列表请求承载三级范围与统一关键字、报告状态等筛选条件，且都是可选条件。
   /// </summary>
   [Fact]
   public void Platform_list_request_exposes_three_level_scope_and_filters()
   {
     Type type = typeof(ReportListQueryRequest);
     Assert.Equal(
-      ["BranchCode", "HospitalCode", "IdentityDocumentNo", "OrganizationCode", "Page", "PatientName", "ReportDateFrom", "ReportDateTo", "ReportNo", "ReportType"],
+      ["BranchCode", "HospitalCode", "Keyword", "OrganizationCode", "Page", "ReportDateFrom", "ReportDateTo", "ReportStatus", "ReportType"],
       DeclaredPropertyNames(type, includeInherited: true));
 
     Assert.Equal(typeof(string), type.GetProperty("OrganizationCode")!.PropertyType);
@@ -142,9 +143,21 @@ public sealed class Stage4ContractTests
     Assert.Equal(typeof(DateOnly?), type.GetProperty("ReportDateFrom")!.PropertyType);
     Assert.Equal(typeof(DateOnly?), type.GetProperty("ReportDateTo")!.PropertyType);
     Assert.Equal(typeof(MedicalReportType?), type.GetProperty("ReportType")!.PropertyType);
-    Assert.Equal(typeof(string), type.GetProperty("ReportNo")!.PropertyType);
-    Assert.Equal(typeof(string), type.GetProperty("IdentityDocumentNo")!.PropertyType);
-    Assert.Equal(typeof(string), type.GetProperty("PatientName")!.PropertyType);
+    Assert.Equal(typeof(string), type.GetProperty("Keyword")!.PropertyType);
+    Assert.Equal(typeof(MedicalReportLifecycleStatus?), type.GetProperty("ReportStatus")!.PropertyType);
+
+    // 报告状态取值域在请求校验处生效：枚举值域外的取值被拒绝，未提供不施加条件。
+    Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(
+      () => MedicalRecognitionRequestValidator.Validate(new ReportListQueryRequest
+      {
+        Page = new PageRequestDto { PageIndex = 1, PageSize = 20 },
+        ReportStatus = (MedicalReportLifecycleStatus)99
+      }));
+    Assert.Null(Record.Exception(() => MedicalRecognitionRequestValidator.Validate(new ReportListQueryRequest
+    {
+      Page = new PageRequestDto { PageIndex = 1, PageSize = 20 },
+      ReportStatus = MedicalReportLifecycleStatus.Voided
+    })));
   }
 
   /// <summary>
@@ -158,7 +171,7 @@ public sealed class Stage4ContractTests
     Assert.Null(type.GetProperty("OrganizationCode"));
     Assert.Null(type.GetProperty("HospitalCode"));
     Assert.Equal(
-      ["BranchCode", "IdentityDocumentNo", "Page", "PatientName", "ReportDateFrom", "ReportDateTo", "ReportNo", "ReportType"],
+      ["BranchCode", "Keyword", "Page", "ReportDateFrom", "ReportDateTo", "ReportStatus", "ReportType"],
       DeclaredPropertyNames(type, includeInherited: true));
 
     // 院区是请求侧必填：缺失或纯空白由公共请求校验拒绝。
@@ -168,6 +181,28 @@ public sealed class Stage4ContractTests
       () => MedicalRecognitionRequestValidator.Validate(new BranchReportListQueryRequest { BranchCode = "  " }));
     Assert.Null(Record.Exception(() => MedicalRecognitionRequestValidator.Validate(
       new BranchReportListQueryRequest { BranchCode = "BRH-A", Page = new PageRequestDto { PageIndex = 1, PageSize = 20 } })));
+  }
+
+  /// <summary>
+  /// 列表筛选的合并口径：两个入口的请求与领域筛选都以单一关键字与报告状态承载患者和单号条件，
+  /// 旧的报告单号、证件号码、姓名三个独立字段不再存在于任何一层。
+  /// </summary>
+  [Fact]
+  public void Report_list_requests_and_filter_replace_patient_fields_with_keyword_and_status()
+  {
+    Assert.Equal(
+      ["BranchCode", "HospitalCode", "Keyword", "OrganizationCode", "ReportStatus", "ReportTimeFrom", "ReportTimeTo", "ReportType"],
+      DeclaredPropertyNames(typeof(MedicalReportListFilter)));
+
+    Assert.Null(typeof(ReportListQueryRequest).GetProperty("ReportNo"));
+    Assert.Null(typeof(ReportListQueryRequest).GetProperty("IdentityDocumentNo"));
+    Assert.Null(typeof(ReportListQueryRequest).GetProperty("PatientName"));
+    Assert.Null(typeof(BranchReportListQueryRequest).GetProperty("ReportNo"));
+    Assert.Null(typeof(BranchReportListQueryRequest).GetProperty("IdentityDocumentNo"));
+    Assert.Null(typeof(BranchReportListQueryRequest).GetProperty("PatientName"));
+    Assert.Null(typeof(MedicalReportListFilter).GetProperty("ReportNo"));
+    Assert.Null(typeof(MedicalReportListFilter).GetProperty("IdentityDocumentNoPrefix"));
+    Assert.Null(typeof(MedicalReportListFilter).GetProperty("PatientNamePrefix"));
   }
 
   /// <summary>分页窗口的取值域在请求校验处生效：页码小于 1 或页容量超出 1 到 200 都被拒绝。</summary>

@@ -161,15 +161,14 @@ public sealed class Stage4QueryTests
   }
 
   /// <summary>
-  /// V64、V65：患者证件号码与姓名按规范形式处理成前缀条件；输入缺失或处理后为空时不施加该条件。
+  /// V64、V65：统一关键字按规范形式下推；输入缺失或去除首尾空白后为空时不施加该条件，内部空白保留。
   /// </summary>
   [Theory]
-  [InlineData(" 110101199001011234x ", null, "110101199001011234X", null)]
-  [InlineData(null, " 张三 ", null, "张三")]
-  [InlineData("   ", "   ", null, null)]
-  [InlineData("110101", null, "110101", null)]
-  public async Task Patient_filters_are_normalized_and_blank_input_is_dropped(
-    string? documentNo, string? patientName, string? expectedDocumentNo, string? expectedPatientName)
+  [InlineData(" MR-X1 ", "MR-X1")]
+  [InlineData(null, null)]
+  [InlineData("   ", null)]
+  [InlineData(" MR 12 A ", "MR 12 A")]
+  public async Task Keyword_filter_is_normalized_and_blank_input_is_dropped(string? keyword, string? expectedKeyword)
   {
     FakeQueryRepository repository = new();
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService());
@@ -177,19 +176,17 @@ public sealed class Stage4QueryTests
     await service.QueryMedicalReportListAsync(new ReportListQueryRequest
     {
       Page = new PageRequestDto { PageIndex = 1, PageSize = 20 },
-      IdentityDocumentNo = documentNo,
-      PatientName = patientName
+      Keyword = keyword
     });
 
-    Assert.Equal(expectedDocumentNo, repository.LastFilter!.IdentityDocumentNoPrefix);
-    Assert.Equal(expectedPatientName, repository.LastFilter.PatientNamePrefix);
+    Assert.Equal(expectedKeyword, repository.LastFilter!.Keyword);
   }
 
   /// <summary>
-  /// V66：报告类型与报告单号筛选按请求下推，报告单号去除首尾空白。
+  /// V66：报告类型与报告状态筛选按请求原值下推，与关键字条件并行构造互不干扰。
   /// </summary>
   [Fact]
-  public async Task Report_type_and_number_filters_are_pushed_down()
+  public async Task Report_type_and_status_filters_are_pushed_down()
   {
     FakeQueryRepository repository = new();
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService());
@@ -198,11 +195,13 @@ public sealed class Stage4QueryTests
     {
       Page = new PageRequestDto { PageIndex = 1, PageSize = 20 },
       ReportType = MedicalReportType.Examination,
-      ReportNo = " EXM-1 "
+      ReportStatus = MedicalReportLifecycleStatus.Voided,
+      Keyword = "EXM-1"
     });
 
     Assert.Equal(MedicalReportType.Examination, repository.LastFilter!.ReportType);
-    Assert.Equal("EXM-1", repository.LastFilter.ReportNo);
+    Assert.Equal(MedicalReportLifecycleStatus.Voided, repository.LastFilter.ReportStatus);
+    Assert.Equal("EXM-1", repository.LastFilter.Keyword);
   }
 
   /// <summary>
