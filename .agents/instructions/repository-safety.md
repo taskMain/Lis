@@ -1,6 +1,6 @@
 # Repository Safety
 
-本文是 MedicalRecognition 仓库级安全细则的单一事实来源：Git worktree、分支与提交、脚本与迁移、进程与端口、App Goal，以及自定义智能体和技能的双目录维护。测试配置及待定项见 [Test Environment](test-environment.md)。只有涉及上述范围的任务才需要加载本文；根 `AGENTS.md` 只保留对应禁令摘要。
+本文是 MedicalRecognition 仓库级安全细则的单一事实来源：Git worktree、分支与提交、脚本与迁移、进程与端口、App Goal，以及角色文件的分工具目录维护。测试配置及待定项见 [Test Environment](test-environment.md)。只有涉及上述范围的任务才需要加载本文；根 `AGENTS.md` 只保留对应禁令摘要。
 
 ## 1. Worktree
 
@@ -23,16 +23,11 @@
 
 - App Goal 只有在项目负责人明确授权，或当前阶段 `impl.md` 明确要求且实时启动条件满足时才允许创建。设计、文档调整、普通测试和“目标测试”均不构成创建授权。
 
-## 5. 自定义智能体与技能的分工具路径
+## 5. 角色文件的分工具目录
 
-本轮仅迁移子代理，不迁移或创建技能及技能脚本；目标已有技能保持原样，由负责人后续重新制作开发和审查技能。以下路径约定不构成创建或修改技能的授权。
+角色文件的目录、格式和职位清单见 [Collaboration](collaboration.md)。本节规定维护约束。
 
-自定义智能体和技能按客户端工具分目录存放，各工具只读取自己的目录，权威内容互不覆盖；协作规范始终以 `.codex/agents/COLLABORATION.md` 为唯一来源，不按工具复制。
-
-| 工具 | 子代理位置 | 技能位置 | 格式 |
-|---|---|---|---|
-| Codex | `.codex/agents/*.toml` | `.codex/skills/<名称>/SKILL.md` | TOML 配置；SKILL.md 附加 `agents/openai.yaml` |
-| ZCode | `.zcode/agents/*.md` | `.zcode/skills/<名称>/SKILL.md` | Markdown：frontmatter（`name`、`description`）+ 正文即系统提示词 |
-
-- 新增或修改子代理、技能时，同步维护对应工具目录下的副本；两套目录内容应保持语义一致，协作规范除外（仅存在于 `.codex`）。
-- ZCode 子代理文件名即代理标识，正文为原 TOML `developer_instructions` 的内容；`.zcode/agents/` 下不得放置无 frontmatter 的普通文档。
+- 每个工具只读取自己的目录，不读取其他工具的目录；同一任务只加载一份角色文件。
+- 项目规则只写在 `AGENTS.md` 与 `.agents/instructions/`；角色文件不写规范条文、命令、端口和业务事实。
+- 新增或调整职位时先改 [Collaboration](collaboration.md) 的职位表，再同步三个目录；文件名与目录名保持一致，`name` 字段按各工具约定填写。
+- `.claude/skills` 只存放 GitNexus 技能，不承载团队角色。

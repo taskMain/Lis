@@ -1,6 +1,6 @@
 # MedicalRecognition Agent Rules
 
-本文件只保留规则优先级、执行闸门、最小读取和规范导航；细节按任务加载 `.agents/instructions/`。项目技术事实见 [Project Context](.agents/instructions/project-context.md)，环境值见 [Test Environment](.agents/instructions/test-environment.md)。技能不在本次迁移范围内，不依赖技能或其脚本才能执行这些规则。
+本文件只保留规则优先级、执行闸门、最小读取和规范导航；细节按任务加载 `.agents/instructions/`。项目技术事实见 [Project Context](.agents/instructions/project-context.md)，环境值见 [Test Environment](.agents/instructions/test-environment.md)。团队角色文件按客户端工具分目录存放，见 [Collaboration](.agents/instructions/collaboration.md)；规则与验证流程可独立执行，角色文件与项目规则冲突时以项目规则为准。
 
 ## 0. 未经批准不得改动（铁律）
 
@@ -88,6 +88,6 @@
 | 代码 symbol 修改 | [GitNexus Workflow](.agents/instructions/gitnexus-workflow.md) |
 | 计划、阶段文档、测试报告 | [Planning And Evidence](.agents/instructions/planning-and-evidence.md) |
 | Git、迁移、进程、App Goal、子代理或技能配置 | [Repository Safety](.agents/instructions/repository-safety.md) |
-| 子代理任务拆分、所有权、交接或独立验收 | [协作规范](.codex/agents/COLLABORATION.md) |
+| 角色分工、子任务所有权、交接 | [Collaboration](.agents/instructions/collaboration.md) |
 
-普通单智能体任务不加载协作规范。GitNexus 仓库选择与串行要求只按对应规范执行，不使用其他项目的索引。
+普通单智能体任务不加载 [Collaboration](.agents/instructions/collaboration.md)。GitNexus 仓库选择与串行要求只按对应规范执行，不使用其他项目的索引。
