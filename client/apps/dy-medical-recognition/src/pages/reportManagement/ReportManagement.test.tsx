@@ -502,7 +502,7 @@ describe('C11 首次进入自动加载第一页与筛选区形态', () => {
     expect(screen.getByRole('button', { name: '查询' })).toBeInTheDocument()
   })
 
-  it('进入页面自动按可信优先解析三级范围并自动读取第 1 页，表格列与设计一致（来源方合并列）', async () => {
+  it('进入页面自动按可信优先解析三级范围并自动读取第 1 页，表格列与设计一致（提供方合并列）', async () => {
     await renderLoaded([generatedRow()])
 
     // 可信范围三层都在清单内：初始解析结果即可信范围，无需用户操作。
@@ -522,7 +522,7 @@ describe('C11 首次进入自动加载第一页与筛选区形态', () => {
       '报告单号',
       '报告类型',
       '报告时间',
-      '来源方',
+      '提供方',
       '患者姓名',
       '证件号码',
       '当前版本序号',
@@ -667,7 +667,7 @@ describe('提交式筛选', () => {
     expect(document.querySelector('.report-management-filters .ant-picker-range')).not.toBeNull()
   })
 
-  it('来源方一列三行式：组织、医院、灰色小字院区，无来源组织/医院/院区独立列（三行式单元格口径）', async () => {
+  it('提供方一列三行式：组织、医院、灰色小字院区，无来源组织/医院/院区独立列（三行式单元格口径）', async () => {
     await renderLoaded([generatedRow()])
 
     const table = screen.getByRole('table')
@@ -924,7 +924,7 @@ describe('T02 查看详情进入详情路由（C01）', () => {
     // 列表保持挂载：筛选区仍在文档中且处于隐藏态（范围、草稿、分页与数据跨导航存活）。
     expect(screen.getByLabelText('关键字筛选')).not.toBeVisible()
     // 行概要经概要缓存即时呈现为概要头部完整两行（根 design.md 6.1）：粘性条单号主标题之外，
-    // 概要卡第 1 行单号（copyable）+ 类型/状态 Tag、第 2 行患者/证件号码/报告时间/来源方/当前版本五字段。
+    // 概要卡第 1 行单号（copyable）+ 类型/状态 Tag、第 2 行患者/证件号码/报告时间/提供方/当前版本五字段。
     expect(screen.getByRole('heading', { name: '报告详情 R-1' })).toBeInTheDocument()
     const summaryHeader = document.querySelector('.report-management-detail-summary-header')
     expect(summaryHeader).not.toBeNull()
@@ -1199,17 +1199,17 @@ describe('C22 枚举文本展示', () => {
  * 缺失字段显示「—」，不额外发请求补数；返回动作跳回父列表路由。
  */
 describe('T02 深链直开详情路由（C12）', () => {
-  it('深链直开按路径 reportId 读取版本列表，无行概要时单号与来源方字段显示「—」', async () => {
+  it('深链直开按路径 reportId 读取版本列表，无行概要时单号与提供方字段显示「—」', async () => {
     queryVersions().mockResolvedValueOnce([versionRow()])
     renderPage('/report-management/detail/REP-1')
 
     // 详情页粘性条呈现：返回按钮与页面主标题（无 state，单号占位）。
     expect(await screen.findByLabelText('返回报告列表')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '报告详情 —' })).toBeInTheDocument()
-    // 概要卡缺失字段按「—」呈现（不只单号）：来源方字段以占位符展示，不额外发请求补数。
+    // 概要卡缺失字段按「—」呈现（不只单号）：提供方字段以占位符展示，不额外发请求补数。
     const summary = document.querySelector('.report-management-detail-summary')
     expect(summary).not.toBeNull()
-    const sourceLabel = within(summary as HTMLElement).getByText('来源方')
+    const sourceLabel = within(summary as HTMLElement).getByText('提供方')
     expect(sourceLabel.parentElement?.textContent).toContain('—')
     // 按路径 reportId 读取版本列表，不按其他来源补数（适配层出口首参为 client，第二参为报告标识）。
     expect(queryVersions()).toHaveBeenCalledTimes(1)

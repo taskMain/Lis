@@ -86,7 +86,7 @@ function SummaryField(props: { label: string; value: ReactNode; secondary?: stri
   </div>
 }
 
-/** 来源方主行文本：组织名与医院名并列；两者都缺失时展示占位符。 */
+/** 提供方主行文本：组织名与医院名并列；两者都缺失时展示占位符。 */
 function sourceMainText(row: ReportRow): string {
   const organization = row.organizationName.trim()
   const hospital = row.hospitalName.trim()
@@ -94,7 +94,7 @@ function sourceMainText(row: ReportRow): string {
   return [organization, hospital].filter((part) => part !== '').join(' ')
 }
 
-/** 来源方次行文本：院区名；缺失时展示占位符。 */
+/** 提供方次行文本：院区名；缺失时展示占位符。 */
 function sourceBranchText(row: ReportRow): string {
   const branch = row.branchName.trim()
   return branch === '' ? MISSING_TEXT : branch
@@ -119,7 +119,7 @@ export function SummaryStateTags({ row }: { row: ReportRow }) {
 /**
  * 概要头部两行（根 design.md 6.1）：标题行为报告单号（copyable、`tabular-nums`）与
  * 报告类型/状态 Tag（类型 processing、有效 success、已作废中性灰——红色保留给异常与危急值）；
- * 字段行为患者姓名、证件号码、报告时间（YYYY-MM-DD）、来源方（组织与医院主行加院区次行）、
+ * 字段行为患者姓名、证件号码、报告时间（YYYY-MM-DD）、提供方（组织与医院主行加院区次行）、
  * 当前版本（「V3」形式）五项。
  */
 export function SummaryHeader({ row }: SummaryHeaderProps) {
@@ -135,7 +135,7 @@ export function SummaryHeader({ row }: SummaryHeaderProps) {
       <SummaryField label='证件号码' value={<IdNumberText value={row?.identityDocumentNo} />} />
       <SummaryField label='报告时间' value={row === undefined ? MISSING_TEXT : missingText(toDisplayDate(row.reportTime))} />
       <SummaryField
-        label='来源方'
+        label='提供方'
         value={row === undefined ? MISSING_TEXT : sourceMainText(row)}
         secondary={row === undefined ? undefined : sourceBranchText(row)}
       />

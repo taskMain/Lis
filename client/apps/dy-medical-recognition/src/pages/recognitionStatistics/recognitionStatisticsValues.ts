@@ -54,7 +54,7 @@ export function isUsageDetailTypeValue(value: unknown): value is UsageDetailType
 
 /**
  * 统计导出类型取值域；数值与后端 `RecognitionStatisticsExportType` 一致
- * （1 接收侧互认使用汇总、2-5 接收侧四类明细、6 来源医院被互认汇总、7 来源医院被互认明细）。
+ * （1 接收侧互认使用汇总、2-5 接收侧四类明细、6 提供方医院被互认汇总、7 提供方医院被互认明细）。
  * 两个适配层各自只接受本侧取值：接收侧 1-5，来源侧 6-7。
  */
 const USAGE_EXPORT_TYPES = Object.freeze([1, 2, 3, 4, 5] as const)
@@ -83,8 +83,8 @@ const STATISTICS_EXPORT_TYPE_TEXTS: Readonly<Record<number, string>> = {
   3: '接收侧采纳明细',
   4: '接收侧不采纳明细',
   5: '接收侧引用明细',
-  6: '来源医院被互认汇总',
-  7: '来源医院被互认明细',
+  6: '提供方医院被互认汇总',
+  7: '提供方医院被互认明细',
 }
 
 /** 取统计导出类型的中文名；取值越界属于调用方契约破坏，就地失败，不产出错误文件名。 */

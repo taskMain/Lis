@@ -16,8 +16,8 @@ describe('统计导出类型中文名', () => {
     expect(statisticsExportTypeText(3)).toBe('接收侧采纳明细')
     expect(statisticsExportTypeText(4)).toBe('接收侧不采纳明细')
     expect(statisticsExportTypeText(5)).toBe('接收侧引用明细')
-    expect(statisticsExportTypeText(6)).toBe('来源医院被互认汇总')
-    expect(statisticsExportTypeText(7)).toBe('来源医院被互认明细')
+    expect(statisticsExportTypeText(6)).toBe('提供方医院被互认汇总')
+    expect(statisticsExportTypeText(7)).toBe('提供方医院被互认明细')
   })
 
   it('取值越界时就地失败，不产出错误文件名', () => {
@@ -32,7 +32,7 @@ describe('统计导出下载文件名构造', () => {
       '接收侧提醒明细-20260901-20260930.xlsx',
     )
     expect(buildStatisticsExportDownloadName(6, '2026-02-01', '2026-02-28')).toBe(
-      '来源医院被互认汇总-20260201-20260228.xlsx',
+      '提供方医院被互认汇总-20260201-20260228.xlsx',
     )
   })
 

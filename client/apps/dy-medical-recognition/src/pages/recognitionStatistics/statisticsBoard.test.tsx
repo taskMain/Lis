@@ -254,7 +254,7 @@ function deferred<T>() {
 
 function boardProps(overrides: Partial<StatisticsBoardProps> = {}): StatisticsBoardProps {
   return {
-    title: '接收医院互认使用统计',
+    title: '使用方互认使用统计',
     subtitle: '按组织、医院与院区查询接收侧互认使用汇总与明细',
     side: 'usage',
     scopeKey: 'platform',
@@ -435,19 +435,19 @@ describe('统计主体：明细表与匹配记录弹窗（C13、C14、C16、C17�
 })
 
 describe('统计主体：明细表三行式', () => {
-  it('接收侧明细表来源方、接收方各一列，单元格三行只显名称，院区行为灰色小字，无归属编码列', async () => {
+  it('接收侧明细表提供方、使用方各一列，单元格三行只显名称，院区行为灰色小字，无归属编码列', async () => {
     renderBoard()
 
     expect(await screen.findByText('张三')).toBeInTheDocument()
     const detailTable = within(detailsSection()).getAllByRole('table')[0]
     const headers = within(detailTable).getAllByRole('columnheader').map((node) => node.textContent)
-    expect(headers).toContain('来源方')
-    expect(headers).toContain('接收方')
-    for (const absent of ['来源组织', '来源医院', '来源院区', '接收组织', '接收医院', '接收院区']) {
+    expect(headers).toContain('提供方')
+    expect(headers).toContain('使用方')
+    for (const absent of ['提供方组织', '提供方医院', '提供方院区', '使用方组织', '使用方医院', '使用方院区']) {
       expect(headers).not.toContain(absent)
     }
 
-    // 来源方单元格三行：组织名、医院名、灰色小字院区名（D-04）；两行明细的来源方相同，取第一格断言。
+    // 提供方单元格三行：组织名、医院名、灰色小字院区名（D-04）；两行明细的提供方相同，取第一格断言。
     const sourceCell = within(detailTable).getAllByText('组织二')[0]?.closest('td') ?? null
     expect(sourceCell).not.toBeNull()
     expect(within(sourceCell ?? document.body).getByText('医院二')).toBeInTheDocument()
@@ -458,11 +458,11 @@ describe('统计主体：明细表三行式', () => {
     expect(screen.queryByText('HOS2')).toBeNull()
   })
 
-  it('来源侧明细表同款：来源方、接收方各一列三行式', async () => {
+  it('来源侧明细表同款：提供方、使用方各一列三行式', async () => {
     summaryQuery.mockImplementation(() => Promise.resolve(pageOf([sourceSummaryRow])))
     detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
     renderBoard(boardProps({
-      title: '来源医院被互认统计',
+      title: '提供方医院被互认统计',
       side: 'source',
       initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28' },
     }))
@@ -470,9 +470,9 @@ describe('统计主体：明细表三行式', () => {
     await waitSummaryText('医院二')
     const detailTable = within(screen.getByRole('region', { name: '被互认明细' })).getAllByRole('table')[0]
     const headers = within(detailTable).getAllByRole('columnheader').map((node) => node.textContent)
-    expect(headers).toContain('来源方')
-    expect(headers).toContain('接收方')
-    expect(headers).not.toContain('来源院区')
+    expect(headers).toContain('提供方')
+    expect(headers).toContain('使用方')
+    expect(headers).not.toContain('提供方院区')
 
     const receiverCell = within(detailTable).getByText('医院一').closest('td')
     expect(receiverCell).not.toBeNull()
@@ -552,9 +552,9 @@ describe('统计主体：提交式筛选与查询区（提交式筛选、提交�
     renderBoard()
     await waitSummaryText('医院一')
 
-    const receiverGroup = within(screen.getByRole('group', { name: '接收组范围' }))
+    const receiverGroup = within(screen.getByRole('region', { name: '使用方范围' }))
     fireEvent.change(receiverGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS2' } })
-    const sourceGroup = within(screen.getByRole('group', { name: '来源组范围' }))
+    const sourceGroup = within(screen.getByRole('region', { name: '提供方范围' }))
     fireEvent.change(sourceGroup.getByRole('combobox', { name: '组织' }), { target: { value: 'ORG2' } })
     fireEvent.change(screen.getByLabelText('关键字筛选'), { target: { value: 'DEPT9' } })
     const itemTypeSelect = screen.getByLabelText('项目类型筛选')
@@ -591,7 +591,7 @@ describe('C31 查询区同构与间距（S6-D19）', () => {
 
   it('来源侧关键字占位不含互认医生', () => {
     renderBoard(boardProps({
-      title: '来源医院被互认统计',
+      title: '提供方医院被互认统计',
       side: 'source',
       initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28' },
     }))
@@ -641,20 +641,22 @@ describe('C31 查询区同构与间距（S6-D19）', () => {
     }
   })
 
-  it('平台页两组范围选择器带可见组标签「接收方：」「来源方：」（来源侧两组反向）', () => {
+  it('平台页两方范围卡并排：使用方在左、提供方在右，各带称谓与角色说明（来源侧同序）', () => {
     renderBoard()
-    expect(screen.getByText('接收方：')).toBeInTheDocument()
-    expect(screen.getByText('来源方：')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '使用方范围' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '提供方范围' })).toBeInTheDocument()
+    expect(screen.getByText('调阅并使用他院报告')).toBeInTheDocument()
+    expect(screen.getByText('出具并提供报告')).toBeInTheDocument()
 
     cleanup()
-    // 来源侧平台页：来源组在前、接收组在后，标签同款。
+    // 来源侧平台页：两方沿用同一顺序，使用方在左。
     renderBoard(boardProps({
-      title: '来源医院被互认统计',
+      title: '提供方医院被互认统计',
       side: 'source',
       initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28' },
     }))
-    expect(screen.getByText('来源方：')).toBeInTheDocument()
-    expect(screen.getByText('接收方：')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '使用方范围' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '提供方范围' })).toBeInTheDocument()
   })
 
   it('本院页页头左右结构：范围条在页头右侧，范围选择行只留对侧组选择器（C20 修订面）', () => {
@@ -846,7 +848,7 @@ describe('C35 下钻写关键字（S6-D19）', () => {
     // 来源侧明细表列按来源侧行取值：明细替身交付来源侧行，避免列取值形态错配。
     detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
     renderBoard(boardProps({
-      title: '来源医院被互认统计',
+      title: '提供方医院被互认统计',
       side: 'source',
       initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28' },
     }))
@@ -913,7 +915,7 @@ describe('统计主体：范围筛选与本院形态（范围随登录上下文�
       expect.objectContaining({ ownBranchCode: 'BRA1' }), 1, expect.anything())
 
     const callCountAfterInitial = summaryQuery.mock.calls.length
-    const oppositeGroup = within(screen.getByRole('group', { name: '来源医院范围' }))
+    const oppositeGroup = within(screen.getByRole('region', { name: '提供方范围' }))
     expect(oppositeGroup.getAllByRole('combobox')).toHaveLength(2)
     fireEvent.change(oppositeGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS2' } })
     fireEvent.change(oppositeGroup.getByRole('combobox', { name: '院区' }), { target: { value: 'BRA2' } })
@@ -935,7 +937,7 @@ describe('统计主体：来源侧口径（C22）', () => {
     summaryQuery.mockImplementation(() => Promise.resolve(pageOf([sourceSummaryRow])))
     detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
     renderBoard(boardProps({
-      title: '来源医院被互认统计',
+      title: '提供方医院被互认统计',
       side: 'source',
       initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28' },
     }))
@@ -1095,8 +1097,21 @@ describe('页面标题层级', () => {
   it('页面大标题为 level 3，无 level 2；标题 margin 归零由配套 CSS 承载（C31 静态证据）', () => {
     renderBoard()
 
-    const heading = screen.getByRole('heading', { name: '接收医院互认使用统计', level: 3 })
+    const heading = screen.getByRole('heading', { name: '使用方互认使用统计', level: 3 })
     expect(heading).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '接收医院互认使用统计', level: 2 })).toBeNull()
+    expect(screen.queryByRole('heading', { name: '使用方互认使用统计', level: 2 })).toBeNull()
+  })
+})
+
+describe('统计主体：平台页下钻补齐组织', () => {
+  it('未选组织时点汇总数字下钻，提交条件带上该行组织，不发出组织为空的下钻请求', async () => {
+    renderBoard()
+    await waitSummaryText('医院一')
+
+    const summaryTable = within(summarySection()).getAllByRole('table')[0]
+    fireEvent.click(within(summaryTable).getByRole('button', { name: '下钻提醒明细' }))
+
+    await waitFor(() => expect(summaryQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ receiverOrganizationCode: 'ORG1' }), expect.anything(), expect.anything()))
   })
 })

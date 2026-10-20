@@ -242,7 +242,7 @@ class "互认处理结果项目请求" as RecognitionProcessingResultItemRequest
 }
 note right of RecognitionProcessingResultItemRequest
     HIS 不提交 CurrentAmount 或 EstimatedSavingAmount。
-    平台仅在采纳结果首次成功保存时，按接收院区当前金额计算预计节省金额；
+    平台仅在采纳结果首次成功保存时，按使用方院区当前金额计算预计节省金额；
     未配置金额按 0 元计算。
 end note
 class "互认处理结果提交请求" as RecognitionProcessingResultSubmitRequest <<Request>> {

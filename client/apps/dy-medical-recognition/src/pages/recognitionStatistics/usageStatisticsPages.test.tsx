@@ -193,7 +193,7 @@ function renderPage(component: React.ReactElement) {
   return render(<ConfigProvider locale={zhCN}>{component}</ConfigProvider>)
 }
 
-describe('接收医院互认使用统计（平台页）', () => {
+describe('使用方互认使用统计（平台页）', () => {
   it('进入自动加载：两路查询以占位 client 与平台版 built 查询发起，默认近 30 天窗口与默认维度、默认明细类型', async () => {
     /** 默认统计期间（近 30 天）：与页面同一口径，断言时按当天计算。 */
     const expectedStart = dayjs().subtract(29, 'day').format('YYYY-MM-DD')
@@ -221,9 +221,9 @@ describe('接收医院互认使用统计（平台页）', () => {
     renderPage(<RecognitionUsageStatistics />)
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
 
-    const receiverGroup = within(screen.getByRole('group', { name: '接收组范围' }))
+    const receiverGroup = within(screen.getByRole('region', { name: '使用方范围' }))
     fireEvent.change(receiverGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS-2' } })
-    const sourceGroup = within(screen.getByRole('group', { name: '来源组范围' }))
+    const sourceGroup = within(screen.getByRole('region', { name: '提供方范围' }))
     fireEvent.change(sourceGroup.getByRole('combobox', { name: '组织' }), { target: { value: 'ORG-B' } })
     fireEvent.change(screen.getByLabelText('关键字筛选'), { target: { value: 'DEPT-9' } })
 
@@ -323,7 +323,7 @@ describe('本院互认使用统计（本院页）', () => {
     renderPage(<BranchRecognitionUsageStatistics />)
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
 
-    const sourceGroup = within(screen.getByRole('group', { name: '来源医院范围' }))
+    const sourceGroup = within(screen.getByRole('region', { name: '提供方范围' }))
     expect(sourceGroup.getAllByRole('combobox')).toHaveLength(2)
     fireEvent.change(sourceGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS-2' } })
     fireEvent.change(sourceGroup.getByRole('combobox', { name: '院区' }), { target: { value: 'BRA-2' } })

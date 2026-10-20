@@ -1,5 +1,5 @@
 /**
- * 「接收医院互认使用统计」平台管理员页与「本院互认使用统计」医院管理员页（S6-D11）。
+ * 「使用方互认使用统计」平台管理员页与「本院互认使用统计」医院管理员页（S6-D11）。
  *
  * 宿主路径：
  * - 平台页 `/subApps/medical-recognition/recognition-usage-statistics`
@@ -7,10 +7,10 @@
  *
  * 两页共享同一套统计页主体（StatisticsBoard）与同一套查询/导出接线，差异只在范围形态与固定文案：
  * 平台页接收组与来源组的组织、医院、院区三级都由页面选择并随请求提交（服务端校验取值归属）；
- * 本院页本侧接收组织与医院取可信上下文并固定展示，请求不提交这两项（由服务端从可信上下文注入），
+ * 本院页本侧使用方组织与医院取可信上下文并固定展示，请求不提交这两项（由服务端从可信上下文注入），
  * 本侧院区恒为登录院区、不提供院区选择（缺失属权限配置错误，页面零业务请求、以空态呈现，
  * 服务端全院统计契约仅为接口面保留（S6-D1），前端已不按其触发），
- * 来源组只提交医院与院区（来源组织恒为可信组织）。
+ * 来源组只提交医院与院区（提供方组织恒为可信组织）。
  *
  * 页面不实现角色判断、不做权限二次确认；日期必填，页面默认近 30 天（S6-D19）；
  * 查询条件不完整时适配层构造出口返回 `null`，主体据此零发请求并阻断。
@@ -237,9 +237,9 @@ function UsageStatisticsPage({ version }: { version: StatisticsPageVersion }) {
     : { kind: 'branch', organizationCode: organizationCode ?? '' }
 
   return <StatisticsBoard
-    title={version === 'platform' ? '接收医院互认使用统计' : '本院互认使用统计'}
+    title={version === 'platform' ? '使用方互认使用统计' : '本院互认使用统计'}
     subtitle={version === 'platform'
-      ? '按组织、医院与院区查询接收侧互认使用汇总与明细'
+      ? '按组织、医院与院区查询使用方互认使用汇总与明细'
       : '查询本院互认使用汇总与明细'}
     side='usage'
     // 范围键含登录院区：院区随可信范围变化即视为范围切换，主体清空条件与数据后按新院区复位。
@@ -256,7 +256,7 @@ function UsageStatisticsPage({ version }: { version: StatisticsPageVersion }) {
   />
 }
 
-/** 「接收医院互认使用统计」平台管理员页（宿主路径 `/subApps/medical-recognition/recognition-usage-statistics`）。 */
+/** 「使用方互认使用统计」平台管理员页（宿主路径 `/subApps/medical-recognition/recognition-usage-statistics`）。 */
 export function RecognitionUsageStatistics() {
   return <UsageStatisticsPage version='platform' />
 }

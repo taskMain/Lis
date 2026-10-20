@@ -1,5 +1,5 @@
 /**
- * 报告管理端两个页面共用的列表主体（提交式筛选、状态页签、默认时间窗与来源方三行式）。
+ * 报告管理端两个页面共用的列表主体（提交式筛选、状态页签、默认时间窗与提供方三行式）。
  *
  * 取值来源与范围固定由调用方注入：平台管理员页把组织、医院、院区作为请求条件提交，
  * 医院管理员页只提交院区、组织与医院由服务端从可信上下文注入。主体自身不读取可信上下文、
@@ -104,7 +104,7 @@ function partyName(value: string | null | undefined): string {
 }
 
 /**
- * 来源方三行式单元格（D-04）：组织名、医院名、灰色小字的院区名各占一行，只显名称不显示编码。
+ * 提供方三行式单元格（D-04）：组织名、医院名、灰色小字的院区名各占一行，只显名称不显示编码。
  * 名称直接取读模型交付字段，不做前端反查。
  */
 function PartyCell(props: { organizationName?: string | null; hospitalName?: string | null; branchName?: string | null }) {
@@ -372,8 +372,8 @@ export function ReportManagementBoard<Query>({
     { title: '报告单号', dataIndex: 'reportNo', width: 160 },
     { title: '报告类型', dataIndex: 'reportTypeText', width: 100 },
     { title: '报告时间', width: 120, render: (_: unknown, row) => toDisplayDate(row.reportTime) || '—' },
-    // 来源方三行式（D-04）：组织、医院、院区三列合并，名称取读模型交付字段。
-    { title: '来源方', width: 180, ellipsis: true, render: (_: unknown, row) => <PartyCell {...row} /> },
+    // 提供方三行式（D-04）：组织、医院、院区三列合并，名称取读模型交付字段。
+    { title: '提供方', width: 180, ellipsis: true, render: (_: unknown, row) => <PartyCell {...row} /> },
     { title: '患者姓名', dataIndex: 'patientName', width: 100 },
     {
       title: '证件号码',
@@ -502,7 +502,7 @@ export function ReportManagementBoard<Query>({
       loading={loading && rows.length === 0}
       // 来源行高亮（D-03）：rowClassName 仅命中当前页数据中的来源行，样式由配套 CSS 承载。
       rowClassName={(row) => (row.reportId === highlightReportId ? 'report-management-detail-row-source' : '')}
-      // 来源方三列并一列后横向宽度收窄（D-04）：各列宽度合计 1140。
+      // 提供方三列并一列后横向宽度收窄（D-04）：各列宽度合计 1140。
       scroll={{ x: 1140 }}
       // 受控分页：由共享分页配置提供页容量可选值、总数展示与「改变页容量回到第 1 页」的收敛规则。
       pagination={createTablePagination({

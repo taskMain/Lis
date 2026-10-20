@@ -48,14 +48,14 @@ export type {
 }
 
 /**
- * 来源医院被互认统计的适配层：来源侧只有「被互认次数」一个指标，没有金额、
+ * 提供方医院被互认统计的适配层：来源侧只有「被互认次数」一个指标，没有金额、
  * 明细类型切换与不采纳原因区（阶段 6 前端设计「页面与交互」节）；
  * 平台/本院双版本请求分支与读模型映射收敛在本模块，页面组件不感知请求形态差异。
  *
  * 边界（遵循 Frontend API Client 第 2、5 节，口径与接收侧适配层一致）：
  * 1. 本模块不创建 Client、不读取 token、不解析平台错误响应、不新增错误拦截器；
- * 2. 双版本用可辨识联合表达：本院版条件的类型上不存在本侧来源组织与医院字段，也不存在
- *    接收组织字段（接收组织恒为可信组织），结构上保证这些字段不会被提交。
+ * 2. 双版本用可辨识联合表达：本院版条件的类型上不存在本侧提供方组织与医院字段，也不存在
+ *    使用方组织字段（使用方组织恒为可信组织），结构上保证这些字段不会被提交。
  */
 
 // ========== 视图模型 ==========
@@ -116,8 +116,8 @@ export interface PlatformSourceSummaryQuery {
 }
 
 /**
- * 医院管理员入口的来源侧汇总条件：来源组织与来源医院固定为可信上下文，类型上不存在对应字段；
- * 本侧来源院区恒为登录院区（缺失或空白在构造时拒绝）；接收组织恒为可信组织，只提交接收医院与院区。
+ * 医院管理员入口的来源侧汇总条件：提供方组织与提供方医院固定为可信上下文，类型上不存在对应字段；
+ * 本侧提供方院区恒为登录院区（缺失或空白在构造时拒绝）；使用方组织恒为可信组织，只提交使用方医院与院区。
  */
 export interface BranchSourceSummaryQuery {
   version: 'branch'
@@ -152,7 +152,7 @@ export interface PlatformSourceDetailsQuery {
   groupName?: string
 }
 
-/** 医院管理员入口的来源侧明细条件：本侧来源院区恒为登录院区（缺失在构造时拒绝），接收组医院/院区可选。 */
+/** 医院管理员入口的来源侧明细条件：本侧提供方院区恒为登录院区（缺失在构造时拒绝），接收组医院/院区可选。 */
 export interface BranchSourceDetailsQuery {
   version: 'branch'
   startTime: string
@@ -187,7 +187,7 @@ export interface PlatformSourceExportQuery {
   groupName?: string
 }
 
-/** 医院管理员入口的来源侧导出条件：不含本侧来源组织与医院，也不含接收组织。 */
+/** 医院管理员入口的来源侧导出条件：不含本侧提供方组织与医院，也不含使用方组织。 */
 export interface BranchSourceExportQuery {
   version: 'branch'
   exportType: SourceExportTypeValue
@@ -241,7 +241,7 @@ function applyPlatformSourceFilters(
   if (query.itemType !== undefined) body.itemType = query.itemType
 }
 
-/** 本院版共享筛选写入：本侧来源院区可选，接收组只提交医院与院区。 */
+/** 本院版共享筛选写入：本侧提供方院区可选，接收组只提交医院与院区。 */
 function applyBranchSourceFilters(
   body: BranchSourceRecognitionSummaryQueryRequest | BranchSourceRecognitionDetailsQueryRequest,
   query: BranchSourceSummaryQuery | BranchSourceDetailsQuery,
@@ -258,7 +258,7 @@ function applyBranchSourceFilters(
 /** 构造来源侧汇总查询；校验口径与接收侧一致（日期、维度、项目类型与分页，本院版登录院区缺失或空白拒绝构造）。 */
 export function buildSourceSummaryQuery(query: SourceSummaryQuery, page: StatisticsPageInput): BuiltSourceSummaryQuery | null {
   if (!isStatisticsPageInput(page)) return null
-  // 本院版来源院区恒为登录院区：缺失属权限配置错误，拒绝构造（与金额、报告适配层同款）；平台页院区是可选筛选，不在此校验。
+  // 本院版提供方院区恒为登录院区：缺失属权限配置错误，拒绝构造（与金额、报告适配层同款）；平台页院区是可选筛选，不在此校验。
   if (query.version === 'branch' && (query.sourceBranchCode ?? '').trim().length === 0) return null
   if (toStatisticsRequestDate(query.startTime) === null || toStatisticsRequestDate(query.endTime) === null) return null
   if (!isStatisticsGroupDimensionValue(query.groupDimension)) return null
@@ -298,7 +298,7 @@ function toPlatformSourceSummaryBody(query: PlatformSourceSummaryQuery & Statist
   return body
 }
 
-/** 本院版来源侧汇总请求体：类型上不存在本侧来源组织与医院、接收组织字段。 */
+/** 本院版来源侧汇总请求体：类型上不存在本侧提供方组织与医院、使用方组织字段。 */
 function toBranchSourceSummaryBody(
   query: BranchSourceSummaryQuery & StatisticsPageInput,
 ): BranchSourceRecognitionSummaryQueryRequest {
@@ -323,7 +323,7 @@ function toPlatformSourceDetailsBody(query: PlatformSourceDetailsQuery & Statist
   return body
 }
 
-/** 本院版来源侧明细请求体：本侧来源院区可选，接收组医院/院区可选。 */
+/** 本院版来源侧明细请求体：本侧提供方院区可选，接收组医院/院区可选。 */
 function toBranchSourceDetailsBody(query: BranchSourceDetailsQuery & StatisticsPageInput): BranchSourceRecognitionDetailsQueryRequest {
   const body: BranchSourceRecognitionDetailsQueryRequest = {
     startTime: requireStatisticsDate(query.startTime, '开始日期'),
@@ -355,7 +355,7 @@ function toPlatformSourceExportBody(query: PlatformSourceExportQuery): Recogniti
   return body
 }
 
-/** 本院版来源侧导出请求体：不含本侧来源组织与医院，也不含接收组织；无分页对象。 */
+/** 本院版来源侧导出请求体：不含本侧提供方组织与医院，也不含使用方组织；无分页对象。 */
 function toBranchSourceExportBody(query: BranchSourceExportQuery): BranchRecognitionStatisticsExportRequest {
   const body: BranchRecognitionStatisticsExportRequest = {
     exportType: query.exportType,
@@ -375,7 +375,7 @@ function toBranchSourceExportBody(query: BranchSourceExportQuery): BranchRecogni
 
 // ========== 查询出口 ==========
 
-/** 查询来源医院被互认汇总（平台或本院入口由查询条件的 version 决定）。 */
+/** 查询提供方医院被互认汇总（平台或本院入口由查询条件的 version 决定）。 */
 export async function querySourceSummaryPage(
   client: MedicalRecognitionClient,
   query: BuiltSourceSummaryQuery,
@@ -387,7 +387,7 @@ export async function querySourceSummaryPage(
   return toStatisticsPage(response?.items, response?.page, toSourceSummaryRow)
 }
 
-/** 查询来源医院被互认明细（平台或本院入口由查询条件的 version 决定）。 */
+/** 查询提供方医院被互认明细（平台或本院入口由查询条件的 version 决定）。 */
 export async function querySourceDetailsPage(
   client: MedicalRecognitionClient,
   query: BuiltSourceDetailsQuery,

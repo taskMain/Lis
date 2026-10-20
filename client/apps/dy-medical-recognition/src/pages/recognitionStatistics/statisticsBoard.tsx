@@ -91,7 +91,7 @@ export interface StatisticsFilters {
   startTime: string
   endTime: string
   /**
-   * 本院页本侧院区（接收侧页为接收院区，来源侧页为来源院区）：恒为登录院区，
+   * 本院页本侧院区（接收侧页为使用方院区，来源侧页为提供方院区）：恒为登录院区，
    * 页面不提供院区选择；缺失属权限配置错误，页面零业务请求、以空态呈现（`missingScopeText`）；
    * 服务端全院统计契约仅为接口面保留（S6-D1），前端已不按其触发。
    */
@@ -155,8 +155,8 @@ const USAGE_DIMENSION_OPTIONS = [
   { value: 4, label: '标准项目' },
 ]
 const SOURCE_DIMENSION_OPTIONS = [
-  { value: 1, label: '来源医院' },
-  { value: 2, label: '来源院区' },
+  { value: 1, label: '提供方医院' },
+  { value: 2, label: '提供方院区' },
   { value: 4, label: '标准项目' },
 ]
 
@@ -324,14 +324,14 @@ function sourceSummaryColumns(
   const dimensionColumns: TableColumnsType<SourceSummaryRow> = []
   if (dimension === 1) {
     dimensionColumns.push(
-      { title: '来源组织', width: 140, ellipsis: true, render: (_, row) => textCell(row.sourceOrganizationName) },
-      { title: '来源医院', width: 140, ellipsis: true, render: (_, row) => textCell(row.sourceHospitalName) },
+      { title: '提供方组织', width: 140, ellipsis: true, render: (_, row) => textCell(row.sourceOrganizationName) },
+      { title: '提供方医院', width: 140, ellipsis: true, render: (_, row) => textCell(row.sourceHospitalName) },
     )
   } else if (dimension === 2) {
     dimensionColumns.push(
-      { title: '来源组织', width: 140, ellipsis: true, render: (_, row) => textCell(row.sourceOrganizationName) },
-      { title: '来源医院', width: 140, ellipsis: true, render: (_, row) => textCell(row.sourceHospitalName) },
-      { title: '来源院区', width: 120, ellipsis: true, render: (_, row) => textCell(row.sourceBranchName) },
+      { title: '提供方组织', width: 140, ellipsis: true, render: (_, row) => textCell(row.sourceOrganizationName) },
+      { title: '提供方医院', width: 140, ellipsis: true, render: (_, row) => textCell(row.sourceHospitalName) },
+      { title: '提供方院区', width: 120, ellipsis: true, render: (_, row) => textCell(row.sourceBranchName) },
     )
   } else {
     dimensionColumns.push(
@@ -364,9 +364,9 @@ function usageDetailColumns(onOpenRecord: (recognitionMatchRecordId: string) => 
     { title: '匹配生成时间', width: 130, render: (_, row) => formatStatisticsDateTime(row.matchCreatedTime) },
     { title: '就诊类型', width: 90, render: (_, row) => row.visitTypeText },
     { title: '就诊流水号', width: 130, ellipsis: true, render: (_, row) => row.visitSerialNo },
-    // 来源方、接收方三行式（D-04）：来源组织/医院/院区与接收组织/医院/院区各合并为一列。
-    { title: '来源方', width: 170, ellipsis: true, render: (_, row) => <PartyCell {...row.source} /> },
-    { title: '接收方', width: 170, ellipsis: true, render: (_, row) => <PartyCell {...row.receiver} /> },
+    // 提供方、使用方三行式（D-04）：提供方组织/医院/院区与使用方组织/医院/院区各合并为一列。
+    { title: '提供方', width: 170, ellipsis: true, render: (_, row) => <PartyCell {...row.source} /> },
+    { title: '使用方', width: 170, ellipsis: true, render: (_, row) => <PartyCell {...row.receiver} /> },
     { title: '项目类型', width: 90, render: (_, row) => row.item.itemTypeText },
     { title: '项目编码', width: 110, ellipsis: true, render: (_, row) => textCell(row.item.standardProjectCode) },
     { title: '项目名称', width: 130, ellipsis: true, render: (_, row) => textCell(row.item.standardProjectName) },
@@ -398,8 +398,8 @@ function usageDetailColumns(onOpenRecord: (recognitionMatchRecordId: string) => 
 /** 来源侧明细列：双方归属三行式；只反映被采纳事实，无匹配记录入口（S6-D10、D-04）。 */
 function sourceDetailColumns(): TableColumnsType<SourceDetailRow> {
   return [
-    { title: '来源方', width: 170, ellipsis: true, render: (_, row) => <PartyCell {...row.source} /> },
-    { title: '接收方', width: 170, ellipsis: true, render: (_, row) => <PartyCell {...row.receiver} /> },
+    { title: '提供方', width: 170, ellipsis: true, render: (_, row) => <PartyCell {...row.source} /> },
+    { title: '使用方', width: 170, ellipsis: true, render: (_, row) => <PartyCell {...row.receiver} /> },
     { title: '项目编码', width: 110, ellipsis: true, render: (_, row) => textCell(row.standardProjectCode) },
     { title: '互认科室', width: 110, ellipsis: true, render: (_, row) => textCell(row.recognitionDeptName) },
     { title: '互认医生', width: 90, ellipsis: true, render: (_, row) => textCell(row.recognitionDoctorName) },
@@ -701,11 +701,20 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
   /** 汇总数字下钻：维度值预填进筛选草稿并自动提交一次（走同一条提交路径，C12/D-02）；明细类型切换即时生效。 */
   const drillToUsageDetails = useCallback((row: UsageSummaryRow, targetDetailType: UsageDetailTypeValue) => {
     setDetailType(targetDetailType)
-    submitFilters({ ...draftFilters, ...usageDrilldownPatch(row) })
-  }, [draftFilters, submitFilters])
+    const patch = usageDrilldownPatch(row)
+    // 平台页未选组织时按该行所属组织补齐（本院页的组织由服务端按登录上下文注入，不提交）。
+    if (scopeSpec.kind === 'platform' && !draftFilters.receiverOrganizationCode && row.receiverOrganizationCode) {
+      patch.receiverOrganizationCode = row.receiverOrganizationCode
+    }
+    submitFilters({ ...draftFilters, ...patch })
+  }, [draftFilters, scopeSpec.kind, submitFilters])
   const drillToSourceDetails = useCallback((row: SourceSummaryRow) => {
-    submitFilters({ ...draftFilters, ...sourceDrilldownPatch(row) })
-  }, [draftFilters, submitFilters])
+    const patch = sourceDrilldownPatch(row)
+    if (scopeSpec.kind === 'platform' && !draftFilters.sourceOrganizationCode && row.sourceOrganizationCode) {
+      patch.sourceOrganizationCode = row.sourceOrganizationCode
+    }
+    submitFilters({ ...draftFilters, ...patch })
+  }, [draftFilters, scopeSpec.kind, submitFilters])
   /** 原因行下钻：明细加原因代码筛选并切到不采纳明细（C12），同走提交路径。 */
   const drillToReasonDetails = useCallback((reasonCode: string) => {
     setDetailType(3)
@@ -841,59 +850,62 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
       {scopeSpec.kind === 'branch' ? <CurrentScopeBar /> : null}
     </div>
 
-    {/* 范围选择区：形态由 scopeSpec 决定（平台两组三级可选并带可见组标签；本院只留对侧组医院/院区可选，改动进草稿）。 */}
+    {/* 范围区（T01-D6）：使用方与提供方左右并排，中间方向列表达「使用方的报告来自提供方」。
+        平台页两列的组织、医院、院区都可选；本院页固定侧只读（取登录范围），另一侧的组织固定为可信组织、
+        只可选医院与院区。改动进草稿，点「查询」生效。 */}
     <div className='statistics-board-scope'>
-      {scopeSpec.kind === 'platform' ? (
-        side === 'usage'
-          ? <Space wrap>
-              <div role='group' aria-label='接收组范围'>
-                <span>接收方：</span>
-                <BaseScopeSelector level='branch' value={{
-                  orgId: draftFilters.receiverOrganizationCode,
-                  hosId: draftFilters.receiverHospitalCode,
-                  branchId: draftFilters.receiverBranchCode,
-                }} onChange={changeReceiverScope} />
-              </div>
-              <div role='group' aria-label='来源组范围'>
-                <span>来源方：</span>
-                <BaseScopeSelector level='branch' value={{
-                  orgId: draftFilters.sourceOrganizationCode,
-                  hosId: draftFilters.sourceHospitalCode,
-                  branchId: draftFilters.sourceBranchCode,
-                }} onChange={changeSourceScope} />
-              </div>
-            </Space>
-          : <Space wrap>
-              <div role='group' aria-label='来源组范围'>
-                <span>来源方：</span>
-                <BaseScopeSelector level='branch' value={{
-                  orgId: draftFilters.sourceOrganizationCode,
-                  hosId: draftFilters.sourceHospitalCode,
-                  branchId: draftFilters.sourceBranchCode,
-                }} onChange={changeSourceScope} />
-              </div>
-              <div role='group' aria-label='接收组范围'>
-                <span>接收方：</span>
-                <BaseScopeSelector level='branch' value={{
-                  orgId: draftFilters.receiverOrganizationCode,
-                  hosId: draftFilters.receiverHospitalCode,
-                  branchId: draftFilters.receiverBranchCode,
-                }} onChange={changeReceiverScope} />
-              </div>
-            </Space>
-      // 本院页：范围条已移页头右侧；本侧院区恒为登录院区（不提供院区选择），范围行只留对侧（来源或接收）医院、院区选择。
-      ) : <Space wrap>
-          <div role='group' aria-label={side === 'usage' ? '来源医院范围' : '接收医院范围'}>
-            <BaseScopeSelector
-              level='branch'
-              orgId={scopeSpec.organizationCode}
-              value={side === 'usage'
-                ? { hosId: draftFilters.sourceHospitalCode, branchId: draftFilters.sourceBranchCode }
-                : { hosId: draftFilters.receiverHospitalCode, branchId: draftFilters.receiverBranchCode }}
-              onChange={changeOppositeScope}
-            />
+      <div className='statistics-board-duo'>
+        <section className='statistics-board-party statistics-board-party--using' aria-label='使用方范围'>
+          <div className='statistics-board-party__head'>
+            <span className='statistics-board-party__name'>使用方</span>
+            <span className='statistics-board-party__desc'>调阅并使用他院报告</span>
           </div>
-        </Space>}
+          <div className='statistics-board-party__body'>
+            {scopeSpec.kind === 'branch' && side === 'usage'
+              ? <span className='statistics-board-party__locked'>固定为登录范围，不可修改</span>
+              : <BaseScopeSelector
+                  level='branch'
+                  orgId={scopeSpec.kind === 'branch' ? scopeSpec.organizationCode : undefined}
+                  value={scopeSpec.kind === 'branch'
+                    ? { hosId: draftFilters.receiverHospitalCode, branchId: draftFilters.receiverBranchCode }
+                    : {
+                        orgId: draftFilters.receiverOrganizationCode,
+                        hosId: draftFilters.receiverHospitalCode,
+                        branchId: draftFilters.receiverBranchCode,
+                      }}
+                  onChange={scopeSpec.kind === 'branch' ? changeOppositeScope : changeReceiverScope}
+                />}
+          </div>
+        </section>
+
+        <div className='statistics-board-flow' role='img' aria-label='方向标记：使用方的报告来自提供方'>
+          <span className='statistics-board-flow__arrow' aria-hidden='true'>←</span>
+          <span className='statistics-board-flow__text'>报告来自</span>
+        </div>
+
+        <section className='statistics-board-party statistics-board-party--providing' aria-label='提供方范围'>
+          <div className='statistics-board-party__head'>
+            <span className='statistics-board-party__name'>提供方</span>
+            <span className='statistics-board-party__desc'>出具并提供报告</span>
+          </div>
+          <div className='statistics-board-party__body'>
+            {scopeSpec.kind === 'branch' && side === 'source'
+              ? <span className='statistics-board-party__locked'>固定为登录范围，不可修改</span>
+              : <BaseScopeSelector
+                  level='branch'
+                  orgId={scopeSpec.kind === 'branch' ? scopeSpec.organizationCode : undefined}
+                  value={scopeSpec.kind === 'branch'
+                    ? { hosId: draftFilters.sourceHospitalCode, branchId: draftFilters.sourceBranchCode }
+                    : {
+                        orgId: draftFilters.sourceOrganizationCode,
+                        hosId: draftFilters.sourceHospitalCode,
+                        branchId: draftFilters.sourceBranchCode,
+                      }}
+                  onChange={scopeSpec.kind === 'branch' ? changeOppositeScope : changeSourceScope}
+                />}
+          </div>
+        </section>
+      </div>
     </div>
 
     {/* 查询区（D-02、S6-D19）与报告管理列表页同构：inline Form 承载草稿控件；统一关键字（占位按侧区分）
@@ -1040,7 +1052,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
         columns={usageDetailCols}
         dataSource={detailRows as UsageDetailRow[]}
         loading={detailLoading && detailRows.length === 0}
-        // 来源方/接收方三列并两列后横向宽度收窄（D-04）。
+        // 提供方/使用方三列并两列后横向宽度收窄（D-04）。
         scroll={{ x: 1900 }}
         pagination={detailPagination}
         locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={missingScopeText ?? '当前筛选条件没有明细数据'} /> }}
@@ -1050,7 +1062,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
         columns={sourceDetailCols}
         dataSource={detailRows as SourceDetailRow[]}
         loading={detailLoading && detailRows.length === 0}
-        // 来源方/接收方三列并两列后横向宽度收窄（D-04）。
+        // 提供方/使用方三列并两列后横向宽度收窄（D-04）。
         scroll={{ x: 1150 }}
         pagination={detailPagination}
         locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={missingScopeText ?? '当前筛选条件没有明细数据'} /> }}

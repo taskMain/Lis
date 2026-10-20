@@ -815,7 +815,7 @@ describe('T02 概要头部两行（C02）', () => {
     // 类型 Tag processing；状态 Tag 有效为 success。
     expect(within(title as HTMLElement).getByText('检验报告')).toHaveClass('ant-tag-processing')
     expect(within(title as HTMLElement).getByText('有效')).toHaveClass('ant-tag-success')
-    // 第 2 行（概要字段行）：患者、证件号码、报告时间（YYYY-MM-DD）、来源方三行式、当前版本。
+    // 第 2 行（概要字段行）：患者、证件号码、报告时间（YYYY-MM-DD）、提供方三行式、当前版本。
     const summary = document.querySelector('.report-management-detail-summary')
     expect(summary).not.toBeNull()
     const fields = within(summary as HTMLElement)
@@ -846,7 +846,7 @@ describe('T02 概要头部两行（C02）', () => {
     expect(within(title).queryByText('有效')).toBeNull()
     // 五字段全部按「—」呈现；当前版本不渲染任何「V+序号」。
     const summary = document.querySelector('.report-management-detail-summary') as HTMLElement
-    for (const label of ['患者姓名', '证件号码', '报告时间', '来源方', '当前版本']) {
+    for (const label of ['患者姓名', '证件号码', '报告时间', '提供方', '当前版本']) {
       expect(within(summary).getByText(label).parentElement?.textContent).toContain('—')
     }
     expect(within(summary).queryByText(/^V\d+$/)).toBeNull()

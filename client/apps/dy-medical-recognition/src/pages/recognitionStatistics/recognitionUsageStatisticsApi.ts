@@ -215,7 +215,7 @@ export interface PlatformUsageSummaryQuery {
 
 /**
  * 医院管理员入口的接收侧汇总条件：本侧组织与医院由服务端从可信上下文注入，
- * 类型上不存在对应字段；来源组织恒为可信组织，只提交来源组医院与院区。
+ * 类型上不存在对应字段；提供方组织恒为可信组织，只提交来源组医院与院区。
  */
 export interface BranchUsageSummaryQuery {
   version: 'branch'

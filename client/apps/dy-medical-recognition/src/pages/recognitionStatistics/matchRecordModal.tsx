@@ -28,9 +28,9 @@ const matchItemColumns: TableColumnsType<MatchRecordItemView> = [
   { title: '项目类型', width: 90, render: (_, item) => item.item.itemTypeText },
   { title: '项目编码', width: 110, render: (_, item) => statisticsTextOrDash(item.item.standardProjectCode) },
   { title: '项目名称', width: 130, render: (_, item) => statisticsTextOrDash(item.item.standardProjectName) },
-  { title: '来源组织', width: 120, render: (_, item) => statisticsTextOrDash(item.source.organizationName) },
-  { title: '来源医院', width: 120, render: (_, item) => statisticsTextOrDash(item.source.hospitalName) },
-  { title: '来源院区', width: 110, render: (_, item) => statisticsTextOrDash(item.source.branchName) },
+  { title: '提供方组织', width: 120, render: (_, item) => statisticsTextOrDash(item.source.organizationName) },
+  { title: '提供方医院', width: 120, render: (_, item) => statisticsTextOrDash(item.source.hospitalName) },
+  { title: '提供方院区', width: 110, render: (_, item) => statisticsTextOrDash(item.source.branchName) },
   { title: '反馈状态', width: 90, render: (_, item) => (item.isProcessed ? '已反馈' : '未反馈') },
   { title: '处理结果', width: 100, render: (_, item) => (item.isProcessed ? statisticsTextOrDash(item.decisionText) : '') },
   { title: '不采纳原因', width: 120, render: (_, item) => statisticsTextOrDash(item.nonAdoptionReasonName) },
@@ -57,7 +57,7 @@ export function MatchRecordModal({ state, onRetry, onClose }: MatchRecordModalPr
       {!state.loading && view !== null ? <>
         <Descriptions size='small' column={2} bordered>
           <Descriptions.Item label='匹配生成时间'>{formatStatisticsDateTime(view.matchCreatedTime)}</Descriptions.Item>
-          <Descriptions.Item label='接收医院'>{statisticsTextOrDash(view.receiver.hospitalName)}</Descriptions.Item>
+          <Descriptions.Item label='使用方医院'>{statisticsTextOrDash(view.receiver.hospitalName)}</Descriptions.Item>
           <Descriptions.Item label='患者姓名'>{view.patientName}</Descriptions.Item>
           <Descriptions.Item label='证件号码'>{view.identityDocumentNo}</Descriptions.Item>
           <Descriptions.Item label='就诊类型'>{view.visitTypeText}</Descriptions.Item>

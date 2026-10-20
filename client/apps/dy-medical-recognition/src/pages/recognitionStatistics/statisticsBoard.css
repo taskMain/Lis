@@ -1,9 +1,29 @@
-/* 统计页配套 CSS（S6-D19）：区块间距与「本院报告管理与历史版本」列表页同值
+/* 统计页配套 CSS（S6-D19、T01-D6）：区块间距与「本院报告管理与历史版本」列表页同值
    （页头 20、范围行 16、查询行 4、工具行 8），页头行 flex 左右结构承载标题区与登录范围条；
-   颜色与控件形态一律组件库默认 token，不覆盖样式。 */
+   控件形态沿用组件库默认 token。T01-D6 新增两方并排卡片与方向列：两侧用浅底色区分，
+   底色只用于范围区卡片，不进入控件与表格。 */
 .statistics-board { min-width: 0; max-width: 100%; }
 .statistics-board-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .statistics-board-header h3.ant-typography { margin: 0; }
 .statistics-board-scope { margin-bottom: 16px; }
-.statistics-board-filters { margin-bottom: 4px; }
+
+/* 范围区双列：使用方与提供方左右等宽，中间方向列表达「使用方的报告来自提供方」。 */
+.statistics-board-duo { display: grid; grid-template-columns: minmax(0, 1fr) 84px minmax(0, 1fr); align-items: stretch; }
+.statistics-board-party { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 12px 14px; border: 1px solid var(--ant-color-border, #d9d9d9); border-radius: 6px; }
+.statistics-board-party--using { border-color: #d6e4ff; background: #f7fbff; }
+.statistics-board-party--providing { border-color: #ffe7ba; background: #fffbf5; }
+.statistics-board-party__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.statistics-board-party__name { font-size: 14px; font-weight: 600; }
+.statistics-board-party__desc { font-size: 12px; color: var(--ant-color-text-secondary, #595959); }
+.statistics-board-party__body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.statistics-board-party__body .ant-space { display: flex; flex-direction: column; align-items: stretch; gap: 10px !important; width: 100%; }
+.statistics-board-party__body .ant-space-item { width: 100%; }
+.statistics-board-party__body .ant-select { width: 100%; }
+.statistics-board-party__locked { font-size: 13px; color: var(--ant-color-text-secondary, #595959); }
+.statistics-board-flow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.statistics-board-flow__arrow { font-size: 18px; line-height: 1; color: var(--ant-color-primary, #1677ff); }
+.statistics-board-flow__text { font-size: 12px; color: var(--ant-color-text-secondary, #595959); }
+
+/* 条件行：双列下方以虚线分隔，条件由「查询」提交。 */
+.statistics-board-filters { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--ant-color-border-secondary, #f0f0f0); margin-bottom: 4px; }
 .statistics-board-toolbar { margin-bottom: 8px; }

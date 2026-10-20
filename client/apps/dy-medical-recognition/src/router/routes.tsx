@@ -70,19 +70,19 @@ export const routes: RouteObject[] = [
         // 「本院报告详情」医院入口子路由：口径同平台入口详情子路由，数据范围同本院列表入口（只读）。
         children: [{ path: REPORT_DETAIL_SUBPATH }],
       },
-      // 「接收医院互认使用统计」平台管理员页：接收组与来源组的组织、医院、院区三级都由页面选择
+      // 「使用方互认使用统计」平台管理员页：使用方与提供方的组织、医院、院区三级都由页面选择
       // 并随汇总、明细与导出请求提交（服务端校验取值的组织归属）；页面为只读统计页，
       // 不实现角色判断，菜单名称与授权由权限系统配置。
       { path: 'recognition-usage-statistics', element: <RecognitionUsageStatistics /> },
-      // 「本院互认使用统计」医院管理员页：本侧接收组织与医院取可信上下文并固定展示，
-      // 本侧院区可选（为空按可信医院全院统计）；来源组只提交医院与院区（来源组织恒为可信组织），
+      // 「本院互认使用统计」医院管理员页：本侧使用方组织与医院取可信上下文并固定展示，
+      // 本侧院区可选（为空按可信医院全院统计）；来源组只提交医院与院区（提供方组织恒为可信组织），
       // 请求不提交本侧组织与医院两项，由服务端从可信上下文注入。
       { path: 'branch-recognition-usage-statistics', element: <BranchRecognitionUsageStatistics /> },
-      // 「来源医院被互认统计」平台管理员页：来源组与接收组的组织、医院、院区三级都由页面选择
+      // 「提供方医院被互认统计」平台管理员页：使用方与提供方的组织、医院、院区三级都由页面选择
       // 并随请求提交；只统计被互认次数，无金额、明细类型切换与不采纳原因区。
       { path: 'source-recognition-statistics', element: <SourceRecognitionStatistics /> },
-      // 「本院被互认统计」医院管理员页：来源组织与来源医院取可信上下文并固定展示，
-      // 来源院区可选（为空按可信医院全部来源院区统计）；接收组只提交医院与院区。
+      // 「本院被互认统计」医院管理员页：提供方组织与提供方医院取可信上下文并固定展示，
+      // 提供方院区可选（为空按可信医院全部提供方院区统计）；接收组只提交医院与院区。
       { path: 'branch-source-recognition-statistics', element: <BranchSourceRecognitionStatistics /> },
       ...(prototypeRoute ? [prototypeRoute] : []),
     ],

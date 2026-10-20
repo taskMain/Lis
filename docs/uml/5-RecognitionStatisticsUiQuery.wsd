@@ -33,18 +33,18 @@ Enum('RecognitionStatisticsExportTypeEnum')[
     接收侧采纳明细(RecognitionAdoptionDetails 3)
     接收侧不采纳明细(RecognitionNonAdoptionDetails 4)
     接收侧引用明细(RecognitionReferenceDetails 5)
-    来源医院被互认汇总(SourceRecognitionSummary 6)
-    来源医院被互认明细(SourceRecognitionDetails 7)
+    提供方医院被互认汇总(SourceRecognitionSummary 6)
+    提供方医院被互认明细(SourceRecognitionDetails 7)
 ]
 ReadModel('RecognitionUsageSummaryReadModel')[
     接收侧互认使用汇总
     --属性--
-    接收组织编码(ReceiverOrganizationCode String)
-    接收组织名称(ReceiverOrganizationName String)
-    接收医院编码(ReceiverHospitalCode String)
-    接收医院名称(ReceiverHospitalName String)
-    接收院区编码(ReceiverBranchCode String)
-    接收院区名称(ReceiverBranchName String)
+    使用方组织编码(ReceiverOrganizationCode String)
+    使用方组织名称(ReceiverOrganizationName String)
+    使用方医院编码(ReceiverHospitalCode String)
+    使用方医院名称(ReceiverHospitalName String)
+    使用方院区编码(ReceiverBranchCode String)
+    使用方院区名称(ReceiverBranchName String)
     互认科室ID(RecognitionDeptId String)
     互认科室名称(RecognitionDeptName String)
     项目类型(ItemType MedicalItemType)
@@ -87,14 +87,14 @@ ReadModel('RecognitionUsageDetailReadModel')[
     引用事实(Reference RecognitionReferenceDetailReadModel)
 ]
 ReadModel('SourceRecognitionSummaryReadModel')[
-    来源医院被互认汇总
+    提供方医院被互认汇总
     --属性--
-    来源组织编码(SourceOrganizationCode String)
-    来源组织名称(SourceOrganizationName String)
-    来源医院编码(SourceHospitalCode String)
-    来源医院名称(SourceHospitalName String)
-    来源院区编码(SourceBranchCode String)
-    来源院区名称(SourceBranchName String)
+    提供方组织编码(SourceOrganizationCode String)
+    提供方组织名称(SourceOrganizationName String)
+    提供方医院编码(SourceHospitalCode String)
+    提供方医院名称(SourceHospitalName String)
+    提供方院区编码(SourceBranchCode String)
+    提供方院区名称(SourceBranchName String)
     项目类型(ItemType MedicalItemType)
     标准项目编码(StandardProjectCode String)
     标准项目名称(StandardProjectName String)
@@ -106,22 +106,22 @@ ReadModel('SourceRecognitionSummaryReadModel')[
     汇总维度(GroupDimension RecognitionStatisticsGroupDimensionEnum)
 ]
 ReadModel('SourceRecognitionDetailReadModel')[
-    来源医院被互认明细
+    提供方医院被互认明细
     --属性--
     匹配记录ID(RecognitionMatchRecordId Guid)
     匹配项ID(RecognitionMatchItemId Guid)
-    来源组织编码(SourceOrganizationCode String)
-    来源组织名称(SourceOrganizationName String)
-    来源医院编码(SourceHospitalCode String)
-    来源医院名称(SourceHospitalName String)
-    来源院区编码(SourceBranchCode String)
-    来源院区名称(SourceBranchName String)
-    接收组织编码(ReceiverOrganizationCode String)
-    接收组织名称(ReceiverOrganizationName String)
-    接收医院编码(ReceiverHospitalCode String)
-    接收医院名称(ReceiverHospitalName String)
-    接收院区编码(ReceiverBranchCode String)
-    接收院区名称(ReceiverBranchName String)
+    提供方组织编码(SourceOrganizationCode String)
+    提供方组织名称(SourceOrganizationName String)
+    提供方医院编码(SourceHospitalCode String)
+    提供方医院名称(SourceHospitalName String)
+    提供方院区编码(SourceBranchCode String)
+    提供方院区名称(SourceBranchName String)
+    使用方组织编码(ReceiverOrganizationCode String)
+    使用方组织名称(ReceiverOrganizationName String)
+    使用方医院编码(ReceiverHospitalCode String)
+    使用方医院名称(ReceiverHospitalName String)
+    使用方院区编码(ReceiverBranchCode String)
+    使用方院区名称(ReceiverBranchName String)
     标准项目编码(StandardProjectCode String)
     互认科室ID(RecognitionDeptId String)
     互认科室名称(RecognitionDeptName String)
@@ -139,7 +139,7 @@ ReadModel('StatisticsExportFileReadModel')[
     文件流(FileStream ByteArray)
 ]
 ReadModel('SourceOrganizationReadModel')[
-    来源组织医院院区
+    提供方组织医院院区
     --属性--
     组织编码(OrganizationCode String)
     组织名称(OrganizationName String)
@@ -149,7 +149,7 @@ ReadModel('SourceOrganizationReadModel')[
     院区名称(BranchName String)
 ]
 ReadModel('ReceiverOrganizationReadModel')[
-    接收组织医院院区
+    使用方组织医院院区
     --属性--
     组织编码(OrganizationCode String)
     组织名称(OrganizationName String)
@@ -236,9 +236,9 @@ Query('QueryRecognitionUsageSummary')[
     组织编码(OrganizationCode String?)
     医院编码(HospitalCode String?)
     院区编码(BranchCode String?)
-    来源组织编码(SourceOrganizationCode String?)
-    来源医院编码(SourceHospitalCode String?)
-    来源院区编码(SourceBranchCode String?)
+    提供方组织编码(SourceOrganizationCode String?)
+    提供方医院编码(SourceHospitalCode String?)
+    提供方院区编码(SourceBranchCode String?)
     项目类型(ItemType MedicalItemType?)
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
@@ -252,8 +252,8 @@ Query('QueryBranchRecognitionUsageSummary')[
     开始时间(StartTime DateOnly)
     结束时间(EndTime DateOnly)
     院区编码(BranchCode String?)
-    来源医院编码(SourceHospitalCode String?)
-    来源院区编码(SourceBranchCode String?)
+    提供方医院编码(SourceHospitalCode String?)
+    提供方院区编码(SourceBranchCode String?)
     项目类型(ItemType MedicalItemType?)
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
@@ -269,9 +269,9 @@ Query('QueryRecognitionUsageDetails')[
     组织编码(OrganizationCode String?)
     医院编码(HospitalCode String?)
     院区编码(BranchCode String?)
-    来源组织编码(SourceOrganizationCode String?)
-    来源医院编码(SourceHospitalCode String?)
-    来源院区编码(SourceBranchCode String?)
+    提供方组织编码(SourceOrganizationCode String?)
+    提供方医院编码(SourceHospitalCode String?)
+    提供方院区编码(SourceBranchCode String?)
     项目类型(ItemType MedicalItemType?)
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
@@ -286,8 +286,8 @@ Query('QueryBranchRecognitionUsageDetails')[
     开始时间(StartTime DateOnly)
     结束时间(EndTime DateOnly)
     院区编码(BranchCode String?)
-    来源医院编码(SourceHospitalCode String?)
-    来源院区编码(SourceBranchCode String?)
+    提供方医院编码(SourceHospitalCode String?)
+    提供方院区编码(SourceBranchCode String?)
     项目类型(ItemType MedicalItemType?)
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
@@ -296,17 +296,17 @@ Query('QueryBranchRecognitionUsageDetails')[
     明细类型(DetailType RecognitionUsageDetailTypeEnum)
 ]
 Query('QuerySourceRecognitionSummary')[
-    查询来源医院被互认汇总（平台版）
+    查询提供方医院被互认汇总（平台版）
     --入参--
     分页对象(Page PageRequestDto)
     开始时间(StartTime DateOnly)
     结束时间(EndTime DateOnly)
-    来源组织编码(SourceOrganizationCode String?)
-    来源医院编码(SourceHospitalCode String?)
-    来源院区编码(SourceBranchCode String?)
-    接收组织编码(ReceiverOrganizationCode String?)
-    接收医院编码(ReceiverHospitalCode String?)
-    接收院区编码(ReceiverBranchCode String?)
+    提供方组织编码(SourceOrganizationCode String?)
+    提供方医院编码(SourceHospitalCode String?)
+    提供方院区编码(SourceBranchCode String?)
+    使用方组织编码(ReceiverOrganizationCode String?)
+    使用方医院编码(ReceiverHospitalCode String?)
+    使用方院区编码(ReceiverBranchCode String?)
     项目类型(ItemType MedicalItemType?)
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
@@ -314,14 +314,14 @@ Query('QuerySourceRecognitionSummary')[
     汇总维度(GroupDimension RecognitionStatisticsGroupDimensionEnum)
 ]
 Query('QueryBranchSourceRecognitionSummary')[
-    查询来源医院被互认汇总（本院版）
+    查询提供方医院被互认汇总（本院版）
     --入参--
     分页对象(Page PageRequestDto)
     开始时间(StartTime DateOnly)
     结束时间(EndTime DateOnly)
-    来源院区编码(SourceBranchCode String?)
-    接收医院编码(ReceiverHospitalCode String?)
-    接收院区编码(ReceiverBranchCode String?)
+    提供方院区编码(SourceBranchCode String?)
+    使用方医院编码(ReceiverHospitalCode String?)
+    使用方院区编码(ReceiverBranchCode String?)
     项目类型(ItemType MedicalItemType?)
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
@@ -329,38 +329,38 @@ Query('QueryBranchSourceRecognitionSummary')[
     汇总维度(GroupDimension RecognitionStatisticsGroupDimensionEnum)
 ]
 Query('QuerySourceRecognitionDetails')[
-    查询来源医院被互认明细（平台版）
+    查询提供方医院被互认明细（平台版）
     --入参--
     分页对象(Page PageRequestDto)
     开始时间(StartTime DateOnly)
     结束时间(EndTime DateOnly)
-    来源组织编码(SourceOrganizationCode String?)
-    来源医院编码(SourceHospitalCode String?)
-    来源院区编码(SourceBranchCode String?)
-    接收组织编码(ReceiverOrganizationCode String?)
-    接收医院编码(ReceiverHospitalCode String?)
-    接收院区编码(ReceiverBranchCode String?)
+    提供方组织编码(SourceOrganizationCode String?)
+    提供方医院编码(SourceHospitalCode String?)
+    提供方院区编码(SourceBranchCode String?)
+    使用方组织编码(ReceiverOrganizationCode String?)
+    使用方医院编码(ReceiverHospitalCode String?)
+    使用方院区编码(ReceiverBranchCode String?)
     项目类型(ItemType MedicalItemType?)
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
     关键字(Keyword String?)
 ]
 Query('QueryBranchSourceRecognitionDetails')[
-    查询来源医院被互认明细（本院版）
+    查询提供方医院被互认明细（本院版）
     --入参--
     分页对象(Page PageRequestDto)
     开始时间(StartTime DateOnly)
     结束时间(EndTime DateOnly)
-    来源院区编码(SourceBranchCode String?)
-    接收医院编码(ReceiverHospitalCode String?)
-    接收院区编码(ReceiverBranchCode String?)
+    提供方院区编码(SourceBranchCode String?)
+    使用方医院编码(ReceiverHospitalCode String?)
+    使用方院区编码(ReceiverBranchCode String?)
     项目类型(ItemType MedicalItemType?)
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
     关键字(Keyword String?)
 ]
 note right of QueryBranchSourceRecognitionDetails
-  来源医院被互认明细只反映被采纳事实，不适用不采纳原因代码筛选。
+  提供方医院被互认明细只反映被采纳事实，不适用不采纳原因代码筛选。
   统计导出的不采纳原因代码仅适用于接收侧不采纳明细。
   本院版请求不携带本侧组织与医院字段，由可信上下文注入；本侧院区可选，
   为空按可信医院全院范围统计；对侧组医院、院区为可选筛选。
@@ -371,12 +371,12 @@ Query('GetRecognitionStatisticsExport')[
     导出类型(ExportType RecognitionStatisticsExportTypeEnum)
     开始时间(StartTime DateOnly)
     结束时间(EndTime DateOnly)
-    接收组织编码(ReceiverOrganizationCode String?)
-    接收医院编码(ReceiverHospitalCode String?)
-    接收院区编码(ReceiverBranchCode String?)
-    来源组织编码(SourceOrganizationCode String?)
-    来源医院编码(SourceHospitalCode String?)
-    来源院区编码(SourceBranchCode String?)
+    使用方组织编码(ReceiverOrganizationCode String?)
+    使用方医院编码(ReceiverHospitalCode String?)
+    使用方院区编码(ReceiverBranchCode String?)
+    提供方组织编码(SourceOrganizationCode String?)
+    提供方医院编码(SourceHospitalCode String?)
+    提供方院区编码(SourceBranchCode String?)
     项目类型(ItemType MedicalItemType?)
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
@@ -391,10 +391,10 @@ Query('GetBranchRecognitionStatisticsExport')[
     开始时间(StartTime DateOnly)
     结束时间(EndTime DateOnly)
     院区编码(BranchCode String?)
-    来源医院编码(SourceHospitalCode String?)
-    来源院区编码(SourceBranchCode String?)
-    接收医院编码(ReceiverHospitalCode String?)
-    接收院区编码(ReceiverBranchCode String?)
+    提供方医院编码(SourceHospitalCode String?)
+    提供方院区编码(SourceBranchCode String?)
+    使用方医院编码(ReceiverHospitalCode String?)
+    使用方院区编码(ReceiverBranchCode String?)
     项目类型(ItemType MedicalItemType?)
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
@@ -416,8 +416,8 @@ note right of GetRecognitionMatchRecord
   （大小写不敏感），空白视为未提供；来源侧语句命中科室与项目列、无医生列。
 end note
 note right of RecognitionUsageSummaryReadModel
-  统计仅覆盖当前组织内事实；来源组织与接收组织必须一致。
-  接收侧汇总仅支持医院、院区、互认科室、标准项目维度；来源侧汇总仅支持来源医院、来源院区、标准项目维度。
+  统计仅覆盖当前组织内事实；提供方组织与使用方组织必须一致。
+  接收侧汇总仅支持医院、院区、互认科室、标准项目维度；来源侧汇总仅支持提供方医院、提供方院区、标准项目维度。
   提醒按非空匹配记录生成时间统计；采纳/不采纳/金额按互认时间统计；引用按实际引用时间统计。
   未反馈匹配项进入提醒明细，IsUnprocessed=true，不推断为不采纳。
   同期互认率分母为同期提醒次数；提醒为零时 Calculated=false，数值无业务含义。

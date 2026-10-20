@@ -146,7 +146,7 @@ function renderPage(component: React.ReactElement) {
   return render(<ConfigProvider locale={zhCN}>{component}</ConfigProvider>)
 }
 
-describe('来源医院被互认统计（平台页）', () => {
+describe('提供方医院被互认统计（平台页）', () => {
   it('进入自动加载：两路查询以占位 client 与平台版 built 查询发起；导出沿用条件且导出类型为来源侧汇总（C22）', async () => {
     renderPage(<SourceRecognitionStatistics />)
 
@@ -163,16 +163,16 @@ describe('来源医院被互认统计（平台页）', () => {
     expect(exportClient).toBe(clientRef.current)
     expect(exportQuery).toMatchObject({ version: 'platform', exportType: 6, groupDimension: 1 })
     expect(exportQuery).not.toHaveProperty('pageIndex')
-    expect(exportName).toMatch(/^来源医院被互认汇总-\d{8}-\d{8}\.xlsx$/)
+    expect(exportName).toMatch(/^提供方医院被互认汇总-\d{8}-\d{8}\.xlsx$/)
   })
 
   it('来源组与接收组范围改动进草稿零请求，点查询按已生效条件提交（提交式筛选）', async () => {
     renderPage(<SourceRecognitionStatistics />)
     await waitFor(() => expect(sourceApi.querySourceSummaryPage).toHaveBeenCalledTimes(1))
 
-    const sourceGroup = within(screen.getByRole('group', { name: '来源组范围' }))
+    const sourceGroup = within(screen.getByRole('region', { name: '提供方范围' }))
     fireEvent.change(sourceGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS-2' } })
-    const receiverGroup = within(screen.getByRole('group', { name: '接收组范围' }))
+    const receiverGroup = within(screen.getByRole('region', { name: '使用方范围' }))
     fireEvent.change(receiverGroup.getByRole('combobox', { name: '组织' }), { target: { value: 'ORG-B' } })
 
     // 草稿改动零请求。
@@ -198,7 +198,7 @@ describe('来源医院被互认统计（平台页）', () => {
     await waitFor(() => expect(sourceApi.exportSourceStatistics).toHaveBeenCalledTimes(1))
     const [, exportQuery, exportName] = sourceApi.exportSourceStatistics.mock.calls[0]
     expect(exportQuery).toMatchObject({ version: 'platform', exportType: 7 })
-    expect(exportName).toMatch(/^来源医院被互认明细-\d{8}-\d{8}\.xlsx$/)
+    expect(exportName).toMatch(/^提供方医院被互认明细-\d{8}-\d{8}\.xlsx$/)
   })
 })
 
@@ -225,7 +225,7 @@ describe('本院被互认统计（本院页）', () => {
     renderPage(<BranchSourceRecognitionStatistics />)
     await waitFor(() => expect(sourceApi.querySourceSummaryPage).toHaveBeenCalledTimes(1))
 
-    const receiverGroup = within(screen.getByRole('group', { name: '接收医院范围' }))
+    const receiverGroup = within(screen.getByRole('region', { name: '使用方范围' }))
     fireEvent.change(receiverGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS-2' } })
     // 草稿改动零请求。
     expect(sourceApi.querySourceSummaryPage).toHaveBeenCalledTimes(1)

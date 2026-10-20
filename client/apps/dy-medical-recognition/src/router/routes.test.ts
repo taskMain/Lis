@@ -101,10 +101,10 @@ describe('子应用路由表', () => {
     ]))
   })
 
-  it('在子应用路径 recognition-usage-statistics 下挂载接收医院互认使用统计页面（宿主路径 /subApps/medical-recognition/recognition-usage-statistics）', async () => {
+  it('在子应用路径 recognition-usage-statistics 下挂载使用方互认使用统计页面（宿主路径 /subApps/medical-recognition/recognition-usage-statistics）', async () => {
     renderPath('/recognition-usage-statistics')
 
-    expect(await screen.findByRole('heading', { name: '接收医院互认使用统计' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '使用方互认使用统计' })).toBeInTheDocument()
     expect(document.querySelector('.statistics-board')).not.toBeNull()
   })
 
@@ -115,10 +115,10 @@ describe('子应用路由表', () => {
     expect(document.querySelector('.statistics-board')).not.toBeNull()
   })
 
-  it('在子应用路径 source-recognition-statistics 下挂载来源医院被互认统计页面（宿主路径 /subApps/medical-recognition/source-recognition-statistics）', async () => {
+  it('在子应用路径 source-recognition-statistics 下挂载提供方医院被互认统计页面（宿主路径 /subApps/medical-recognition/source-recognition-statistics）', async () => {
     renderPath('/source-recognition-statistics')
 
-    expect(await screen.findByRole('heading', { name: '来源医院被互认统计' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '提供方医院被互认统计' })).toBeInTheDocument()
     expect(document.querySelector('.statistics-board')).not.toBeNull()
   })
 

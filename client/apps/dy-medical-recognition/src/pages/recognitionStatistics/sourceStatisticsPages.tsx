@@ -1,5 +1,5 @@
 /**
- * 「来源医院被互认统计」平台管理员页与「本院被互认统计」医院管理员页（S6-D11）。
+ * 「提供方医院被互认统计」平台管理员页与「本院被互认统计」医院管理员页（S6-D11）。
  *
  * 宿主路径：
  * - 平台页 `/subApps/medical-recognition/source-recognition-statistics`
@@ -8,10 +8,10 @@
  * 与接收侧页面同构（共享 StatisticsBoard），差异在数据口径与范围形态：
  * 只统计被互认次数，无金额、无明细类型切换与不采纳原因区（C22）；
  * 平台页来源组与接收组的组织、医院、院区三级都由页面选择并随请求提交；
- * 本院页来源组织与来源医院取可信上下文并固定展示，请求不提交这两项（由服务端注入），
- * 来源院区恒为登录院区（不提供院区选择；缺失属权限配置错误，页面零业务请求、以空态呈现，
+ * 本院页提供方组织与提供方医院取可信上下文并固定展示，请求不提交这两项（由服务端注入），
+ * 提供方院区恒为登录院区（不提供院区选择；缺失属权限配置错误，页面零业务请求、以空态呈现，
  * 服务端全院统计契约仅为接口面保留（S6-D1），前端已不按其触发），
- * 接收组只提交医院与院区（接收组织恒为可信组织）。
+ * 接收组只提交医院与院区（使用方组织恒为可信组织）。
  * 来源侧明细不提供匹配记录入口（S6-D10），页面不注入匹配记录查询出口。
  */
 import { Typography } from 'antd'
@@ -210,9 +210,9 @@ function SourceStatisticsPage({ version }: { version: StatisticsPageVersion }) {
     : { kind: 'branch', organizationCode: organizationCode ?? '' }
 
   return <StatisticsBoard
-    title={version === 'platform' ? '来源医院被互认统计' : '本院被互认统计'}
+    title={version === 'platform' ? '提供方医院被互认统计' : '本院被互认统计'}
     subtitle={version === 'platform'
-      ? '按组织、医院与院区查询来源医院被互认汇总与明细'
+      ? '按组织、医院与院区查询提供方医院被互认汇总与明细'
       : '查询本院被互认的汇总与明细'}
     side='source'
     // 范围键含登录院区：院区随可信范围变化即视为范围切换，主体清空条件与数据后按新院区复位。
@@ -228,7 +228,7 @@ function SourceStatisticsPage({ version }: { version: StatisticsPageVersion }) {
   />
 }
 
-/** 「来源医院被互认统计」平台管理员页（宿主路径 `/subApps/medical-recognition/source-recognition-statistics`）。 */
+/** 「提供方医院被互认统计」平台管理员页（宿主路径 `/subApps/medical-recognition/source-recognition-statistics`）。 */
 export function SourceRecognitionStatistics() {
   return <SourceStatisticsPage version='platform' />
 }
