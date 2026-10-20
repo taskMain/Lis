@@ -11,8 +11,9 @@
  * 登录院区缺失属权限配置错误：页面不兜底、不伪造院区、不本地补默认，适配层对空院区拒绝构造请求
  * （`buildBranchReportListQuery` 返回 `null`，范围不可用），页面零业务请求并以空态呈现，
  * 恢复权限配置后按登录院区重读。可信组织或医院缺失时整页阻断：统一接入阻断面板（整页只渲染
- * 标题与错误 Alert）、不发任何业务请求，也不伪造组织或降级为空值。页头范围区由共用范围条承载：
- * 单行只显「组织 / 医院 / 院区」名称，无编码。列表、分页与只读历史版本复用同一套列表主体；
+ * 标题、描述副标题与错误 Alert）、不发任何业务请求，也不伪造组织或降级为空值。页头为左右结构：当前登录范围条
+ * 由页头右侧插槽承载（与「本院区互认项目金额」页同一页头结构，S4-D46），单行只显「组织 / 医院 / 院区」
+ * 名称，无编码。列表、分页与只读历史版本复用同一套列表主体；
  * 详情由共用的详情路由页承载，数据范围同本院列表入口。
  */
 import { Typography } from 'antd'
@@ -34,6 +35,10 @@ import {
   type ReportFilters,
 } from './reportsApi'
 import './ReportManagement.css'
+
+/** 页头文案：正常态列表页头与阻断态面板共用同一标题与描述副标题（S4-D46 页头左右结构）。 */
+const PAGE_TITLE = '本院报告管理与历史版本'
+const PAGE_SUBTITLE = '查看本院报告与历史版本，并下载原始 PDF'
 
 export function BranchReportManagement() {
   const client = useApiClientContext()
@@ -78,8 +83,8 @@ export function BranchReportManagement() {
         title={
           <div className='report-management-header'>
             <div>
-              <Typography.Title level={3}>本院报告管理与历史版本</Typography.Title>
-              <Typography.Text type='secondary'>查看本院报告与历史版本，并下载原始 PDF</Typography.Text>
+              <Typography.Title level={3}>{PAGE_TITLE}</Typography.Title>
+              <Typography.Text type='secondary'>{PAGE_SUBTITLE}</Typography.Text>
             </div>
           </div>
         }
@@ -88,8 +93,9 @@ export function BranchReportManagement() {
   }
 
   const board = <ReportManagementBoard<BranchReportListQuery>
-    title='本院报告管理与历史版本'
-    subtitle={<CurrentScopeBar />}
+    title={PAGE_TITLE}
+    subtitle={PAGE_SUBTITLE}
+    headerExtra={<CurrentScopeBar />}
     // 本院页无范围选择器（院区恒取登录院区、不提供院区选择），选择器位置传空即不渲染。
     selector={null}
     // 登录院区缺失（权限配置错误）时的空态文案，与金额本院页同口径。

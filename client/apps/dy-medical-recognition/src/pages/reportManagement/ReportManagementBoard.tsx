@@ -130,6 +130,8 @@ export interface ReportManagementScope<Query> {
 export interface ReportManagementBoardProps<Query> {
   title: string
   subtitle: ReactNode
+  /** 页头右侧插槽（可选）：医院管理员入口传当前登录范围条（S4-D46 页头左右结构），平台入口不传。 */
+  headerExtra?: ReactNode
   /** 范围尚未选全时的空态文案（两个入口的范围层级不同，文案由调用方给出）。 */
   missingScopeText: string
   /** 范围选择器节点；由调用方以受控值接入，主体只负责渲染。 */
@@ -150,6 +152,7 @@ interface TableRow extends ReportRow {
 export function ReportManagementBoard<Query>({
   title,
   subtitle,
+  headerExtra,
   missingScopeText,
   selector,
   scope,
@@ -405,6 +408,7 @@ export function ReportManagementBoard<Query>({
         <Typography.Title level={3}>{title}</Typography.Title>
         <Typography.Text type='secondary'>{subtitle}</Typography.Text>
       </div>
+      {headerExtra}
     </div>
 
     {selector}

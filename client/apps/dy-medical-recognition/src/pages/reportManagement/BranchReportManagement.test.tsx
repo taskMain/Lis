@@ -154,13 +154,15 @@ beforeEach(() => {
   clearRowSummaries()
 })
 
+/** 本用例环境的真实 LoginUserManager 无登录编码：范围条三级名称按「未知」占位的既定渲染口径。 */
+const SCOPE_BAR_FALLBACK_TEXT = '未知 / 未知 / 未知'
+
 describe('C23 医院管理员页可信范围（院区恒取登录院区）', () => {
   it('组织与医院固定展示，页面无院区选择器', async () => {
     await renderLoaded()
 
-    // 页头范围区由共用范围条承载：本用例环境的真实 LoginUserManager 无登录编码，三级按「未知」占位，
-    // 且页头不出现任何组织、医院编码文本（页头范围条名称渲染口径）。
-    expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
+    // 页头范围区由共用范围条承载，且页头不出现任何组织、医院编码文本（页头范围条名称渲染口径）。
+    expect(await screen.findByText(SCOPE_BAR_FALLBACK_TEXT)).toBeInTheDocument()
     expect(document.querySelector('.report-management-header')?.textContent).not.toContain('ORG-A')
     expect(document.querySelector('.report-management-header')?.textContent).not.toContain('HOS-1')
     // 院区恒取登录院区：页面不再提供院区选择，不渲染任何院区选择项。
@@ -178,14 +180,31 @@ describe('C23 医院管理员页可信范围（院区恒取登录院区）', () 
     expect(api.queryReportPage).not.toHaveBeenCalled()
   })
 
+  it('页头为左右结构：左侧标题与描述副标题，右侧插槽承载当前登录范围条', async () => {
+    await renderLoaded()
+
+    // 左侧：大标题与描述副标题。
+    expect(screen.getByRole('heading', { name: '本院报告管理与历史版本', level: 3 })).toBeInTheDocument()
+    expect(screen.getByText('查看本院报告与历史版本，并下载原始 PDF')).toBeInTheDocument()
+    // 右侧：范围条由页头行直接承载（页头插槽），不嵌在标题块内，且按 DOM 顺序位于标题块之后；
+    // 选择器未命中时各断言以 undefined/0 干净失败。实际视觉位置由宿主验收取证。
+    const scopeBar = await screen.findByText(SCOPE_BAR_FALLBACK_TEXT)
+    const header = document.querySelector('.report-management-header')
+    const titleBlock = header?.firstElementChild ?? null
+    expect(titleBlock?.contains(scopeBar)).toBe(false)
+    expect(header?.contains(scopeBar)).toBe(true)
+    expect(titleBlock?.compareDocumentPosition(scopeBar) ?? 0).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+
   it('可信组织或医院缺失时阻断页面且不发任何业务请求', async () => {
     trustedScopeRef.organizationCode = null
     renderPage()
 
     expect(await screen.findByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveClass('ant-alert-error')
-    // 阻断态标题与正常态同一层级（标题层级口径）。
+    // 阻断态标题与正常态同一层级（标题层级口径）；页头维持标题、描述副标题与错误 Alert（S4-D46）。
     expect(screen.getByRole('heading', { name: '本院报告管理与历史版本', level: 3 })).toBeInTheDocument()
+    expect(screen.getByText('查看本院报告与历史版本，并下载原始 PDF')).toBeInTheDocument()
     // 阻断态不渲染院区选择项，也不发起列表查询。
     expect(screen.queryByRole('combobox', { name: '院区' })).not.toBeInTheDocument()
     expect(api.queryBranchReportPage).not.toHaveBeenCalled()
