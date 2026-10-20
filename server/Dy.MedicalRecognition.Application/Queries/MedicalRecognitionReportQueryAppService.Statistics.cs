@@ -62,11 +62,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       SourceOrganizationCode = ScopeFilterCode(source?.OrganizationCode),
       SourceHospitalCode = ScopeFilterCode(source?.HospitalCode),
       SourceBranchCode = ScopeFilterCode(source?.BranchCode),
-      RecognitionDeptId = request.RecognitionDeptId?.Trim(),
+      Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
-      GroupName = request.GroupName?.Trim(),
-      StandardProjectCode = request.StandardProjectCode?.Trim()
+      GroupName = request.GroupName?.Trim()
     };
 
     return await ReadUsageSummaryPageAsync(filter, window);
@@ -112,13 +111,14 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       SourceOrganizationCode = ScopeFilterCode(source?.OrganizationCode),
       SourceHospitalCode = ScopeFilterCode(source?.HospitalCode),
       SourceBranchCode = ScopeFilterCode(source?.BranchCode),
-      RecognitionDeptId = request.RecognitionDeptId?.Trim(),
-      RecognitionDoctorId = request.RecognitionDoctorId?.Trim(),
-      NonAdoptionReason = ParseNonAdoptionReasonCode(request.NonAdoptionReasonCode),
+      Keyword = NullIfBlank(request.Keyword),
+      // 不采纳原因代码仅作用于不采纳明细：其余三类明细类型不携带该条件，语句侧的 IsNotEmpty 片段保留为防御面。
+      NonAdoptionReason = request.DetailType == RecognitionUsageDetailType.NotAdopted
+        ? ParseNonAdoptionReasonCode(request.NonAdoptionReasonCode)
+        : null,
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
-      GroupName = request.GroupName?.Trim(),
-      StandardProjectCode = request.StandardProjectCode?.Trim()
+      GroupName = request.GroupName?.Trim()
     };
 
     return await ReadUsageDetailPageAsync(filter, request.DetailType, window);
@@ -170,10 +170,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ReceiverOrganizationCode = ScopeFilterCode(receiver?.OrganizationCode),
       ReceiverHospitalCode = ScopeFilterCode(receiver?.HospitalCode),
       ReceiverBranchCode = ScopeFilterCode(receiver?.BranchCode),
+      Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
-      GroupName = request.GroupName?.Trim(),
-      StandardProjectCode = request.StandardProjectCode?.Trim()
+      GroupName = request.GroupName?.Trim()
     };
 
     return await ReadSourceSummaryPageAsync(filter, window);
@@ -219,10 +219,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ReceiverOrganizationCode = ScopeFilterCode(receiver?.OrganizationCode),
       ReceiverHospitalCode = ScopeFilterCode(receiver?.HospitalCode),
       ReceiverBranchCode = ScopeFilterCode(receiver?.BranchCode),
+      Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
-      GroupName = request.GroupName?.Trim(),
-      StandardProjectCode = request.StandardProjectCode?.Trim()
+      GroupName = request.GroupName?.Trim()
     };
 
     return await ReadSourceDetailPageAsync(filter, window);
@@ -264,11 +264,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       SourceOrganizationCode = trustedScope.OrganizationCode,
       SourceHospitalCode = ScopeFilterCode(sourceScope?.HospitalCode),
       SourceBranchCode = ScopeFilterCode(sourceScope?.BranchCode),
-      RecognitionDeptId = request.RecognitionDeptId?.Trim(),
+      Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
-      GroupName = request.GroupName?.Trim(),
-      StandardProjectCode = request.StandardProjectCode?.Trim()
+      GroupName = request.GroupName?.Trim()
     };
 
     return await ReadUsageSummaryPageAsync(filter, window);
@@ -309,13 +308,14 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       SourceOrganizationCode = trustedScope.OrganizationCode,
       SourceHospitalCode = ScopeFilterCode(sourceScope?.HospitalCode),
       SourceBranchCode = ScopeFilterCode(sourceScope?.BranchCode),
-      RecognitionDeptId = request.RecognitionDeptId?.Trim(),
-      RecognitionDoctorId = request.RecognitionDoctorId?.Trim(),
-      NonAdoptionReason = ParseNonAdoptionReasonCode(request.NonAdoptionReasonCode),
+      Keyword = NullIfBlank(request.Keyword),
+      // 不采纳原因代码仅作用于不采纳明细：其余三类明细类型不携带该条件，语句侧的 IsNotEmpty 片段保留为防御面。
+      NonAdoptionReason = request.DetailType == RecognitionUsageDetailType.NotAdopted
+        ? ParseNonAdoptionReasonCode(request.NonAdoptionReasonCode)
+        : null,
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
-      GroupName = request.GroupName?.Trim(),
-      StandardProjectCode = request.StandardProjectCode?.Trim()
+      GroupName = request.GroupName?.Trim()
     };
 
     return await ReadUsageDetailPageAsync(filter, request.DetailType, window);
@@ -361,10 +361,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ReceiverOrganizationCode = trustedScope.OrganizationCode,
       ReceiverHospitalCode = ScopeFilterCode(receiverScope?.HospitalCode),
       ReceiverBranchCode = ScopeFilterCode(receiverScope?.BranchCode),
+      Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
-      GroupName = request.GroupName?.Trim(),
-      StandardProjectCode = request.StandardProjectCode?.Trim()
+      GroupName = request.GroupName?.Trim()
     };
 
     return await ReadSourceSummaryPageAsync(filter, window);
@@ -407,10 +407,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ReceiverOrganizationCode = trustedScope.OrganizationCode,
       ReceiverHospitalCode = ScopeFilterCode(receiverScope?.HospitalCode),
       ReceiverBranchCode = ScopeFilterCode(receiverScope?.BranchCode),
+      Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
-      GroupName = request.GroupName?.Trim(),
-      StandardProjectCode = request.StandardProjectCode?.Trim()
+      GroupName = request.GroupName?.Trim()
     };
 
     return await ReadSourceDetailPageAsync(filter, window);

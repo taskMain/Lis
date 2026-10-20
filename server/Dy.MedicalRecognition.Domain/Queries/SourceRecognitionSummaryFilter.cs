@@ -35,6 +35,9 @@ public sealed record SourceRecognitionSummaryFilter
   public string? CategoryName { get; init; }
   /// <summary>标准目录分组名称；为空表示不按分组过滤。</summary>
   public string? GroupName { get; init; }
-  /// <summary>标准项目编码；为空表示不按标准项目过滤。</summary>
-  public string? StandardProjectCode { get; init; }
+  /// <summary>
+  /// 统一关键字；由应用层经空白归一传入（空白视为未提供、非空白去首尾空白），
+  /// 语句侧按互认科室ID/名称、标准项目编码/名称逐列前缀匹配（大小写不敏感）后 OR 组合；来源侧语句不承载互认医生列。
+  /// </summary>
+  public string? Keyword { get; init; }
 }

@@ -65,7 +65,7 @@ function invalidQuery<T extends object>(query: T, overrides: Record<string, unkn
 /** 生成端反序列化后的十进制形态：`UntypedNode`（`value` + `getValue()`）。 */
 const node = (value: unknown) => ({ value, getValue: () => value })
 
-/** 平台版汇总的合法条件：日期、维度必填，两组范围三级齐全。 */
+/** 平台版汇总的合法条件：日期、维度必填，两组范围三级齐全；统一关键字随请求提交（输入原文去首尾空白）。 */
 const platformSummaryQuery = {
   version: 'platform',
   startTime: '2026-02-01',
@@ -77,11 +77,10 @@ const platformSummaryQuery = {
   sourceOrganizationCode: 'ORG2',
   sourceHospitalCode: 'HOS2',
   sourceBranchCode: 'BR2',
-  recognitionDeptId: 'DEPT1',
+  keyword: ' 检验科 ',
   itemType: 0,
   categoryName: '检验分类',
   groupName: '血液',
-  standardProjectCode: 'A01',
 } as const
 
 const pageInput = { pageIndex: 2, pageSize: 50 }
@@ -92,7 +91,7 @@ const summaryPageResponse = {
 }
 
 describe('C4 平台版汇总请求：接收组与来源组三级范围都随请求提交', () => {
-  it('请求体携带两组组织编码、日期按年月日原样提交、分页内嵌 page 对象', async () => {
+  it('请求体携带两组组织编码与统一关键字、日期按年月日原样提交、分页内嵌 page 对象', async () => {
     const built = buildUsageSummaryQuery(platformSummaryQuery, pageInput)
     expect(built).not.toBeNull()
 
@@ -109,11 +108,15 @@ describe('C4 平台版汇总请求：接收组与来源组三级范围都随请�
     expect(body.sourceOrganizationCode).toBe('ORG2')
     expect(body.sourceHospitalCode).toBe('HOS2')
     expect(body.sourceBranchCode).toBe('BR2')
-    expect(body.recognitionDeptId).toBe('DEPT1')
+    // 统一关键字承载互认科室、互认项目条件：输入原文去首尾空白后提交。
+    expect(body.keyword).toBe('检验科')
+    // 互认科室 ID、标准项目编码、互认医生 ID 三个独立字段不再提交（S6-D19）。
+    expect(body).not.toHaveProperty('recognitionDeptId')
+    expect(body).not.toHaveProperty('standardProjectCode')
+    expect(body).not.toHaveProperty('recognitionDoctorId')
     expect(body.itemType).toBe(0)
     expect(body.categoryName).toBe('检验分类')
     expect(body.groupName).toBe('血液')
-    expect(body.standardProjectCode).toBe('A01')
     // 日期原样提交：只按年月日构造 DateOnly，无时分秒、无时区偏移。
     expect(body.startTime).toEqual({ year: 2026, month: 2, day: 1 })
     expect(body.endTime).toEqual({ year: 2026, month: 2, day: 28 })
@@ -130,6 +133,7 @@ describe('C4 平台版汇总请求：接收组与来源组三级范围都随请�
         endTime: '2026-02-28',
         groupDimension: 4,
         receiverOrganizationCode: '   ',
+        keyword: '   ',
       },
       pageInput,
     )
@@ -145,11 +149,10 @@ describe('C4 平台版汇总请求：接收组与来源组三级范围都随请�
       'sourceOrganizationCode',
       'sourceHospitalCode',
       'sourceBranchCode',
-      'recognitionDeptId',
+      'keyword',
       'itemType',
       'categoryName',
       'groupName',
-      'standardProjectCode',
     ]) {
       expect(body).not.toHaveProperty(key)
     }
@@ -157,7 +160,7 @@ describe('C4 平台版汇总请求：接收组与来源组三级范围都随请�
 })
 
 describe('C4 本院版汇总请求：类型与请求体都不含本侧组织与医院', () => {
-  it('请求体只提交本侧院区与来源组医院/院区，组织字段一律不出现', async () => {
+  it('请求体只提交本侧院区、来源组医院/院区与统一关键字，组织字段一律不出现', async () => {
     const built = buildUsageSummaryQuery(
       {
         version: 'branch',
@@ -167,6 +170,7 @@ describe('C4 本院版汇总请求：类型与请求体都不含本侧组织与�
         branchCode: 'BR9',
         sourceHospitalCode: 'HOS2',
         sourceBranchCode: 'BR2',
+        keyword: '内科',
       },
       pageInput,
     )
@@ -180,17 +184,21 @@ describe('C4 本院版汇总请求：类型与请求体都不含本侧组织与�
     expect(body.branchCode).toBe('BR9')
     expect(body.sourceHospitalCode).toBe('HOS2')
     expect(body.sourceBranchCode).toBe('BR2')
+    expect(body.keyword).toBe('内科')
     expect(body.groupDimension).toBe(2)
     expect(body.page).toEqual({ pageIndex: 2, pageSize: 50 })
-    // 本侧组织与医院、来源组织由服务端注入，请求体不得出现这些键。
+    // 本侧组织与医院、来源组织由服务端注入，请求体不得出现这些键；三个独立条件字段不再提交。
     expect(body).not.toHaveProperty('organizationCode')
     expect(body).not.toHaveProperty('hospitalCode')
     expect(body).not.toHaveProperty('sourceOrganizationCode')
+    expect(body).not.toHaveProperty('recognitionDeptId')
+    expect(body).not.toHaveProperty('standardProjectCode')
+    expect(body).not.toHaveProperty('recognitionDoctorId')
   })
 })
 
-describe('C4 接收侧明细请求：明细类型必填，医生与原因只进明细', () => {
-  it('平台版明细请求携带明细类型、互认医生与不采纳原因代码', async () => {
+describe('C4 接收侧明细请求：明细类型必填，关键字承载医生条件，原因只随不采纳明细', () => {
+  it('平台版不采纳明细请求提交统一关键字与不采纳原因代码，独立医生字段不再出现', async () => {
     const built = buildUsageDetailsQuery(
       {
         version: 'platform',
@@ -198,7 +206,7 @@ describe('C4 接收侧明细请求：明细类型必填，医生与原因只进�
         endTime: '2026-02-28',
         detailType: 3,
         receiverOrganizationCode: 'ORG1',
-        recognitionDoctorId: 'DOC1',
+        keyword: ' DOC1 ',
         nonAdoptionReasonCode: 'R1',
       },
       pageInput,
@@ -212,9 +220,32 @@ describe('C4 接收侧明细请求：明细类型必填，医生与原因只进�
     const body = bodyOf(post)
     expect(body.detailType).toBe(3)
     expect(body.organizationCode).toBe('ORG1')
-    expect(body.recognitionDoctorId).toBe('DOC1')
+    expect(body.keyword).toBe('DOC1')
     expect(body.nonAdoptionReasonCode).toBe('R1')
+    expect(body).not.toHaveProperty('recognitionDeptId')
+    expect(body).not.toHaveProperty('recognitionDoctorId')
+    expect(body).not.toHaveProperty('standardProjectCode')
     expect(body.page).toEqual({ pageIndex: 2, pageSize: 50 })
+  })
+
+  it('不采纳原因代码只随不采纳明细（明细类型 3）提交，其余明细类型不携带该条件', async () => {
+    const built = buildUsageDetailsQuery(
+      {
+        version: 'platform',
+        startTime: '2026-02-01',
+        endTime: '2026-02-28',
+        detailType: 1,
+        nonAdoptionReasonCode: 'R1',
+      },
+      pageInput,
+    )
+    expect(built).not.toBeNull()
+
+    const client = stubClient({ detailsPlatform: summaryPageResponse })
+    await queryUsageDetailsPage(client, built as NonNullable<typeof built>)
+    const body = bodyOf(client.api.medicalRecognitionReportQuery.queryRecognitionUsageDetails.post)
+    expect(body.detailType).toBe(1)
+    expect(body).not.toHaveProperty('nonAdoptionReasonCode')
   })
 
   it('本院版明细请求不提交组织与医院字段', async () => {
@@ -226,6 +257,7 @@ describe('C4 接收侧明细请求：明细类型必填，医生与原因只进�
         detailType: 1,
         branchCode: 'BR9',
         sourceBranchCode: 'BR2',
+        keyword: '李四',
       },
       pageInput,
     )
@@ -236,6 +268,7 @@ describe('C4 接收侧明细请求：明细类型必填，医生与原因只进�
     const body = bodyOf(client.api.medicalRecognitionReportQuery.queryBranchRecognitionUsageDetails.post)
     expect(body.detailType).toBe(1)
     expect(body.sourceBranchCode).toBe('BR2')
+    expect(body.keyword).toBe('李四')
     expect(body).not.toHaveProperty('organizationCode')
     expect(body).not.toHaveProperty('hospitalCode')
     expect(body).not.toHaveProperty('sourceOrganizationCode')
@@ -323,10 +356,11 @@ const platformExportQuery: PlatformUsageExportQuery = {
   endTime: '2026-02-28',
   receiverOrganizationCode: 'ORG1',
   sourceOrganizationCode: 'ORG2',
+  keyword: ' 检验科 ',
 }
 
 describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录无分页对象', () => {
-  it('平台版导出提交两组组织编码与导出类型，请求体无分页', async () => {
+  it('平台版导出提交两组组织编码、统一关键字与导出类型，请求体无分页', async () => {
     const built = buildUsageExportQuery(platformExportQuery)
     expect(built).not.toBeNull()
 
@@ -339,8 +373,42 @@ describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录
     expect(body.groupDimension).toBe(1)
     expect(body.receiverOrganizationCode).toBe('ORG1')
     expect(body.sourceOrganizationCode).toBe('ORG2')
+    expect(body.keyword).toBe('检验科')
+    expect(body).not.toHaveProperty('recognitionDeptId')
+    expect(body).not.toHaveProperty('standardProjectCode')
+    expect(body).not.toHaveProperty('recognitionDoctorId')
     expect(body.startTime).toEqual({ year: 2026, month: 2, day: 1 })
     expect(body).not.toHaveProperty('page')
+  })
+
+  it('不采纳原因代码只随不采纳明细导出（导出类型 4）提交，其余导出类型不携带', async () => {
+    // 非不采纳明细导出（引用明细导出，类型 5）：原因代码不提交。
+    const referenceBuilt = buildUsageExportQuery({
+      version: 'platform',
+      exportType: 5,
+      groupDimension: 1,
+      startTime: '2026-02-01',
+      endTime: '2026-02-28',
+      nonAdoptionReasonCode: 'R1',
+    })
+    expect(referenceBuilt).not.toBeNull()
+    const referenceClient = stubClient({ exportPlatform: new ArrayBuffer(8) })
+    await exportUsageStatistics(referenceClient, referenceBuilt as NonNullable<typeof referenceBuilt>, '接收侧引用明细.xlsx')
+    expect(bodyOf(referenceClient.api.v1.statisticsExport.platform.post)).not.toHaveProperty('nonAdoptionReasonCode')
+
+    // 不采纳明细导出（类型 4）：原因代码提交。
+    const nonAdoptionBuilt = buildUsageExportQuery({
+      version: 'platform',
+      exportType: 4,
+      groupDimension: 1,
+      startTime: '2026-02-01',
+      endTime: '2026-02-28',
+      nonAdoptionReasonCode: 'R1',
+    })
+    expect(nonAdoptionBuilt).not.toBeNull()
+    const nonAdoptionClient = stubClient({ exportPlatform: new ArrayBuffer(8) })
+    await exportUsageStatistics(nonAdoptionClient, nonAdoptionBuilt as NonNullable<typeof nonAdoptionBuilt>, '接收侧不采纳明细.xlsx')
+    expect(bodyOf(nonAdoptionClient.api.v1.statisticsExport.platform.post).nonAdoptionReasonCode).toBe('R1')
   })
 
   it('本院版导出不提交本侧组织与医院，走本院导出端点', async () => {
@@ -353,6 +421,7 @@ describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录
       branchCode: 'BR9',
       sourceHospitalCode: 'HOS2',
       receiverBranchCode: 'BR1',
+      keyword: '血常规',
     })
     expect(built).not.toBeNull()
 
@@ -365,6 +434,7 @@ describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录
     expect(body.branchCode).toBe('BR9')
     expect(body.sourceHospitalCode).toBe('HOS2')
     expect(body.receiverBranchCode).toBe('BR1')
+    expect(body.keyword).toBe('血常规')
     expect(body).not.toHaveProperty('receiverOrganizationCode')
     expect(body).not.toHaveProperty('sourceOrganizationCode')
     expect(body).not.toHaveProperty('page')

@@ -28,9 +28,11 @@ public sealed record BranchRecognitionUsageSummaryQueryRequest
   /// <summary>来源院区编码筛选条件；不传表示不按来源院区过滤，取值限可信组织。</summary>
   [NonEmpty(ErrorMessage = "参数校验失败：来源院区编码不能是空白。")]
   public string? SourceBranchCode { get; init; }
-  /// <summary>互认科室ID筛选条件；不传表示不按互认科室过滤。</summary>
-  [NonEmpty(ErrorMessage = "参数校验失败：互认科室ID不能是空白。")]
-  public string? RecognitionDeptId { get; init; }
+  /// <summary>
+  /// 统一关键字筛选条件；按互认科室ID/名称、标准项目编码/名称任一前缀命中（服务端大小写不敏感），任一命中即通过。
+  /// 空白（含全空白字符）视为未提供、不附加条件；其余输入去首尾空白后参与匹配。
+  /// </summary>
+  public string? Keyword { get; init; }
   /// <summary>项目类型筛选条件；不传表示不按项目类型过滤。</summary>
   [EnumDataType(typeof(MedicalItemType), ErrorMessage = "参数校验失败：项目类型无效。")]
   public MedicalItemType? ItemType { get; init; }
@@ -40,9 +42,6 @@ public sealed record BranchRecognitionUsageSummaryQueryRequest
   /// <summary>标准目录分组名称筛选条件；不传表示不按分组过滤。</summary>
   [NonEmpty(ErrorMessage = "参数校验失败：分组名称不能是空白。")]
   public string? GroupName { get; init; }
-  /// <summary>标准项目编码筛选条件；不传表示不按标准项目过滤。</summary>
-  [NonEmpty(ErrorMessage = "参数校验失败：标准项目编码不能是空白。")]
-  public string? StandardProjectCode { get; init; }
   /// <summary>
   /// 汇总维度；必填，未提供时取默认值 0，按未定义枚举值拒绝。
   /// </summary>

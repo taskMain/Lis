@@ -94,13 +94,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ScopeFilterCode(sourceScope?.OrganizationCode),
       ScopeFilterCode(sourceScope?.HospitalCode),
       ScopeFilterCode(sourceScope?.BranchCode),
-      request.RecognitionDeptId?.Trim(),
-      request.RecognitionDoctorId?.Trim(),
+      NullIfBlank(request.Keyword),
       ResolveExportNonAdoptionReason(request.ExportType, request.NonAdoptionReasonCode),
       request.ItemType,
       request.CategoryName?.Trim(),
-      request.GroupName?.Trim(),
-      request.StandardProjectCode?.Trim()));
+      request.GroupName?.Trim()));
   }
 
   /// <summary>
@@ -141,13 +139,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
         localSourceScope.OrganizationCode,
         localSourceScope.HospitalCode,
         request.SourceBranchCode is null ? null : localSourceScope.BranchCode,
-        request.RecognitionDeptId?.Trim(),
-        request.RecognitionDoctorId?.Trim(),
+        NullIfBlank(request.Keyword),
         ResolveExportNonAdoptionReason(request.ExportType, request.NonAdoptionReasonCode),
         request.ItemType,
         request.CategoryName?.Trim(),
-        request.GroupName?.Trim(),
-        request.StandardProjectCode?.Trim()));
+        request.GroupName?.Trim()));
     }
 
     // 接收侧导出类型：接收组织与接收医院取可信上下文，本侧接收院区可选；
@@ -166,13 +162,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       trustedScope.OrganizationCode,
       ScopeFilterCode(sourceScope?.HospitalCode),
       ScopeFilterCode(sourceScope?.BranchCode),
-      request.RecognitionDeptId?.Trim(),
-      request.RecognitionDoctorId?.Trim(),
+      NullIfBlank(request.Keyword),
       ResolveExportNonAdoptionReason(request.ExportType, request.NonAdoptionReasonCode),
       request.ItemType,
       request.CategoryName?.Trim(),
-      request.GroupName?.Trim(),
-      request.StandardProjectCode?.Trim()));
+      request.GroupName?.Trim()));
   }
 
   /// <summary>
@@ -198,16 +192,16 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 解析导出请求的不采纳原因代码：只对接收侧明细导出生效，其余导出类型不施加该筛选。
+  /// 解析导出请求的不采纳原因代码：只对接收侧不采纳明细导出生效，其余导出类型不施加该筛选。
   /// </summary>
   /// <param name="exportType">请求提交的导出类型。</param>
   /// <param name="reasonCode">请求提交的原因代码文本；平台统一原因代码为枚举数值的十进制文本。</param>
-  /// <returns>解析后的原因枚举；不生效或输入空白时为 <see langword="null"/>。</returns>
-  /// <exception cref="System.ComponentModel.DataAnnotations.ValidationException">接收侧明细导出的代码不是数字或不在平台统一原因取值域内时抛出。</exception>
+  /// <returns>解析后的原因枚举；导出类型不生效或输入空白时为 <see langword="null"/>。</returns>
+  /// <exception cref="System.ComponentModel.DataAnnotations.ValidationException">不采纳明细导出的代码不是数字或不在平台统一原因取值域内时抛出。</exception>
   private static RecognitionNonAdoptionReason? ResolveExportNonAdoptionReason(RecognitionStatisticsExportType exportType, string? reasonCode) =>
-    IsSourceSideExport(exportType) || exportType == RecognitionStatisticsExportType.RecognitionUsageSummary
-      ? null
-      : ParseNonAdoptionReasonCode(reasonCode);
+    exportType == RecognitionStatisticsExportType.RecognitionNonAdoptionDetails
+      ? ParseNonAdoptionReasonCode(reasonCode)
+      : null;
 
   /// <summary>
   /// 按导出类型分发导出生成：四个接收侧明细类型共用同一读模型列，汇总与来源侧各用自己的语句与列。
@@ -372,7 +366,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   };
 
   /// <summary>
-  /// 把已解析的导出条件组装为接收侧汇总筛选：范围取值、日期边界、汇总维度与目录条件。
+  /// 把已解析的导出条件组装为接收侧汇总筛选：范围取值、日期边界、统一关键字与目录条件。
   /// </summary>
   /// <param name="command">已解析的导出条件。</param>
   /// <returns>接收侧汇总筛选条件。</returns>
@@ -387,15 +381,14 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     SourceOrganizationCode = command.SourceOrganizationCode,
     SourceHospitalCode = command.SourceHospitalCode,
     SourceBranchCode = command.SourceBranchCode,
-    RecognitionDeptId = command.RecognitionDeptId,
+    Keyword = command.Keyword,
     ItemType = command.ItemType,
     CategoryName = command.CategoryName,
-    GroupName = command.GroupName,
-    StandardProjectCode = command.StandardProjectCode
+    GroupName = command.GroupName
   };
 
   /// <summary>
-  /// 把已解析的导出条件组装为接收侧明细筛选：范围取值、日期边界与互认科室、互认医生、不采纳原因、目录条件。
+  /// 把已解析的导出条件组装为接收侧明细筛选：范围取值、日期边界、统一关键字、不采纳原因与目录条件。
   /// </summary>
   /// <param name="command">已解析的导出条件。</param>
   /// <returns>接收侧明细筛选条件。</returns>
@@ -409,13 +402,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     SourceOrganizationCode = command.SourceOrganizationCode,
     SourceHospitalCode = command.SourceHospitalCode,
     SourceBranchCode = command.SourceBranchCode,
-    RecognitionDeptId = command.RecognitionDeptId,
-    RecognitionDoctorId = command.RecognitionDoctorId,
+    Keyword = command.Keyword,
     NonAdoptionReason = command.NonAdoptionReason,
     ItemType = command.ItemType,
     CategoryName = command.CategoryName,
-    GroupName = command.GroupName,
-    StandardProjectCode = command.StandardProjectCode
+    GroupName = command.GroupName
   };
 
   /// <summary>
@@ -465,10 +456,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ReceiverOrganizationCode = command.ReceiverOrganizationCode,
       ReceiverHospitalCode = command.ReceiverHospitalCode,
       ReceiverBranchCode = command.ReceiverBranchCode,
+      Keyword = command.Keyword,
       ItemType = command.ItemType,
       CategoryName = command.CategoryName,
-      GroupName = command.GroupName,
-      StandardProjectCode = command.StandardProjectCode
+      GroupName = command.GroupName
     };
 
     // 先计数再全量读取：分组行计数作用于聚合后的分组行，窗口起点为 0、页容量取计数。
@@ -511,10 +502,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ReceiverOrganizationCode = command.ReceiverOrganizationCode,
       ReceiverHospitalCode = command.ReceiverHospitalCode,
       ReceiverBranchCode = command.ReceiverBranchCode,
+      Keyword = command.Keyword,
       ItemType = command.ItemType,
       CategoryName = command.CategoryName,
-      GroupName = command.GroupName,
-      StandardProjectCode = command.StandardProjectCode
+      GroupName = command.GroupName
     };
 
     // 先计数再全量读取：窗口起点为 0、页容量取计数，同一语句在不截断行集的前提下取回全部记录。
@@ -865,13 +856,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <param name="SourceOrganizationCode">来源组织筛选取值；未提供时为空。</param>
   /// <param name="SourceHospitalCode">来源医院筛选取值；未提供时为空。</param>
   /// <param name="SourceBranchCode">来源院区筛选取值；未提供时为空。</param>
-  /// <param name="RecognitionDeptId">互认科室ID筛选条件。</param>
-  /// <param name="RecognitionDoctorId">互认医生ID筛选条件；仅对接收侧明细导出生效。</param>
+  /// <param name="Keyword">统一关键字筛选条件；经空白归一传入（空白视为未提供、非空白去首尾空白），命中列与通配转义由语句侧完成。</param>
   /// <param name="NonAdoptionReason">解析后的不采纳原因；仅对接收侧明细导出生效。</param>
   /// <param name="ItemType">项目类型筛选条件。</param>
   /// <param name="CategoryName">标准目录分类名称筛选条件。</param>
   /// <param name="GroupName">标准目录分组名称筛选条件。</param>
-  /// <param name="StandardProjectCode">标准项目编码筛选条件。</param>
   private sealed record StatisticsExportCommand(
     RecognitionStatisticsExportType ExportType,
     DateOnly StartTime,
@@ -883,11 +872,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     string? SourceOrganizationCode,
     string? SourceHospitalCode,
     string? SourceBranchCode,
-    string? RecognitionDeptId,
-    string? RecognitionDoctorId,
+    string? Keyword,
     RecognitionNonAdoptionReason? NonAdoptionReason,
     MedicalItemType? ItemType,
     string? CategoryName,
-    string? GroupName,
-    string? StandardProjectCode);
+    string? GroupName);
 }

@@ -13,7 +13,7 @@ import { type V1RequestBuilder, V1RequestBuilderNavigationMetadata } from './v1/
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
 
 /**
- * Builds and executes requests for operations under /Api
+ * Builds and executes requests for operations under /api
  */
 export interface ApiRequestBuilder extends BaseRequestBuilder<ApiRequestBuilder> {
     /**

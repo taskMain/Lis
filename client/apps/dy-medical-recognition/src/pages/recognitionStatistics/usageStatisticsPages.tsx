@@ -12,7 +12,7 @@
  * 服务端全院统计契约仅为接口面保留（S6-D1），前端已不按其触发），
  * 来源组只提交医院与院区（来源组织恒为可信组织）。
  *
- * 页面不实现角色判断、不做权限二次确认；日期必填，页面默认当月 1 日至当天；
+ * 页面不实现角色判断、不做权限二次确认；日期必填，页面默认近 30 天（S6-D19）；
  * 查询条件不完整时适配层构造出口返回 `null`，主体据此零发请求并阻断。
  * 敏感查询条件只随请求提交，不写入地址栏；失败面由宿主统一提示，页面只结束加载态并保留已有数据。
  */
@@ -54,15 +54,14 @@ import { defaultStatisticsFilters } from './statisticsDisplays'
 /** 页面版本：平台管理员入口或医院管理员入口；双版本请求分支由适配层按 version 收敛。 */
 type StatisticsPageVersion = 'platform' | 'branch'
 
-/** 页面级筛选 → 平台/本院版汇总查询条件的装配。 */
+/** 页面级筛选 → 平台/本院版汇总查询条件的装配；统一关键字承载互认科室、互认项目与互认医生条件（S6-D19）。 */
 function toSummaryQuery(version: StatisticsPageVersion, filters: StatisticsFilters, dimension: StatisticsGroupDimensionValue): UsageSummaryQuery {
   const shared = {
     startTime: filters.startTime,
     endTime: filters.endTime,
     groupDimension: dimension,
-    recognitionDeptId: filters.recognitionDeptId,
+    keyword: filters.keyword,
     itemType: filters.itemType,
-    standardProjectCode: filters.standardProjectCode,
   }
   if (version === 'platform') {
     return {
@@ -85,17 +84,15 @@ function toSummaryQuery(version: StatisticsPageVersion, filters: StatisticsFilte
   }
 }
 
-/** 页面级筛选 → 平台/本院版明细查询条件的装配；互认医生与不采纳原因只进明细查询。 */
+/** 页面级筛选 → 平台/本院版明细查询条件的装配；不采纳原因代码仅在不采纳明细查询由适配层提交（S6-D19）。 */
 function toDetailsQuery(version: StatisticsPageVersion, filters: StatisticsFilters, detailType: UsageDetailTypeValue): UsageDetailsQuery {
   const shared = {
     startTime: filters.startTime,
     endTime: filters.endTime,
     detailType,
-    recognitionDeptId: filters.recognitionDeptId,
-    recognitionDoctorId: filters.recognitionDoctorId,
+    keyword: filters.keyword,
     nonAdoptionReasonCode: filters.nonAdoptionReasonCode,
     itemType: filters.itemType,
-    standardProjectCode: filters.standardProjectCode,
   }
   if (version === 'platform') {
     return {
@@ -121,8 +118,8 @@ function toDetailsQuery(version: StatisticsPageVersion, filters: StatisticsFilte
 /**
  * 页面级筛选 → 导出查询条件的装配。
  *
- * 导出沿用页面当前查询条件（不带分页）：汇总导出只带汇总侧条件；明细导出额外交织
- * 互认医生与不采纳原因两项明细条件（与明细查询口径一致）；导出类型由主体按侧与明细类型换算。
+ * 导出沿用页面当前查询条件（不带分页）：汇总导出只带汇总侧条件；明细导出额外交织不采纳原因
+ * 一项明细条件，适配层再按导出类型收窄为只随不采纳明细导出提交（S6-D19）；导出类型由主体按侧与明细类型换算。
  */
 function toExportQuery(version: StatisticsPageVersion, filters: StatisticsFilters, request: {
   exportType: UsageExportTypeValue
@@ -135,11 +132,9 @@ function toExportQuery(version: StatisticsPageVersion, filters: StatisticsFilter
     groupDimension: request.groupDimension,
     startTime: filters.startTime,
     endTime: filters.endTime,
-    recognitionDeptId: filters.recognitionDeptId,
-    recognitionDoctorId: isDetailsExport ? filters.recognitionDoctorId : undefined,
+    keyword: filters.keyword,
     nonAdoptionReasonCode: isDetailsExport ? filters.nonAdoptionReasonCode : undefined,
     itemType: filters.itemType,
-    standardProjectCode: filters.standardProjectCode,
   }
   if (version === 'platform') {
     return {
@@ -228,7 +223,7 @@ function UsageStatisticsPage({ version }: { version: StatisticsPageVersion }) {
         title={
           <div className='statistics-board-header'>
             <div>
-              <Typography.Title level={3} style={{ margin: 0 }}>本院互认使用统计</Typography.Title>
+              <Typography.Title level={3}>本院互认使用统计</Typography.Title>
               <Typography.Text type='secondary'>查询本院互认使用汇总与明细</Typography.Text>
             </div>
           </div>

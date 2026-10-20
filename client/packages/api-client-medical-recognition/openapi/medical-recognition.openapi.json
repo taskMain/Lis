@@ -4547,13 +4547,7 @@
               "string"
             ]
           },
-          "recognitionDeptId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "recognitionDoctorId": {
+          "keyword": {
             "type": [
               "null",
               "string"
@@ -4569,12 +4563,6 @@
             ]
           },
           "groupName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "standardProjectCode": {
             "type": [
               "null",
               "string"
@@ -4620,13 +4608,7 @@
               "string"
             ]
           },
-          "recognitionDeptId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "recognitionDoctorId": {
+          "keyword": {
             "type": [
               "null",
               "string"
@@ -4642,12 +4624,6 @@
             ]
           },
           "groupName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "standardProjectCode": {
             "type": [
               "null",
               "string"
@@ -4696,7 +4672,7 @@
               "string"
             ]
           },
-          "recognitionDeptId": {
+          "keyword": {
             "type": [
               "null",
               "string"
@@ -4712,12 +4688,6 @@
             ]
           },
           "groupName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "standardProjectCode": {
             "type": [
               "null",
               "string"
@@ -4815,7 +4785,7 @@
               "string"
             ]
           },
-          "standardProjectCode": {
+          "keyword": {
             "type": [
               "null",
               "string"
@@ -4870,7 +4840,7 @@
               "string"
             ]
           },
-          "standardProjectCode": {
+          "keyword": {
             "type": [
               "null",
               "string"
@@ -7787,13 +7757,7 @@
               "string"
             ]
           },
-          "recognitionDeptId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "recognitionDoctorId": {
+          "keyword": {
             "type": [
               "null",
               "string"
@@ -7809,12 +7773,6 @@
             ]
           },
           "groupName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "standardProjectCode": {
             "type": [
               "null",
               "string"
@@ -8036,13 +7994,7 @@
               "string"
             ]
           },
-          "recognitionDeptId": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "recognitionDoctorId": {
+          "keyword": {
             "type": [
               "null",
               "string"
@@ -8058,12 +8010,6 @@
             ]
           },
           "groupName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "standardProjectCode": {
             "type": [
               "null",
               "string"
@@ -8151,7 +8097,7 @@
               "string"
             ]
           },
-          "recognitionDeptId": {
+          "keyword": {
             "type": [
               "null",
               "string"
@@ -8167,12 +8113,6 @@
             ]
           },
           "groupName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "standardProjectCode": {
             "type": [
               "null",
               "string"
@@ -8796,7 +8736,7 @@
               "string"
             ]
           },
-          "standardProjectCode": {
+          "keyword": {
             "type": [
               "null",
               "string"
@@ -8869,7 +8809,7 @@
               "string"
             ]
           },
-          "standardProjectCode": {
+          "keyword": {
             "type": [
               "null",
               "string"

@@ -97,7 +97,7 @@ export interface SourceDetailRow {
 
 // ========== 查询条件（页面稳定模型） ==========
 
-/** 平台管理员入口的来源侧汇总条件：来源组与接收组三级范围都随请求提交。 */
+/** 平台管理员入口的来源侧汇总条件：来源组与接收组三级范围都随请求提交；统一关键字承载互认科室、互认项目条件（S6-D19）。 */
 export interface PlatformSourceSummaryQuery {
   version: 'platform'
   startTime: string
@@ -109,10 +109,10 @@ export interface PlatformSourceSummaryQuery {
   receiverOrganizationCode?: string
   receiverHospitalCode?: string
   receiverBranchCode?: string
+  keyword?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
-  standardProjectCode?: string
 }
 
 /**
@@ -127,15 +127,15 @@ export interface BranchSourceSummaryQuery {
   sourceBranchCode?: string
   receiverHospitalCode?: string
   receiverBranchCode?: string
+  keyword?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
-  standardProjectCode?: string
 }
 
 export type SourceSummaryQuery = PlatformSourceSummaryQuery | BranchSourceSummaryQuery
 
-/** 平台管理员入口的来源侧明细条件：来源侧明细只反映被采纳事实，没有明细类型与医生、原因筛选。 */
+/** 平台管理员入口的来源侧明细条件：来源侧明细只反映被采纳事实，没有明细类型、医生与原因筛选。 */
 export interface PlatformSourceDetailsQuery {
   version: 'platform'
   startTime: string
@@ -146,10 +146,10 @@ export interface PlatformSourceDetailsQuery {
   receiverOrganizationCode?: string
   receiverHospitalCode?: string
   receiverBranchCode?: string
+  keyword?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
-  standardProjectCode?: string
 }
 
 /** 医院管理员入口的来源侧明细条件：本侧来源院区恒为登录院区（缺失在构造时拒绝），接收组医院/院区可选。 */
@@ -160,10 +160,10 @@ export interface BranchSourceDetailsQuery {
   sourceBranchCode?: string
   receiverHospitalCode?: string
   receiverBranchCode?: string
+  keyword?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
-  standardProjectCode?: string
 }
 
 export type SourceDetailsQuery = PlatformSourceDetailsQuery | BranchSourceDetailsQuery
@@ -181,10 +181,10 @@ export interface PlatformSourceExportQuery {
   receiverOrganizationCode?: string
   receiverHospitalCode?: string
   receiverBranchCode?: string
+  keyword?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
-  standardProjectCode?: string
 }
 
 /** 医院管理员入口的来源侧导出条件：不含本侧来源组织与医院，也不含接收组织。 */
@@ -197,10 +197,10 @@ export interface BranchSourceExportQuery {
   sourceBranchCode?: string
   receiverHospitalCode?: string
   receiverBranchCode?: string
+  keyword?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
-  standardProjectCode?: string
 }
 
 export type SourceExportQuery = PlatformSourceExportQuery | BranchSourceExportQuery
@@ -219,12 +219,12 @@ const SOURCE_SCOPE_TEXT_KEYS = [
   'receiverOrganizationCode',
   'receiverHospitalCode',
   'receiverBranchCode',
+  'keyword',
   'categoryName',
   'groupName',
-  'standardProjectCode',
 ] as const
 
-/** 平台版共享筛选写入：来源组与接收组三级范围、项目筛选。 */
+/** 平台版共享筛选写入：来源组与接收组三级范围、统一关键字与项目筛选。 */
 function applyPlatformSourceFilters(
   body: SourceRecognitionSummaryQueryRequest | SourceRecognitionDetailsQueryRequest,
   query: PlatformSourceSummaryQuery | PlatformSourceDetailsQuery,
@@ -235,9 +235,9 @@ function applyPlatformSourceFilters(
   assignStatisticsText(body, 'receiverOrganizationCode', query.receiverOrganizationCode)
   assignStatisticsText(body, 'receiverHospitalCode', query.receiverHospitalCode)
   assignStatisticsText(body, 'receiverBranchCode', query.receiverBranchCode)
+  assignStatisticsText(body, 'keyword', query.keyword)
   assignStatisticsText(body, 'categoryName', query.categoryName)
   assignStatisticsText(body, 'groupName', query.groupName)
-  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.itemType !== undefined) body.itemType = query.itemType
 }
 
@@ -249,9 +249,9 @@ function applyBranchSourceFilters(
   assignStatisticsText(body, 'sourceBranchCode', query.sourceBranchCode)
   assignStatisticsText(body, 'receiverHospitalCode', query.receiverHospitalCode)
   assignStatisticsText(body, 'receiverBranchCode', query.receiverBranchCode)
+  assignStatisticsText(body, 'keyword', query.keyword)
   assignStatisticsText(body, 'categoryName', query.categoryName)
   assignStatisticsText(body, 'groupName', query.groupName)
-  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.itemType !== undefined) body.itemType = query.itemType
 }
 
@@ -348,9 +348,9 @@ function toPlatformSourceExportBody(query: PlatformSourceExportQuery): Recogniti
   assignStatisticsText(body, 'receiverOrganizationCode', query.receiverOrganizationCode)
   assignStatisticsText(body, 'receiverHospitalCode', query.receiverHospitalCode)
   assignStatisticsText(body, 'receiverBranchCode', query.receiverBranchCode)
+  assignStatisticsText(body, 'keyword', query.keyword)
   assignStatisticsText(body, 'categoryName', query.categoryName)
   assignStatisticsText(body, 'groupName', query.groupName)
-  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.itemType !== undefined) body.itemType = query.itemType
   return body
 }
@@ -366,9 +366,9 @@ function toBranchSourceExportBody(query: BranchSourceExportQuery): BranchRecogni
   assignStatisticsText(body, 'branchCode', query.sourceBranchCode)
   assignStatisticsText(body, 'receiverHospitalCode', query.receiverHospitalCode)
   assignStatisticsText(body, 'receiverBranchCode', query.receiverBranchCode)
+  assignStatisticsText(body, 'keyword', query.keyword)
   assignStatisticsText(body, 'categoryName', query.categoryName)
   assignStatisticsText(body, 'groupName', query.groupName)
-  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.itemType !== undefined) body.itemType = query.itemType
   return body
 }

@@ -12,9 +12,12 @@
  *
  * 仍属 Host 层、不在本文件覆盖：真实宿主菜单进入、真实范围选择器交互、宿主统一错误提示（C23-C30）。
  */
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
+import dayjs from 'dayjs'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BaseScopeSelectorProps } from '@dy/components-base'
 import type {
@@ -314,8 +317,11 @@ describe('统计主体：进入加载与汇总口径（C10、C11）', () => {
     await waitSummaryText('医院一')
     expect(summaryQuery).toHaveBeenCalledTimes(1)
     expect(detailsQuery).toHaveBeenCalledTimes(1)
-    // 日期输入反映初始条件。
-    expect(screen.getByLabelText('统计开始日期')).toHaveValue('2026-02-01')
+    // 统计时间以预设区间选择器承载（S6-D19）：初始窗口反映初始条件，原生 date 输入无残留。
+    expect(screen.getByPlaceholderText('开始日期')).toHaveValue('2026-02-01')
+    expect(screen.getByPlaceholderText('结束日期')).toHaveValue('2026-02-28')
+    expect(screen.queryByLabelText('统计开始日期')).toBeNull()
+    expect(screen.queryByLabelText('统计结束日期')).toBeNull()
     // 六项指标、未计算互认率与金额。
     const summaryTable = within(summarySection()).getAllByRole('table')[0]
     // antd 表格附带隐藏的测量节点，指标数字按可下钻按钮断言，表头按 th 选择器断言。
@@ -550,12 +556,10 @@ describe('统计主体：提交式筛选与查询区（提交式筛选、提交�
     fireEvent.change(receiverGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS2' } })
     const sourceGroup = within(screen.getByRole('group', { name: '来源组范围' }))
     fireEvent.change(sourceGroup.getByRole('combobox', { name: '组织' }), { target: { value: 'ORG2' } })
-    fireEvent.change(screen.getByLabelText('互认科室筛选'), { target: { value: 'DEPT9' } })
+    fireEvent.change(screen.getByLabelText('关键字筛选'), { target: { value: 'DEPT9' } })
     const itemTypeSelect = screen.getByLabelText('项目类型筛选')
     openAntdSelect(itemTypeSelect)
     fireEvent.click(portalOption('检查'))
-    fireEvent.change(screen.getByLabelText('标准项目编码筛选'), { target: { value: 'A01' } })
-    fireEvent.change(screen.getByLabelText('互认医生筛选'), { target: { value: 'DOC-9' } })
 
     // 草稿改动不发起任何请求（提交式筛选口径）。
     expect(summaryQuery).toHaveBeenCalledTimes(1)
@@ -566,41 +570,296 @@ describe('统计主体：提交式筛选与查询区（提交式筛选、提交�
       expect.objectContaining({
         receiverHospitalCode: 'HOS2',
         sourceOrganizationCode: 'ORG2',
-        recognitionDeptId: 'DEPT9',
+        keyword: 'DEPT9',
         itemType: 1,
-        standardProjectCode: 'A01',
       }), 1, expect.anything()))
-    // 一次提交同时重读汇总与明细（提交重读口径）；互认医生只进明细查询。
+    // 一次提交同时重读汇总与明细（提交重读口径）；统一关键字同时进两路查询。
     await waitFor(() => expect(detailsQuery).toHaveBeenLastCalledWith(
       expect.objectContaining({
         receiverHospitalCode: 'HOS2',
-        recognitionDeptId: 'DEPT9',
-        recognitionDoctorId: 'DOC-9',
+        keyword: 'DEPT9',
       }), expect.anything(), expect.anything()))
     expect(summaryQuery).toHaveBeenCalledTimes(2)
     expect(detailsQuery).toHaveBeenCalledTimes(2)
   })
 
-  it('重置清空草稿并恢复默认条件，按默认条件重读（提交式筛选口径）', async () => {
+describe('C31 查询区同构与间距（S6-D19）', () => {
+  it('关键字占位按侧区分：使用侧含互认医生、来源侧不含（来源侧语句无医生列）', () => {
+    renderBoard()
+    expect(screen.getByPlaceholderText('互认科室 / 互认项目 / 互认医生')).toBeInTheDocument()
+  })
+
+  it('来源侧关键字占位不含互认医生', () => {
+    renderBoard(boardProps({
+      title: '来源医院被互认统计',
+      side: 'source',
+      initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28' },
+    }))
+    expect(screen.getByPlaceholderText('互认科室 / 互认项目')).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('互认科室 / 互认项目 / 互认医生')).toBeNull()
+  })
+
+  it('重置按钮与原生 date 输入无残留（不设重置，可清空条件经查询生效）', () => {
+    renderBoard()
+    expect(screen.queryByRole('button', { name: '重置' })).toBeNull()
+    expect(screen.queryByLabelText('统计开始日期')).toBeNull()
+    expect(screen.queryByLabelText('统计结束日期')).toBeNull()
+  })
+
+  it('查询按钮逐字规格保留：主色、可访问名与 submit 提交，独占行内最后一个 Form.Item', () => {
+    renderBoard()
+
+    const form = document.querySelector('.statistics-board-filters form')
+    expect(form).not.toBeNull()
+    expect(form).toHaveClass('ant-form-inline')
+    const search = screen.getByRole('button', { name: '查询' })
+    expect(search).toHaveClass('ant-btn-primary')
+    expect(search.getAttribute('type')).toBe('submit')
+    // 位置断言：查询按钮所在 Form.Item 是 inline Form 的最后一个 Form.Item（独占行尾）。
+    const formItems = (form as HTMLElement).querySelectorAll('.ant-form-item')
+    expect(formItems.length).toBeGreaterThan(0)
+    expect(search.closest('.ant-form-item')).toBe(formItems[formItems.length - 1])
+  })
+
+  it('配套 CSS 静态证据：页头左右结构与四段间距同报告管理页（20/16/4/8）', () => {
+    // vitest jsdom 环境的 import.meta.url 非 file 协议：按应用根解析文件路径读取静态证据。
+    const cssPath = resolve(process.cwd(), 'src/pages/recognitionStatistics/statisticsBoard.css')
+    const boardPath = resolve(process.cwd(), 'src/pages/recognitionStatistics/statisticsBoard.tsx')
+    const css = readFileSync(cssPath, 'utf8')
+    expect(css).toMatch(/\.statistics-board-header\s*\{[^}]*justify-content:\s*space-between[^}]*margin-bottom:\s*20px/s)
+    expect(css).toMatch(/\.statistics-board-scope\s*\{[^}]*margin-bottom:\s*16px/s)
+    expect(css).toMatch(/\.statistics-board-filters\s*\{[^}]*margin-bottom:\s*4px/s)
+    expect(css).toMatch(/\.statistics-board-toolbar\s*\{[^}]*margin-bottom:\s*8px/s)
+    // 主体引入配套 CSS，页头标题 margin 归零由 CSS 承载（内联 margin 等价物移除）。
+    const board = readFileSync(boardPath, 'utf8')
+    expect(board).toContain("import './statisticsBoard.css'")
+    expect(board).not.toContain("style={{ margin: 0 }}")
+    // 阻断态标题（页面入口）的 margin 归零同由配套 CSS 承载，两个页面入口无内联 margin 等价物。
+    for (const pageFile of ['usageStatisticsPages.tsx', 'sourceStatisticsPages.tsx']) {
+      const pageSource = readFileSync(resolve(process.cwd(), 'src/pages/recognitionStatistics', pageFile), 'utf8')
+      expect(pageSource).not.toContain('style={{ margin: 0 }}')
+    }
+  })
+
+  it('平台页两组范围选择器带可见组标签「接收方：」「来源方：」（来源侧两组反向）', () => {
+    renderBoard()
+    expect(screen.getByText('接收方：')).toBeInTheDocument()
+    expect(screen.getByText('来源方：')).toBeInTheDocument()
+
+    cleanup()
+    // 来源侧平台页：来源组在前、接收组在后，标签同款。
+    renderBoard(boardProps({
+      title: '来源医院被互认统计',
+      side: 'source',
+      initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28' },
+    }))
+    expect(screen.getByText('来源方：')).toBeInTheDocument()
+    expect(screen.getByText('接收方：')).toBeInTheDocument()
+  })
+
+  it('本院页页头左右结构：范围条在页头右侧，范围选择行只留对侧组选择器（C20 修订面）', () => {
+    renderBoard(boardProps({
+      scopeKey: 'ORG-A|HOS-1|BRA1',
+      scopeSpec: { kind: 'branch', organizationCode: 'ORG-A' },
+      initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28', ownBranchCode: 'BRA1' },
+    }))
+
+    const header = document.querySelector('.statistics-board-header')
+    expect(header).not.toBeNull()
+    // 范围条（本用例环境无登录编码，三级按「未知」占位）渲染在页头容器内。
+    expect(within(header as HTMLElement).getByText('未知 / 未知 / 未知')).toBeInTheDocument()
+    // 范围选择行不再承载范围条，只留对侧组选择器。
+    const scopeRow = document.querySelector('.statistics-board-scope')
+    expect(scopeRow).not.toBeNull()
+    expect(scopeRow?.textContent).not.toContain('未知 / 未知 / 未知')
+  })
+})
+
+describe('C32 时间预设与默认窗（S6-D19）', () => {
+  it('统计时间使用预设区间选择器：预设改动进草稿零请求，点查询按新区间提交', async () => {
     renderBoard()
     await waitSummaryText('医院一')
 
-    fireEvent.change(screen.getByLabelText('互认科室筛选'), { target: { value: 'DEPT9' } })
+    const startInput = screen.getByPlaceholderText('开始日期')
+    fireEvent.focus(startInput)
+    fireEvent.mouseDown(startInput)
+    fireEvent.click(startInput)
+    const preset = await waitFor(() => {
+      const found = Array.from(document.querySelectorAll<HTMLElement>('.ant-picker-presets li'))
+        .find((node) => node.textContent === '近7天')
+      expect(found).toBeDefined()
+      return found as HTMLElement
+    })
+    fireEvent.click(preset)
+
+    // 预设改动只进草稿，零请求。
+    expect(summaryQuery).toHaveBeenCalledTimes(1)
+
     fireEvent.click(screen.getByRole('button', { name: '查询' }))
     await waitFor(() => expect(summaryQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ recognitionDeptId: 'DEPT9' }), 1, expect.anything()))
-
-    fireEvent.change(screen.getByLabelText('统计开始日期'), { target: { value: '2026-03-01' } })
-    fireEvent.click(screen.getByRole('button', { name: '重置' }))
-
-    await waitFor(() => expect(summaryQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ startTime: '2026-02-01', endTime: '2026-02-28' }), 1, expect.anything()))
-    // 重置后已生效条件不再携带上一轮草稿中的科室筛选。
-    expect(summaryQuery.mock.calls.at(-1)?.[0]?.recognitionDeptId).toBeUndefined()
-    // 草稿控件回到默认值。
-    expect(screen.getByLabelText('统计开始日期')).toHaveValue('2026-02-01')
-    expect(screen.getByLabelText('互认科室筛选')).toHaveValue('')
+      expect.objectContaining({
+        startTime: dayjs().subtract(6, 'day').format('YYYY-MM-DD'),
+        endTime: dayjs().format('YYYY-MM-DD'),
+      }), 1, expect.anything()))
+    // 一次提交同时重读明细（提交重读口径）。
+    expect(detailsQuery).toHaveBeenCalledTimes(2)
   })
+
+  it('范围切换复位的默认窗按复位时刻重算（与报告管理页跨天语义同构）', async () => {
+    // 只冻结 Date（不动定时器）：读取仍走真实 setTimeout，断言按可控「今天」计算。
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      const startOfToday = dayjs()
+      const view = render(<ConfigProvider locale={zhCN}><StatisticsBoard {...boardProps({ scopeKey: 'scope-a' })} /></ConfigProvider>)
+      await waitSummaryText('医院一')
+      // 初始窗口来自注入的 initialFilters（夹具固定值）。
+      expect(screen.getByPlaceholderText('开始日期')).toHaveValue('2026-02-01')
+
+      // 复位时刻前移一天后变更范围键：复位的起止日期是新时刻的近 30 天窗。
+      vi.setSystemTime(startOfToday.add(1, 'day').toDate())
+      view.rerender(<ConfigProvider locale={zhCN}><StatisticsBoard {...boardProps({ scopeKey: 'scope-b' })} /></ConfigProvider>)
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('开始日期')).toHaveValue(startOfToday.add(1, 'day').subtract(29, 'day').format('YYYY-MM-DD'))
+        expect(screen.getByPlaceholderText('结束日期')).toHaveValue(startOfToday.add(1, 'day').format('YYYY-MM-DD'))
+      })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('C34 原因下钻筛选标记（S6-D19）', () => {
+  it('原因行下钻后明细区工具行显示可移除标记，移除即时提交并回到第 1 页', async () => {
+    renderBoard()
+    await waitSummaryText('医院一')
+
+    fireEvent.click(within(summarySection()).getByRole('button', { name: '下钻不采纳原因明细' }))
+    await waitFor(() => expect(detailsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ nonAdoptionReasonCode: 'R1' }), 3, expect.anything()))
+
+    // 工具行出现「不采纳原因：{原因名}」可移除标记。
+    const marker = within(detailsSection()).getByText('不采纳原因：结果互认')
+    expect(marker.closest('.ant-tag')).not.toBeNull()
+
+    // 移除标记走查询提交路径：原因条件清空、两路各自重读、明细回第 1 页。
+    const closeIcon = detailsSection().querySelector('.ant-tag-close-icon')
+    expect(closeIcon).not.toBeNull()
+    fireEvent.click(closeIcon as HTMLElement)
+    await waitFor(() => expect(detailsQuery).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ nonAdoptionReasonCode: 'R1' }), expect.anything(), { pageIndex: 1, pageSize: 10 }))
+    // 初始加载 + 原因下钻提交 + 移除提交，汇总共重读三次。
+    expect(summaryQuery).toHaveBeenCalledTimes(3)
+    // 移除后标记消失。
+    await waitFor(() => expect(within(detailsSection()).queryByText('不采纳原因：结果互认')).toBeNull())
+  })
+
+  it('原因标记移除只动原因代码字段：未提交草稿保留、明细按无原因条件重读', async () => {
+    renderBoard()
+    await waitSummaryText('医院一')
+
+    // 原因下钻：预填草稿并自动提交一次（草稿基底与已生效条件同步）。
+    fireEvent.click(within(summarySection()).getByRole('button', { name: '下钻不采纳原因明细' }))
+    await waitFor(() => expect(detailsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ nonAdoptionReasonCode: 'R1' }), 3, expect.anything()))
+    expect(within(detailsSection()).getByText('不采纳原因：结果互认')).toBeInTheDocument()
+
+    // 关键字输入未提交（只进草稿）。
+    fireEvent.change(screen.getByLabelText('关键字筛选'), { target: { value: '未提交关键字' } })
+
+    // 点击标记关闭：已生效条件移除原因代码并重读，未提交的关键字草稿保持不动。
+    fireEvent.click(detailsSection().querySelector('.ant-tag-close-icon') as HTMLElement)
+    expect(screen.getByLabelText('关键字筛选')).toHaveValue('未提交关键字')
+    await waitFor(() => expect(detailsQuery).toHaveBeenLastCalledWith(
+      expect.not.objectContaining({ nonAdoptionReasonCode: 'R1' }), expect.anything(), { pageIndex: 1, pageSize: 10 }))
+    // 未提交的关键字不进本次读取；标记消失。
+    expect(detailsQuery.mock.calls.at(-1)?.[0]?.keyword).toBeUndefined()
+    await waitFor(() => expect(within(detailsSection()).queryByText('不采纳原因：结果互认')).toBeNull())
+  })
+})
+
+describe('C35 下钻写关键字（S6-D19）', () => {
+  it('互认科室维度下钻把科室值写入关键字草稿并自动提交一次', async () => {
+    summaryQuery.mockImplementation(() => Promise.resolve(pageOf([{
+      ...usageSummaryRow,
+      groupDimension: 3,
+      receiverHospitalCode: null,
+      receiverHospitalName: null,
+      receiverBranchCode: 'BRA1',
+      receiverBranchName: '院区一',
+      recognitionDeptId: 'DEPT1',
+      recognitionDeptName: '检验科',
+    }])))
+    renderBoard()
+    // 夹具行是互认科室维度行：切到互认科室维度后汇总表出科室名称列。
+    fireEvent.click(within(screen.getByRole('group', { name: '汇总维度' })).getByRole('radio', { name: '互认科室' }))
+    await waitSummaryText('检验科')
+
+    const summaryTable = within(summarySection()).getAllByRole('table')[0]
+    fireEvent.click(within(summaryTable).getByRole('button', { name: '下钻提醒明细' }))
+
+    // 走既有提交路径：明细与汇总各重读一次，科室值落在关键字。
+    await waitFor(() => expect(detailsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ keyword: 'DEPT1' }), 1, expect.anything()))
+    // 挂载即切维度会取消初始读取（同 effect 清理）：汇总共两次——维度读取与下钻提交；
+    // 下钻提交携带关键字并回第 1 页。
+    await waitFor(() => expect(summaryQuery).toHaveBeenCalledTimes(2))
+    expect(summaryQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ keyword: 'DEPT1' }), 3, { pageIndex: 1, pageSize: 10 })
+  })
+
+  it('标准项目维度下钻把项目编码写入关键字并保留项目类型（使用侧）', async () => {
+    summaryQuery.mockImplementation(() => Promise.resolve(pageOf([{
+      ...usageSummaryRow,
+      groupDimension: 4,
+      receiverHospitalCode: null,
+      receiverHospitalName: null,
+      itemType: 0,
+      itemTypeText: '检验',
+      categoryName: '检验分类',
+      groupName: '血液',
+      standardProjectCode: 'A01',
+      standardProjectName: '血常规',
+    }])))
+    renderBoard()
+    // 夹具行是标准项目维度行：切到标准项目维度后汇总表出项目编码与名称列。
+    fireEvent.click(within(screen.getByRole('group', { name: '汇总维度' })).getByRole('radio', { name: '标准项目' }))
+    await waitSummaryText('血常规')
+
+    const summaryTable = within(summarySection()).getAllByRole('table')[0]
+    fireEvent.click(within(summaryTable).getByRole('button', { name: '下钻提醒明细' }))
+
+    await waitFor(() => expect(detailsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ keyword: 'A01', itemType: 0 }), 1, expect.anything()))
+  })
+
+  it('来源侧标准项目维度下钻把项目编码写入关键字', async () => {
+    summaryQuery.mockImplementation(() => Promise.resolve(pageOf([{
+      ...sourceSummaryRow,
+      groupDimension: 4,
+      sourceHospitalCode: null,
+      sourceHospitalName: null,
+      itemType: 1,
+      itemTypeText: '检查',
+      standardProjectCode: 'B02',
+      standardProjectName: 'CT',
+    }])))
+    // 来源侧明细表列按来源侧行取值：明细替身交付来源侧行，避免列取值形态错配。
+    detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
+    renderBoard(boardProps({
+      title: '来源医院被互认统计',
+      side: 'source',
+      initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28' },
+    }))
+    // 夹具行是标准项目维度行：切到标准项目维度后汇总表出项目编码与名称列。
+    fireEvent.click(within(screen.getByRole('group', { name: '汇总维度' })).getByRole('radio', { name: '标准项目' }))
+    await waitFor(() => expect(within(screen.getByRole('region', { name: '汇总统计' })).getByText('CT')).toBeInTheDocument())
+    const sourceSummaryTable = within(screen.getByRole('region', { name: '汇总统计' })).getAllByRole('table')[0]
+    fireEvent.click(within(sourceSummaryTable).getByRole('button', { name: '下钻被互认明细' }))
+
+    await waitFor(() => expect(detailsQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ keyword: 'B02', itemType: 1 }), expect.anything(), { pageIndex: 1, pageSize: 10 }))
+  })
+})
 
   it('视图切换即时生效，翻页基于已生效条件读取', async () => {
     summaryQuery.mockImplementation(() =>
@@ -609,16 +868,16 @@ describe('统计主体：提交式筛选与查询区（提交式筛选、提交�
     await waitSummaryText('医院一')
 
     // 草稿改动零请求；提交后按已生效条件读取。
-    fireEvent.change(screen.getByLabelText('统计开始日期'), { target: { value: '2026-03-01' } })
+    fireEvent.change(screen.getByLabelText('关键字筛选'), { target: { value: 'DEPT9' } })
     expect(summaryQuery).toHaveBeenCalledTimes(1)
     fireEvent.click(screen.getByRole('button', { name: '查询' }))
     await waitFor(() => expect(summaryQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ startTime: '2026-03-01' }), 1, { pageIndex: 1, pageSize: 10 }))
+      expect.objectContaining({ keyword: 'DEPT9' }), 1, { pageIndex: 1, pageSize: 10 }))
 
     // 翻页沿用已生效条件。
     fireEvent.click(screen.getByTitle('2'))
     await waitFor(() => expect(summaryQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ startTime: '2026-03-01' }), 1, { pageIndex: 2, pageSize: 10 }))
+      expect.objectContaining({ keyword: 'DEPT9' }), 1, { pageIndex: 2, pageSize: 10 }))
 
     // 汇总维度是视图切换：即时生效、不进草稿，页码回到第 1 页。
     fireEvent.click(within(screen.getByRole('group', { name: '汇总维度' })).getByRole('radio', { name: '院区' }))
@@ -633,22 +892,6 @@ describe('统计主体：提交式筛选与查询区（提交式筛选、提交�
     fireEvent.click(within(detailsSection()).getByRole('radio', { name: '不采纳' }))
     await waitFor(() => expect(detailsQuery).toHaveBeenLastCalledWith(expect.anything(), 3, expect.anything()))
     expect(summaryQuery).toHaveBeenCalledTimes(1)
-  })
-
-  it('查询区为 inline Form，查询与重置在行内最后一个 Form.Item 内并排（查询区结构口径）', async () => {
-    renderBoard()
-
-    const form = document.querySelector('.statistics-board-filters form')
-    expect(form).not.toBeNull()
-    expect(form).toHaveClass('ant-form-inline')
-    const search = screen.getByRole('button', { name: '查询' })
-    expect(search).toHaveClass('ant-btn-primary')
-    expect(search.getAttribute('type')).toBe('submit')
-    const reset = screen.getByRole('button', { name: '重置' })
-    expect(reset).not.toHaveClass('ant-btn-primary')
-    const sharedItem = search.closest('.ant-form-item')
-    expect(sharedItem).not.toBeNull()
-    expect(sharedItem).toBe(reset.closest('.ant-form-item'))
   })
 })
 
@@ -723,7 +966,7 @@ describe('统计主体：判定面替身取证（C9、C13、C18、C19）', () =>
 
     await waitFor(() => expect(pending).toHaveLength(1))
     // 初始读取在途：查询按钮进入加载态，再点不发新请求（antd loading 在途阻止点击提交）。
-    fireEvent.change(screen.getByLabelText('统计开始日期'), { target: { value: '2026-03-01' } })
+    fireEvent.change(screen.getByLabelText('关键字筛选'), { target: { value: 'DEPT9' } })
     await waitFor(() => expect(screen.getByRole('button', { name: '查询' })).toHaveClass('ant-btn-loading'))
     fireEvent.click(screen.getByRole('button', { name: '查询' }))
     expect(pending).toHaveLength(1)
@@ -809,44 +1052,33 @@ describe('统计主体：判定面替身取证（C9、C13、C18、C19）', () =>
     expect(summaryQuery).toHaveBeenCalledTimes(3)
   })
 
-  it('互认医生筛选改动只进草稿，点查询后随明细查询请求提交（C13、提交式筛选口径）', async () => {
+  it('关键字筛选改动只进草稿，点查询后随明细查询请求提交（C13、提交式筛选口径）', async () => {
     renderBoard()
     await waitSummaryText('医院一')
 
-    fireEvent.change(screen.getByLabelText('互认医生筛选'), { target: { value: 'DOC-9' } })
+    fireEvent.change(screen.getByLabelText('关键字筛选'), { target: { value: 'DOC-9' } })
     // 草稿零请求。
     expect(detailsQuery).toHaveBeenCalledTimes(1)
 
     fireEvent.click(screen.getByRole('button', { name: '查询' }))
     await waitFor(() => expect(detailsQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ recognitionDoctorId: 'DOC-9' }), expect.anything(), expect.anything()))
+      expect.objectContaining({ keyword: 'DOC-9' }), expect.anything(), expect.anything()))
   })
 
-  it('日期被清空后条件不完整：草稿零请求，点查询后查询出口返回 null、主体零发请求并保留空态（C10 阻断面）', async () => {
+  it('查询出口返回 null（条件不完整阻断）时零数据写入并保留已有数据（C10 阻断面）', async () => {
     renderBoard()
     await waitSummaryText('医院一')
 
-    fireEvent.change(screen.getByLabelText('统计开始日期'), { target: { value: '' } })
-    fireEvent.change(screen.getByLabelText('统计结束日期'), { target: { value: '' } })
-    // 草稿改动零请求。
-    expect(summaryQuery).toHaveBeenCalledTimes(1)
-    expect(detailsQuery).toHaveBeenCalledTimes(1)
-
+    // 出口返回 null 表示条件不完整（如本院页登录院区缺失）：主体零写入、不进失败态、保留已有数据。
     summaryQuery.mockImplementation(() => null)
     detailsQuery.mockImplementation(() => null)
     fireEvent.click(screen.getByRole('button', { name: '查询' }))
 
-    // 提交触发读取入口，出口返回 null 即被阻断：加载态结束、无数据写入、无失败提示。
-    await waitFor(() => expect(screen.getByText('当前筛选条件没有汇总数据')).toBeInTheDocument())
+    await waitFor(() => expect(summaryQuery).toHaveBeenCalledTimes(2))
+    expect(detailsQuery).toHaveBeenCalledTimes(2)
+    expect(within(summarySection()).getByText('医院一')).toBeInTheDocument()
     expect(within(summarySection()).queryByText('汇总数据待刷新')).toBeNull()
     expect(within(detailsSection()).queryByText('明细数据待刷新')).toBeNull()
-    // 恢复日期后查询恢复。
-    summaryQuery.mockImplementation(() => Promise.resolve(pageOf([usageSummaryRow])))
-    detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([usageDetailUnprocessed, usageDetailProcessed])))
-    fireEvent.change(screen.getByLabelText('统计开始日期'), { target: { value: '2026-02-01' } })
-    fireEvent.change(screen.getByLabelText('统计结束日期'), { target: { value: '2026-02-28' } })
-    fireEvent.click(screen.getByRole('button', { name: '查询' }))
-    await waitSummaryText('医院一')
   })
 
   it('不采纳原因区展示各原因的次数与占比文本（C11）', async () => {
@@ -860,13 +1092,11 @@ describe('统计主体：判定面替身取证（C9、C13、C18、C19）', () =>
 })
 
 describe('页面标题层级', () => {
-  it('页面大标题为 level 3，margin 归零（统计页无配套 CSS，由标题内联样式承载）', () => {
+  it('页面大标题为 level 3，无 level 2；标题 margin 归零由配套 CSS 承载（C31 静态证据）', () => {
     renderBoard()
 
-    // jsdom 无布局：margin 归零按标题元素的内联样式断言（Testing Baseline §1.4 静态证据）。
     const heading = screen.getByRole('heading', { name: '接收医院互认使用统计', level: 3 })
     expect(heading).toBeInTheDocument()
-    expect(heading).toHaveStyle({ margin: '0px' })
     expect(screen.queryByRole('heading', { name: '接收医院互认使用统计', level: 2 })).toBeNull()
   })
 })

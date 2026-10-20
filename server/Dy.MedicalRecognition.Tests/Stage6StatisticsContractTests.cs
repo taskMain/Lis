@@ -11,8 +11,10 @@ using Xunit;
 namespace Dy.MedicalRecognition.Tests;
 
 /// <summary>
-/// 阶段 6 互认统计与导出的契约与静态面：查询契约分片方法集合与签名、十一个请求类型的双入口字段集合、
-/// 十三个统计读模型的强类型重建、三个统计枚举的取值与描述器声明，以及分页禁用字段守卫。
+/// 阶段 6 互认统计与导出的契约与静态面：查询契约分片方法集合与签名、十一个请求类型的双入口字段集合
+/// （含 S6-D19 统一关键字修订面：八个查询请求与两个导出请求以 <c>Keyword</c> 替换互认科室ID、标准项目编码、
+/// 互认医生ID三个独立字段，不采纳原因代码字段保留）、十三个统计读模型的强类型重建、
+/// 三个统计枚举的取值与描述器声明，以及分页禁用字段守卫。
 /// </summary>
 /// <remarks>
 /// 对应后端设计验证矩阵（docs/plans/008-阶段6-互认统计与导出/Server/design.md「验证矩阵」章）V1、V2、V3、V5、V6
@@ -256,7 +258,11 @@ public sealed class Stage6StatisticsContractTests
     }
   }
 
-  /// <summary>V1：平台版接收侧两个请求承载接收组与来源组两组组织/医院/院区、汇总或明细专属筛选与内嵌分页对象。</summary>
+  /// <summary>
+  /// V1（S6-D19 修订面）：平台版接收侧两个请求承载接收组与来源组两组组织/医院/院区、
+  /// 统一关键字、汇总或明细专属筛选与内嵌分页对象；统一关键字替换互认科室ID、标准项目编码与互认医生ID独立字段，
+  /// 不采纳原因代码仍仅由明细请求携带。
+  /// </summary>
   [Fact]
   public void Platform_receive_side_requests_carry_both_scope_groups()
   {
@@ -265,8 +271,8 @@ public sealed class Stage6StatisticsContractTests
       ("StartTime", "DateOnly"), ("EndTime", "DateOnly"),
       ("OrganizationCode", "string?"), ("HospitalCode", "string?"), ("BranchCode", "string?"),
       ("SourceOrganizationCode", "string?"), ("SourceHospitalCode", "string?"), ("SourceBranchCode", "string?"),
-      ("RecognitionDeptId", "string?"), ("ItemType", "MedicalItemType?"), ("CategoryName", "string?"),
-      ("GroupName", "string?"), ("StandardProjectCode", "string?"),
+      ("Keyword", "string?"), ("ItemType", "MedicalItemType?"), ("CategoryName", "string?"),
+      ("GroupName", "string?"),
       ("GroupDimension", "RecognitionStatisticsGroupDimension"), ("Page", "PageRequestDto")
     ]);
 
@@ -275,15 +281,15 @@ public sealed class Stage6StatisticsContractTests
       ("StartTime", "DateOnly"), ("EndTime", "DateOnly"),
       ("OrganizationCode", "string?"), ("HospitalCode", "string?"), ("BranchCode", "string?"),
       ("SourceOrganizationCode", "string?"), ("SourceHospitalCode", "string?"), ("SourceBranchCode", "string?"),
-      ("RecognitionDeptId", "string?"), ("RecognitionDoctorId", "string?"), ("ItemType", "MedicalItemType?"),
-      ("CategoryName", "string?"), ("GroupName", "string?"), ("StandardProjectCode", "string?"),
+      ("Keyword", "string?"), ("ItemType", "MedicalItemType?"),
+      ("CategoryName", "string?"), ("GroupName", "string?"),
       ("NonAdoptionReasonCode", "string?"), ("DetailType", "RecognitionUsageDetailType"), ("Page", "PageRequestDto")
     ]);
   }
 
   /// <summary>
-  /// V1：本院版接收侧两个请求不含本侧组织与医院字段（由可信上下文注入），本侧院区可选，
-  /// 携带来源组医院/院区可选筛选。
+  /// V1（S6-D19 修订面）：本院版接收侧两个请求不含本侧组织与医院字段（由可信上下文注入），本侧院区可选，
+  /// 携带来源组医院/院区可选筛选与统一关键字；统一关键字替换互认科室ID、标准项目编码与互认医生ID独立字段。
   /// </summary>
   [Fact]
   public void Branch_receive_side_requests_omit_local_organization_and_hospital()
@@ -292,8 +298,8 @@ public sealed class Stage6StatisticsContractTests
     [
       ("StartTime", "DateOnly"), ("EndTime", "DateOnly"), ("BranchCode", "string?"),
       ("SourceHospitalCode", "string?"), ("SourceBranchCode", "string?"),
-      ("RecognitionDeptId", "string?"), ("ItemType", "MedicalItemType?"), ("CategoryName", "string?"),
-      ("GroupName", "string?"), ("StandardProjectCode", "string?"),
+      ("Keyword", "string?"), ("ItemType", "MedicalItemType?"), ("CategoryName", "string?"),
+      ("GroupName", "string?"),
       ("GroupDimension", "RecognitionStatisticsGroupDimension"), ("Page", "PageRequestDto")
     ]);
 
@@ -301,13 +307,16 @@ public sealed class Stage6StatisticsContractTests
     [
       ("StartTime", "DateOnly"), ("EndTime", "DateOnly"), ("BranchCode", "string?"),
       ("SourceHospitalCode", "string?"), ("SourceBranchCode", "string?"),
-      ("RecognitionDeptId", "string?"), ("RecognitionDoctorId", "string?"), ("ItemType", "MedicalItemType?"),
-      ("CategoryName", "string?"), ("GroupName", "string?"), ("StandardProjectCode", "string?"),
+      ("Keyword", "string?"), ("ItemType", "MedicalItemType?"),
+      ("CategoryName", "string?"), ("GroupName", "string?"),
       ("NonAdoptionReasonCode", "string?"), ("DetailType", "RecognitionUsageDetailType"), ("Page", "PageRequestDto")
     ]);
   }
 
-  /// <summary>V1：平台版来源侧两个请求承载来源组与接收组两组组织/医院/院区与标准项目筛选。</summary>
+  /// <summary>
+  /// V1（S6-D19 修订面）：平台版来源侧两个请求承载来源组与接收组两组组织/医院/院区与统一关键字；
+  /// 统一关键字替换标准项目编码独立字段，来源侧语句不承载互认医生列。
+  /// </summary>
   [Fact]
   public void Platform_source_side_requests_carry_both_scope_groups()
   {
@@ -317,7 +326,7 @@ public sealed class Stage6StatisticsContractTests
       ("SourceOrganizationCode", "string?"), ("SourceHospitalCode", "string?"), ("SourceBranchCode", "string?"),
       ("ReceiverOrganizationCode", "string?"), ("ReceiverHospitalCode", "string?"), ("ReceiverBranchCode", "string?"),
       ("ItemType", "MedicalItemType?"), ("CategoryName", "string?"), ("GroupName", "string?"),
-      ("StandardProjectCode", "string?"), ("GroupDimension", "RecognitionStatisticsGroupDimension"), ("Page", "PageRequestDto")
+      ("Keyword", "string?"), ("GroupDimension", "RecognitionStatisticsGroupDimension"), ("Page", "PageRequestDto")
     ]);
 
     AssertRequestProperties(nameof(SourceRecognitionDetailsQueryRequest),
@@ -326,13 +335,13 @@ public sealed class Stage6StatisticsContractTests
       ("SourceOrganizationCode", "string?"), ("SourceHospitalCode", "string?"), ("SourceBranchCode", "string?"),
       ("ReceiverOrganizationCode", "string?"), ("ReceiverHospitalCode", "string?"), ("ReceiverBranchCode", "string?"),
       ("ItemType", "MedicalItemType?"), ("CategoryName", "string?"), ("GroupName", "string?"),
-      ("StandardProjectCode", "string?"), ("Page", "PageRequestDto")
+      ("Keyword", "string?"), ("Page", "PageRequestDto")
     ]);
   }
 
   /// <summary>
-  /// V1：本院版来源侧两个请求不含来源组织与来源医院字段（固定为可信上下文），本侧来源院区可选，
-  /// 携带接收组医院/院区可选筛选。
+  /// V1（S6-D19 修订面）：本院版来源侧两个请求不含来源组织与来源医院字段（固定为可信上下文），本侧来源院区可选，
+  /// 携带接收组医院/院区可选筛选与统一关键字；统一关键字替换标准项目编码独立字段。
   /// </summary>
   [Fact]
   public void Branch_source_side_requests_omit_local_organization_and_hospital()
@@ -342,7 +351,7 @@ public sealed class Stage6StatisticsContractTests
       ("StartTime", "DateOnly"), ("EndTime", "DateOnly"), ("SourceBranchCode", "string?"),
       ("ReceiverHospitalCode", "string?"), ("ReceiverBranchCode", "string?"),
       ("ItemType", "MedicalItemType?"), ("CategoryName", "string?"), ("GroupName", "string?"),
-      ("StandardProjectCode", "string?"), ("GroupDimension", "RecognitionStatisticsGroupDimension"), ("Page", "PageRequestDto")
+      ("Keyword", "string?"), ("GroupDimension", "RecognitionStatisticsGroupDimension"), ("Page", "PageRequestDto")
     ]);
 
     AssertRequestProperties(nameof(BranchSourceRecognitionDetailsQueryRequest),
@@ -350,12 +359,14 @@ public sealed class Stage6StatisticsContractTests
       ("StartTime", "DateOnly"), ("EndTime", "DateOnly"), ("SourceBranchCode", "string?"),
       ("ReceiverHospitalCode", "string?"), ("ReceiverBranchCode", "string?"),
       ("ItemType", "MedicalItemType?"), ("CategoryName", "string?"), ("GroupName", "string?"),
-      ("StandardProjectCode", "string?"), ("Page", "PageRequestDto")
+      ("Keyword", "string?"), ("Page", "PageRequestDto")
     ]);
   }
 
   /// <summary>
-  /// V1：两个导出请求含导出类型、必填汇总维度与可选不采纳原因代码，承载统计查询条件，且不含分页对象；
+  /// V1（S6-D19 修订面）：两个导出请求含导出类型、必填汇总维度、统一关键字与可选不采纳原因代码，
+  /// 承载统计查询条件，且不含分页对象；统一关键字替换互认科室ID、标准项目编码与互认医生ID独立字段，
+  /// 不采纳原因代码仍仅作用于接收侧不采纳明细导出。
   /// 本院版导出请求不含任何组织与医院字段，仅保留本侧院区与来源/接收两组院区可选筛选。
   /// </summary>
   [Fact]
@@ -366,8 +377,8 @@ public sealed class Stage6StatisticsContractTests
       ("ExportType", "RecognitionStatisticsExportType"), ("StartTime", "DateOnly"), ("EndTime", "DateOnly"),
       ("ReceiverOrganizationCode", "string?"), ("ReceiverHospitalCode", "string?"), ("ReceiverBranchCode", "string?"),
       ("SourceOrganizationCode", "string?"), ("SourceHospitalCode", "string?"), ("SourceBranchCode", "string?"),
-      ("RecognitionDeptId", "string?"), ("RecognitionDoctorId", "string?"), ("ItemType", "MedicalItemType?"),
-      ("CategoryName", "string?"), ("GroupName", "string?"), ("StandardProjectCode", "string?"),
+      ("Keyword", "string?"), ("ItemType", "MedicalItemType?"),
+      ("CategoryName", "string?"), ("GroupName", "string?"),
       ("NonAdoptionReasonCode", "string?"), ("GroupDimension", "RecognitionStatisticsGroupDimension")
     ]);
 
@@ -377,8 +388,8 @@ public sealed class Stage6StatisticsContractTests
       ("BranchCode", "string?"),
       ("SourceHospitalCode", "string?"), ("SourceBranchCode", "string?"),
       ("ReceiverHospitalCode", "string?"), ("ReceiverBranchCode", "string?"),
-      ("RecognitionDeptId", "string?"), ("RecognitionDoctorId", "string?"), ("ItemType", "MedicalItemType?"),
-      ("CategoryName", "string?"), ("GroupName", "string?"), ("StandardProjectCode", "string?"),
+      ("Keyword", "string?"), ("ItemType", "MedicalItemType?"),
+      ("CategoryName", "string?"), ("GroupName", "string?"),
       ("NonAdoptionReasonCode", "string?"), ("GroupDimension", "RecognitionStatisticsGroupDimension")
     ]);
   }
@@ -574,6 +585,16 @@ public sealed class Stage6StatisticsContractTests
         GroupDimension = RecognitionStatisticsGroupDimension.Hospital,
         OrganizationCode = " "
       }));
+
+    // 统一关键字空白（含全空白字符）按未提供语义放行：声明没有 NonEmpty 拒绝（S6-D19 修订面）。
+    MedicalRecognitionRequestValidator.Validate(new RecognitionUsageSummaryQueryRequest
+    {
+      StartTime = new DateOnly(2026, 1, 1),
+      EndTime = new DateOnly(2026, 1, 31),
+      GroupDimension = RecognitionStatisticsGroupDimension.Hospital,
+      Keyword = "   ",
+      Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
+    });
 
     // 匹配记录视图请求的空 Guid 拒绝，合法标识放行。
     Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(() => MedicalRecognitionRequestValidator.Validate(

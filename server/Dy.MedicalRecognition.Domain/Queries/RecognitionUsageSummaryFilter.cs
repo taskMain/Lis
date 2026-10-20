@@ -30,14 +30,15 @@ public sealed record RecognitionUsageSummaryFilter
   public string? SourceHospitalCode { get; init; }
   /// <summary>来源院区编码；为空表示不按来源院区过滤。</summary>
   public string? SourceBranchCode { get; init; }
-  /// <summary>互认科室ID；为空表示不按互认科室过滤。</summary>
-  public string? RecognitionDeptId { get; init; }
+  /// <summary>
+  /// 统一关键字；由应用层经空白归一传入（空白视为未提供、非空白去首尾空白），
+  /// 语句侧按互认科室ID/名称、标准项目编码/名称逐列前缀匹配（大小写不敏感）后 OR 组合。
+  /// </summary>
+  public string? Keyword { get; init; }
   /// <summary>项目类型；为空表示不按项目类型过滤。</summary>
   public MedicalItemType? ItemType { get; init; }
   /// <summary>标准目录分类名称；为空表示不按分类过滤。</summary>
   public string? CategoryName { get; init; }
   /// <summary>标准目录分组名称；为空表示不按分组过滤。</summary>
   public string? GroupName { get; init; }
-  /// <summary>标准项目编码；为空表示不按标准项目过滤。</summary>
-  public string? StandardProjectCode { get; init; }
 }

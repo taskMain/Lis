@@ -1,0 +1,9 @@
+/* 统计页配套 CSS（S6-D19）：区块间距与「本院报告管理与历史版本」列表页同值
+   （页头 20、范围行 16、查询行 4、工具行 8），页头行 flex 左右结构承载标题区与登录范围条；
+   颜色与控件形态一律组件库默认 token，不覆盖样式。 */
+.statistics-board { min-width: 0; max-width: 100%; }
+.statistics-board-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.statistics-board-header h3.ant-typography { margin: 0; }
+.statistics-board-scope { margin-bottom: 16px; }
+.statistics-board-filters { margin-bottom: 4px; }
+.statistics-board-toolbar { margin-bottom: 8px; }

@@ -1,15 +1,19 @@
 /**
- * 四个统计页面（平台/本院 × 接收侧/来源侧）共享的页面主体（S6-D11；提交式筛选改造起承载提交式筛选与三行式明细）。
+ * 四个统计页面（平台/本院 × 接收侧/来源侧）共享的页面主体（S6-D11、S6-D19；查询区与报告管理列表页同构）。
  *
  * 主体承载统计页的全部行为编排：筛选区、范围选择、汇总维度单选与汇总表、
  * 明细类型单选与明细表、导出入口与匹配记录弹窗；接收侧与来源侧的结构差异用 `side` 表达，
  * 平台/本院的范围形态差异用 `scopeSpec` 表达。数据源由四个页面注入（查询/导出入口以适配层为边界），
  * 主体不接触生成的 Kiota 类型，也不创建 API Client。
  *
- * 提交式筛选（D-02）：筛选控件（含范围选择器与明细区两条件）改动只进草稿、零请求；点「查询」把草稿
- * 提交为已生效条件并回到第 1 页，一次提交同时重读汇总与明细；「重置」清空草稿并恢复默认条件。
- * 汇总数字下钻把维度值预填进草稿并自动提交一次（走同一条提交路径）。汇总维度、明细类型是视图切换，
- * 保持即时生效、不进草稿；翻页基于已生效条件自动读取。
+ * 查询区同构（S6-D19）：统一关键字（占位按侧区分，来源侧语句无医生列故不含互认医生）+ 项目类型下拉
+ * + 预设日期区间选择器（今天/近 7 天/近 30 天，不可清空，默认近 30 天）+ 主色查询按钮；不设重置，
+ * 关键字与项目类型可清空、清空后经「查询」生效。筛选控件改动只进草稿、零请求；点「查询」把草稿
+ * 提交为已生效条件，一次提交同时重读汇总与明细，同条件再次提交等价刷新。汇总数字下钻把维度值
+ * 预填进草稿并自动提交一次（互认科室/标准项目维度写入关键字草稿）；原因行下钻写入精确原因代码
+ * 并在明细区工具行显示可移除筛选标记（移除同走提交路径）。汇总维度、明细类型是视图切换，
+ * 保持即时生效、不进草稿；翻页基于已生效条件自动读取。本院页页头为左右结构（左侧标题区、
+ * 右侧登录范围条），平台页页头不承载范围条。
  *
  * 服务端分页口径（同报告管理主体先例）：
  * 1. 分页由服务端完成，页面不排序、不做本地过滤与本地分页；
@@ -22,8 +26,10 @@
  * 导出与弹窗读取的既有恢复形态保留，不显示本地接口错误提示。
  */
 import { SearchOutlined } from '@ant-design/icons'
+import dayjs, { type Dayjs } from 'dayjs'
 import {
   Button,
+  DatePicker,
   Empty,
   Form,
   Input,
@@ -31,6 +37,7 @@ import {
   Select,
   Space,
   Table,
+  Tag,
   Typography,
   type TableColumnsType,
 } from 'antd'
@@ -59,11 +66,14 @@ import {
   type UsageDetailTypeValue,
 } from './recognitionStatisticsValues'
 import {
+  buildStatisticsDatePresets,
+  defaultStatisticsFilters,
   formatStatisticsAmount,
   formatStatisticsDateTime,
   formatStatisticsPercent,
   statisticsTextOrDash,
 } from './statisticsDisplays'
+import './statisticsBoard.css'
 
 /** 统计页侧别：接收侧（互认使用）或来源侧（被互认）。 */
 export type StatisticsSide = 'usage' | 'source'
@@ -74,7 +84,8 @@ export type StatisticsDetailRow = UsageDetailRow | SourceDetailRow
 
 /**
  * 页面筛选状态的稳定模型：日期必填；范围字段按页面版本取用（平台页提交两组三级，
- * 本院页提交本侧院区与对侧组医院/院区）；科室与项目条件两侧共用；互认医生与不采纳原因只进明细查询。
+ * 本院页提交本侧院区与对侧组医院/院区）；统一关键字承载互认科室、互认项目与互认医生条件（S6-D19）；
+ * 不采纳原因代码只经原因行下钻写入，仅在不采纳明细查询与明细导出生效。
  */
 export interface StatisticsFilters {
   startTime: string
@@ -91,10 +102,9 @@ export interface StatisticsFilters {
   sourceOrganizationCode?: string
   sourceHospitalCode?: string
   sourceBranchCode?: string
-  recognitionDeptId?: string
+  /** 统一关键字：互认科室、互认项目与互认医生条件的单一承载（S6-D19），输入原文经适配层去首尾空白提交。 */
+  keyword?: string
   itemType?: MedicalItemTypeValue
-  standardProjectCode?: string
-  recognitionDoctorId?: string
   nonAdoptionReasonCode?: string
 }
 
@@ -217,25 +227,26 @@ function sourceSummaryRowKey(row: SourceSummaryRow): string {
   ].map((part) => part ?? '').join('|')
 }
 
-/** 接收侧汇总行下钻的筛选预填：按维度值落到对应范围字段（本院页用不到的字段由页面映射忽略）。 */
+/** 接收侧汇总行下钻的筛选预填：按维度值落到对应条件字段（本院页用不到的字段由页面映射忽略）。 */
 function usageDrilldownPatch(row: UsageSummaryRow): Partial<StatisticsFilters> {
   switch (row.groupDimension) {
     case 1: return { receiverHospitalCode: row.receiverHospitalCode ?? undefined }
     // 本侧院区恒为登录院区（不提供院区选择），院区维度的下钻不再回写 ownBranchCode。
     case 2: return { receiverBranchCode: row.receiverBranchCode ?? undefined }
-    case 3: return { recognitionDeptId: row.recognitionDeptId ?? undefined }
-    case 4: return { itemType: row.itemType ?? undefined, standardProjectCode: row.standardProjectCode ?? undefined }
+    // 互认科室与标准项目维度的维度值写入关键字草稿（S6-D19）：科室值/项目编码经统一关键字提交。
+    case 3: return { keyword: row.recognitionDeptId ?? undefined }
+    case 4: return { itemType: row.itemType ?? undefined, keyword: row.standardProjectCode ?? undefined }
     default: return {}
   }
 }
 
-/** 来源侧汇总行下钻的筛选预填，口径同接收侧。 */
+/** 来源侧汇总行下钻的筛选预填，口径同接收侧（来源侧无互认科室维度）。 */
 function sourceDrilldownPatch(row: SourceSummaryRow): Partial<StatisticsFilters> {
   switch (row.groupDimension) {
     case 1: return { sourceHospitalCode: row.sourceHospitalCode ?? undefined }
     // 本侧院区恒为登录院区（不提供院区选择），院区维度的下钻不再回写 ownBranchCode。
     case 2: return { sourceBranchCode: row.sourceBranchCode ?? undefined }
-    case 4: return { itemType: row.itemType ?? undefined, standardProjectCode: row.standardProjectCode ?? undefined }
+    case 4: return { itemType: row.itemType ?? undefined, keyword: row.standardProjectCode ?? undefined }
     default: return {}
   }
 }
@@ -447,9 +458,9 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
   // ===== 会话状态 =====
   const [filters, setFilters] = useState<StatisticsFilters>(initialFilters)
   /**
-   * 提交式筛选（D-02）：草稿承载未提交的筛选与范围改动（含明细区两条件的合并面），已生效条件在
-   * `filters` 里驱动汇总与明细读取。控件 onChange 只写草稿；「查询」把草稿提交为已生效条件，
-   * 一次提交经各自的 mark 复位同时重读两个区；「重置」恢复默认条件。
+   * 提交式筛选（D-02、S6-D19）：草稿承载未提交的筛选与范围改动，已生效条件在 `filters` 里驱动
+   * 汇总与明细读取。控件 onChange 只写草稿；「查询」把草稿提交为已生效条件，一次提交经各自的
+   * mark 复位同时重读两个区；不设重置，关键字与项目类型可清空、清空后经「查询」生效。
    */
   const [draftFilters, setDraftFilters] = useState<StatisticsFilters>(initialFilters)
   const [dimension, setDimension] = useState<StatisticsGroupDimensionValue>(1)
@@ -491,8 +502,11 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
   const [scopeMark, setScopeMark] = useState(scopeKey)
   if (scopeMark !== scopeKey) {
     setScopeMark(scopeKey)
-    setFilters({ ...initialFilters })
-    setDraftFilters({ ...initialFilters })
+    // 复位条件含按复位时刻重算的默认近 30 天窗（与报告管理页跨天语义同构）：
+    // 新窗口覆盖日期两字段，initialFilters 其余字段（如本院页 ownBranchCode 注入）保留。
+    const resetFilters = { ...initialFilters, ...defaultStatisticsFilters() }
+    setFilters(resetFilters)
+    setDraftFilters({ ...resetFilters })
     setDimension(1)
     setDetailType(1)
     setSummaryRows([])
@@ -651,16 +665,20 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
     submitFilters({ ...draftFilters })
   }, [draftFilters, submitFilters])
 
-  /** 重置：清空草稿并恢复默认条件（各页初始默认值）；已生效条件一并复位并回到第 1 页重读。 */
-  const resetDraft = useCallback(() => {
-    const defaults = { ...initialFilters }
-    if (sameFilters(filters, defaults)) {
-      // 条件已等于默认值时重置仍等价于一次回到第 1 页的刷新：页对象换引用、推进号保证重读。
-      setSummaryPage((previous) => ({ ...previous, pageIndex: 1 }))
-      setDetailPage((previous) => ({ ...previous, pageIndex: 1 }))
-    }
-    submitFilters(defaults)
-  }, [filters, initialFilters, submitFilters])
+  /**
+   * 原因筛选标记的移除（比照报告页状态页签的即时提交语义，S6-D19）：只从已生效条件与草稿各移除
+   * 原因代码一个字段，其余未提交草稿保持不动；不走会把草稿整体覆写为已生效条件的提交入口。
+   * 已生效条件换引用触发既有的 mark 复位与两路重读并回第 1 页；同条件重复移除保持旧条件引用、
+   * 仅推进重读号等价刷新（与既有提交路径同一口径）。
+   */
+  const removeReasonFilter = useCallback(() => {
+    setFilters((previous) => {
+      const next = { ...previous, nonAdoptionReasonCode: undefined }
+      return sameFilters(previous, next) ? previous : next
+    })
+    setDraftFilters((previous) => ({ ...previous, nonAdoptionReasonCode: undefined }))
+    setReloadNonce((nonce) => nonce + 1)
+  }, [])
 
   /** 平台页接收组/来源组三级范围选择（改动进草稿）。 */
   const changeReceiverScope = useCallback((value: BaseScopeValue) => applyDraft({
@@ -697,7 +715,8 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
   /** 导出：沿用当前查询条件（不带分页）与下载名构造；导出中禁用重复提交（C15）。 */
   const runExport = useCallback(async (kind: 'summary' | 'details') => {
     if (exporting) return
-    // 日期缺失（被用户清空）时条件不完整，不构造导出请求，也不构造下载名。
+    // 时间区间不可清空（allowClear={false}），此守卫为契约面防御：缺日期时条件不完整，
+    // 不构造导出请求，也不构造下载名（查询出口返回 null，主体零发请求）。
     if (toStatisticsRequestDate(filters.startTime) === null || toStatisticsRequestDate(filters.endTime) === null) return
     const exportType = kind === 'summary'
       ? (side === 'usage' ? 1 : 6)
@@ -746,6 +765,22 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
   // ===== 派生 =====
 
   const itemTypeOptions = useEnumMetadata('MedicalItemType', MEDICAL_ITEM_TYPE_FALLBACK)
+  // 时间预设按挂载当天的日历构造（S6-D19：今天/近 7 天/近 30 天），引用稳定、不随读取重算。
+  const datePresets = useMemo(() => buildStatisticsDatePresets(dayjs()), [])
+  /** 草稿时间区间的受控值：来自草稿的年月日文本（区间不可清空，两端恒有值）。 */
+  const draftRangeValue: [Dayjs, Dayjs] = [dayjs(draftFilters.startTime), dayjs(draftFilters.endTime)]
+  /**
+   * 原因筛选标记的展示名（S6-D19）：取当前汇总行原因区内该代码的原因名；行内未交付该代码时
+   * 兜底展示代码原文，标记的移除行为不受名称来源影响。
+   */
+  const reasonFilterName = useMemo(() => {
+    const code = filters.nonAdoptionReasonCode
+    if (code === undefined) return null
+    const found = (summaryRows as UsageSummaryRow[])
+      .flatMap((row) => row.nonAdoptionReasons)
+      .find((reason) => reason.reasonCode === code)
+    return found?.reasonName ?? code
+  }, [filters.nonAdoptionReasonCode, summaryRows])
   const dimensionOptions = side === 'usage' ? USAGE_DIMENSION_OPTIONS : SOURCE_DIMENSION_OPTIONS
 
   /**
@@ -798,18 +833,21 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
   return <div className='statistics-board'>
     <div className='statistics-board-header'>
       <div>
-        {/* 页面大标题层级与 margin 口径全站统一（标题层级口径：大标题与阻断态标题同层级）：统计页无配套 CSS，margin 归零由内联样式承载。 */}
-        <Typography.Title level={3} style={{ margin: 0 }}>{title}</Typography.Title>
+        {/* 页面大标题层级与 margin 口径全站统一（标题层级口径：大标题与阻断态标题同层级），margin 归零由配套 CSS 承载。 */}
+        <Typography.Title level={3}>{title}</Typography.Title>
         <Typography.Text type='secondary'>{subtitle}</Typography.Text>
       </div>
+      {/* 本院页页头左右结构（S6-D19，与本院报告管理页同构）：登录范围条承载在页头右侧；平台页页头不承载范围条。 */}
+      {scopeSpec.kind === 'branch' ? <CurrentScopeBar /> : null}
     </div>
 
-    {/* 范围选择区：形态由 scopeSpec 决定（平台两组三级可选；本院本侧由范围条固定展示、对侧组医院/院区可选，改动进草稿）。 */}
+    {/* 范围选择区：形态由 scopeSpec 决定（平台两组三级可选并带可见组标签；本院只留对侧组医院/院区可选，改动进草稿）。 */}
     <div className='statistics-board-scope'>
       {scopeSpec.kind === 'platform' ? (
         side === 'usage'
           ? <Space wrap>
               <div role='group' aria-label='接收组范围'>
+                <span>接收方：</span>
                 <BaseScopeSelector level='branch' value={{
                   orgId: draftFilters.receiverOrganizationCode,
                   hosId: draftFilters.receiverHospitalCode,
@@ -817,6 +855,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
                 }} onChange={changeReceiverScope} />
               </div>
               <div role='group' aria-label='来源组范围'>
+                <span>来源方：</span>
                 <BaseScopeSelector level='branch' value={{
                   orgId: draftFilters.sourceOrganizationCode,
                   hosId: draftFilters.sourceHospitalCode,
@@ -826,6 +865,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
             </Space>
           : <Space wrap>
               <div role='group' aria-label='来源组范围'>
+                <span>来源方：</span>
                 <BaseScopeSelector level='branch' value={{
                   orgId: draftFilters.sourceOrganizationCode,
                   hosId: draftFilters.sourceHospitalCode,
@@ -833,6 +873,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
                 }} onChange={changeSourceScope} />
               </div>
               <div role='group' aria-label='接收组范围'>
+                <span>接收方：</span>
                 <BaseScopeSelector level='branch' value={{
                   orgId: draftFilters.receiverOrganizationCode,
                   hosId: draftFilters.receiverHospitalCode,
@@ -840,10 +881,8 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
                 }} onChange={changeReceiverScope} />
               </div>
             </Space>
-      // 本院页页头范围区由共用范围条承载：单行只显「组织 / 医院 / 院区」名称，无编码（页头范围条名称渲染口径）；
-      // 本侧院区恒为登录院区（不提供院区选择），只保留对侧（来源或接收）医院、院区选择。
+      // 本院页：范围条已移页头右侧；本侧院区恒为登录院区（不提供院区选择），范围行只留对侧（来源或接收）医院、院区选择。
       ) : <Space wrap>
-          <CurrentScopeBar />
           <div role='group' aria-label={side === 'usage' ? '来源医院范围' : '接收医院范围'}>
             <BaseScopeSelector
               level='branch'
@@ -857,42 +896,36 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
         </Space>}
     </div>
 
-    {/* 查询区（D-02）按查询区结构口径：inline Form 承载草稿控件；明细区的互认医生与不采纳原因两条件
-        并入同一份草稿，由页面级这一组「查询/重置」提交，一次提交同时作用于汇总与明细。 */}
+    {/* 查询区（D-02、S6-D19）与报告管理列表页同构：inline Form 承载草稿控件；统一关键字（占位按侧区分）
+        + 项目类型 + 预设时间区间，由「查询」提交，一次提交同时作用于汇总与明细；不设重置。 */}
     <div className='statistics-board-filters'>
       <Form layout='inline' onFinish={submitDraft}>
         <Form.Item>
-          <label className='statistics-board-date-label'>
-            统计期间
-            <input
-              type='date'
-              aria-label='统计开始日期'
-              className='statistics-board-date'
-              value={draftFilters.startTime}
-              onChange={(event) => applyDraft({ startTime: event.target.value })}
-            />
-          </label>
-        </Form.Item>
-        <Form.Item>
-          <label className='statistics-board-date-label'>
-            至
-            <input
-              type='date'
-              aria-label='统计结束日期'
-              className='statistics-board-date'
-              value={draftFilters.endTime}
-              onChange={(event) => applyDraft({ endTime: event.target.value })}
-            />
-          </label>
+          {/*
+            统计时间使用 antd RangePicker（与报告管理列表页同一控件与预设形态，S6-D19）：受控值来自草稿的
+            年月日文本，只提交起止日期，不拼接时分秒、不写时区偏移；区间不可清空，默认近 30 天，
+            预设提供今天、近 7 天与近 30 天三个快捷区间。
+          */}
+          <DatePicker.RangePicker
+            allowClear={false}
+            aria-label='统计时间范围'
+            placeholder={['开始日期', '结束日期']}
+            presets={datePresets}
+            value={draftRangeValue}
+            onChange={(_dates, dateStrings) => applyDraft({
+              startTime: dateStrings[0] || '',
+              endTime: dateStrings[1] || '',
+            })}
+          />
         </Form.Item>
         <Form.Item>
           <Input
-            placeholder='互认科室ID'
-            aria-label='互认科室筛选'
+            placeholder={side === 'usage' ? '互认科室 / 互认项目 / 互认医生' : '互认科室 / 互认项目'}
+            aria-label='关键字筛选'
             allowClear
-            style={{ width: 140 }}
-            value={draftFilters.recognitionDeptId ?? ''}
-            onChange={(event) => applyDraft({ recognitionDeptId: event.target.value || undefined })}
+            style={{ width: 240 }}
+            value={draftFilters.keyword ?? ''}
+            onChange={(event) => applyDraft({ keyword: event.target.value || undefined })}
           />
         </Form.Item>
         <Form.Item>
@@ -907,57 +940,22 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
           />
         </Form.Item>
         <Form.Item>
-          <Input
-            placeholder='标准项目编码'
-            aria-label='标准项目编码筛选'
-            allowClear
-            style={{ width: 140 }}
-            value={draftFilters.standardProjectCode ?? ''}
-            onChange={(event) => applyDraft({ standardProjectCode: event.target.value || undefined })}
-          />
-        </Form.Item>
-        {side === 'usage' ? <>
-          <Form.Item>
-            <Input
-              placeholder='互认医生ID'
-              aria-label='互认医生筛选'
-              allowClear
-              style={{ width: 130 }}
-              value={draftFilters.recognitionDoctorId ?? ''}
-              onChange={(event) => applyDraft({ recognitionDoctorId: event.target.value || undefined })}
-            />
-          </Form.Item>
-          <Form.Item>
-            <Input
-              placeholder='不采纳原因代码'
-              aria-label='不采纳原因筛选'
-              allowClear
-              style={{ width: 140 }}
-              value={draftFilters.nonAdoptionReasonCode ?? ''}
-              onChange={(event) => applyDraft({ nonAdoptionReasonCode: event.target.value || undefined })}
-            />
-          </Form.Item>
-        </> : null}
-        <Form.Item>
-          <Space wrap>
-            {/*
-              查询按钮逐字符合全站统一规格（框内查询图标按钮与查询区结构规格）：`aria-label` 声明可访问名称——
-              `SearchOutlined` 自带英文 `aria-label`，会参与按钮名称计算，不声明就会读成「search 查询」；
-              `autoInsertSpace={false}` 关闭 antd 对两个汉字之间自动插入的空格；颜色继承宿主主题 token，
-              不覆盖样式。一次提交同时重读汇总与明细，任一读取在途时按钮进入 `loading`（与列表页同款，
-              在途期间 antd loading 阻止点击提交、不会重复发起读取）；交叠请求仍由序号作废机制收敛为
-              「只采纳最后一次」。重置恒命名「重置」、默认样式。
-            */}
-            <Button
-              type='primary'
-              icon={<SearchOutlined />}
-              aria-label='查询'
-              autoInsertSpace={false}
-              htmlType='submit'
-              loading={summaryLoading || detailLoading}
-            >查询</Button>
-            <Button autoInsertSpace={false} onClick={resetDraft}>重置</Button>
-          </Space>
+          {/*
+            查询按钮逐字符合全站统一规格（框内查询图标按钮与查询区结构规格）：`aria-label` 声明可访问名称——
+            `SearchOutlined` 自带英文 `aria-label`，会参与按钮名称计算，不声明就会读成「search 查询」；
+            `autoInsertSpace={false}` 关闭 antd 对两个汉字之间自动插入的空格；颜色继承宿主主题 token，
+            不覆盖样式。一次提交同时重读汇总与明细，任一读取在途时按钮进入 `loading`（与列表页同款，
+            在途期间 antd loading 阻止点击提交、不会重复发起读取）；交叠请求仍由序号作废机制收敛为
+            「只采纳最后一次」。不设重置：关键字与项目类型可清空，清空后经「查询」生效。
+          */}
+          <Button
+            type='primary'
+            icon={<SearchOutlined />}
+            aria-label='查询'
+            autoInsertSpace={false}
+            htmlType='submit'
+            loading={summaryLoading || detailLoading}
+          >查询</Button>
         </Form.Item>
       </Form>
     </div>
@@ -1024,6 +1022,10 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
             />
           </div>
         </> : null}
+        {/* 原因下钻的精确筛选标记（S6-D19，仅接收侧明细区）：只在原因代码已生效时出现，移除按即时提交语义生效。 */}
+        {side === 'usage' && reasonFilterName !== null
+          ? <Tag closable onClose={removeReasonFilter}>不采纳原因：{reasonFilterName}</Tag>
+          : null}
         <Button
           aria-label='导出明细'
           loading={exporting}

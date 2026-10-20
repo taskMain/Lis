@@ -49,14 +49,14 @@ import { defaultStatisticsFilters } from './statisticsDisplays'
 /** 页面版本：平台管理员入口或医院管理员入口；双版本请求分支由适配层按 version 收敛。 */
 type StatisticsPageVersion = 'platform' | 'branch'
 
-/** 页面级筛选 → 平台/本院版来源侧汇总查询条件的装配。 */
+/** 页面级筛选 → 平台/本院版来源侧汇总查询条件的装配；统一关键字承载互认科室、互认项目条件（S6-D19）。 */
 function toSummaryQuery(version: StatisticsPageVersion, filters: StatisticsFilters, dimension: StatisticsGroupDimensionValue): SourceSummaryQuery {
   const shared = {
     startTime: filters.startTime,
     endTime: filters.endTime,
     groupDimension: dimension,
+    keyword: filters.keyword,
     itemType: filters.itemType,
-    standardProjectCode: filters.standardProjectCode,
   }
   if (version === 'platform') {
     return {
@@ -84,8 +84,8 @@ function toDetailsQuery(version: StatisticsPageVersion, filters: StatisticsFilte
   const shared = {
     startTime: filters.startTime,
     endTime: filters.endTime,
+    keyword: filters.keyword,
     itemType: filters.itemType,
-    standardProjectCode: filters.standardProjectCode,
   }
   if (version === 'platform') {
     return {
@@ -118,8 +118,8 @@ function toExportQuery(version: StatisticsPageVersion, filters: StatisticsFilter
     groupDimension: request.groupDimension,
     startTime: filters.startTime,
     endTime: filters.endTime,
+    keyword: filters.keyword,
     itemType: filters.itemType,
-    standardProjectCode: filters.standardProjectCode,
   }
   if (version === 'platform') {
     return {
@@ -196,7 +196,7 @@ function SourceStatisticsPage({ version }: { version: StatisticsPageVersion }) {
         title={
           <div className='statistics-board-header'>
             <div>
-              <Typography.Title level={3} style={{ margin: 0 }}>本院被互认统计</Typography.Title>
+              <Typography.Title level={3}>本院被互认统计</Typography.Title>
               <Typography.Text type='secondary'>查询本院被互认的汇总与明细</Typography.Text>
             </div>
           </div>

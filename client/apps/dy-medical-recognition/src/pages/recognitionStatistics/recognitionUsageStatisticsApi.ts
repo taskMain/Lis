@@ -192,7 +192,10 @@ export interface MatchRecordView {
 
 // ========== 查询条件（页面稳定模型） ==========
 
-/** 平台管理员入口的接收侧汇总条件：接收组与来源组三级范围都随请求提交，任一为空不附加该层过滤。 */
+/**
+ * 平台管理员入口的接收侧汇总条件：接收组与来源组三级范围都随请求提交，任一为空不附加该层过滤；
+ * 统一关键字承载互认科室、互认项目条件（S6-D19）。
+ */
 export interface PlatformUsageSummaryQuery {
   version: 'platform'
   startTime: string
@@ -204,11 +207,10 @@ export interface PlatformUsageSummaryQuery {
   sourceOrganizationCode?: string
   sourceHospitalCode?: string
   sourceBranchCode?: string
-  recognitionDeptId?: string
+  keyword?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
-  standardProjectCode?: string
 }
 
 /**
@@ -223,16 +225,18 @@ export interface BranchUsageSummaryQuery {
   branchCode?: string
   sourceHospitalCode?: string
   sourceBranchCode?: string
-  recognitionDeptId?: string
+  keyword?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
-  standardProjectCode?: string
 }
 
 export type UsageSummaryQuery = PlatformUsageSummaryQuery | BranchUsageSummaryQuery
 
-/** 平台管理员入口的接收侧明细条件：明细类型必填；互认医生与不采纳原因代码只进明细查询。 */
+/**
+ * 平台管理员入口的接收侧明细条件：明细类型必填；统一关键字承载互认科室、互认项目与互认医生条件，
+ * 不采纳原因代码只在不采纳明细（明细类型 3）查询提交（S6-D19）。
+ */
 export interface PlatformUsageDetailsQuery {
   version: 'platform'
   startTime: string
@@ -244,13 +248,11 @@ export interface PlatformUsageDetailsQuery {
   sourceOrganizationCode?: string
   sourceHospitalCode?: string
   sourceBranchCode?: string
-  recognitionDeptId?: string
-  recognitionDoctorId?: string
+  keyword?: string
   nonAdoptionReasonCode?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
-  standardProjectCode?: string
 }
 
 /** 医院管理员入口的接收侧明细条件：本侧院区恒为登录院区，缺失或空白在构造时拒绝（不构造请求）。 */
@@ -262,18 +264,19 @@ export interface BranchUsageDetailsQuery {
   branchCode?: string
   sourceHospitalCode?: string
   sourceBranchCode?: string
-  recognitionDeptId?: string
-  recognitionDoctorId?: string
+  keyword?: string
   nonAdoptionReasonCode?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
-  standardProjectCode?: string
 }
 
 export type UsageDetailsQuery = PlatformUsageDetailsQuery | BranchUsageDetailsQuery
 
-/** 平台管理员入口的接收侧导出条件：两组组织编码同时提交，供服务端做一致性校验。 */
+/**
+ * 平台管理员入口的接收侧导出条件：两组组织编码同时提交，供服务端做一致性校验；
+ * 不采纳原因代码只在不采纳明细导出（导出类型 4）提交（S6-D19）。
+ */
 export interface PlatformUsageExportQuery {
   version: 'platform'
   exportType: UsageExportTypeValue
@@ -286,13 +289,11 @@ export interface PlatformUsageExportQuery {
   sourceOrganizationCode?: string
   sourceHospitalCode?: string
   sourceBranchCode?: string
-  recognitionDeptId?: string
-  recognitionDoctorId?: string
+  keyword?: string
   nonAdoptionReasonCode?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
-  standardProjectCode?: string
 }
 
 /** 医院管理员入口的接收侧导出条件：不含本侧组织与医院；来源组与接收组的医院/院区为可选筛选。 */
@@ -307,13 +308,11 @@ export interface BranchUsageExportQuery {
   sourceBranchCode?: string
   receiverHospitalCode?: string
   receiverBranchCode?: string
-  recognitionDeptId?: string
-  recognitionDoctorId?: string
+  keyword?: string
   nonAdoptionReasonCode?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
-  standardProjectCode?: string
 }
 
 export type UsageExportQuery = PlatformUsageExportQuery | BranchUsageExportQuery
@@ -333,13 +332,16 @@ const USAGE_SCOPE_TEXT_KEYS = [
   'sourceHospitalCode',
   'sourceBranchCode',
   'branchCode',
-  'recognitionDeptId',
-  'recognitionDoctorId',
+  'keyword',
   'nonAdoptionReasonCode',
   'categoryName',
   'groupName',
-  'standardProjectCode',
 ] as const
+
+/** 不采纳明细的明细类型值；与后端 `RecognitionUsageDetailType.NonAdoption`（3）一致。 */
+const NON_ADOPTION_DETAIL_TYPE = 3
+/** 不采纳明细导出的导出类型值；与后端 `RecognitionStatisticsExportType`（4 接收侧不采纳明细）一致。 */
+const NON_ADOPTION_DETAILS_EXPORT_TYPE = 4
 
 /**
  * 构造接收侧汇总查询：日期缺失或形态非法、汇总维度越界、项目类型越界、分页越界，
@@ -378,7 +380,7 @@ export function buildUsageExportQuery(query: UsageExportQuery): UsageExportQuery
 
 // ========== 请求体映射（生成契约字段名与页面条件名的差异都在本节吸收） ==========
 
-/** 平台版共享的筛选写入：接收组与来源组三级范围、互认科室与项目筛选。 */
+/** 平台版共享的筛选写入：接收组与来源组三级范围、统一关键字与项目筛选。 */
 function applyPlatformUsageFilters(
   body: RecognitionUsageSummaryQueryRequest | RecognitionUsageDetailsQueryRequest,
   query: PlatformUsageSummaryQuery | PlatformUsageDetailsQuery,
@@ -389,10 +391,9 @@ function applyPlatformUsageFilters(
   assignStatisticsText(body, 'sourceOrganizationCode', query.sourceOrganizationCode)
   assignStatisticsText(body, 'sourceHospitalCode', query.sourceHospitalCode)
   assignStatisticsText(body, 'sourceBranchCode', query.sourceBranchCode)
-  assignStatisticsText(body, 'recognitionDeptId', query.recognitionDeptId)
+  assignStatisticsText(body, 'keyword', query.keyword)
   assignStatisticsText(body, 'categoryName', query.categoryName)
   assignStatisticsText(body, 'groupName', query.groupName)
-  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.itemType !== undefined) body.itemType = query.itemType
 }
 
@@ -404,10 +405,9 @@ function applyBranchUsageFilters(
   assignStatisticsText(body, 'branchCode', query.branchCode)
   assignStatisticsText(body, 'sourceHospitalCode', query.sourceHospitalCode)
   assignStatisticsText(body, 'sourceBranchCode', query.sourceBranchCode)
-  assignStatisticsText(body, 'recognitionDeptId', query.recognitionDeptId)
+  assignStatisticsText(body, 'keyword', query.keyword)
   assignStatisticsText(body, 'categoryName', query.categoryName)
   assignStatisticsText(body, 'groupName', query.groupName)
-  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.itemType !== undefined) body.itemType = query.itemType
 }
 
@@ -437,7 +437,7 @@ function toBranchUsageSummaryBody(
   return body
 }
 
-/** 平台版明细请求体：在平台筛选之上提交明细类型、互认医生与不采纳原因代码。 */
+/** 平台版明细请求体：在平台筛选之上提交明细类型；不采纳原因代码只随不采纳明细（类型 3）提交。 */
 function toPlatformUsageDetailsBody(query: PlatformUsageDetailsQuery & StatisticsPageInput): RecognitionUsageDetailsQueryRequest {
   const body: RecognitionUsageDetailsQueryRequest = {
     startTime: requireStatisticsDate(query.startTime, '开始日期'),
@@ -446,12 +446,13 @@ function toPlatformUsageDetailsBody(query: PlatformUsageDetailsQuery & Statistic
     page: { pageIndex: query.pageIndex, pageSize: query.pageSize },
   }
   applyPlatformUsageFilters(body, query)
-  assignStatisticsText(body, 'recognitionDoctorId', query.recognitionDoctorId)
-  assignStatisticsText(body, 'nonAdoptionReasonCode', query.nonAdoptionReasonCode)
+  if (query.detailType === NON_ADOPTION_DETAIL_TYPE) {
+    assignStatisticsText(body, 'nonAdoptionReasonCode', query.nonAdoptionReasonCode)
+  }
   return body
 }
 
-/** 本院版明细请求体：本侧院区由构造层保证非空，不提交本侧组织与医院。 */
+/** 本院版明细请求体：本侧院区由构造层保证非空，不提交本侧组织与医院；原因代码口径同平台版。 */
 function toBranchUsageDetailsBody(query: BranchUsageDetailsQuery & StatisticsPageInput): BranchRecognitionUsageDetailsQueryRequest {
   const body: BranchRecognitionUsageDetailsQueryRequest = {
     startTime: requireStatisticsDate(query.startTime, '开始日期'),
@@ -460,12 +461,13 @@ function toBranchUsageDetailsBody(query: BranchUsageDetailsQuery & StatisticsPag
     page: { pageIndex: query.pageIndex, pageSize: query.pageSize },
   }
   applyBranchUsageFilters(body, query)
-  assignStatisticsText(body, 'recognitionDoctorId', query.recognitionDoctorId)
-  assignStatisticsText(body, 'nonAdoptionReasonCode', query.nonAdoptionReasonCode)
+  if (query.detailType === NON_ADOPTION_DETAIL_TYPE) {
+    assignStatisticsText(body, 'nonAdoptionReasonCode', query.nonAdoptionReasonCode)
+  }
   return body
 }
 
-/** 平台版导出请求体：接收组与来源组两组组织编码同时提交，供服务端做一致性校验；无分页对象。 */
+/** 平台版导出请求体：接收组与来源组两组组织编码同时提交，供服务端做一致性校验；无分页对象；原因代码只随不采纳明细导出（类型 4）。 */
 function toPlatformUsageExportBody(query: PlatformUsageExportQuery): RecognitionStatisticsExportRequest {
   const body: RecognitionStatisticsExportRequest = {
     exportType: query.exportType,
@@ -479,17 +481,17 @@ function toPlatformUsageExportBody(query: PlatformUsageExportQuery): Recognition
   assignStatisticsText(body, 'sourceOrganizationCode', query.sourceOrganizationCode)
   assignStatisticsText(body, 'sourceHospitalCode', query.sourceHospitalCode)
   assignStatisticsText(body, 'sourceBranchCode', query.sourceBranchCode)
-  assignStatisticsText(body, 'recognitionDeptId', query.recognitionDeptId)
-  assignStatisticsText(body, 'recognitionDoctorId', query.recognitionDoctorId)
-  assignStatisticsText(body, 'nonAdoptionReasonCode', query.nonAdoptionReasonCode)
+  assignStatisticsText(body, 'keyword', query.keyword)
+  if (query.exportType === NON_ADOPTION_DETAILS_EXPORT_TYPE) {
+    assignStatisticsText(body, 'nonAdoptionReasonCode', query.nonAdoptionReasonCode)
+  }
   assignStatisticsText(body, 'categoryName', query.categoryName)
   assignStatisticsText(body, 'groupName', query.groupName)
-  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.itemType !== undefined) body.itemType = query.itemType
   return body
 }
 
-/** 本院版导出请求体：不含本侧组织与医院；来源组与接收组的医院/院区为可选筛选；无分页对象。 */
+/** 本院版导出请求体：不含本侧组织与医院；来源组与接收组的医院/院区为可选筛选；无分页对象；原因代码口径同平台版。 */
 function toBranchUsageExportBody(query: BranchUsageExportQuery): BranchRecognitionStatisticsExportRequest {
   const body: BranchRecognitionStatisticsExportRequest = {
     exportType: query.exportType,
@@ -502,12 +504,12 @@ function toBranchUsageExportBody(query: BranchUsageExportQuery): BranchRecogniti
   assignStatisticsText(body, 'sourceBranchCode', query.sourceBranchCode)
   assignStatisticsText(body, 'receiverHospitalCode', query.receiverHospitalCode)
   assignStatisticsText(body, 'receiverBranchCode', query.receiverBranchCode)
-  assignStatisticsText(body, 'recognitionDeptId', query.recognitionDeptId)
-  assignStatisticsText(body, 'recognitionDoctorId', query.recognitionDoctorId)
-  assignStatisticsText(body, 'nonAdoptionReasonCode', query.nonAdoptionReasonCode)
+  assignStatisticsText(body, 'keyword', query.keyword)
+  if (query.exportType === NON_ADOPTION_DETAILS_EXPORT_TYPE) {
+    assignStatisticsText(body, 'nonAdoptionReasonCode', query.nonAdoptionReasonCode)
+  }
   assignStatisticsText(body, 'categoryName', query.categoryName)
   assignStatisticsText(body, 'groupName', query.groupName)
-  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.itemType !== undefined) body.itemType = query.itemType
   return body
 }

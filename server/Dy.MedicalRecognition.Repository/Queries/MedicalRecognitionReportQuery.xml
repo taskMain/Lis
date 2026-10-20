@@ -1003,7 +1003,20 @@
       <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围，取自匹配项绑定报告的主体 -->
       <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
       <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室，未反馈项无科室归属、随该筛选一并排除 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称逐列前缀匹配后 OR 组合，任一列命中即通过；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值，与四类明细语句的项目类型筛选同列，同一条件下汇总与明细同源 -->
       <!--
         处理：对用户输入的转义符 ! 先加倍，再将 % 转义为 !%、_ 转义为 !_，然后首尾拼接通配符并用 escape '!' 声明转义符。
@@ -1012,7 +1025,6 @@
       -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称，转义口径同分类名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码，转义口径同分类名称 -->
       <!--
         处理：行集按三向时间或条件限定为与统计范围相关的事实——提醒按匹配生成时间、采纳与不采纳及金额按处理结果互认时间、
         引用按引用事实实际引用时间，各自过滤同一起止日期；日期边界由应用层按本地日换算后传入，起始日零点含边界、结束日为零点起算不含。
@@ -1120,12 +1132,24 @@
         <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围，取自匹配项绑定报告的主体 -->
         <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
         <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
-        <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室，未反馈项无科室归属、随该筛选一并排除 -->
+        <!--
+          处理：统一关键字按互认科室ID/名称、标准项目编码/名称逐列前缀匹配后 OR 组合，任一列命中即通过；
+          对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+          各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+          原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+          结果：关键字命中任一承载列的行参与统计，关键字未提供或全空白时行为与无该条件一致。
+        -->
+        <IsNotEmpty Prepend="and" Property="Keyword">(
+          replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+          or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+          or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+          or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+          or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
         <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值，与四类明细语句的项目类型筛选同列，同一条件下汇总与明细同源 -->
         <!-- 转义口径与标准项目类查询一致：对用户输入先转义 %、_ 与 !，再按字面包含匹配分类名称。 -->
         <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
         <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称，转义口径同分类名称 -->
-        <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码，转义口径同分类名称 -->
         <!-- 三向时间或条件与互认科室维度排除谓词同计数语句逐字一致，保证总数与当页分组行同筛选。 -->
         and (
           mr.match_created_time &gt;= $PeriodStart and mr.match_created_time &lt; $PeriodEnd
@@ -1180,11 +1204,23 @@
       <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
       <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
       <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称逐列前缀匹配后 OR 组合，任一列命中即通过；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值，与四类明细语句的项目类型筛选同列，同一条件下汇总与明细同源 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
       and (
         mr.match_created_time &gt;= $PeriodStart and mr.match_created_time &lt; $PeriodEnd
         or pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
@@ -1247,7 +1283,20 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值，与四类明细语句的项目类型筛选同列，同一条件下汇总与明细同源 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称，转义口径同标准项目类查询 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称逐列前缀匹配后 OR 组合，任一列命中即通过（来源侧语句无互认医生列）；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       <!-- 来源侧行集即采纳事实：只统计处理结果为采纳且互认时间在统计范围内的匹配项，日期边界参数化。 -->
       and pr.recognition_result = 1
       and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
@@ -1307,7 +1356,20 @@
         <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值，与四类明细语句的项目类型筛选同列，同一条件下汇总与明细同源 -->
         <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
         <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-        <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+        <!--
+          处理：统一关键字按互认科室ID/名称、标准项目编码/名称逐列前缀匹配后 OR 组合，任一列命中即通过（来源侧语句无互认医生列）；
+          对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+          各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+          原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+          结果：关键字命中任一承载列的行参与统计，关键字未提供或全空白时行为与无该条件一致。
+        -->
+        <IsNotEmpty Prepend="and" Property="Keyword">(
+          replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+          or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+          or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+          or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+          or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
         and pr.recognition_result = 1
         and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
         group by
@@ -1345,13 +1407,26 @@
       <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围，取自匹配项绑定报告的主体 -->
       <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
       <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室，取处理结果保存值，未反馈项无科室归属、随该筛选一并排除 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生，取处理结果保存值，只作明细查询条件 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称、互认医生ID/姓名逐列前缀匹配后 OR 组合，任一列命中即通过；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的明细行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码，提醒明细由调用方不传该条件 -->
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称，转义口径同标准项目类查询 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
       <!-- 提醒口径：按互认匹配生成时间取行；不按处理结果排除，未反馈项与已反馈项都在提醒明细内。 -->
       and mr.match_created_time &gt;= $PeriodStart and mr.match_created_time &lt; $PeriodEnd
     </Statement>
@@ -1403,13 +1478,26 @@
       <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
       <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
       <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称、互认医生ID/姓名逐列前缀匹配后 OR 组合，任一列命中即通过；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的明细行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码 -->
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
       and mr.match_created_time &gt;= $PeriodStart and mr.match_created_time &lt; $PeriodEnd
       order by mr.match_created_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底，跨页无重复无遗漏 -->
     </Statement>
@@ -1435,13 +1523,26 @@
       <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
       <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
       <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称、互认医生ID/姓名逐列前缀匹配后 OR 组合，任一列命中即通过；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的明细行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码，采纳明细由调用方不传该条件 -->
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
       <!-- 采纳口径：按处理结果互认时间取行，只含采纳决策。 -->
       and pr.recognition_result = 1 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
     </Statement>
@@ -1492,13 +1593,26 @@
       <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
       <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
       <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称、互认医生ID/姓名逐列前缀匹配后 OR 组合，任一列命中即通过；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的明细行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码 -->
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
       and pr.recognition_result = 1 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
       order by pr.recognition_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底 -->
     </Statement>
@@ -1524,13 +1638,26 @@
       <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
       <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
       <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称、互认医生ID/姓名逐列前缀匹配后 OR 组合，任一列命中即通过；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的明细行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码 -->
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
       <!-- 不采纳口径：按处理结果互认时间取行，只含不采纳决策；原因代码筛选作用于保存的原因列。 -->
       and pr.recognition_result = 2 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
     </Statement>
@@ -1583,13 +1710,26 @@
       <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
       <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
       <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称、互认医生ID/姓名逐列前缀匹配后 OR 组合，任一列命中即通过；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的明细行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码 -->
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
       and pr.recognition_result = 2 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
       order by pr.recognition_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底 -->
     </Statement>
@@ -1615,13 +1755,26 @@
       <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
       <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
       <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称、互认医生ID/姓名逐列前缀匹配后 OR 组合，任一列命中即通过；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的明细行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码，引用明细由调用方不传该条件 -->
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
       <!-- 引用口径：按引用事实实际引用时间取行，无引用事实的匹配项不参与。 -->
       and rf.id is not null and rf.referenced_time &gt;= $PeriodStart and rf.referenced_time &lt; $PeriodEnd
     </Statement>
@@ -1676,13 +1829,26 @@
       <IsNotEmpty Prepend="and" Property="SourceOrganizationCode">r.organization_code = $SourceOrganizationCode</IsNotEmpty>  <!-- 可选筛选：来源组织范围 -->
       <IsNotEmpty Prepend="and" Property="SourceHospitalCode">r.hospital_code = $SourceHospitalCode</IsNotEmpty>  <!-- 可选筛选：来源医院范围 -->
       <IsNotEmpty Prepend="and" Property="SourceBranchCode">r.branch_code = $SourceBranchCode</IsNotEmpty>  <!-- 可选筛选：来源院区范围 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 可选筛选：互认科室 -->
-      <IsNotEmpty Prepend="and" Property="RecognitionDoctorId">pr.recognition_doctor_id = $RecognitionDoctorId</IsNotEmpty>  <!-- 可选筛选：互认医生 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称、互认医生ID/姓名逐列前缀匹配后 OR 组合，任一列命中即通过；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的明细行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_doctor_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       <IsNotEmpty Prepend="and" Property="NonAdoptionReason">pr.non_adoption_reason = $NonAdoptionReason</IsNotEmpty>  <!-- 可选筛选：不采纳原因代码 -->
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
       and rf.id is not null and rf.referenced_time &gt;= $PeriodStart and rf.referenced_time &lt; $PeriodEnd
       order by rf.referenced_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底 -->
     </Statement>
@@ -1711,7 +1877,20 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称逐列前缀匹配后 OR 组合，任一列命中即通过（来源侧语句无互认医生列）；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的明细行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       <!-- 来源侧明细只反映被采纳事实：按处理结果互认时间取行。 -->
       and pr.recognition_result = 1 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
     </Statement>
@@ -1756,7 +1935,20 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
-      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code like concat('%', replace(replace(replace($StandardProjectCode, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准项目编码 -->
+      <!--
+        处理：统一关键字按互认科室ID/名称、标准项目编码/名称逐列前缀匹配后 OR 组合，任一列命中即通过（来源侧语句无互认医生列）；
+        对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
+        各列比较两侧统一取 lower 使匹配不区分大小写；语句先剥除空格、制表、回车与换行后再判空，全空白字符输入等价未提供、不附加条件。
+        原因：不转义时用户输入的 % 和 _ 会被当作通配符放大匹配范围；不判空白时全空白输入会按空白前缀参与匹配而非等价未提供。
+        结果：关键字命中任一承载列的明细行参与统计，关键字未提供或全空白时行为与无该条件一致。
+      -->
+      <IsNotEmpty Prepend="and" Property="Keyword">(
+        replace(replace(replace(replace($Keyword, ' ', ''), '&#9;', ''), '&#10;', ''), '&#13;', '') = ''
+        or lower(pr.recognition_dept_id) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(pr.recognition_dept_name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(mi.standard_project_code) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+        or lower(si.name) like lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'
+      )</IsNotEmpty>  <!-- 可选筛选：统一关键字，空白（含全空白字符）视为未提供 -->
       and pr.recognition_result = 1 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
       order by pr.recognition_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底 -->
     </Statement>

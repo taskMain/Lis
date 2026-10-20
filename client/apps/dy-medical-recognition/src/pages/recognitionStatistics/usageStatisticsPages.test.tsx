@@ -19,6 +19,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
+import dayjs from 'dayjs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BaseScopeSelectorProps } from '@dy/components-base'
 import type {
@@ -193,7 +194,10 @@ function renderPage(component: React.ReactElement) {
 }
 
 describe('接收医院互认使用统计（平台页）', () => {
-  it('进入自动加载：两路查询以占位 client 与平台版 built 查询发起，默认当月日期与默认维度、默认明细类型', async () => {
+  it('进入自动加载：两路查询以占位 client 与平台版 built 查询发起，默认近 30 天窗口与默认维度、默认明细类型', async () => {
+    /** 默认统计期间（近 30 天）：与页面同一口径，断言时按当天计算。 */
+    const expectedStart = dayjs().subtract(29, 'day').format('YYYY-MM-DD')
+    const expectedEnd = dayjs().format('YYYY-MM-DD')
     renderPage(<RecognitionUsageStatistics />)
 
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
@@ -202,15 +206,18 @@ describe('接收医院互认使用统计（平台页）', () => {
     const [summaryClient, summaryBuilt] = usageApi.queryUsageSummaryPage.mock.calls[0]
     expect(summaryClient).toBe(clientRef.current)
     expect(summaryBuilt).toMatchObject({ version: 'platform', groupDimension: 1, pageIndex: 1, pageSize: 10 })
-    expect(String(summaryBuilt.startTime)).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-    expect(String(summaryBuilt.endTime)).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    // 页面把 defaultStatisticsFilters 接进首次读取：默认窗口按当天为近 30 天滚动窗。
+    expect(String(summaryBuilt.startTime)).toBe(expectedStart)
+    expect(String(summaryBuilt.endTime)).toBe(expectedEnd)
 
     const [detailsClient, detailsBuilt] = usageApi.queryUsageDetailsPage.mock.calls[0]
     expect(detailsClient).toBe(clientRef.current)
     expect(detailsBuilt).toMatchObject({ version: 'platform', detailType: 1, pageIndex: 1, pageSize: 10 })
+    expect(String(detailsBuilt.startTime)).toBe(expectedStart)
+    expect(String(detailsBuilt.endTime)).toBe(expectedEnd)
   })
 
-  it('两组范围与科室、项目条件改动进草稿零请求，点查询按已生效条件提交（提交式筛选与提交重读）', async () => {
+  it('两组范围与关键字条件改动进草稿零请求，点查询按已生效条件提交（提交式筛选与提交重读）', async () => {
     renderPage(<RecognitionUsageStatistics />)
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
 
@@ -218,8 +225,7 @@ describe('接收医院互认使用统计（平台页）', () => {
     fireEvent.change(receiverGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS-2' } })
     const sourceGroup = within(screen.getByRole('group', { name: '来源组范围' }))
     fireEvent.change(sourceGroup.getByRole('combobox', { name: '组织' }), { target: { value: 'ORG-B' } })
-    fireEvent.change(screen.getByLabelText('互认科室筛选'), { target: { value: 'DEPT-9' } })
-    fireEvent.change(screen.getByLabelText('标准项目编码筛选'), { target: { value: 'A01' } })
+    fireEvent.change(screen.getByLabelText('关键字筛选'), { target: { value: 'DEPT-9' } })
 
     // 草稿改动零请求。
     expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1)
@@ -232,14 +238,13 @@ describe('接收医院互认使用统计（平台页）', () => {
         version: 'platform',
         receiverHospitalCode: 'HOS-2',
         sourceOrganizationCode: 'ORG-B',
-        recognitionDeptId: 'DEPT-9',
-        standardProjectCode: 'A01',
+        keyword: 'DEPT-9',
       }),
     ))
-    // 一次提交同时重读汇总与明细。
+    // 一次提交同时重读汇总与明细；统一关键字同时进两路查询（S6-D19）。
     await waitFor(() => expect(usageApi.queryUsageDetailsPage).toHaveBeenLastCalledWith(
       clientRef.current,
-      expect.objectContaining({ version: 'platform', receiverHospitalCode: 'HOS-2', recognitionDeptId: 'DEPT-9' }),
+      expect.objectContaining({ version: 'platform', receiverHospitalCode: 'HOS-2', keyword: 'DEPT-9' }),
     ))
     expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(2)
     expect(usageApi.queryUsageDetailsPage).toHaveBeenCalledTimes(2)
@@ -275,19 +280,19 @@ describe('接收医院互认使用统计（平台页）', () => {
     await waitFor(() => expect(usageApi.queryRecognitionMatchRecord).toHaveBeenCalledWith(clientRef.current, 'RECORD-1'))
   })
 
-  it('日期被清空后条件不完整：草稿零请求，点查询后适配层查询出口零新增调用（C10 阻断面）', async () => {
+  it('页面查询出口返回 null（条件不完整阻断）时主体零数据写入并保留已有数据（C10 阻断面）', async () => {
     renderPage(<RecognitionUsageStatistics />)
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
 
-    fireEvent.change(screen.getByLabelText('统计开始日期'), { target: { value: '' } })
-    // 草稿改动零请求。
-    expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1)
-
-    // 点查询：页面出口构造 built 失败返回 null，主体零发请求，适配层两个查询出口均不新增调用。
+    // 适配层构造出口返回 null（同类阻断：本院页登录院区缺失）：主体零写入、无失败态、已有数据保留。
+    usageApi.queryUsageSummaryPage.mockImplementation(() => null)
+    usageApi.queryUsageDetailsPage.mockImplementation(() => null)
     fireEvent.click(screen.getByRole('button', { name: '查询' }))
-    await waitFor(() => expect(screen.getByText('当前筛选条件没有汇总数据')).toBeInTheDocument())
-    expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1)
-    expect(usageApi.queryUsageDetailsPage).toHaveBeenCalledTimes(1)
+
+    await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(2))
+    expect(usageApi.queryUsageDetailsPage).toHaveBeenCalledTimes(2)
+    // 初始数据保留（汇总与明细两表都含医院甲）。
+    await waitFor(() => expect(screen.getAllByText('医院甲').length).toBeGreaterThan(0))
   })
 })
 

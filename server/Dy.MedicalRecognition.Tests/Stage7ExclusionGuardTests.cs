@@ -174,16 +174,26 @@ public sealed class Stage7ExclusionGuardTests
     string routerSource = File.ReadAllText(Path.Combine(
       SourceSyntaxGuard.FindRepositoryRoot(),
       "client", "apps", "dy-medical-recognition", "src", "router", "routes.tsx"));
+    // 报告管理两个入口与详情子路由的 path 声明经路径常量文件引用，常量字面量从该文件解析，
+    // 保持「路由声明与已交付页面精确对应」的采集面完整。
+    string routeConstantsSource = File.ReadAllText(Path.Combine(
+      SourceSyntaxGuard.FindRepositoryRoot(),
+      "client", "apps", "dy-medical-recognition", "src", "pages", "reportManagement", "reportManagementRoutes.ts"));
 
     string[] declaredPaths =
     [
       .. Regex.Matches(routerSource, @"path:\s*'([^']+)'")
-        .Select(match => match.Groups[1].Value)
+        .Select(match => match.Groups[1].Value),
+      .. Regex.Matches(routerSource, @"path:\s*([A-Z][A-Za-z0-9_]*)")
+        .Select(match => ResolveRoutePathConstant(match.Groups[1].Value, routeConstantsSource)),
     ];
+    declaredPaths = declaredPaths.Distinct().ToArray();
     string[] expectedPaths =
     [
       "/", "standard-catalog", "recognition-projects", "recognition-amounts", "branch-recognition-amounts",
-      "report-management", "branch-report-management", "recognition-usage-statistics",
+      "report-management", "branch-report-management",
+      // 详情子路由（阶段 4 报告详情重构交付的入口子路由，路径参数 reportId）。
+      "detail/:reportId", "recognition-usage-statistics",
       "branch-recognition-usage-statistics", "source-recognition-statistics",
       "branch-source-recognition-statistics", "prototype/standard-catalog"
     ];
@@ -198,6 +208,21 @@ public sealed class Stage7ExclusionGuardTests
           declaredPath.Contains(substring, StringComparison.OrdinalIgnoreCase),
           $"管理端路由 {declaredPath} 命中排除类页面子串 {substring}。");
     }
+  }
+
+  /// <summary>
+  /// 在路径常量文件中解析路由 path 声明引用的常量字面量；常量无字面量声明即断言失败，
+  /// 防止路由路径脱离守卫采集面。
+  /// </summary>
+  private static string ResolveRoutePathConstant(string constantName, string routeConstantsSource)
+  {
+    Match valueMatch = Regex.Match(
+      routeConstantsSource,
+      $@"export const {constantName}\s*=\s*'([^']+)'");
+    Assert.True(
+      valueMatch.Success,
+      $"路由路径常量 {constantName} 在路径常量文件中未找到字面量声明。");
+    return valueMatch.Groups[1].Value;
   }
 
   /// <summary>

@@ -792,8 +792,9 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V28：互认医生、不采纳原因代码与全部维度筛选按下推为明细条件；不采纳原因代码按平台统一代码解析，
-  /// 非法代码按参数校验拒绝。
+  /// V28：统一关键字、不采纳原因代码与全部维度筛选按下推为明细条件——
+  /// 关键字经空白归一（空白视为未提供、非空白去除首尾空白），
+  /// 不采纳原因代码按平台统一代码解析，非法代码按参数校验拒绝。
   /// </summary>
   [Fact]
   public async Task Usage_details_push_filters_down_and_parse_reason_code()
@@ -805,25 +806,21 @@ public sealed class Stage6StatisticsQueryTests
     {
       StartTime = PeriodFrom,
       EndTime = PeriodTo,
-      RecognitionDeptId = "DPT-9",
-      RecognitionDoctorId = " DOC-9 ",
+      Keyword = " DOC-9 ",
       NonAdoptionReasonCode = "6",
       ItemType = MedicalItemType.Laboratory,
       CategoryName = "检验",
       GroupName = "血常规",
-      StandardProjectCode = "STD-001",
       DetailType = RecognitionUsageDetailType.NotAdopted,
       Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
     });
 
     RecognitionUsageDetailFilter filter = repository.LastDetailFilter!;
-    Assert.Equal("DPT-9", filter.RecognitionDeptId);
-    Assert.Equal("DOC-9", filter.RecognitionDoctorId);
+    Assert.Equal("DOC-9", filter.Keyword);
     Assert.Equal(RecognitionNonAdoptionReason.OtherReviewRequired, filter.NonAdoptionReason);
     Assert.Equal(MedicalItemType.Laboratory, filter.ItemType);
     Assert.Equal("检验", filter.CategoryName);
     Assert.Equal("血常规", filter.GroupName);
-    Assert.Equal("STD-001", filter.StandardProjectCode);
 
     System.ComponentModel.DataAnnotations.ValidationException error = await Assert.ThrowsAsync<System.ComponentModel.DataAnnotations.ValidationException>(
       () => service.QueryRecognitionUsageDetailsAsync(new RecognitionUsageDetailsQueryRequest
@@ -1336,7 +1333,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V33、V30：来源组与接收组筛选及项目资料筛选按下推为明细条件，分页在服务端窗口内完成，
+  /// V33、V30（S6-D19 修订面）：来源组与接收组筛选及统一关键字按下推为明细条件，分页在服务端窗口内完成，
   /// 计数与取页各一次且共用同一套筛选条件，返回行保持仓储给出的顺序。
   /// </summary>
   [Fact]
@@ -1364,7 +1361,7 @@ public sealed class Stage6StatisticsQueryTests
       ItemType = MedicalItemType.Laboratory,
       CategoryName = "检验",
       GroupName = "血常规",
-      StandardProjectCode = "STD-001",
+      Keyword = "STD-1",
       Page = new PageRequestDto { PageIndex = 2, PageSize = 2 }
     });
 
@@ -1376,7 +1373,7 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(MedicalItemType.Laboratory, filter.ItemType);
     Assert.Equal("检验", filter.CategoryName);
     Assert.Equal("血常规", filter.GroupName);
-    Assert.Equal("STD-001", filter.StandardProjectCode);
+    Assert.Equal("STD-1", filter.Keyword);
     Assert.Equal(new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Unspecified), filter.PeriodStart);
     Assert.Equal(new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Unspecified), filter.PeriodEnd);
 
@@ -1975,8 +1972,9 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V35：导出继承发起时的全部查询条件——接收组与来源组经组织路径解析后按去空白编码下推，
-  /// 日期范围按本地日换算，明细筛选字段（互认科室、互认医生、不采纳原因、项目类型与标准目录条件）随行下推。
+  /// V35（S6-D19 修订面）：导出继承发起时的全部查询条件——接收组与来源组经组织路径解析后按去空白编码下推，
+  /// 日期范围按本地日换算，统一关键字经空白归一后下推（空白视为未提供、非空白去首尾空白），
+  /// 不采纳原因代码仅作用于接收侧不采纳明细导出。
   /// </summary>
   [Fact]
   public async Task Export_resolves_requested_scope_groups_and_conditions_into_the_filter()
@@ -2003,13 +2001,11 @@ public sealed class Stage6StatisticsQueryTests
       SourceOrganizationCode = TrustedOrganization,
       SourceHospitalCode = SourceHospital,
       SourceBranchCode = SourceBranch,
-      RecognitionDeptId = " DPT-9 ",
-      RecognitionDoctorId = "DOC-9",
+      Keyword = " DPT-9 ",
       NonAdoptionReasonCode = "2",
       ItemType = MedicalItemType.Laboratory,
       CategoryName = " 检验 ",
       GroupName = "血常规",
-      StandardProjectCode = "STD-001",
       GroupDimension = RecognitionStatisticsGroupDimension.Hospital
     });
 
@@ -2022,10 +2018,119 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(SourceBranch, filter.SourceBranchCode);
     Assert.Equal(new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Unspecified), filter.PeriodStart);
     Assert.Equal(new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Unspecified), filter.PeriodEnd);
-    Assert.Equal("DPT-9", filter.RecognitionDeptId);
-    Assert.Equal("DOC-9", filter.RecognitionDoctorId);
+    Assert.Equal("DPT-9", filter.Keyword);
     Assert.Equal(RecognitionNonAdoptionReason.RapidDiseaseProgression, filter.NonAdoptionReason);
     Assert.Equal("检验", filter.CategoryName);
+  }
+
+  /// <summary>
+  /// V46 的应用面：统一关键字在平台版汇总入口、本院版汇总入口与来源侧明细入口
+  /// 均经空白归一后下推——空白输入不携带条件，非空白输入去除首尾空白（审查回改 F-01 口径）。
+  /// </summary>
+  [Fact]
+  public async Task Keyword_normalization_applies_across_query_entries()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService(
+      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital] }));
+
+    await service.QueryRecognitionUsageSummaryAsync(BuildSummaryRequest(1, 20) with { Keyword = " AbC_1 " });
+    RecognitionUsageSummaryFilter platformSummaryFilter = repository.LastSummaryFilter!;
+    await service.QueryBranchRecognitionUsageSummaryAsync(new BranchRecognitionUsageSummaryQueryRequest
+    {
+      StartTime = PeriodFrom,
+      EndTime = PeriodTo,
+      GroupDimension = RecognitionStatisticsGroupDimension.Hospital,
+      Keyword = "\u3000",
+      Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
+    });
+    RecognitionUsageSummaryFilter branchSummaryFilter = repository.LastSummaryFilter!;
+    await service.QuerySourceRecognitionDetailsAsync(BuildSourceDetailsRequest(1, 20) with { Keyword = "X_9" });
+
+    Assert.Equal("AbC_1", platformSummaryFilter.Keyword);
+    Assert.Null(branchSummaryFilter.Keyword);
+    Assert.Equal("X_9", repository.LastSourceDetailFilter!.Keyword);
+  }
+
+  /// <summary>
+  /// V46 的空白语义（审查回改 F-01）：关键字为全空白文本——全角空格 U+3000 与混合空白——
+  /// 视为未提供，领域筛选记录不携带关键字条件；全角空白属于 Unicode 空白，不能只按 ASCII 空白剥除判定。
+  /// </summary>
+  [Fact]
+  public async Task Keyword_of_unicode_whitespace_only_is_treated_as_not_provided()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService());
+
+    await service.QueryRecognitionUsageDetailsAsync(BuildDetailsRequest(1, 20) with { Keyword = "\u3000" });
+    RecognitionUsageDetailFilter fullWidthBlankFilter = repository.LastDetailFilter!;
+    await service.QueryRecognitionUsageDetailsAsync(BuildDetailsRequest(1, 20) with { Keyword = " \u3000\t " });
+    RecognitionUsageDetailFilter mixedBlankFilter = repository.LastDetailFilter!;
+
+    Assert.Null(fullWidthBlankFilter.Keyword);
+    Assert.Null(mixedBlankFilter.Keyword);
+  }
+
+  /// <summary>
+  /// V28 的原因作用域（审查回改 F-02）：不采纳原因代码仅在不采纳明细查询解析并下推——
+  /// 提醒、采纳与引用明细查询携带原因代码时不携带该条件，非法代码在其余明细类型也不触发参数校验拒绝。
+  /// </summary>
+  [Theory]
+  [InlineData(RecognitionUsageDetailType.Reminder)]
+  [InlineData(RecognitionUsageDetailType.Adopted)]
+  [InlineData(RecognitionUsageDetailType.Referenced)]
+  public async Task Non_adoption_reason_code_applies_only_to_not_adopted_detail_queries(RecognitionUsageDetailType detailType)
+  {
+    FakeStatisticsQueryRepository repository = new();
+    repository.ReminderItems.Add(BuildReminderItem(0, processed: true));
+    repository.AdoptionItems.Add(BuildAdoptionItem(1));
+    repository.ReferenceItems.Add(BuildReferenceItem(2));
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateReceiverAndSourceOrganizationService());
+
+    await service.QueryRecognitionUsageDetailsAsync(BuildDetailsRequest(1, 20, detailType) with { NonAdoptionReasonCode = "2" });
+    RecognitionUsageDetailFilter filter = repository.LastDetailFilter!;
+    Assert.Null(filter.NonAdoptionReason);
+
+    // 原因代码仅在不采纳明细查询解析：其余明细类型提交非法代码同样不触发参数校验拒绝。
+    await service.QueryRecognitionUsageDetailsAsync(BuildDetailsRequest(1, 20, detailType) with { NonAdoptionReasonCode = "not-a-code" });
+  }
+
+  /// <summary>
+  /// V47（S6-D19 修订面）：汇总导出、接收侧明细导出与来源侧明细导出都继承统一关键字，命中口径与页面查询一致；
+  /// 不采纳原因代码仍仅作用于接收侧不采纳明细导出——提醒明细导出与来源侧明细导出提交原因代码也不下推。
+  /// </summary>
+  [Fact]
+  public async Task Exports_inherit_the_keyword_and_keep_reason_code_scope()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    repository.SummaryGroupItems.Add(BuildSummaryRow(TrustedHospital, reminder: 1, adoption: 1));
+    repository.ReminderItems.Add(BuildReminderItem(0, processed: true));
+    repository.NonAdoptionItems.Add(BuildNonAdoptionItem(1));
+    repository.SourceDetailItems.Add(BuildSourceDetailItem(2));
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateReceiverAndSourceOrganizationService());
+
+    await service.GetStatisticsExportAsync(BuildExportRequest(RecognitionStatisticsExportType.RecognitionUsageSummary) with { Keyword = "STD-1" });
+    RecognitionUsageSummaryFilter summaryFilter = repository.LastSummaryFilter!;
+    await service.GetStatisticsExportAsync(BuildExportRequest(RecognitionStatisticsExportType.RecognitionNonAdoptionDetails) with { Keyword = " DOC-9 " });
+    RecognitionUsageDetailFilter nonAdoptionFilter = repository.LastDetailFilter!;
+    await service.GetStatisticsExportAsync(BuildExportRequest(RecognitionStatisticsExportType.RecognitionReminderDetails) with
+    {
+      Keyword = "STD-2",
+      NonAdoptionReasonCode = "2"
+    });
+    RecognitionUsageDetailFilter reminderFilter = repository.LastDetailFilter!;
+    await service.GetStatisticsExportAsync(BuildExportRequest(RecognitionStatisticsExportType.SourceRecognitionDetails) with
+    {
+      Keyword = "X_9",
+      NonAdoptionReasonCode = "2"
+    });
+    SourceRecognitionDetailFilter sourceDetailFilter = repository.LastSourceDetailFilter!;
+
+    Assert.Equal("STD-1", summaryFilter.Keyword);
+    Assert.Equal("DOC-9", nonAdoptionFilter.Keyword);
+    Assert.Equal("STD-2", reminderFilter.Keyword);
+    Assert.Null(reminderFilter.NonAdoptionReason);
+    Assert.Equal("X_9", sourceDetailFilter.Keyword);
   }
 
   /// <summary>

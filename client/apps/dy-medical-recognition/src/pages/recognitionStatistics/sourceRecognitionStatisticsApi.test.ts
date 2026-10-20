@@ -62,7 +62,7 @@ const summaryPageResponse = {
 }
 
 describe('C4 平台版来源侧汇总请求：来源组与接收组三级范围都随请求提交', () => {
-  it('请求体携带两组组织编码、日期原样、维度与内嵌分页', async () => {
+  it('请求体携带两组组织编码、统一关键字、日期原样、维度与内嵌分页', async () => {
     const built = buildSourceSummaryQuery(
       {
         version: 'platform',
@@ -75,7 +75,7 @@ describe('C4 平台版来源侧汇总请求：来源组与接收组三级范围�
         receiverOrganizationCode: 'ORG1',
         receiverHospitalCode: 'HOS1',
         receiverBranchCode: 'BR1',
-        standardProjectCode: ' A01 ',
+        keyword: ' A01 ',
       },
       pageInput,
     )
@@ -92,7 +92,10 @@ describe('C4 平台版来源侧汇总请求：来源组与接收组三级范围�
     expect(body.receiverOrganizationCode).toBe('ORG1')
     expect(body.receiverHospitalCode).toBe('HOS1')
     expect(body.receiverBranchCode).toBe('BR1')
-    expect(body.standardProjectCode).toBe('A01')
+    // 统一关键字承载互认科室、互认项目条件（来源侧语句无医生列）：输入原文去首尾空白后提交。
+    expect(body.keyword).toBe('A01')
+    // 标准项目编码独立字段不再提交（S6-D19）。
+    expect(body).not.toHaveProperty('standardProjectCode')
     expect(body.startTime).toEqual({ year: 2026, month: 3, day: 1 })
     expect(body.endTime).toEqual({ year: 2026, month: 3, day: 31 })
     expect(body.groupDimension).toBe(1)
@@ -101,7 +104,7 @@ describe('C4 平台版来源侧汇总请求：来源组与接收组三级范围�
 })
 
 describe('C4 本院版来源侧请求：本侧来源组织与医院、接收组织都不提交', () => {
-  it('汇总请求只提交本侧来源院区与接收组医院/院区', async () => {
+  it('汇总请求只提交本侧来源院区、接收组医院/院区与统一关键字', async () => {
     const built = buildSourceSummaryQuery(
       {
         version: 'branch',
@@ -111,6 +114,7 @@ describe('C4 本院版来源侧请求：本侧来源组织与医院、接收组�
         sourceBranchCode: 'BR9',
         receiverHospitalCode: 'HOS1',
         receiverBranchCode: 'BR1',
+        keyword: 'CT',
       },
       pageInput,
     )
@@ -124,15 +128,17 @@ describe('C4 本院版来源侧请求：本侧来源组织与医院、接收组�
     expect(body.sourceBranchCode).toBe('BR9')
     expect(body.receiverHospitalCode).toBe('HOS1')
     expect(body.receiverBranchCode).toBe('BR1')
+    expect(body.keyword).toBe('CT')
     expect(body.page).toEqual({ pageIndex: 1, pageSize: 20 })
     expect(body).not.toHaveProperty('sourceOrganizationCode')
     expect(body).not.toHaveProperty('sourceHospitalCode')
     expect(body).not.toHaveProperty('receiverOrganizationCode')
+    expect(body).not.toHaveProperty('standardProjectCode')
   })
 
-  it('明细请求走 queryBranchSourceRecognitionDetails，来源侧没有明细类型字段', async () => {
+  it('明细请求走 queryBranchSourceRecognitionDetails，来源侧没有明细类型与独立项目编码字段', async () => {
     const built = buildSourceDetailsQuery(
-      { version: 'branch', startTime: '2026-03-01', endTime: '2026-03-31', sourceBranchCode: 'BR9', receiverBranchCode: 'BR1' },
+      { version: 'branch', startTime: '2026-03-01', endTime: '2026-03-31', sourceBranchCode: 'BR9', receiverBranchCode: 'BR1', keyword: '血常规' },
       pageInput,
     )
     expect(built).not.toBeNull()
@@ -141,8 +147,11 @@ describe('C4 本院版来源侧请求：本侧来源组织与医院、接收组�
     await querySourceDetailsPage(client, built as NonNullable<typeof built>)
     const body = bodyOf(client.api.medicalRecognitionReportQuery.queryBranchSourceRecognitionDetails.post)
     expect(body.receiverBranchCode).toBe('BR1')
+    expect(body.keyword).toBe('血常规')
     expect(body).not.toHaveProperty('detailType')
+    expect(body).not.toHaveProperty('recognitionDeptId')
     expect(body).not.toHaveProperty('recognitionDoctorId')
+    expect(body).not.toHaveProperty('standardProjectCode')
     expect(body).not.toHaveProperty('nonAdoptionReasonCode')
     expect(body).not.toHaveProperty('sourceOrganizationCode')
     expect(body).not.toHaveProperty('receiverOrganizationCode')
@@ -204,7 +213,7 @@ describe('C4 来源侧构造拒绝面与导出请求', () => {
     )).not.toBeNull()
   })
 
-  it('来源侧导出只接受导出类型 6-7；平台版提交两组组织编码且无分页', async () => {
+  it('来源侧导出只接受导出类型 6-7；平台版提交两组组织编码、统一关键字且无分页', async () => {
     const base: PlatformSourceExportQuery = {
       version: 'platform',
       exportType: 6,
@@ -213,6 +222,7 @@ describe('C4 来源侧构造拒绝面与导出请求', () => {
       endTime: '2026-03-31',
       sourceOrganizationCode: 'ORG2',
       receiverOrganizationCode: 'ORG1',
+      keyword: ' A01 ',
     }
     expect(buildSourceExportQuery(invalidQuery(base, { exportType: 1 }))).toBeNull()
     expect(buildSourceExportQuery(invalidQuery(base, { exportType: 5 }))).toBeNull()
@@ -225,6 +235,8 @@ describe('C4 来源侧构造拒绝面与导出请求', () => {
     expect(body.exportType).toBe(6)
     expect(body.sourceOrganizationCode).toBe('ORG2')
     expect(body.receiverOrganizationCode).toBe('ORG1')
+    expect(body.keyword).toBe('A01')
+    expect(body).not.toHaveProperty('standardProjectCode')
     expect(body).not.toHaveProperty('page')
   })
 
@@ -237,6 +249,7 @@ describe('C4 来源侧构造拒绝面与导出请求', () => {
       endTime: '2026-03-31',
       sourceBranchCode: 'BR9',
       receiverHospitalCode: 'HOS1',
+      keyword: 'CT',
     })
     expect(built).not.toBeNull()
     const client = stubClient({ exportBranch: new ArrayBuffer(4) })
@@ -246,6 +259,7 @@ describe('C4 来源侧构造拒绝面与导出请求', () => {
     // 导出请求的本侧院区是统一槽位 branchCode（查询请求里按来源侧命名为 sourceBranchCode，导出请求统一）。
     expect(body.branchCode).toBe('BR9')
     expect(body.receiverHospitalCode).toBe('HOS1')
+    expect(body.keyword).toBe('CT')
     expect(body).not.toHaveProperty('sourceOrganizationCode')
     expect(body).not.toHaveProperty('receiverOrganizationCode')
   })

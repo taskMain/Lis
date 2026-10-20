@@ -131,6 +131,36 @@ public sealed class Stage6SqlMapTests
     "CountSourceRecognitionDetails", "QuerySourceRecognitionDetails"
   ];
 
+  /// <summary>
+  /// 承载统一关键字 OR 组的统计语句（S6-D19）：两侧汇总计数、取页与原因语句，接收侧四类明细对与来源侧明细对；
+  /// 匹配记录集合视图按标识读取、不承载关键字条件，不在本清单内。
+  /// </summary>
+  private static readonly string[] KeywordFilteredStatementIds =
+  [
+    "CountRecognitionUsageSummaryGroups", "QueryRecognitionUsageSummaryPage", "QueryRecognitionUsageSummaryReasons",
+    "CountSourceRecognitionSummaryGroups", "QuerySourceRecognitionSummaryPage",
+    "CountRecognitionUsageReminderDetails", "QueryRecognitionUsageReminderDetails",
+    "CountRecognitionUsageAdoptionDetails", "QueryRecognitionUsageAdoptionDetails",
+    "CountRecognitionUsageNonAdoptionDetails", "QueryRecognitionUsageNonAdoptionDetails",
+    "CountRecognitionUsageReferenceDetails", "QueryRecognitionUsageReferenceDetails",
+    "CountSourceRecognitionDetails", "QuerySourceRecognitionDetails"
+  ];
+
+  /// <summary>接收侧明细语句的关键字命中列：互认科室ID/名称、标准项目编码/名称与互认医生ID/姓名。</summary>
+  private static readonly string[] ReceiverDetailKeywordColumns =
+  [
+    "pr.recognition_dept_id", "pr.recognition_dept_name", "mi.standard_project_code", "si.name",
+    "pr.recognition_doctor_id", "pr.recognition_doctor_name"
+  ];
+
+  /// <summary>
+  /// 汇总语句与来源侧明细语句的关键字命中列：互认科室ID/名称与标准项目编码/名称，无互认医生列。
+  /// </summary>
+  private static readonly string[] SharedKeywordColumns =
+  [
+    "pr.recognition_dept_id", "pr.recognition_dept_name", "mi.standard_project_code", "si.name"
+  ];
+
   /// <summary>解决方案内禁用的其他 Excel 库包名（小写）；ClosedXML 是唯一允许的 Excel 生成库。</summary>
   private static readonly string[] ForbiddenExcelPackages =
   [
@@ -572,6 +602,95 @@ public sealed class Stage6SqlMapTests
       Assert.DoesNotContain("sc.item_type = $ItemType", statement, StringComparison.Ordinal);
     }
   }
+
+  /// <summary>
+  /// S6-D19、V46 的语句面：承载统计筛选的十五条语句以统一关键字 OR 组筛选——
+  /// 接收侧明细语句命中互认科室ID/名称、标准项目编码/名称、互认医生ID/姓名六列，
+  /// 汇总语句与来源侧明细语句按实际承载的科室与项目四列命中、无医生列；
+  /// 逐列前缀匹配（尾部通配、无前导通配）、两侧取 lower 大小写不敏感，
+  /// 对转义符 ! 先加倍、% 与 _ 转义为字面字符并以 escape '!' 声明；
+  /// 语句先剥除空格、制表、回车与换行再判空，全空白字符输入等价未提供、不附加条件；
+  /// 互认科室、标准项目编码与互认医生的独立筛选参数不再出现在任何统计语句中。
+  /// </summary>
+  [Fact]
+  public void Statistics_statements_filter_by_the_keyword_or_group()
+  {
+    foreach (string statementId in KeywordFilteredStatementIds)
+    {
+      string statement = StatisticsStatementText(statementId);
+      bool isReceiverDetail = statementId.Contains("Details", StringComparison.Ordinal)
+        && !statementId.Contains("Source", StringComparison.Ordinal);
+      string[] expectedColumns = isReceiverDetail ? ReceiverDetailKeywordColumns : SharedKeywordColumns;
+
+      // 空白关键字守卫在前：空格、制表、回车与换行全部剥除后判空，全空白字符输入使整个 OR 组恒真、行为等价未提供。
+      Assert.Contains(KeywordBlankGuardNormalized(), statement, StringComparison.Ordinal);
+
+      // 判别力：剥除的空白字符种类在归一化文本里不可分辨，按未归一的原始语句文本核对字符引用解析结果。
+      string rawStatement = RawStatementText(statementId);
+      Assert.Contains("'\t'", rawStatement, StringComparison.Ordinal);
+      Assert.Contains("'\n'", rawStatement, StringComparison.Ordinal);
+      Assert.Contains("'\r'", rawStatement, StringComparison.Ordinal);
+
+      string[] violations = FindMissingKeywordPredicates(statement, expectedColumns);
+      Assert.True(
+        violations.Length == 0,
+        $"{statementId} 的关键字 OR 组缺失或写法不符：{string.Join("；", violations)}");
+    }
+
+    // 十七条统计语句都不再出现互认科室ID、互认医生ID与标准项目编码的独立筛选参数。
+    foreach (string statementId in StatisticsStatementIds)
+    {
+      string statement = StatisticsStatementText(statementId);
+      Assert.DoesNotContain("$RecognitionDeptId", statement, StringComparison.Ordinal);
+      Assert.DoesNotContain("$RecognitionDoctorId", statement, StringComparison.Ordinal);
+      Assert.DoesNotContain("$StandardProjectCode", statement, StringComparison.Ordinal);
+    }
+
+    // 判别力：把关键字命中列改写为独立参数比较的变异文本上，同一判定必须恰好报出被删去的 OR 组谓词。
+    string reminder = StatisticsStatementText("CountRecognitionUsageReminderDetails");
+    Assert.Empty(FindMissingKeywordPredicates(reminder, ReceiverDetailKeywordColumns));
+    string mutated = reminder.Replace(
+      $"lower({ReceiverDetailKeywordColumns[0]}) like {KeywordPatternExpression()}",
+      $"{ReceiverDetailKeywordColumns[0]} = $RecognitionDeptId",
+      StringComparison.Ordinal);
+    Assert.Equal(
+      [KeywordPredicate(ReceiverDetailKeywordColumns[0])],
+      FindMissingKeywordPredicates(mutated, ReceiverDetailKeywordColumns));
+  }
+
+  /// <summary>构建一列的关键字前缀匹配谓词期望文本（与语句筛选片段逐字一致，空白已归一）。</summary>
+  /// <param name="column">命中列的限定列名。</param>
+  /// <returns>谓词期望文本。</returns>
+  private static string KeywordPredicate(string column) => $"lower({column}) like {KeywordPatternExpression()}";
+
+  /// <summary>构建关键字通配模式表达式：转义后取 lower 并尾部拼接通配符，无前导通配即前缀匹配。</summary>
+  /// <returns>模式表达式文本。</returns>
+  private static string KeywordPatternExpression() =>
+    "lower(concat(replace(replace(replace($Keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) escape '!'";
+
+  /// <summary>构建空白关键字守卫的归一化期望文本：剥除空格、制表、回车与换行四层 replace 后判空。</summary>
+  /// <returns>归一化后的守卫文本；四个被剥除字符在归一化文本里都呈现为空白，字符种类由原始文本断言核对。</returns>
+  private static string KeywordBlankGuardNormalized() =>
+    "replace(replace(replace(replace($Keyword, ' ', ''), ' ', ''), ' ', ''), ' ', '') = ''";
+
+  /// <summary>取某条统计语句未经归一化的原始文本（保留制表、回车与换行的真实字符）。</summary>
+  /// <param name="statementId">统计语句标识。</param>
+  /// <returns>语句原始文本。</returns>
+  private static string RawStatementText(string statementId) =>
+    Assert.Single(StatementElements(XDocument.Load(QueryMapPath())), element => (string?)element.Attribute("Id") == statementId).Value;
+
+  /// <summary>
+  /// 找出语句关键字 OR 组缺失或写法不符的命中列谓词：缺少列、误用前导通配或遗漏转义都会报出。
+  /// </summary>
+  /// <param name="statement">已归一化的语句文本。</param>
+  /// <param name="expectedColumns">该语句应命中的列清单。</param>
+  /// <returns>缺失或不符的谓词说明清单。</returns>
+  private static string[] FindMissingKeywordPredicates(string statement, string[] expectedColumns) =>
+    [
+      .. expectedColumns
+        .Select(KeywordPredicate)
+        .Where(predicate => !statement.Contains(predicate, StringComparison.Ordinal))
+    ];
 
   /// <summary>
   /// V30 的语句面：明细与匹配记录视图的患者姓名取自匹配项绑定报告的报告主体检索列，证件号码取匹配记录保存值。
