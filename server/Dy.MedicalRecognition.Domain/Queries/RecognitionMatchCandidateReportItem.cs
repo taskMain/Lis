@@ -19,7 +19,7 @@ public sealed record RecognitionMatchCandidateReportItem
   /// </summary>
   public Guid ReportVersionId { get; init; }
   /// <summary>
-  /// 来源医院编码；与接收医院相同即本院报告，是否参与匹配由本院报告两个参数决定。
+  /// 提供方医院编码；与使用方医院相同即本院报告，是否参与匹配由本院报告两个参数决定。
   /// </summary>
   public string SourceHospitalCode { get; init; } = string.Empty;
   /// <summary>

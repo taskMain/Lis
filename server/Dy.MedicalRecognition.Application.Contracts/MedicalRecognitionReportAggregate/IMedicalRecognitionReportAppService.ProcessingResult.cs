@@ -8,7 +8,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAg
 /// </summary>
 /// <remarks>
 /// 本分片声明一个医院接入能力：按互认匹配记录整组提交处理结果。成功统一返回 <see langword="true"/>，失败以业务异常表达；
-/// 接收组织、医院、院区取自可信上下文，操作人取自登录上下文，调用方都不提交。
+/// 使用方组织、医院、院区取自可信上下文，操作人取自登录上下文，调用方都不提交。
 /// </remarks>
 public partial interface IMedicalRecognitionReportAppService
 {
@@ -16,7 +16,7 @@ public partial interface IMedicalRecognitionReportAppService
   /// 按互认匹配记录整组提交医生作出的采纳或不采纳处理结果。
   /// </summary>
   /// <remarks>
-  /// 接收组织、医院与院区取自可信上下文，操作人取自登录上下文；互认时间、互认科室与互认医生是组级事实，只在组级提供一次。
+  /// 使用方组织、医院与院区取自可信上下文，操作人取自登录上下文；互认时间、互认科室与互认医生是组级事实，只在组级提供一次。
   /// 本入口是事务边界：整组处理结果共同保存或共同不保存；命中完全相同的既有事实时按幂等成功返回，
   /// 此时不读金额、不校验报告版本有效性、不新增记录、不重复统计、处理结果保存时间不变；
   /// 相同业务键下参与比较的事实不一致时返回冲突且不覆盖既有决定。

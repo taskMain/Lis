@@ -7,7 +7,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAg
 /// </summary>
 /// <remarks>
 /// 引用项目按互认匹配项标识定位，一次请求允许包含来自不同匹配记录的项目并整批原子保存；
-/// 接收组织、医院、院区、本次来源就诊与互认时间由平台按各匹配项已保存的事实取得，调用方不重复提交；
+/// 使用方组织、医院、院区、本次来源就诊与互认时间由平台按各匹配项已保存的事实取得，调用方不重复提交；
 /// 引用时间、引用科室与引用医生属于项目级实际引用事实，不作为组级公共字段。
 /// </remarks>
 public sealed record RecognitionReferenceSubmissionRequest

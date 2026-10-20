@@ -4,7 +4,7 @@ using Dy.MedicalRecognition.Domain.Share.Enums;
 namespace Dy.MedicalRecognition.Application.Contracts.ReadModels;
 
 /// <summary>
-/// 接收侧互认使用汇总行：每个汇总维度的一个分组值，以及行内六项指标、同期互认率、不采纳原因汇总与预计节省金额。
+/// 使用方互认使用汇总行：每个汇总维度的一个分组值，以及行内六项指标、同期互认率、不采纳原因汇总与预计节省金额。
 /// </summary>
 /// <remarks>
 /// 每行为所选汇总维度的一个分组值，未参与分组的维度字段为 <see langword="null"/>，不做总计行；
@@ -14,19 +14,19 @@ namespace Dy.MedicalRecognition.Application.Contracts.ReadModels;
 /// </remarks>
 public sealed record RecognitionUsageSummaryReadModel
 {
-  /// <summary>接收组织编码；仅医院、院区与互认科室维度行携带。</summary>
+  /// <summary>使用方组织编码；仅医院、院区与互认科室维度行携带。</summary>
   public string? ReceiverOrganizationCode { get; init; }
-  /// <summary>接收组织名称；按当页涉及编码批量回填。</summary>
+  /// <summary>使用方组织名称；按当页涉及编码批量回填。</summary>
   public string? ReceiverOrganizationName { get; init; }
-  /// <summary>接收医院编码；仅医院、院区与互认科室维度行携带。</summary>
+  /// <summary>使用方医院编码；仅医院、院区与互认科室维度行携带。</summary>
   public string? ReceiverHospitalCode { get; init; }
-  /// <summary>接收医院名称；按当页涉及编码批量回填。</summary>
+  /// <summary>使用方医院名称；按当页涉及编码批量回填。</summary>
   public string? ReceiverHospitalName { get; init; }
-  /// <summary>接收院区编码；仅院区与互认科室维度行携带。</summary>
+  /// <summary>使用方院区编码；仅院区与互认科室维度行携带。</summary>
   public string? ReceiverBranchCode { get; init; }
-  /// <summary>接收院区名称；按当页涉及编码批量回填。</summary>
+  /// <summary>使用方院区名称；按当页涉及编码批量回填。</summary>
   public string? ReceiverBranchName { get; init; }
-  /// <summary>互认科室ID；按「接收院区 + 处理结果互认科室ID」归类，仅互认科室维度行携带。</summary>
+  /// <summary>互认科室ID；按「使用方院区 + 处理结果互认科室ID」归类，仅互认科室维度行携带。</summary>
   public string? RecognitionDeptId { get; init; }
   /// <summary>互认科室名称；取当前查询范围内互认时间最晚一条处理结果保存的名称。</summary>
   public string? RecognitionDeptName { get; init; }

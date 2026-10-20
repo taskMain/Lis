@@ -305,7 +305,7 @@ public sealed class Stage2EnumMetadataQueryTests
   /// 反射判定按成员名而不是命名空间文本：<c>GetFields()</c>、<c>Enum.GetValues&lt;T&gt;()</c>、
   /// <c>GetCustomAttribute&lt;T&gt;()</c> 与别名 <c>using R = System.Reflection;</c> 都会被判为违规。
   /// 已知边界：预处理器关闭的分支（<c>#if false</c>）不产生节点，其中的写法对节点扫描不可见；
-  /// 注册表引用按类型名接收方判定，因此 <c>using static</c> 后裸写 <c>Descriptors</c> 的等价改写会因"未引用注册表"而失败；
+  /// 注册表引用按类型名使用方判定，因此 <c>using static</c> 后裸写 <c>Descriptors</c> 的等价改写会因"未引用注册表"而失败；
   /// 反射判定只按成员名，对其它类型上同名的 <c>GetValues</c>/<c>GetNames</c> 调用同样判为违规
   /// （本判据只扫元数据服务的取值路径，当前不存在同名调用）。
   /// </remarks>

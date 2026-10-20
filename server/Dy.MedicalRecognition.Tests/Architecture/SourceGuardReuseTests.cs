@@ -253,7 +253,7 @@ public sealed class SourceGuardReuseTests
   }
 
   /// <summary>
-  /// 判断源码是否真实调用了共享语法工具（按类型名接收方判定，注释与字符串里的同名文本不算）。
+  /// 判断源码是否真实调用了共享语法工具（按类型名使用方判定，注释与字符串里的同名文本不算）。
   /// </summary>
   /// <param name="root">编译单元语法树根节点。</param>
   /// <returns>存在对共享语法工具的成员访问时为 <see langword="true"/>。</returns>

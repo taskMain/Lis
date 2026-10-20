@@ -5,8 +5,8 @@ using Dy.MedicalRecognition.Domain.Share.Enums;
 namespace Dy.MedicalRecognition.Tests;
 
 /// <summary>
-/// 互认统计查询仓储的内存替身：保存接收侧与来源侧汇总分组行、原因行、四类接收侧明细行、
-/// 来源侧明细行与匹配记录集合视图行，按用例脚本记录筛选条件、窗口与调用次数。
+/// 互认统计查询仓储的内存替身：保存使用方与提供方汇总分组行、原因行、四类使用方明细行、
+/// 提供方明细行与匹配记录集合视图行，按用例脚本记录筛选条件、窗口与调用次数。
 /// </summary>
 /// <remarks>
 /// 替身只用于隔离数据库：应用层下推的筛选条件、窗口起点与页容量被原样记录，供用例断言"窗口校验发生在读取之前"、
@@ -19,31 +19,31 @@ internal sealed class FakeStatisticsQueryRepository : IMedicalRecognitionReportQ
   /// <summary>未使用的查询成员统一提示。</summary>
   private const string UnusedMember = "本替身不覆盖该查询成员。";
 
-  /// <summary>接收侧汇总的当页分组行集合；计数方法返回其条数，取页方法按窗口切片。</summary>
+  /// <summary>使用方汇总的当页分组行集合；计数方法返回其条数，取页方法按窗口切片。</summary>
   public List<RecognitionUsageSummaryGroupItem> SummaryGroupItems { get; } = [];
 
-  /// <summary>接收侧汇总的不采纳原因行集合；取原因方法返回全量，应用层按分组键装配。</summary>
+  /// <summary>使用方汇总的不采纳原因行集合；取原因方法返回全量，应用层按分组键装配。</summary>
   public List<RecognitionUsageReasonItem> ReasonItems { get; } = [];
 
-  /// <summary>接收侧提醒明细行集合；含未反馈项，计数与取页都基于本集合。</summary>
+  /// <summary>使用方提醒明细行集合；含未反馈项，计数与取页都基于本集合。</summary>
   public List<RecognitionReminderDetailItem> ReminderItems { get; } = [];
 
   /// <summary>提醒明细计数的脚本化覆盖取值；小于零时按集合条数计数，供导出行数上限用例注入超上限与边界取值。</summary>
   public long ReminderCountOverride { get; init; } = -1;
 
-  /// <summary>接收侧采纳明细行集合；计数与取页都基于本集合。</summary>
+  /// <summary>使用方采纳明细行集合；计数与取页都基于本集合。</summary>
   public List<RecognitionAdoptionDetailItem> AdoptionItems { get; } = [];
 
-  /// <summary>接收侧不采纳明细行集合；计数与取页都基于本集合。</summary>
+  /// <summary>使用方不采纳明细行集合；计数与取页都基于本集合。</summary>
   public List<RecognitionNonAdoptionDetailItem> NonAdoptionItems { get; } = [];
 
-  /// <summary>接收侧引用明细行集合；计数与取页都基于本集合。</summary>
+  /// <summary>使用方引用明细行集合；计数与取页都基于本集合。</summary>
   public List<RecognitionReferenceDetailItem> ReferenceItems { get; } = [];
 
-  /// <summary>来源侧汇总的当页分组行集合；计数方法返回其条数，取页方法按窗口切片。</summary>
+  /// <summary>提供方汇总的当页分组行集合；计数方法返回其条数，取页方法按窗口切片。</summary>
   public List<SourceRecognitionSummaryGroupItem> SourceSummaryGroupItems { get; } = [];
 
-  /// <summary>来源侧明细行集合；计数与取页都基于本集合。</summary>
+  /// <summary>提供方明细行集合；计数与取页都基于本集合。</summary>
   public List<SourceRecognitionDetailItem> SourceDetailItems { get; } = [];
 
   /// <summary>匹配记录集合视图的组级行集合；按标识查找，未命中即视图查询返回空。</summary>
@@ -73,13 +73,13 @@ internal sealed class FakeStatisticsQueryRepository : IMedicalRecognitionReportQ
   /// <summary>引用明细计数与取页调用次数之和。</summary>
   public int ReferenceCalls { get; private set; }
 
-  /// <summary>来源侧汇总计数调用次数。</summary>
+  /// <summary>提供方汇总计数调用次数。</summary>
   public int SourceSummaryCountCalls { get; private set; }
 
-  /// <summary>来源侧汇总取页调用次数。</summary>
+  /// <summary>提供方汇总取页调用次数。</summary>
   public int SourceSummaryPageCalls { get; private set; }
 
-  /// <summary>来源侧明细计数与取页调用次数之和。</summary>
+  /// <summary>提供方明细计数与取页调用次数之和。</summary>
   public int SourceDetailCalls { get; private set; }
 
   /// <summary>匹配记录组级信息查询调用次数。</summary>
@@ -99,10 +99,10 @@ internal sealed class FakeStatisticsQueryRepository : IMedicalRecognitionReportQ
   /// <summary>最近一次收到的明细筛选条件。</summary>
   public RecognitionUsageDetailFilter? LastDetailFilter { get; private set; }
 
-  /// <summary>最近一次收到的来源侧汇总筛选条件。</summary>
+  /// <summary>最近一次收到的提供方汇总筛选条件。</summary>
   public SourceRecognitionSummaryFilter? LastSourceSummaryFilter { get; private set; }
 
-  /// <summary>最近一次收到的来源侧明细筛选条件。</summary>
+  /// <summary>最近一次收到的提供方明细筛选条件。</summary>
   public SourceRecognitionDetailFilter? LastSourceDetailFilter { get; private set; }
 
   /// <summary>最近一次匹配记录组级信息查询收到的标识。</summary>
@@ -126,16 +126,16 @@ internal sealed class FakeStatisticsQueryRepository : IMedicalRecognitionReportQ
   /// <summary>最近一次明细取页对应的明细类型。</summary>
   public RecognitionUsageDetailType LastDetailType { get; private set; }
 
-  /// <summary>最近一次来源侧汇总取页收到的窗口起点。</summary>
+  /// <summary>最近一次提供方汇总取页收到的窗口起点。</summary>
   public int LastSourceSummarySkipCount { get; private set; }
 
-  /// <summary>最近一次来源侧汇总取页收到的页容量。</summary>
+  /// <summary>最近一次提供方汇总取页收到的页容量。</summary>
   public int LastSourceSummaryPageSize { get; private set; }
 
-  /// <summary>最近一次来源侧明细取页收到的窗口起点。</summary>
+  /// <summary>最近一次提供方明细取页收到的窗口起点。</summary>
   public int LastSourceDetailSkipCount { get; private set; }
 
-  /// <summary>最近一次来源侧明细取页收到的页容量。</summary>
+  /// <summary>最近一次提供方明细取页收到的页容量。</summary>
   public int LastSourceDetailPageSize { get; private set; }
 
   /// <inheritdoc/>
@@ -391,9 +391,9 @@ internal sealed class FakeStatisticsQueryRepository : IMedicalRecognitionReportQ
   public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesByItemsAsync(IReadOnlyList<Guid> examinationItemIds) => throw new NotSupportedException(UnusedMember);
 
   /// <summary>本替身不覆盖：候选报告查询。</summary>
-  /// <param name="organizationCode">可信接收组织编码。</param>
-  /// <param name="hospitalCode">可信接收医院编码。</param>
-  /// <param name="branchCode">可信接收院区编码。</param>
+  /// <param name="organizationCode">可信使用方组织编码。</param>
+  /// <param name="hospitalCode">可信使用方医院编码。</param>
+  /// <param name="branchCode">可信使用方院区编码。</param>
   /// <param name="patientId">平台患者标识。</param>
   /// <param name="identityDocumentTypeCode">证件类型代码。</param>
   /// <param name="identityDocumentNo">证件号码。</param>
@@ -433,9 +433,9 @@ internal sealed class FakeStatisticsQueryRepository : IMedicalRecognitionReportQ
   public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) => throw new NotSupportedException(UnusedMember);
 
   /// <summary>本替身不覆盖：引用详情候选采纳记录查询。</summary>
-  /// <param name="organizationCode">可信接收组织编码。</param>
-  /// <param name="hospitalCode">可信接收医院编码。</param>
-  /// <param name="branchCode">可信接收院区编码。</param>
+  /// <param name="organizationCode">可信使用方组织编码。</param>
+  /// <param name="hospitalCode">可信使用方医院编码。</param>
+  /// <param name="branchCode">可信使用方院区编码。</param>
   /// <param name="identityDocumentTypeCode">证件类型代码。</param>
   /// <param name="identityDocumentNo">证件号码。</param>
   /// <param name="visitType">就诊类型。</param>

@@ -18,15 +18,15 @@ namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Command
 public partial record QueryRecognitionMatchesCommand : ICommand
 {
   /// <summary>
-  /// 可信接收组织编码；MVP 只匹配来源组织与接收组织一致的报告。
+  /// 可信使用方组织编码；MVP 只匹配提供方组织与使用方组织一致的报告。
   /// </summary>
   public partial string ReceiverOrganizationCode { get; set; }
   /// <summary>
-  /// 可信接收医院编码；与来源医院相同即本院报告，是否参与匹配由开关与排除时长决定。
+  /// 可信使用方医院编码；与提供方医院相同即本院报告，是否参与匹配由开关与排除时长决定。
   /// </summary>
   public partial string ReceiverHospitalCode { get; set; }
   /// <summary>
-  /// 可信接收院区编码；本院报告判定不区分院区。
+  /// 可信使用方院区编码；本院报告判定不区分院区。
   /// </summary>
   public partial string ReceiverBranchCode { get; set; }
   /// <summary>

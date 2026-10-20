@@ -414,7 +414,7 @@ public partial class MedicalRecognitionReportAppService
   /// <summary>
   /// 把一条普通检验结果映射为匹配响应的检验结果明细。
   /// </summary>
-  /// <remarks>异常标志与危急值标志按枚举声明解析为中文文本，只表达来源医院的判断，平台不重新计算。</remarks>
+  /// <remarks>异常标志与危急值标志按枚举声明解析为中文文本，只表达提供方医院的判断，平台不重新计算。</remarks>
   /// <param name="result">来源报告版本下的一条普通检验结果。</param>
   /// <returns>匹配响应的检验结果明细。</returns>
   private static RecognitionMatchLaboratoryResultReadModel MapLaboratoryResult(LaboratoryResultItemView result) => new()

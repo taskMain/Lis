@@ -3,7 +3,7 @@ using Dy.MedicalRecognition.Domain.Share.Enums;
 namespace Dy.MedicalRecognition.Domain.Queries;
 
 /// <summary>
-/// 接收侧互认使用汇总的分组行投影：所选维度的一个分组值，以及行内六项指标与预计节省金额。
+/// 使用方互认使用汇总的分组行投影：所选维度的一个分组值，以及行内六项指标与预计节省金额。
 /// </summary>
 /// <remarks>
 /// 未参与分组的维度键为空值，应用层据此组装读模型并把空值保持为空；
@@ -12,11 +12,11 @@ namespace Dy.MedicalRecognition.Domain.Queries;
 /// </remarks>
 public sealed record RecognitionUsageSummaryGroupItem
 {
-  /// <summary>接收组织编码；仅医院、院区与互认科室维度行有值。</summary>
+  /// <summary>使用方组织编码；仅医院、院区与互认科室维度行有值。</summary>
   public string? ReceiverOrganizationCode { get; init; }
-  /// <summary>接收医院编码；仅医院、院区与互认科室维度行有值。</summary>
+  /// <summary>使用方医院编码；仅医院、院区与互认科室维度行有值。</summary>
   public string? ReceiverHospitalCode { get; init; }
-  /// <summary>接收院区编码；仅院区与互认科室维度行有值。</summary>
+  /// <summary>使用方院区编码；仅院区与互认科室维度行有值。</summary>
   public string? ReceiverBranchCode { get; init; }
   /// <summary>互认科室ID；仅互认科室维度行有值。</summary>
   public string? RecognitionDeptId { get; init; }

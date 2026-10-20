@@ -15,11 +15,11 @@ public sealed record RecognitionMatchRecordView
   public Guid RecognitionMatchRecordId { get; init; }
   /// <summary>互认匹配生成时间。</summary>
   public DateTime MatchCreatedTime { get; init; }
-  /// <summary>接收组织编码。</summary>
+  /// <summary>使用方组织编码。</summary>
   public string ReceiverOrganizationCode { get; init; } = string.Empty;
-  /// <summary>接收医院编码。</summary>
+  /// <summary>使用方医院编码。</summary>
   public string ReceiverHospitalCode { get; init; } = string.Empty;
-  /// <summary>接收院区编码。</summary>
+  /// <summary>使用方院区编码。</summary>
   public string ReceiverBranchCode { get; init; } = string.Empty;
   /// <summary>患者姓名：组内各匹配项绑定同一患者，聚合归一为单值。</summary>
   public string? PatientName { get; init; }

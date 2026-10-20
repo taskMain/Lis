@@ -78,11 +78,11 @@ public partial record LaboratoryResultItemDto : Dto
   /// </summary>
   public partial bool? CriticalValueFlag { get; set; }
   /// <summary>
-  /// 检验收费项目编码，仅用于来源侧对账追溯。
+  /// 检验收费项目编码，仅用于提供方对账追溯。
   /// </summary>
   public partial string? LaboratoryChargeItemCode { get; set; }
   /// <summary>
-  /// 医保收费项目编码，仅用于来源侧对账追溯。
+  /// 医保收费项目编码，仅用于提供方对账追溯。
   /// </summary>
   public partial string? InsuranceChargeItemCode { get; set; }
   /// <summary>

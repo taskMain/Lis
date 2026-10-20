@@ -10,7 +10,7 @@ namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Command
 /// </summary>
 /// <remarks>
 /// 互认时间、互认科室与互认医生是组级事实，对本次提交的全部匹配项共同适用，因此只在组级提供一次；
-/// 接收组织、医院与院区取自可信调用身份，操作人取自登录上下文，调用方都不提交；
+/// 使用方组织、医院与院区取自可信调用身份，操作人取自登录上下文，调用方都不提交；
 /// 项目集合必须完整覆盖该组全部匹配项且无重复、无其他组的匹配项，缺项、重复与夹带由领域层整批拒绝；
 /// 采纳时不带不采纳原因，不采纳时必须提供平台统一原因代码，选择其他情形确需复查时补充说明必填。
 /// </remarks>
@@ -23,15 +23,15 @@ public partial record SubmitRecognitionProcessingResultsCommand : ICommand
   /// </summary>
   public partial Guid RecognitionMatchRecordId { get; set; }
   /// <summary>
-  /// 可信接收组织编码；用于校验匹配记录归属，并作为读取采纳项目当前金额的业务键之一。
+  /// 可信使用方组织编码；用于校验匹配记录归属，并作为读取采纳项目当前金额的业务键之一。
   /// </summary>
   public partial string OrganizationCode { get; set; }
   /// <summary>
-  /// 可信接收医院编码；用于校验匹配记录归属，并作为读取采纳项目当前金额的业务键之一。
+  /// 可信使用方医院编码；用于校验匹配记录归属，并作为读取采纳项目当前金额的业务键之一。
   /// </summary>
   public partial string HospitalCode { get; set; }
   /// <summary>
-  /// 可信接收院区编码；用于校验匹配记录归属，并作为读取采纳项目当前金额的业务键之一。
+  /// 可信使用方院区编码；用于校验匹配记录归属，并作为读取采纳项目当前金额的业务键之一。
   /// </summary>
   public partial string BranchCode { get; set; }
   /// <summary>

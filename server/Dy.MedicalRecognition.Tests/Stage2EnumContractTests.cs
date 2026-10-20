@@ -52,7 +52,7 @@ public sealed class Stage2EnumContractTests
   [InlineData("MedicalStandardUsageStatus.cs", nameof(MedicalStandardUsageStatus), "[Description(\"未使用\")]", "[Description(\"已使用\")]")]
   [InlineData("RecognitionStatisticsGroupDimension.cs", nameof(RecognitionStatisticsGroupDimension), "[Description(\"医院\")]", "[Description(\"标准项目\")]")]
   [InlineData("RecognitionUsageDetailType.cs", nameof(RecognitionUsageDetailType), "[Description(\"提醒\")]", "[Description(\"引用\")]")]
-  [InlineData("RecognitionStatisticsExportType.cs", nameof(RecognitionStatisticsExportType), "[Description(\"接收侧互认使用汇总\")]", "[Description(\"来源医院被互认明细\")]")]
+  [InlineData("RecognitionStatisticsExportType.cs", nameof(RecognitionStatisticsExportType), "[Description(\"使用方互认使用汇总\")]", "[Description(\"提供方医院被互认明细\")]")]
   public void Public_enums_opt_into_enum_descriptor_generation(string fileName, string enumName, string enabledDescription, string disabledDescription)
   {
     string source = File.ReadAllText(Path.Combine(
@@ -192,8 +192,8 @@ public sealed class Stage2EnumContractTests
       statisticsExportType.Select(descriptor => descriptor.Name).ToArray());
     Assert.Equal(
       [
-        "接收侧互认使用汇总", "接收侧提醒明细", "接收侧采纳明细",
-        "接收侧不采纳明细", "接收侧引用明细", "来源医院被互认汇总", "来源医院被互认明细"
+        "使用方互认使用汇总", "使用方提醒明细", "使用方采纳明细",
+        "使用方不采纳明细", "使用方引用明细", "提供方医院被互认汇总", "提供方医院被互认明细"
       ],
       statisticsExportType.Select(descriptor => descriptor.Description).ToArray());
   }

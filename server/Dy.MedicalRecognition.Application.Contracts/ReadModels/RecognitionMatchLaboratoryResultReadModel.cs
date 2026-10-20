@@ -3,7 +3,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.ReadModels;
 /// <summary>
 /// 检验匹配的主要结果明细；逐条按来源原文返回，平台不解析、换算或重新判定。
 /// </summary>
-/// <remarks>异常标志与危急值标志只表达来源医院判断；不要求按来源报告中的业务序号返回。</remarks>
+/// <remarks>异常标志与危急值标志只表达提供方医院判断；不要求按来源报告中的业务序号返回。</remarks>
 public sealed record RecognitionMatchLaboratoryResultReadModel
 {
   /// <summary>检验项目名称。</summary>

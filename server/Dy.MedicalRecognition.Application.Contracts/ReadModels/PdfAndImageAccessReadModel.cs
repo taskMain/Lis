@@ -8,7 +8,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.ReadModels;
 /// <remarks>
 /// 匹配响应与引用详情共用同一入口形状；下载入口不设置独立有效期、一次性读取或消费状态，
 /// 每次下载按调用医院与院区、匹配归属及绑定报告版本是否仍为当前有效版本判定；
-/// 影像调阅地址是来源医院提供的外部信息，平台不代理、不缓存也不保证其可用性。
+/// 影像调阅地址是提供方医院提供的外部信息，平台不代理、不缓存也不保证其可用性。
 /// </remarks>
 public sealed record PdfAndImageAccessReadModel
 {

@@ -18,7 +18,7 @@
       recognition_doctor_name,       <!-- 互认医生名称，与标识成对保存 -->
       non_adoption_reason,           <!-- 不采纳原因，采纳项目写入空值 -->
       non_adoption_description,      <!-- 不采纳补充说明，仅其他情形确需复查时填写 -->
-      estimated_saving_amount,       <!-- 预计节省金额，按保存时读取的接收方当前金额形成 -->
+      estimated_saving_amount,       <!-- 预计节省金额，按保存时读取的使用方当前金额形成 -->
       oper_id,                       <!-- 操作人标识 -->
       oper_time                      <!-- 操作时间 -->
     </Statement>
@@ -64,7 +64,7 @@
         recognition_doctor_name,       <!-- 互认医生名称，取自请求且与标识成对 -->
         non_adoption_reason,           <!-- 不采纳原因，采纳项目写入空值 -->
         non_adoption_description,      <!-- 不采纳补充说明，仅其他情形确需复查时填写 -->
-        estimated_saving_amount,       <!-- 预计节省金额，采纳项目取保存时读取的接收方当前金额，未配置金额按零元 -->
+        estimated_saving_amount,       <!-- 预计节省金额，采纳项目取保存时读取的使用方当前金额，未配置金额按零元 -->
         oper_id,                       <!-- 操作人标识，取自可信身份上下文 -->
         oper_time                      <!-- 操作时间，取命令携带的服务端当前时间 -->
       ) values ($Id, $RecognitionMatchRecordId, $RecognitionMatchItemId, $RecognitionTime, $RecognitionResult,

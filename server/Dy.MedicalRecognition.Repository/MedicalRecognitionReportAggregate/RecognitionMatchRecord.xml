@@ -7,9 +7,9 @@
     -->
     <Statement Id="RecognitionMatchRecordColumns">
       id,                           <!-- 匹配记录标识（主键） -->
-      receiver_organization_code,   <!-- 接收组织编码，来自可信调用身份 -->
-      receiver_hospital_code,       <!-- 接收医院编码，来自可信调用身份 -->
-      receiver_branch_code,         <!-- 接收院区编码，来自可信调用身份 -->
+      receiver_organization_code,   <!-- 使用方组织编码，来自可信调用身份 -->
+      receiver_hospital_code,       <!-- 使用方医院编码，来自可信调用身份 -->
+      receiver_branch_code,         <!-- 使用方院区编码，来自可信调用身份 -->
       identity_document_type_code,  <!-- 证件类型代码，取请求提交的患者证件类型 -->
       identity_document_no,         <!-- 证件号码，取规范形式处理后的请求证件号码 -->
       visit_type,                   <!-- 就诊类型，取请求提交的本次来源就诊类型 -->
@@ -26,7 +26,7 @@
     -->
     <Statement Id="GetRecognitionMatchRecordByBusinessKey">
       select <Include RefId="RecognitionMatchRecordColumns" /> from mrec_recognition_match_record
-      <!-- 定位键：接收组织、医院、院区与患者证件类型、证件号码同时相等即命中，处理结果保存时间不参与定位 -->
+      <!-- 定位键：使用方组织、医院、院区与患者证件类型、证件号码同时相等即命中，处理结果保存时间不参与定位 -->
       where receiver_organization_code = $ReceiverOrganizationCode and receiver_hospital_code = $ReceiverHospitalCode
         and receiver_branch_code = $ReceiverBranchCode and identity_document_type_code = $IdentityDocumentTypeCode
         and identity_document_no = $IdentityDocumentNo
@@ -62,9 +62,9 @@
       insert into mrec_recognition_match_record (
         <!-- 参数顺序与下面的值列表逐位对应，全部来自命令与可信上下文，不含数据库默认值 -->
         id,                           <!-- 匹配记录标识（主键），由仓储在插入前生成 -->
-        receiver_organization_code,   <!-- 接收组织编码，取自可信调用身份 -->
-        receiver_hospital_code,       <!-- 接收医院编码，取自可信调用身份 -->
-        receiver_branch_code,         <!-- 接收院区编码，取自可信调用身份 -->
+        receiver_organization_code,   <!-- 使用方组织编码，取自可信调用身份 -->
+        receiver_hospital_code,       <!-- 使用方医院编码，取自可信调用身份 -->
+        receiver_branch_code,         <!-- 使用方院区编码，取自可信调用身份 -->
         identity_document_type_code,  <!-- 证件类型代码，取自请求 -->
         identity_document_no,         <!-- 证件号码，取自规范形式处理后的请求 -->
         visit_type,                   <!-- 就诊类型，取自请求提交的本次来源就诊类型 -->

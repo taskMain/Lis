@@ -94,7 +94,7 @@ public sealed class Stage6SqlMapTests
   /// 三条统计索引的索引名、所属建表脚本、声明文本与中文索引注释；声明文本在迁移文件与建表脚本中逐字一致。
   /// </summary>
   /// <remarks>
-  /// 列名取自三份建表脚本的物理列名：匹配记录表按接收组织、接收医院、接收院区三值加互认匹配生成时间，
+  /// 列名取自三份建表脚本的物理列名：匹配记录表按使用方组织、使用方医院、使用方院区三值加互认匹配生成时间，
   /// 处理结果表按互认时间，引用事实表按实际引用时间；三条均为普通索引，不加 if not exists。
   /// </remarks>
   private static readonly (string IndexName, string ScriptFile, string Declaration, string Comment)[] ExpectedIndexes =
@@ -103,7 +103,7 @@ public sealed class Stage6SqlMapTests
       "ix_mrec_recognition_match_record_receiver_time",
       "mrec_recognition_match_record.sql",
       "create index ix_mrec_recognition_match_record_receiver_time\non mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, match_created_time);",
-      "comment on index ix_mrec_recognition_match_record_receiver_time is '接收组织、接收医院与接收院区三值等值筛选并按互认匹配生成时间做范围扫描，与业务键索引互补';"
+      "comment on index ix_mrec_recognition_match_record_receiver_time is '使用方组织、使用方医院与使用方院区三值等值筛选并按互认匹配生成时间做范围扫描，与业务键索引互补';"
     ),
     (
       "ix_mrec_recognition_processing_result_recognition_time",
@@ -119,7 +119,7 @@ public sealed class Stage6SqlMapTests
     )
   ];
 
-  /// <summary>携带项目类型筛选的统计语句：两侧汇总计数、取页与原因语句，加接收侧四类与来源侧明细对。</summary>
+  /// <summary>携带项目类型筛选的统计语句：两侧汇总计数、取页与原因语句，加使用方四类与提供方明细对。</summary>
   private static readonly string[] ItemTypeFilteredStatementIds =
   [
     "CountRecognitionUsageSummaryGroups", "QueryRecognitionUsageSummaryPage", "QueryRecognitionUsageSummaryReasons",
@@ -132,7 +132,7 @@ public sealed class Stage6SqlMapTests
   ];
 
   /// <summary>
-  /// 承载统一关键字 OR 组的统计语句（S6-D19）：两侧汇总计数、取页与原因语句，接收侧四类明细对与来源侧明细对；
+  /// 承载统一关键字 OR 组的统计语句（S6-D19）：两侧汇总计数、取页与原因语句，使用方四类明细对与提供方明细对；
   /// 匹配记录集合视图按标识读取、不承载关键字条件，不在本清单内。
   /// </summary>
   private static readonly string[] KeywordFilteredStatementIds =
@@ -146,7 +146,7 @@ public sealed class Stage6SqlMapTests
     "CountSourceRecognitionDetails", "QuerySourceRecognitionDetails"
   ];
 
-  /// <summary>接收侧明细语句的关键字命中列：互认科室ID/名称、标准项目编码/名称与互认医生ID/姓名。</summary>
+  /// <summary>使用方明细语句的关键字命中列：互认科室ID/名称、标准项目编码/名称与互认医生ID/姓名。</summary>
   private static readonly string[] ReceiverDetailKeywordColumns =
   [
     "pr.recognition_dept_id", "pr.recognition_dept_name", "mi.standard_project_code", "si.name",
@@ -154,7 +154,7 @@ public sealed class Stage6SqlMapTests
   ];
 
   /// <summary>
-  /// 汇总语句与来源侧明细语句的关键字命中列：互认科室ID/名称与标准项目编码/名称，无互认医生列。
+  /// 汇总语句与提供方明细语句的关键字命中列：互认科室ID/名称与标准项目编码/名称，无互认医生列。
   /// </summary>
   private static readonly string[] SharedKeywordColumns =
   [
@@ -206,7 +206,7 @@ public sealed class Stage6SqlMapTests
       Assert.Equal(comment, ExtractIndexComment(script, indexName));
     }
 
-    // 变异证据：把时间列挪到接收院区之前的声明与冻结常量逐字不同，等值判据对列序敏感。
+    // 变异证据：把时间列挪到使用方院区之前的声明与冻结常量逐字不同，等值判据对列序敏感。
     string reordered = ExpectedIndexes[0].Declaration.Replace(
       "receiver_branch_code, match_created_time",
       "match_created_time, receiver_branch_code",
@@ -243,7 +243,7 @@ public sealed class Stage6SqlMapTests
   /// </summary>
   /// <remarks>
   /// 业务键索引的互认匹配生成时间位于证件类型与证件号码之后：接收三值等值后要先越过两列证件才能到达时间列，
-  /// 时间范围条件无法作为相邻前缀参与扫描；新索引的时间列紧跟接收院区之后，同一张表两条索引互补且各恰好声明一次。
+  /// 时间范围条件无法作为相邻前缀参与扫描；新索引的时间列紧跟使用方院区之后，同一张表两条索引互补且各恰好声明一次。
   /// </remarks>
   [Fact]
   public void Match_record_time_column_position_differs_between_business_key_and_receiver_time_index()
@@ -372,7 +372,7 @@ public sealed class Stage6SqlMapTests
       Assert.NotEqual(countRegion, mutated);
     }
 
-    // 原因汇总与接收侧汇总计数同筛选，再追加只保留不采纳事实的限定谓词。
+    // 原因汇总与使用方汇总计数同筛选，再追加只保留不采纳事实的限定谓词。
     string summaryRegion = ExtractFilterRegion(StatisticsStatementText("CountRecognitionUsageSummaryGroups"), true);
     string reasonsRegion = ExtractFilterRegion(StatisticsStatementText("QueryRecognitionUsageSummaryReasons"), true);
     Assert.StartsWith(summaryRegion, reasonsRegion, StringComparison.Ordinal);
@@ -460,8 +460,8 @@ public sealed class Stage6SqlMapTests
   }
 
   /// <summary>
-  /// S6-D2 的语句面：汇总分组键按维度口径书写——接收侧为接收组织加接收医院、接收院区、
-  /// 「接收院区加处理结果互认科室ID」与匹配项标准项目编码，来源侧为报告主体来源组织加来源医院、来源院区与标准项目编码；
+  /// S6-D2 的语句面：汇总分组键按维度口径书写——使用方为使用方组织加使用方医院、使用方院区、
+  /// 「使用方院区加处理结果互认科室ID」与匹配项标准项目编码，提供方为报告主体提供方组织加提供方医院、提供方院区与标准项目编码；
   /// 互认科室维度在行集内排除无处理结果的未反馈项。
   /// </summary>
   /// <remarks>
@@ -474,11 +474,11 @@ public sealed class Stage6SqlMapTests
   {
     string usage = StatisticsStatementText("QueryRecognitionUsageSummaryPage");
 
-    // 分组键：接收组织与接收医院随医院、院区、互认科室三个维度携带，院区随院区与互认科室携带。
+    // 分组键：使用方组织与使用方医院随医院、院区、互认科室三个维度携带，院区随院区与互认科室携带。
     Assert.Contains("case when $GroupDimension in (1, 2, 3) then mr.receiver_organization_code end", usage, StringComparison.Ordinal);
     Assert.Contains("case when $GroupDimension in (1, 2, 3) then mr.receiver_hospital_code end", usage, StringComparison.Ordinal);
     Assert.Contains("case when $GroupDimension in (2, 3) then mr.receiver_branch_code end", usage, StringComparison.Ordinal);
-    // 互认科室维度按「接收院区加处理结果互认科室ID」归类；标准项目维度取匹配项编码并随行回填标准目录三层。
+    // 互认科室维度按「使用方院区加处理结果互认科室ID」归类；标准项目维度取匹配项编码并随行回填标准目录三层。
     Assert.Contains("case when $GroupDimension = 3 then pr.recognition_dept_id end", usage, StringComparison.Ordinal);
     Assert.Contains("case when $GroupDimension = 4 then mi.standard_project_code end", usage, StringComparison.Ordinal);
     Assert.Contains("case when $GroupDimension = 4 then sc.item_type end", usage, StringComparison.Ordinal);
@@ -487,7 +487,7 @@ public sealed class Stage6SqlMapTests
     Assert.Contains("case when $GroupDimension = 4 then si.name end as standard_item_name", usage, StringComparison.Ordinal);
 
     // 互认科室维度的展示名称：组内最晚互认时间经派生表携带，外层按科室ID与时间等值取最小归一名称，
-    // 名称候选经匹配记录把接收组织、接收医院与接收院区三值限定在本分组行内。
+    // 名称候选经匹配记录把使用方组织、使用方医院与使用方院区三值限定在本分组行内。
     Assert.Contains("max(case when pr.recognition_time >= $PeriodStart and pr.recognition_time < $PeriodEnd then pr.recognition_time end) as last_recognition_time", usage, StringComparison.Ordinal);
     Assert.Contains(
       "( select min(l.recognition_dept_name) from mrec_recognition_processing_result l " +
@@ -518,7 +518,7 @@ public sealed class Stage6SqlMapTests
     Assert.Contains("case when $GroupDimension = 2 then r.branch_code end", source, StringComparison.Ordinal);
     Assert.Contains("case when $GroupDimension = 4 then mi.standard_project_code end", source, StringComparison.Ordinal);
 
-    // 判别力：同一分组键判定对真实语句判无缺失；把互认科室分组键换成接收院区分组键构造变异文本后，
+    // 判别力：同一分组键判定对真实语句判无缺失；把互认科室分组键换成使用方院区分组键构造变异文本后，
     // 同一判定必须恰好报出被换掉的互认科室键。
     Assert.Empty(FindMissingGroupKeyFragments(usage));
     string mutated = usage.Replace(
@@ -544,7 +544,7 @@ public sealed class Stage6SqlMapTests
     string recognitionWindow = "pr.recognition_time >= $PeriodStart and pr.recognition_time < $PeriodEnd";
     string referenceWindow = "rf.referenced_time >= $PeriodStart and rf.referenced_time < $PeriodEnd";
 
-    // 接收侧汇总：提醒 CASE 用匹配生成时间，采纳、不采纳与金额 CASE 用互认时间，引用 CASE 用实际引用时间；
+    // 使用方汇总：提醒 CASE 用匹配生成时间，采纳、不采纳与金额 CASE 用互认时间，引用 CASE 用实际引用时间；
     // 行集的三向或条件让每个指标的时间窗口各出现一次，组内最晚互认时间再出现一次。
     string usage = StatisticsStatementText("QueryRecognitionUsageSummaryPage");
     Assert.Equal(2, Regex.Matches(usage, Regex.Escape(reminderWindow), RegexOptions.CultureInvariant).Count);
@@ -577,7 +577,7 @@ public sealed class Stage6SqlMapTests
     Assert.Contains($"rf.id is not null and {referenceWindow}", StatisticsStatementText("CountRecognitionUsageReferenceDetails"), StringComparison.Ordinal);
     Assert.Contains($"rf.id is not null and {referenceWindow}", StatisticsStatementText("QueryRecognitionUsageReferenceDetails"), StringComparison.Ordinal);
 
-    // 来源侧被互认次数只计采纳事实：行集即范围内采纳事实。
+    // 提供方被互认次数只计采纳事实：行集即范围内采纳事实。
     Assert.Contains($"pr.recognition_result = 1 and {recognitionWindow}", StatisticsStatementText("CountSourceRecognitionSummaryGroups"), StringComparison.Ordinal);
     Assert.Contains($"pr.recognition_result = 1 and {recognitionWindow}", StatisticsStatementText("QuerySourceRecognitionSummaryPage"), StringComparison.Ordinal);
     Assert.Contains($"pr.recognition_result = 1 and {recognitionWindow}", StatisticsStatementText("CountSourceRecognitionDetails"), StringComparison.Ordinal);
@@ -605,8 +605,8 @@ public sealed class Stage6SqlMapTests
 
   /// <summary>
   /// S6-D19、V46 的语句面：承载统计筛选的十五条语句以统一关键字 OR 组筛选——
-  /// 接收侧明细语句命中互认科室ID/名称、标准项目编码/名称、互认医生ID/姓名六列，
-  /// 汇总语句与来源侧明细语句按实际承载的科室与项目四列命中、无医生列；
+  /// 使用方明细语句命中互认科室ID/名称、标准项目编码/名称、互认医生ID/姓名六列，
+  /// 汇总语句与提供方明细语句按实际承载的科室与项目四列命中、无医生列；
   /// 逐列前缀匹配（尾部通配、无前导通配）、两侧取 lower 大小写不敏感，
   /// 对转义符 ! 先加倍、% 与 _ 转义为字面字符并以 escape '!' 声明；
   /// 语句先剥除空格、制表、回车与换行再判空，全空白字符输入等价未提供、不附加条件；
@@ -785,7 +785,7 @@ public sealed class Stage6SqlMapTests
   }
 
   /// <summary>
-  /// 找出互认使用汇总语句缺失的维度分组键片段：接收侧四个维度的分组键 CASE 表达式逐项核对，缺失即返回。
+  /// 找出互认使用汇总语句缺失的维度分组键片段：使用方四个维度的分组键 CASE 表达式逐项核对，缺失即返回。
   /// </summary>
   /// <param name="statement">已归一化的语句文本。</param>
   /// <returns>缺失的分组键片段清单，分组键齐全时为空清单。</returns>

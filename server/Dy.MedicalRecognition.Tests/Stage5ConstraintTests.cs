@@ -218,7 +218,7 @@ public sealed class Stage5ConstraintTests
   /// <summary>
   /// 判定名称是否携带权限或角色关键字。
   /// </summary>
-  /// <param name="name">接收方写法或调用成员名。</param>
+  /// <param name="name">使用方写法或调用成员名。</param>
   /// <returns>名称含 <c>Permission</c> 或 <c>Role</c> 时为 <see langword="true"/>。</returns>
   /// <remarks>
   /// 比较不区分大小写：标识符大小写写法差异不应成为绕过判定的方式。
@@ -358,7 +358,7 @@ public sealed class Stage5ConstraintTests
       SourceSyntaxGuard.Parse("internal sealed class Probe { [Authorize] internal void Gated() { } }"));
     Assert.Contains("probe/ProbeMethodAuthority.cs: Gated 声明了禁止的角色门控特性 Authorize", methodAuthorityViolations);
 
-    // 依赖注入字段名与类型名不同时，权限判断调用同样命中：调用成员名与接收方两处关键字都参与判定。
+    // 依赖注入字段名与类型名不同时，权限判断调用同样命中：调用成员名与使用方两处关键字都参与判定。
     (IReadOnlyList<string> permissionViolations, _) = FindClientPathViolations(
       "probe/ProbePermission.cs",
       SourceSyntaxGuard.Parse(
@@ -1179,9 +1179,9 @@ public sealed class Stage5ConstraintTests
       }
     }
 
-    // 四、权限补查调用：调用成员名或接收方出现权限或角色关键字即判违规。
+    // 四、权限补查调用：调用成员名或使用方出现权限或角色关键字即判违规。
     //    依赖注入字段名与类型名通常不同（例如字段名 authorizationService 指向某个授权服务类型），
-    //    因此关键字判定同时看调用成员名与接收方写法，只按类型名排除时排除项永远命中不了实际写法。
+    //    因此关键字判定同时看调用成员名与使用方写法，只按类型名排除时排除项永远命中不了实际写法。
     foreach (InvocationExpressionSyntax invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
     {
       if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess) continue;
@@ -1239,7 +1239,7 @@ public sealed class Stage5ConstraintTests
   /// <param name="invocation">待判断的调用表达式。</param>
   /// <param name="methodName">外层方法名。</param>
   /// <param name="enclosingTypeName">外层方法所在类型的简单名。</param>
-  /// <returns>简单名调用该方法，或以所在类型名为接收方调用该方法时为 <see langword="true"/>。</returns>
+  /// <returns>简单名调用该方法，或以所在类型名为使用方调用该方法时为 <see langword="true"/>。</returns>
   private static bool IsSelfCall(InvocationExpressionSyntax invocation, string methodName, string enclosingTypeName)
   {
     if (SourceSyntaxGuard.MemberName(invocation.Expression) != methodName) return false;

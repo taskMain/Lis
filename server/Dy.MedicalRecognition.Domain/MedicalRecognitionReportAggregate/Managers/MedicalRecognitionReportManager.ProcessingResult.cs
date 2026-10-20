@@ -43,7 +43,7 @@ public partial class MedicalRecognitionReportManager
   /// 幂等识别先于其他校验：命中完全相同的既有事实时返回成功，不读金额、不校验报告版本有效性、不新增记录、不重复统计、
   /// 处理结果保存时间不变；仅科室与医生名称不同或项目数组顺序不同同样按幂等成功处理。
   /// 未命中幂等时依序校验项目数组完整性、互认时间边界、决定内容与原因、决定主体成对与绑定报告版本有效性；
-  /// 采纳项目按接收组织、医院、院区与由匹配项反查得到的标准项目编码读取当前金额，未配置金额按零元形成且不阻碍保存，
+  /// 采纳项目按使用方组织、医院、院区与由匹配项反查得到的标准项目编码读取当前金额，未配置金额按零元形成且不阻碍保存，
   /// 不采纳项目不读取金额；互认配置或标准目录当前停用不阻断保存。
   /// 任一校验或写入失败整批不保存、不登记事件；行数守卫不为 1 即失败。
   /// </remarks>
@@ -189,7 +189,7 @@ public partial class MedicalRecognitionReportManager
   /// 校验匹配记录的接收三值与本次提交的组织、医院、院区一致。
   /// </summary>
   /// <remarks>归属校验只用于确认记录归属一致性，不构成操作权限判断；不一致时整次失败且不保存任何项目。</remarks>
-  /// <param name="command">处理结果提交命令，提供本次提交的接收组织、医院与院区。</param>
+  /// <param name="command">处理结果提交命令，提供本次提交的使用方组织、医院与院区。</param>
   /// <param name="matchRecord">本次提交对应的匹配记录。</param>
   /// <exception cref="InvalidOperationException">接收三值中任一值与匹配记录不一致时抛出。</exception>
   private static void ValidateMatchRecordOwnership(SubmitRecognitionProcessingResultsCommand command, RecognitionMatchRecord matchRecord)
@@ -286,10 +286,10 @@ public partial class MedicalRecognitionReportManager
   /// 读取采纳项目的当前金额，逐项按下标与提交项对应返回。
   /// </summary>
   /// <remarks>
-  /// 项目编码由互认匹配项标识反查匹配项取得；金额按接收组织、医院、院区与该项目编码读取，不采纳项目不去读取也不返回金额；
+  /// 项目编码由互认匹配项标识反查匹配项取得；金额按使用方组织、医院、院区与该项目编码读取，不采纳项目不去读取也不返回金额；
   /// 未配置当前金额时按零元形成，且不因互认配置停用或标准目录不可用而拒绝。
   /// </remarks>
-  /// <param name="command">处理结果提交命令，提供可信接收组织、医院与院区。</param>
+  /// <param name="command">处理结果提交命令，提供可信使用方组织、医院与院区。</param>
   /// <param name="submittedItems">本次提交的项目集合，按匹配项标识升序排列。</param>
   /// <param name="matchItemsById">该组匹配项，按匹配项标识索引，用于反查标准项目编码。</param>
   /// <returns>与提交项同下标的金额数组；不采纳项对应位置为零。</returns>

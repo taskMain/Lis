@@ -310,9 +310,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     ];
     IReadOnlyList<OrganizationPath> resolved = await organizationPathResolver.ResolveOrThrow(
       targets,
-      "业务拒绝：报告来源组织不存在或已停用。",
-      "业务拒绝：报告来源医院不存在、已停用或不属于该组织。",
-      "业务拒绝：报告来源院区不存在、已停用或不属于该医院。");
+      "业务拒绝：报告提供方组织不存在或已停用。",
+      "业务拒绝：报告提供方医院不存在、已停用或不属于该组织。",
+      "业务拒绝：报告提供方院区不存在、已停用或不属于该医院。");
 
     for (int index = 0; index < targets.Count; index++)
     {

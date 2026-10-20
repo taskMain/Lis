@@ -1,5 +1,5 @@
 /**
- * 互认统计两个适配层（接收侧 / 来源侧）共用的取值域、分页收敛与映射基础工具。
+ * 互认统计两个适配层（使用方 / 提供方）共用的取值域、分页收敛与映射基础工具。
  *
  * 这些事实只服务统计页目录，放在特征内共享而不是某个适配层里，
  * 避免两个适配层互相依赖、各自复制一份取值域判定；
@@ -9,7 +9,7 @@ import { DateOnly, type PageInfoDto, type RecognitionStatisticsItemReadModel } f
 import { isMedicalItemTypeValue, medicalItemTypeText, type MedicalItemTypeValue } from '../../shared/medicalItemType'
 import { MAX_SELECTABLE_PAGE_SIZE } from '../../shared/tablePagination'
 
-/** 组织归属（编码与名称）：来源侧与接收侧读模型同构，两个适配层共用一个视图结构。 */
+/** 组织归属（编码与名称）：提供方与使用方读模型同构，两个适配层共用一个视图结构。 */
 export interface StatisticsOrganizationScopeView {
   organizationCode: string
   organizationName: string
@@ -31,7 +31,7 @@ export interface StatisticsItemView {
 
 /**
  * 汇总维度取值域；数值与后端 `RecognitionStatisticsGroupDimension` 一致
- * （1 医院、2 院区、3 互认科室、4 标准项目）。来源侧不接受互认科室维度，
+ * （1 医院、2 院区、3 互认科室、4 标准项目）。提供方不接受互认科室维度，
  * 该业务约束由服务端拒绝，本模块不重复判定。
  */
 const STATISTICS_GROUP_DIMENSIONS = Object.freeze([1, 2, 3, 4] as const)
@@ -42,7 +42,7 @@ export function isStatisticsGroupDimensionValue(value: unknown): value is Statis
 }
 
 /**
- * 接收侧明细类型取值域；数值与后端 `RecognitionUsageDetailType` 一致
+ * 使用方明细类型取值域；数值与后端 `RecognitionUsageDetailType` 一致
  * （1 提醒、2 采纳、3 不采纳、4 引用）。
  */
 const USAGE_DETAIL_TYPES = Object.freeze([1, 2, 3, 4] as const)
@@ -54,8 +54,8 @@ export function isUsageDetailTypeValue(value: unknown): value is UsageDetailType
 
 /**
  * 统计导出类型取值域；数值与后端 `RecognitionStatisticsExportType` 一致
- * （1 接收侧互认使用汇总、2-5 接收侧四类明细、6 提供方医院被互认汇总、7 提供方医院被互认明细）。
- * 两个适配层各自只接受本侧取值：接收侧 1-5，来源侧 6-7。
+ * （1 使用方互认使用汇总、2-5 使用方四类明细、6 提供方医院被互认汇总、7 提供方医院被互认明细）。
+ * 两个适配层各自只接受本侧取值：使用方 1-5，提供方 6-7。
  */
 const USAGE_EXPORT_TYPES = Object.freeze([1, 2, 3, 4, 5] as const)
 const SOURCE_EXPORT_TYPES = Object.freeze([6, 7] as const)
@@ -78,11 +78,11 @@ export function isSourceExportTypeValue(value: unknown): value is SourceExportTy
  * 页面上的枚举**展示文本**不使用本表，一律取服务端随行返回的文本字段。
  */
 const STATISTICS_EXPORT_TYPE_TEXTS: Readonly<Record<number, string>> = {
-  1: '接收侧互认使用汇总',
-  2: '接收侧提醒明细',
-  3: '接收侧采纳明细',
-  4: '接收侧不采纳明细',
-  5: '接收侧引用明细',
+  1: '使用方互认使用汇总',
+  2: '使用方提醒明细',
+  3: '使用方采纳明细',
+  4: '使用方不采纳明细',
+  5: '使用方引用明细',
   6: '提供方医院被互认汇总',
   7: '提供方医院被互认明细',
 }
@@ -103,7 +103,7 @@ function toExportDownloadDate(value: string): string {
 /**
  * 按服务端命名规则构造导出下载文件名：`导出类型中文名-起始日-结束日.xlsx`
  * （日期为 `yyyyMMdd` 压缩形态，与服务端 `FileName` 的构造一致，例如
- * 「接收侧提醒明细-20260901-20260930.xlsx」）。
+ * 「使用方提醒明细-20260901-20260930.xlsx」）。
  */
 export function buildStatisticsExportDownloadName(exportType: number, startTime: string, endTime: string): string {
   return `${statisticsExportTypeText(exportType)}-${toExportDownloadDate(startTime)}-${toExportDownloadDate(endTime)}.xlsx`

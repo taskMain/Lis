@@ -59,7 +59,7 @@ export type {
 export type { StatisticsItemView, StatisticsOrganizationScopeView } from './recognitionStatisticsValues'
 
 /**
- * 接收侧互认使用统计的适配层：平台/本院双版本请求分支、分页收敛与读模型映射都收敛在本模块，
+ * 使用方互认使用统计的适配层：平台/本院双版本请求分支、分页收敛与读模型映射都收敛在本模块，
  * 页面组件不感知请求形态差异（阶段 6 前端设计「API 与组件」节）。
  *
  * 边界（遵循 Frontend API Client 第 2、5 节）：
@@ -85,7 +85,7 @@ export interface NonAdoptionReasonView {
   ratio: number | null
 }
 
-/** 接收侧汇总行视图：每个汇总维度的一个分组值；未参与分组的维度字段保持 `null`，页面据此不渲染该列。 */
+/** 使用方汇总行视图：每个汇总维度的一个分组值；未参与分组的维度字段保持 `null`，页面据此不渲染该列。 */
 export interface UsageSummaryRow {
   groupDimension: StatisticsGroupDimensionValue | null
   receiverOrganizationCode: string | null
@@ -134,7 +134,7 @@ export interface UsageReferenceView {
   referenceDoctorName: string | null
 }
 
-/** 接收侧明细行视图；患者姓名与证件号码按服务端原值承载，不做二次处理（S6-D9）。 */
+/** 使用方明细行视图；患者姓名与证件号码按服务端原值承载，不做二次处理（S6-D9）。 */
 export interface UsageDetailRow {
   recognitionMatchRecordId: string
   recognitionMatchItemId: string
@@ -193,7 +193,7 @@ export interface MatchRecordView {
 // ========== 查询条件（页面稳定模型） ==========
 
 /**
- * 平台管理员入口的接收侧汇总条件：接收组与来源组三级范围都随请求提交，任一为空不附加该层过滤；
+ * 平台管理员入口的使用方汇总条件：接收组与来源组三级范围都随请求提交，任一为空不附加该层过滤；
  * 统一关键字承载互认科室、互认项目条件（S6-D19）。
  */
 export interface PlatformUsageSummaryQuery {
@@ -214,7 +214,7 @@ export interface PlatformUsageSummaryQuery {
 }
 
 /**
- * 医院管理员入口的接收侧汇总条件：本侧组织与医院由服务端从可信上下文注入，
+ * 医院管理员入口的使用方汇总条件：本侧组织与医院由服务端从可信上下文注入，
  * 类型上不存在对应字段；提供方组织恒为可信组织，只提交来源组医院与院区。
  */
 export interface BranchUsageSummaryQuery {
@@ -234,7 +234,7 @@ export interface BranchUsageSummaryQuery {
 export type UsageSummaryQuery = PlatformUsageSummaryQuery | BranchUsageSummaryQuery
 
 /**
- * 平台管理员入口的接收侧明细条件：明细类型必填；统一关键字承载互认科室、互认项目与互认医生条件，
+ * 平台管理员入口的使用方明细条件：明细类型必填；统一关键字承载互认科室、互认项目与互认医生条件，
  * 不采纳原因代码只在不采纳明细（明细类型 3）查询提交（S6-D19）。
  */
 export interface PlatformUsageDetailsQuery {
@@ -255,7 +255,7 @@ export interface PlatformUsageDetailsQuery {
   groupName?: string
 }
 
-/** 医院管理员入口的接收侧明细条件：本侧院区恒为登录院区，缺失或空白在构造时拒绝（不构造请求）。 */
+/** 医院管理员入口的使用方明细条件：本侧院区恒为登录院区，缺失或空白在构造时拒绝（不构造请求）。 */
 export interface BranchUsageDetailsQuery {
   version: 'branch'
   startTime: string
@@ -274,7 +274,7 @@ export interface BranchUsageDetailsQuery {
 export type UsageDetailsQuery = PlatformUsageDetailsQuery | BranchUsageDetailsQuery
 
 /**
- * 平台管理员入口的接收侧导出条件：两组组织编码同时提交，供服务端做一致性校验；
+ * 平台管理员入口的使用方导出条件：两组组织编码同时提交，供服务端做一致性校验；
  * 不采纳原因代码只在不采纳明细导出（导出类型 4）提交（S6-D19）。
  */
 export interface PlatformUsageExportQuery {
@@ -296,7 +296,7 @@ export interface PlatformUsageExportQuery {
   groupName?: string
 }
 
-/** 医院管理员入口的接收侧导出条件：不含本侧组织与医院；来源组与接收组的医院/院区为可选筛选。 */
+/** 医院管理员入口的使用方导出条件：不含本侧组织与医院；来源组与接收组的医院/院区为可选筛选。 */
 export interface BranchUsageExportQuery {
   version: 'branch'
   exportType: UsageExportTypeValue
@@ -340,11 +340,11 @@ const USAGE_SCOPE_TEXT_KEYS = [
 
 /** 不采纳明细的明细类型值；与后端 `RecognitionUsageDetailType.NonAdoption`（3）一致。 */
 const NON_ADOPTION_DETAIL_TYPE = 3
-/** 不采纳明细导出的导出类型值；与后端 `RecognitionStatisticsExportType`（4 接收侧不采纳明细）一致。 */
+/** 不采纳明细导出的导出类型值；与后端 `RecognitionStatisticsExportType`（4 使用方不采纳明细）一致。 */
 const NON_ADOPTION_DETAILS_EXPORT_TYPE = 4
 
 /**
- * 构造接收侧汇总查询：日期缺失或形态非法、汇总维度越界、项目类型越界、分页越界，
+ * 构造使用方汇总查询：日期缺失或形态非法、汇总维度越界、项目类型越界、分页越界，
  * 或本院版登录院区缺失/空白（权限配置错误）时返回 `null`，调用方据此零发请求。
  */
 export function buildUsageSummaryQuery(query: UsageSummaryQuery, page: StatisticsPageInput): BuiltUsageSummaryQuery | null {
@@ -357,7 +357,7 @@ export function buildUsageSummaryQuery(query: UsageSummaryQuery, page: Statistic
   return normalizeStatisticsTexts({ ...query, ...page }, [...USAGE_SCOPE_TEXT_KEYS])
 }
 
-/** 构造接收侧明细查询；明细类型必填且取值必须在取值域内，其余口径同汇总构造（含本院版登录院区缺失拒绝）。 */
+/** 构造使用方明细查询；明细类型必填且取值必须在取值域内，其余口径同汇总构造（含本院版登录院区缺失拒绝）。 */
 export function buildUsageDetailsQuery(query: UsageDetailsQuery, page: StatisticsPageInput): BuiltUsageDetailsQuery | null {
   if (!isStatisticsPageInput(page)) return null
   if (query.version === 'branch' && (query.branchCode ?? '').trim().length === 0) return null
@@ -367,7 +367,7 @@ export function buildUsageDetailsQuery(query: UsageDetailsQuery, page: Statistic
   return normalizeStatisticsTexts({ ...query, ...page }, [...USAGE_SCOPE_TEXT_KEYS])
 }
 
-/** 构造接收侧导出条件：导出无分页对象；日期、导出类型、汇总维度与项目类型全部校验，任一非法或本院版登录院区缺失/空白返回 `null`。 */
+/** 构造使用方导出条件：导出无分页对象；日期、导出类型、汇总维度与项目类型全部校验，任一非法或本院版登录院区缺失/空白返回 `null`。 */
 export function buildUsageExportQuery(query: UsageExportQuery): UsageExportQuery | null {
   // 本院版导出同走零请求口径：登录院区缺失时不构造导出请求（导出也是业务请求）。
   if (query.version === 'branch' && (query.branchCode ?? '').trim().length === 0) return null
@@ -516,7 +516,7 @@ function toBranchUsageExportBody(query: BranchUsageExportQuery): BranchRecogniti
 
 // ========== 查询出口 ==========
 
-/** 查询接收侧互认使用汇总（平台或本院入口由查询条件的 version 决定）。 */
+/** 查询使用方互认使用汇总（平台或本院入口由查询条件的 version 决定）。 */
 export async function queryUsageSummaryPage(
   client: MedicalRecognitionClient,
   query: BuiltUsageSummaryQuery,
@@ -528,7 +528,7 @@ export async function queryUsageSummaryPage(
   return toStatisticsPage(response?.items, response?.page, toUsageSummaryRow)
 }
 
-/** 查询接收侧互认使用明细（平台或本院入口由查询条件的 version 决定）。 */
+/** 查询使用方互认使用明细（平台或本院入口由查询条件的 version 决定）。 */
 export async function queryUsageDetailsPage(
   client: MedicalRecognitionClient,
   query: BuiltUsageDetailsQuery,
@@ -540,7 +540,7 @@ export async function queryUsageDetailsPage(
   return toStatisticsPage(response?.items, response?.page, toUsageDetailRow)
 }
 
-/** 查看互认匹配记录集合视图（接收侧明细行的弹窗数据源）。 */
+/** 查看互认匹配记录集合视图（使用方明细行的弹窗数据源）。 */
 export async function queryRecognitionMatchRecord(
   client: MedicalRecognitionClient,
   recognitionMatchRecordId: string,
@@ -552,7 +552,7 @@ export async function queryRecognitionMatchRecord(
   return toMatchRecordView(value)
 }
 
-/** 导出接收侧统计（汇总或明细由导出类型决定）：已鉴权取字节、按给定下载名保存、失败交宿主统一提示。 */
+/** 导出使用方统计（汇总或明细由导出类型决定）：已鉴权取字节、按给定下载名保存、失败交宿主统一提示。 */
 export async function exportUsageStatistics(
   client: MedicalRecognitionClient,
   query: UsageExportQuery,

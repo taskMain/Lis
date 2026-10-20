@@ -4,7 +4,7 @@ using Dy.MedicalRecognition.Domain.Share.Enums;
 namespace Dy.MedicalRecognition.Application.Contracts.ReadModels;
 
 /// <summary>
-/// 接收侧互认使用明细行：提醒、采纳、不采纳与引用四类事实的行级投影。
+/// 使用方互认使用明细行：提醒、采纳、不采纳与引用四类事实的行级投影。
 /// </summary>
 /// <remarks>
 /// 行的业务时间随明细类型不同：提醒按互认匹配生成时间、采纳与不采纳按互认时间、引用按实际引用时间；
@@ -28,9 +28,9 @@ public sealed record RecognitionUsageDetailReadModel
   public string VisitTypeText => EnumDescriptorText.Get(VisitType, VisitTypeDescriptorList.List);
   /// <summary>本次来源就诊流水号。</summary>
   public string VisitSerialNo { get; init; } = string.Empty;
-  /// <summary>来源归属：来源组织、医院与院区编码及回填名称。</summary>
+  /// <summary>来源归属：提供方组织、医院与院区编码及回填名称。</summary>
   public SourceOrganizationReadModel Source { get; init; } = new();
-  /// <summary>接收归属：接收组织、医院与院区编码及回填名称。</summary>
+  /// <summary>接收归属：使用方组织、医院与院区编码及回填名称。</summary>
   public ReceiverOrganizationReadModel Receiver { get; init; } = new();
   /// <summary>互认项目：项目类型与标准目录资料。</summary>
   public RecognitionStatisticsItemReadModel Item { get; init; } = new();

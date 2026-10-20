@@ -21,7 +21,7 @@ namespace Dy.MedicalRecognition.Application.Queries;
 public sealed partial class MedicalRecognitionReportQueryAppService
 {
   /// <summary>
-  /// 查询接收侧互认使用汇总（平台管理员入口）。
+  /// 查询使用方互认使用汇总（平台管理员入口）。
   /// </summary>
   /// <remarks>
   /// 接收组与来源组的组织、医院、院区按请求使用并经组织路径解析校验存在、启用与父子归属；
@@ -47,9 +47,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       "业务拒绝：院区不存在、已停用或不属于所选医院。");
     OrganizationPath? source = await ResolveOptionalScopeAsync(
       request.SourceOrganizationCode, request.SourceHospitalCode, request.SourceBranchCode,
-      "业务拒绝：来源组织不存在或已停用。",
-      "业务拒绝：来源医院不存在、已停用或不属于所选组织。",
-      "业务拒绝：来源院区不存在、已停用或不属于所选医院。");
+      "业务拒绝：提供方组织不存在或已停用。",
+      "业务拒绝：提供方医院不存在、已停用或不属于所选组织。",
+      "业务拒绝：提供方院区不存在、已停用或不属于所选医院。");
 
     RecognitionUsageSummaryFilter filter = new()
     {
@@ -72,7 +72,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 查询接收侧互认使用明细（平台管理员入口）。
+  /// 查询使用方互认使用明细（平台管理员入口）。
   /// </summary>
   /// <remarks>
   /// 接收组与来源组的范围条件按请求使用并经组织路径解析校验，任一层为空不附加该层过滤；
@@ -97,9 +97,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       "业务拒绝：院区不存在、已停用或不属于所选医院。");
     OrganizationPath? source = await ResolveOptionalScopeAsync(
       request.SourceOrganizationCode, request.SourceHospitalCode, request.SourceBranchCode,
-      "业务拒绝：来源组织不存在或已停用。",
-      "业务拒绝：来源医院不存在、已停用或不属于所选组织。",
-      "业务拒绝：来源院区不存在、已停用或不属于所选医院。");
+      "业务拒绝：提供方组织不存在或已停用。",
+      "业务拒绝：提供方医院不存在、已停用或不属于所选组织。",
+      "业务拒绝：提供方院区不存在、已停用或不属于所选医院。");
 
     RecognitionUsageDetailFilter filter = new()
     {
@@ -125,14 +125,14 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 查询来源医院被互认汇总（平台管理员入口）。
+  /// 查询提供方医院被互认汇总（平台管理员入口）。
   /// </summary>
   /// <remarks>
   /// 来源组与接收组的组织、医院、院区按请求使用并经组织路径解析校验存在、启用与父子归属；
   /// 任一范围条件为空不附加该层过滤，全空即按授权全量；两组组织编码同时提供且不一致时整次拒绝。
-  /// 汇总维度只接受来源医院、来源院区与标准项目，互认科室维度值在进入仓储之前按业务拒绝。
+  /// 汇总维度只接受提供方医院、提供方院区与标准项目，互认科室维度值在进入仓储之前按业务拒绝。
   /// 分页窗口校验先于第一次仓储访问；被互认次数由语句只按采纳事实聚合，
-  /// 汇总行的来源方名称按当页分组行涉及的编码批量回填。
+  /// 汇总行的提供方名称按当页分组行涉及的编码批量回填。
   /// </remarks>
   /// <param name="request">日期范围、汇总维度、来源组与接收组筛选及分页参数；范围条件按请求使用。</param>
   /// <returns>当页汇总分组行与分页信息；无匹配时返回空集合且分页信息保留。</returns>
@@ -150,9 +150,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
 
     OrganizationPath? source = await ResolveOptionalScopeAsync(
       request.SourceOrganizationCode, request.SourceHospitalCode, request.SourceBranchCode,
-      "业务拒绝：来源组织不存在或已停用。",
-      "业务拒绝：来源医院不存在、已停用或不属于所选组织。",
-      "业务拒绝：来源院区不存在、已停用或不属于所选医院。");
+      "业务拒绝：提供方组织不存在或已停用。",
+      "业务拒绝：提供方医院不存在、已停用或不属于所选组织。",
+      "业务拒绝：提供方院区不存在、已停用或不属于所选医院。");
     OrganizationPath? receiver = await ResolveOptionalScopeAsync(
       request.ReceiverOrganizationCode, request.ReceiverHospitalCode, request.ReceiverBranchCode,
       "业务拒绝：组织不存在或已停用。",
@@ -180,12 +180,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 查询来源医院被互认明细（平台管理员入口）。
+  /// 查询提供方医院被互认明细（平台管理员入口）。
   /// </summary>
   /// <remarks>
   /// 来源组与接收组的范围条件按请求使用并经组织路径解析校验，任一层为空不附加该层过滤；
   /// 两组组织编码同时提供且不一致时整次拒绝。分页窗口校验先于第一次仓储访问；
-  /// 来源侧明细只反映被采纳事实，业务时间取处理结果的互认时间。
+  /// 提供方明细只反映被采纳事实，业务时间取处理结果的互认时间。
   /// </remarks>
   /// <param name="request">日期范围、来源组与接收组筛选及分页参数。</param>
   /// <returns>当页明细行与分页信息；无匹配时返回空集合且分页信息保留。</returns>
@@ -200,9 +200,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
 
     OrganizationPath? source = await ResolveOptionalScopeAsync(
       request.SourceOrganizationCode, request.SourceHospitalCode, request.SourceBranchCode,
-      "业务拒绝：来源组织不存在或已停用。",
-      "业务拒绝：来源医院不存在、已停用或不属于所选组织。",
-      "业务拒绝：来源院区不存在、已停用或不属于所选医院。");
+      "业务拒绝：提供方组织不存在或已停用。",
+      "业务拒绝：提供方医院不存在、已停用或不属于所选组织。",
+      "业务拒绝：提供方院区不存在、已停用或不属于所选医院。");
     OrganizationPath? receiver = await ResolveOptionalScopeAsync(
       request.ReceiverOrganizationCode, request.ReceiverHospitalCode, request.ReceiverBranchCode,
       "业务拒绝：组织不存在或已停用。",
@@ -229,12 +229,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 查询本可信范围内的接收侧互认使用汇总（医院管理员入口）。
+  /// 查询本可信范围内的使用方互认使用汇总（医院管理员入口）。
   /// </summary>
   /// <remarks>
-  /// 接收组织与接收医院取自可信上下文，请求不提交；本侧接收院区可选，为空按可信医院全院范围统计，
+  /// 使用方组织与使用方医院取自可信上下文，请求不提交；本侧使用方院区可选，为空按可信医院全院范围统计，
   /// 解析目标只构造组织与医院两层、不进入院区层；非空时必须存在、启用且属于可信医院。
-  /// 来源组织恒为可信组织，来源组医院与院区取请求并校验属于可信组织。
+  /// 提供方组织恒为可信组织，来源组医院与院区取请求并校验属于可信组织。
   /// 分页窗口校验先于第一次仓储访问；同期互认率与原因占比在应用层按行内次数计算。
   /// </remarks>
   /// <param name="request">日期范围、汇总维度、本侧院区与来源组筛选及分页参数。</param>
@@ -274,12 +274,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 查询本可信范围内的接收侧互认使用明细（医院管理员入口）。
+  /// 查询本可信范围内的使用方互认使用明细（医院管理员入口）。
   /// </summary>
   /// <remarks>
-  /// 接收组织与接收医院取自可信上下文，请求不提交；本侧接收院区可选，为空按可信医院全院范围查询明细，
+  /// 使用方组织与使用方医院取自可信上下文，请求不提交；本侧使用方院区可选，为空按可信医院全院范围查询明细，
   /// 解析目标只构造组织与医院两层、不进入院区层；非空时必须存在、启用且属于可信医院。
-  /// 来源组织恒为可信组织，来源组医院与院区取请求并校验属于可信组织。
+  /// 提供方组织恒为可信组织，来源组医院与院区取请求并校验属于可信组织。
   /// 分页窗口校验先于第一次仓储访问；明细类型决定读取的四类事实语句之一。
   /// </remarks>
   /// <param name="request">日期范围、明细类型、本侧院区与来源组筛选及分页参数。</param>
@@ -322,16 +322,16 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 查询本可信范围的来源医院被互认汇总（医院管理员入口）。
+  /// 查询本可信范围的提供方医院被互认汇总（医院管理员入口）。
   /// </summary>
   /// <remarks>
-  /// 来源组织与来源医院固定为可信上下文，请求无法指定其他来源医院；本侧来源院区可选，
-  /// 为空按可信医院全部来源院区统计，解析目标只构造组织与医院两层、不进入院区层；非空时必须存在、启用且属于可信医院。
-  /// 接收组织恒为可信组织，接收组医院与院区取请求并校验属于可信组织。
-  /// 汇总维度只接受来源医院、来源院区与标准项目，互认科室维度值在进入仓储之前按业务拒绝。
+  /// 提供方组织与提供方医院固定为可信上下文，请求无法指定其他提供方医院；本侧提供方院区可选，
+  /// 为空按可信医院全部提供方院区统计，解析目标只构造组织与医院两层、不进入院区层；非空时必须存在、启用且属于可信医院。
+  /// 使用方组织恒为可信组织，接收组医院与院区取请求并校验属于可信组织。
+  /// 汇总维度只接受提供方医院、提供方院区与标准项目，互认科室维度值在进入仓储之前按业务拒绝。
   /// 分页窗口校验先于第一次仓储访问；被互认次数由语句只按采纳事实聚合。
   /// </remarks>
-  /// <param name="request">日期范围、汇总维度、本侧来源院区与接收组筛选及分页参数。</param>
+  /// <param name="request">日期范围、汇总维度、本侧提供方院区与接收组筛选及分页参数。</param>
   /// <returns>当页汇总分组行与分页信息；无匹配时返回空集合且分页信息保留。</returns>
   /// <exception cref="ArgumentNullException">查询条件为 null 时抛出。</exception>
   /// <exception cref="System.ComponentModel.DataAnnotations.ValidationException">筛选条件或分页取值非法时抛出。</exception>
@@ -371,15 +371,15 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 查询本可信范围的来源医院被互认明细（医院管理员入口）。
+  /// 查询本可信范围的提供方医院被互认明细（医院管理员入口）。
   /// </summary>
   /// <remarks>
-  /// 来源组织与来源医院固定为可信上下文，请求无法指定其他来源医院；本侧来源院区可选，
-  /// 为空按可信医院全部来源院区查询，解析目标只构造组织与医院两层、不进入院区层；非空时必须存在、启用且属于可信医院。
-  /// 接收组织恒为可信组织，接收组医院与院区取请求并校验属于可信组织。
-  /// 分页窗口校验先于第一次仓储访问；来源侧明细只反映被采纳事实，业务时间取处理结果的互认时间。
+  /// 提供方组织与提供方医院固定为可信上下文，请求无法指定其他提供方医院；本侧提供方院区可选，
+  /// 为空按可信医院全部提供方院区查询，解析目标只构造组织与医院两层、不进入院区层；非空时必须存在、启用且属于可信医院。
+  /// 使用方组织恒为可信组织，接收组医院与院区取请求并校验属于可信组织。
+  /// 分页窗口校验先于第一次仓储访问；提供方明细只反映被采纳事实，业务时间取处理结果的互认时间。
   /// </remarks>
-  /// <param name="request">日期范围、本侧来源院区与接收组筛选及分页参数。</param>
+  /// <param name="request">日期范围、本侧提供方院区与接收组筛选及分页参数。</param>
   /// <returns>当页明细行与分页信息；无匹配时返回空集合且分页信息保留。</returns>
   /// <exception cref="ArgumentNullException">查询条件为 null 时抛出。</exception>
   /// <exception cref="System.ComponentModel.DataAnnotations.ValidationException">筛选条件或分页取值非法时抛出。</exception>
@@ -421,7 +421,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// </summary>
   /// <remarks>
   /// 先按标识读取组级信息，未命中即按业务拒绝，不再读取匹配项集合；
-  /// 命中后读取全部匹配项，接收方与来源方名称按涉及编码批量回填；
+  /// 命中后读取全部匹配项，使用方与提供方名称按涉及编码批量回填；
   /// 记录级反馈状态取组内聚合值，各项的反馈状态与决策取自身处理结果。
   /// </remarks>
   /// <param name="request">互认匹配记录标识。</param>
@@ -443,17 +443,17 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     IReadOnlyList<RecognitionMatchRecordViewItem> items =
       [.. await repository.QueryRecognitionMatchRecordViewItemsAsync(request.RecognitionMatchRecordId)];
 
-    // 接收方按组级三值一次解析；来源方按当组匹配项涉及编码批量解析，读取次数不随匹配项数量增长。
+    // 使用方按组级三值一次解析；提供方按当组匹配项涉及编码批量解析，读取次数不随匹配项数量增长。
     Dictionary<(string, string, string), OrganizationPath> receiverNames = await ResolveStatisticsPageNamesAsync(
       [(view.ReceiverOrganizationCode, view.ReceiverHospitalCode, view.ReceiverBranchCode)],
-      "业务拒绝：匹配记录的接收组织不存在或已停用。",
-      "业务拒绝：匹配记录的接收医院不存在、已停用或不属于该组织。",
-      "业务拒绝：匹配记录的接收院区不存在、已停用或不属于该医院。");
+      "业务拒绝：匹配记录的使用方组织不存在或已停用。",
+      "业务拒绝：匹配记录的使用方医院不存在、已停用或不属于该组织。",
+      "业务拒绝：匹配记录的使用方院区不存在、已停用或不属于该医院。");
     Dictionary<(string, string, string), OrganizationPath> sourceNames = await ResolveStatisticsPageNamesAsync(
       [.. items.Select(item => (item.SourceOrganizationCode, item.SourceHospitalCode, item.SourceBranchCode))],
-      "业务拒绝：匹配项的来源组织不存在或已停用。",
-      "业务拒绝：匹配项的来源医院不存在、已停用或不属于该组织。",
-      "业务拒绝：匹配项的来源院区不存在、已停用或不属于该医院。");
+      "业务拒绝：匹配项的提供方组织不存在或已停用。",
+      "业务拒绝：匹配项的提供方医院不存在、已停用或不属于该组织。",
+      "业务拒绝：匹配项的提供方院区不存在、已停用或不属于该医院。");
 
     return new RecognitionMatchRecordReadModel
     {
@@ -477,8 +477,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <summary>
   /// 校验平台入口的两组组织编码：同时提供且不一致时整次拒绝，不允许一次查询横跨两个互不一致的组织范围。
   /// </summary>
-  /// <param name="organizationCode">请求提交的接收组织编码；可为空。</param>
-  /// <param name="sourceOrganizationCode">请求提交的来源组织编码；可为空。</param>
+  /// <param name="organizationCode">请求提交的使用方组织编码；可为空。</param>
+  /// <param name="sourceOrganizationCode">请求提交的提供方组织编码；可为空。</param>
   /// <exception cref="InvalidOperationException">两个组织编码都提供且不一致时抛出。</exception>
   private static void EnsureSameOrganization(string? organizationCode, string? sourceOrganizationCode)
   {
@@ -486,15 +486,15 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     string sourceCode = sourceOrganizationCode?.Trim() ?? string.Empty;
     if (receiverCode.Length > 0 && sourceCode.Length > 0 && !string.Equals(receiverCode, sourceCode, StringComparison.Ordinal))
     {
-      throw new InvalidOperationException("业务拒绝：接收组织与来源组织不一致，不能同时按两个组织统计。");
+      throw new InvalidOperationException("业务拒绝：使用方组织与提供方组织不一致，不能同时按两个组织统计。");
     }
   }
 
   /// <summary>
-  /// 校验来源侧汇总的维度子集：只接受来源医院、来源院区与标准项目，互认科室维度值按业务拒绝。
+  /// 校验提供方汇总的维度子集：只接受提供方医院、提供方院区与标准项目，互认科室维度值按业务拒绝。
   /// </summary>
   /// <remarks>
-  /// 来源侧行集按采纳事实聚合，没有互认科室归属维度；校验在应用层、进入仓储之前完成。
+  /// 提供方行集按采纳事实聚合，没有互认科室归属维度；校验在应用层、进入仓储之前完成。
   /// </remarks>
   /// <param name="groupDimension">请求提交的汇总维度。</param>
   /// <exception cref="InvalidOperationException">维度取互认科室值时抛出。</exception>
@@ -502,7 +502,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   {
     if (groupDimension == RecognitionStatisticsGroupDimension.RecognitionDepartment)
     {
-      throw new InvalidOperationException("业务拒绝：来源侧汇总不支持按互认科室维度统计。");
+      throw new InvalidOperationException("业务拒绝：提供方汇总不支持按互认科室维度统计。");
     }
   }
 
@@ -579,61 +579,61 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 解析本院入口的来源组可选筛选：来源组织恒为可信组织，医院与院区取请求；
-  /// 来源院区为空时不进入院区层、只校验来源医院属于可信组织，两层取值都为空时不做解析、不附加来源过滤。
+  /// 解析本院入口的来源组可选筛选：提供方组织恒为可信组织，医院与院区取请求；
+  /// 提供方院区为空时不进入院区层、只校验提供方医院属于可信组织，两层取值都为空时不做解析、不附加来源过滤。
   /// </summary>
   /// <param name="trustedScope">当前请求的可信组织与可信医院。</param>
-  /// <param name="sourceHospitalCode">请求提交的来源医院编码；可为空。</param>
-  /// <param name="sourceBranchCode">请求提交的来源院区编码；可为空。</param>
-  /// <returns>已校验的来源组织路径；来源筛选全空时为 <see langword="null"/>，未提供层的编码与名称为空串。</returns>
-  /// <exception cref="InvalidOperationException">来源医院或来源院区不存在、已停用或不属于可信组织、可信医院时抛出。</exception>
+  /// <param name="sourceHospitalCode">请求提交的提供方医院编码；可为空。</param>
+  /// <param name="sourceBranchCode">请求提交的提供方院区编码；可为空。</param>
+  /// <returns>已校验的提供方组织路径；来源筛选全空时为 <see langword="null"/>，未提供层的编码与名称为空串。</returns>
+  /// <exception cref="InvalidOperationException">提供方医院或提供方院区不存在、已停用或不属于可信组织、可信医院时抛出。</exception>
   private async Task<OrganizationPath?> ResolveBranchSourceScopeAsync(TrustedScope trustedScope, string? sourceHospitalCode, string? sourceBranchCode)
   {
     if (sourceHospitalCode is null && sourceBranchCode is null) return null;
 
-    // 来源院区为空时不进入院区层：解析目标只构造组织与医院两层，来源医院经可信组织校验存在、启用与父子归属。
+    // 提供方院区为空时不进入院区层：解析目标只构造组织与医院两层，提供方医院经可信组织校验存在、启用与父子归属。
     if (string.IsNullOrWhiteSpace(sourceBranchCode))
     {
       return (await organizationPathResolver.ResolveOrganizationHospitalOrThrow(
         [new OrganizationPathTarget(trustedScope.OrganizationCode, sourceHospitalCode, null)],
         "业务拒绝：组织不存在或已停用。",
-        "业务拒绝：来源医院不存在、已停用或不属于可信组织。"))[0];
+        "业务拒绝：提供方医院不存在、已停用或不属于可信组织。"))[0];
     }
 
     return (await organizationPathResolver.ResolveOrThrow(
       [new OrganizationPathTarget(trustedScope.OrganizationCode, sourceHospitalCode, sourceBranchCode)],
       "业务拒绝：组织不存在或已停用。",
-      "业务拒绝：来源医院不存在、已停用或不属于可信组织。",
-      "业务拒绝：来源院区不存在、已停用或不属于可信医院。"))[0];
+      "业务拒绝：提供方医院不存在、已停用或不属于可信组织。",
+      "业务拒绝：提供方院区不存在、已停用或不属于可信医院。"))[0];
   }
 
   /// <summary>
-  /// 解析本院入口来源侧查询的接收组可选筛选：接收组织恒为可信组织，医院与院区取请求；
-  /// 接收院区为空时不进入院区层、只校验接收医院属于可信组织，两层取值都为空时不做解析、不附加接收过滤。
+  /// 解析本院入口提供方查询的接收组可选筛选：使用方组织恒为可信组织，医院与院区取请求；
+  /// 使用方院区为空时不进入院区层、只校验使用方医院属于可信组织，两层取值都为空时不做解析、不附加接收过滤。
   /// </summary>
   /// <param name="trustedScope">当前请求的可信组织与可信医院。</param>
-  /// <param name="receiverHospitalCode">请求提交的接收医院编码；可为空。</param>
-  /// <param name="receiverBranchCode">请求提交的接收院区编码；可为空。</param>
-  /// <returns>已校验的接收组织路径；接收筛选全空时为 <see langword="null"/>，未提供层的编码与名称为空串。</returns>
-  /// <exception cref="InvalidOperationException">接收医院或接收院区不存在、已停用或不属于可信组织、可信医院时抛出。</exception>
+  /// <param name="receiverHospitalCode">请求提交的使用方医院编码；可为空。</param>
+  /// <param name="receiverBranchCode">请求提交的使用方院区编码；可为空。</param>
+  /// <returns>已校验的使用方组织路径；接收筛选全空时为 <see langword="null"/>，未提供层的编码与名称为空串。</returns>
+  /// <exception cref="InvalidOperationException">使用方医院或使用方院区不存在、已停用或不属于可信组织、可信医院时抛出。</exception>
   private async Task<OrganizationPath?> ResolveBranchReceiverScopeAsync(TrustedScope trustedScope, string? receiverHospitalCode, string? receiverBranchCode)
   {
     if (receiverHospitalCode is null && receiverBranchCode is null) return null;
 
-    // 接收院区为空时不进入院区层：解析目标只构造组织与医院两层，接收医院经可信组织校验存在、启用与父子归属。
+    // 使用方院区为空时不进入院区层：解析目标只构造组织与医院两层，使用方医院经可信组织校验存在、启用与父子归属。
     if (string.IsNullOrWhiteSpace(receiverBranchCode))
     {
       return (await organizationPathResolver.ResolveOrganizationHospitalOrThrow(
         [new OrganizationPathTarget(trustedScope.OrganizationCode, receiverHospitalCode, null)],
         "业务拒绝：组织不存在或已停用。",
-        "业务拒绝：接收医院不存在、已停用或不属于可信组织。"))[0];
+        "业务拒绝：使用方医院不存在、已停用或不属于可信组织。"))[0];
     }
 
     return (await organizationPathResolver.ResolveOrThrow(
       [new OrganizationPathTarget(trustedScope.OrganizationCode, receiverHospitalCode, receiverBranchCode)],
       "业务拒绝：组织不存在或已停用。",
-      "业务拒绝：接收医院不存在、已停用或不属于可信组织。",
-      "业务拒绝：接收院区不存在、已停用或不属于可信医院。"))[0];
+      "业务拒绝：使用方医院不存在、已停用或不属于可信组织。",
+      "业务拒绝：使用方院区不存在、已停用或不属于可信医院。"))[0];
   }
 
   /// <summary>
@@ -664,7 +664,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 读取接收侧汇总的当页分组行并组装读模型：先取分组行总数与当页，再取原因行装配，最后按当页编码回填接收方名称。
+  /// 读取使用方汇总的当页分组行并组装读模型：先取分组行总数与当页，再取原因行装配，最后按当页编码回填使用方名称。
   /// </summary>
   /// <remarks>
   /// 计数与取页共用同一套筛选条件，分页作用于聚合后的分组行；
@@ -685,12 +685,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     Dictionary<ReasonGroupKey, List<RecognitionUsageReasonItem>> reasonsByGroup =
       ClassifyReasonRows(await repository.QueryRecognitionUsageSummaryReasonsAsync(filter));
 
-    // 接收方名称按当页分组行涉及的编码批量解析，读取次数只随组织与医院数量增长，不随行数增长。
+    // 使用方名称按当页分组行涉及的编码批量解析，读取次数只随组织与医院数量增长，不随行数增长。
     Dictionary<(string, string, string), OrganizationPath> receiverNames = await ResolveStatisticsPageNamesAsync(
       [.. rows.Select(row => (row.ReceiverOrganizationCode, row.ReceiverHospitalCode, row.ReceiverBranchCode))],
-      "业务拒绝：汇总行的接收组织不存在或已停用。",
-      "业务拒绝：汇总行的接收医院不存在、已停用或不属于该组织。",
-      "业务拒绝：汇总行的接收院区不存在、已停用或不属于该医院。");
+      "业务拒绝：汇总行的使用方组织不存在或已停用。",
+      "业务拒绝：汇总行的使用方医院不存在、已停用或不属于该组织。",
+      "业务拒绝：汇总行的使用方院区不存在、已停用或不属于该医院。");
 
     return new PageResultDto<RecognitionUsageSummaryReadModel>
     {
@@ -700,11 +700,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 把一条汇总分组行映射为读模型，并装配行内同期互认率、原因汇总与接收方名称。
+  /// 把一条汇总分组行映射为读模型，并装配行内同期互认率、原因汇总与使用方名称。
   /// </summary>
   /// <param name="row">仓储返回的分组行投影。</param>
   /// <param name="reasonsByGroup">按分组键归并的原因行集合。</param>
-  /// <param name="receiverNames">按当页编码解析出的接收方名称字典。</param>
+  /// <param name="receiverNames">按当页编码解析出的使用方名称字典。</param>
   /// <param name="filter">本次查询的筛选条件，提供统计期间与汇总维度。</param>
   /// <returns>汇总行读模型。</returns>
   private static RecognitionUsageSummaryReadModel MapUsageSummaryRow(
@@ -784,7 +784,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <param name="detailType">明细类型，决定读取的事实语句。</param>
   /// <param name="window">已校验的分页窗口。</param>
   /// <returns>当页明细行与分页信息。</returns>
-  /// <exception cref="InvalidOperationException">外部组织服务不可用、当页行的归属不成立，或明细类型不在接收侧取值范围内时抛出。</exception>
+  /// <exception cref="InvalidOperationException">外部组织服务不可用、当页行的归属不成立，或明细类型不在使用方取值范围内时抛出。</exception>
   private async Task<PageResultDto<RecognitionUsageDetailReadModel>> ReadUsageDetailPageAsync(
     RecognitionUsageDetailFilter filter, RecognitionUsageDetailType detailType, PageQueryWindow window)
   {
@@ -843,22 +843,22 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       }
 
       default:
-        throw new InvalidOperationException("业务拒绝：明细类型不在接收侧明细取值范围内。");
+        throw new InvalidOperationException("业务拒绝：明细类型不在使用方明细取值范围内。");
     }
   }
 
   /// <summary>
-  /// 按当页明细行的双侧编码批量解析接收方与来源方名称。
+  /// 按当页明细行的双侧编码批量解析使用方与提供方名称。
   /// </summary>
   /// <remarks>
   /// 两个方向各做一次批量解析：读取次数只随当页涉及的组织与医院数量增长，不随行数增长；
-  /// 来源编码为空的行来自缺失报告主体的历史事实，跳过其来源方解析。
+  /// 来源编码为空的行来自缺失报告主体的历史事实，跳过其提供方解析。
   /// </summary>
   /// <typeparam name="TRow">当页明细行投影类型。</typeparam>
   /// <param name="rows">当页明细行。</param>
-  /// <param name="receiverKeyOf">从行投影取接收方三层编码的取值器。</param>
-  /// <param name="sourceKeyOf">从行投影取来源方三层编码的取值器。</param>
-  /// <returns>接收方与来源方两个方向的名称字典，键为去空白后的三层编码。</returns>
+  /// <param name="receiverKeyOf">从行投影取使用方三层编码的取值器。</param>
+  /// <param name="sourceKeyOf">从行投影取提供方三层编码的取值器。</param>
+  /// <returns>使用方与提供方两个方向的名称字典，键为去空白后的三层编码。</returns>
   /// <exception cref="InvalidOperationException">任一行的归属不成立或外部组织服务不可用时抛出。</exception>
   private async Task<(
     Dictionary<(string, string, string), OrganizationPath> ReceiverNames,
@@ -869,14 +869,14 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   {
     Dictionary<(string, string, string), OrganizationPath> receiverNames = await ResolveStatisticsPageNamesAsync(
       [.. rows.Select(receiverKeyOf)],
-      "业务拒绝：明细行的接收组织不存在或已停用。",
-      "业务拒绝：明细行的接收医院不存在、已停用或不属于该组织。",
-      "业务拒绝：明细行的接收院区不存在、已停用或不属于该医院。");
+      "业务拒绝：明细行的使用方组织不存在或已停用。",
+      "业务拒绝：明细行的使用方医院不存在、已停用或不属于该组织。",
+      "业务拒绝：明细行的使用方院区不存在、已停用或不属于该医院。");
     Dictionary<(string, string, string), OrganizationPath> sourceNames = await ResolveStatisticsPageNamesAsync(
       [.. rows.Select(sourceKeyOf)],
-      "业务拒绝：明细行的来源组织不存在或已停用。",
-      "业务拒绝：明细行的来源医院不存在、已停用或不属于该组织。",
-      "业务拒绝：明细行的来源院区不存在、已停用或不属于该医院。");
+      "业务拒绝：明细行的提供方组织不存在或已停用。",
+      "业务拒绝：明细行的提供方医院不存在、已停用或不属于该组织。",
+      "业务拒绝：明细行的提供方院区不存在、已停用或不属于该医院。");
     return (receiverNames, sourceNames);
   }
 
@@ -884,7 +884,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 把一批当页行的三层编码去重后批量解析为名称字典。
   /// </summary>
   /// <remarks>
-  /// 编码为空的组织键表示该行缺失归属事实（如未绑定报告的来源方），跳过解析；
+  /// 编码为空的组织键表示该行缺失归属事实（如未绑定报告的提供方），跳过解析；
   /// 院区编码为空的目标按组织与医院两层解析，有院区编码的目标按三层解析，两批各自批量读取。
   /// </remarks>
   /// <param name="keys">当页行的三层编码集合，允许为空值。</param>
@@ -966,9 +966,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   };
 
   /// <summary>
-  /// 读取来源侧汇总的当页分组行并组装读模型：先取分组行总数与当页，再按当页编码回填来源方名称。
+  /// 读取提供方汇总的当页分组行并组装读模型：先取分组行总数与当页，再按当页编码回填提供方名称。
   /// </summary>
-  /// <remarks>计数与取页共用同一套筛选条件，分页作用于聚合后的分组行；来源侧只有来源方一侧名称需要回填。</remarks>
+  /// <remarks>计数与取页共用同一套筛选条件，分页作用于聚合后的分组行；提供方只有提供方一侧名称需要回填。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界、汇总维度。</param>
   /// <param name="window">已校验的分页窗口。</param>
   /// <returns>当页汇总分组行与分页信息。</returns>
@@ -980,12 +980,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     IReadOnlyList<SourceRecognitionSummaryGroupItem> rows =
       [.. await repository.QuerySourceRecognitionSummaryPageAsync(filter, window.SkipCount, window.PageSize)];
 
-    // 来源方名称按当页分组行涉及的编码批量解析，读取次数只随组织与医院数量增长，不随行数增长。
+    // 提供方名称按当页分组行涉及的编码批量解析，读取次数只随组织与医院数量增长，不随行数增长。
     Dictionary<(string, string, string), OrganizationPath> sourceNames = await ResolveStatisticsPageNamesAsync(
       [.. rows.Select(row => (row.SourceOrganizationCode, row.SourceHospitalCode, row.SourceBranchCode))],
-      "业务拒绝：汇总行的来源组织不存在或已停用。",
-      "业务拒绝：汇总行的来源医院不存在、已停用或不属于该组织。",
-      "业务拒绝：汇总行的来源院区不存在、已停用或不属于该医院。");
+      "业务拒绝：汇总行的提供方组织不存在或已停用。",
+      "业务拒绝：汇总行的提供方医院不存在、已停用或不属于该组织。",
+      "业务拒绝：汇总行的提供方院区不存在、已停用或不属于该医院。");
 
     return new PageResultDto<SourceRecognitionSummaryReadModel>
     {
@@ -995,12 +995,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 把一条来源侧汇总分组行映射为读模型，并装配行内被互认次数与来源方名称。
+  /// 把一条提供方汇总分组行映射为读模型，并装配行内被互认次数与提供方名称。
   /// </summary>
   /// <param name="row">仓储返回的分组行投影。</param>
-  /// <param name="sourceNames">按当页编码解析出的来源方名称字典。</param>
+  /// <param name="sourceNames">按当页编码解析出的提供方名称字典。</param>
   /// <param name="filter">本次查询的筛选条件，提供统计期间与汇总维度。</param>
-  /// <returns>来源侧汇总行读模型。</returns>
+  /// <returns>提供方汇总行读模型。</returns>
   private static SourceRecognitionSummaryReadModel MapSourceSummaryRow(
     SourceRecognitionSummaryGroupItem row,
     Dictionary<(string, string, string), OrganizationPath> sourceNames,
@@ -1034,7 +1034,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 读取来源侧被互认明细的当页行并组装读模型：先取总数再取当页，两侧名称按当页行涉及的编码批量回填。
+  /// 读取提供方被互认明细的当页行并组装读模型：先取总数再取当页，两侧名称按当页行涉及的编码批量回填。
   /// </summary>
   /// <remarks>计数与取页共用同一套筛选条件；应用层不重排仓储给出的行序。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界。</param>
@@ -1061,19 +1061,19 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 把一条来源侧明细行映射为读模型：互认科室与医生取处理结果自身保存值，
-  /// 患者姓名与证件号码按业务原值返回，互认时间即来源侧明细的业务时间。
+  /// 把一条提供方明细行映射为读模型：互认科室与医生取处理结果自身保存值，
+  /// 患者姓名与证件号码按业务原值返回，互认时间即提供方明细的业务时间。
   /// </summary>
-  /// <param name="item">仓储返回的来源侧明细行投影。</param>
-  /// <param name="receiverNames">接收方名称字典。</param>
-  /// <param name="sourceNames">来源方名称字典。</param>
-  /// <returns>来源侧明细读模型。</returns>
+  /// <param name="item">仓储返回的提供方明细行投影。</param>
+  /// <param name="receiverNames">使用方名称字典。</param>
+  /// <param name="sourceNames">提供方名称字典。</param>
+  /// <returns>提供方明细读模型。</returns>
   private static SourceRecognitionDetailReadModel MapSourceDetail(
     SourceRecognitionDetailItem item,
     Dictionary<(string, string, string), OrganizationPath> receiverNames,
     Dictionary<(string, string, string), OrganizationPath> sourceNames)
   {
-    // 来源侧行集由报告主体内联连接产生，两侧三层编码恒有值，名称按编码批量回填。
+    // 提供方行集由报告主体内联连接产生，两侧三层编码恒有值，名称按编码批量回填。
     OrganizationPath sourcePath = sourceNames[(item.SourceOrganizationCode.Trim(), item.SourceHospitalCode.Trim(), item.SourceBranchCode.Trim())];
     OrganizationPath receiverPath = receiverNames[(item.ReceiverOrganizationCode.Trim(), item.ReceiverHospitalCode.Trim(), item.ReceiverBranchCode.Trim())];
 
@@ -1109,8 +1109,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 决策取处理结果保存值，未反馈行随左联自然为空。
   /// </summary>
   /// <param name="item">仓储返回的提醒明细行投影。</param>
-  /// <param name="receiverNames">接收方名称字典。</param>
-  /// <param name="sourceNames">来源方名称字典。</param>
+  /// <param name="receiverNames">使用方名称字典。</param>
+  /// <param name="sourceNames">提供方名称字典。</param>
   /// <returns>提醒明细读模型。</returns>
   private static RecognitionUsageDetailReadModel MapReminderDetail(
     RecognitionReminderDetailItem item,
@@ -1145,8 +1145,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 把一条采纳明细行映射为读模型：业务时间取互认时间，决策为采纳并随预计节省金额。
   /// </summary>
   /// <param name="item">仓储返回的采纳明细行投影。</param>
-  /// <param name="receiverNames">接收方名称字典。</param>
-  /// <param name="sourceNames">来源方名称字典。</param>
+  /// <param name="receiverNames">使用方名称字典。</param>
+  /// <param name="sourceNames">提供方名称字典。</param>
   /// <returns>采纳明细读模型。</returns>
   private static RecognitionUsageDetailReadModel MapAdoptionDetail(
     RecognitionAdoptionDetailItem item,
@@ -1182,8 +1182,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 把一条不采纳明细行映射为读模型：业务时间取互认时间，决策为不采纳并随原因代码、名称与补充说明。
   /// </summary>
   /// <param name="item">仓储返回的不采纳明细行投影。</param>
-  /// <param name="receiverNames">接收方名称字典。</param>
-  /// <param name="sourceNames">来源方名称字典。</param>
+  /// <param name="receiverNames">使用方名称字典。</param>
+  /// <param name="sourceNames">提供方名称字典。</param>
   /// <returns>不采纳明细读模型。</returns>
   private static RecognitionUsageDetailReadModel MapNonAdoptionDetail(
     RecognitionNonAdoptionDetailItem item,
@@ -1221,8 +1221,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 把一条引用明细行映射为读模型：业务时间取实际引用时间，互认科室与引用科室取各自业务记录保存值。
   /// </summary>
   /// <param name="item">仓储返回的引用明细行投影。</param>
-  /// <param name="receiverNames">接收方名称字典。</param>
-  /// <param name="sourceNames">来源方名称字典。</param>
+  /// <param name="receiverNames">使用方名称字典。</param>
+  /// <param name="sourceNames">提供方名称字典。</param>
   /// <returns>引用明细读模型。</returns>
   private static RecognitionUsageDetailReadModel MapReferenceDetail(
     RecognitionReferenceDetailItem item,
@@ -1282,13 +1282,13 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   };
 
   /// <summary>
-  /// 用名称字典组装明细行的来源方归属；来源组织编码为空表示缺失报告主体，按空归属返回。
+  /// 用名称字典组装明细行的提供方归属；提供方组织编码为空表示缺失报告主体，按空归属返回。
   /// </summary>
-  /// <param name="organizationCode">来源组织编码；可为空。</param>
-  /// <param name="hospitalCode">来源医院编码；可为空。</param>
-  /// <param name="branchCode">来源院区编码；可为空。</param>
-  /// <param name="sourceNames">来源方名称字典。</param>
-  /// <returns>来源方归属读模型。</returns>
+  /// <param name="organizationCode">提供方组织编码；可为空。</param>
+  /// <param name="hospitalCode">提供方医院编码；可为空。</param>
+  /// <param name="branchCode">提供方院区编码；可为空。</param>
+  /// <param name="sourceNames">提供方名称字典。</param>
+  /// <returns>提供方归属读模型。</returns>
   private static SourceOrganizationReadModel MapSourceOrganization(
     string? organizationCode,
     string? hospitalCode,
@@ -1314,13 +1314,13 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 用名称字典组装明细行的接收方归属；接收三层编码来自匹配记录事实，恒有值。
+  /// 用名称字典组装明细行的使用方归属；接收三层编码来自匹配记录事实，恒有值。
   /// </summary>
-  /// <param name="organizationCode">接收组织编码。</param>
-  /// <param name="hospitalCode">接收医院编码。</param>
-  /// <param name="branchCode">接收院区编码。</param>
-  /// <param name="receiverNames">接收方名称字典。</param>
-  /// <returns>接收方归属读模型。</returns>
+  /// <param name="organizationCode">使用方组织编码。</param>
+  /// <param name="hospitalCode">使用方医院编码。</param>
+  /// <param name="branchCode">使用方院区编码。</param>
+  /// <param name="receiverNames">使用方名称字典。</param>
+  /// <returns>使用方归属读模型。</returns>
   private static ReceiverOrganizationReadModel MapReceiverOrganization(
     string organizationCode,
     string hospitalCode,
@@ -1346,10 +1346,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// </summary>
   /// <remarks>
   /// 决策与原因取匹配项自身处理结果，未反馈项不推断为不采纳，决策与原因为空值由页面显示未反馈；
-  /// 来源方归属用名称字典组装，缺失报告主体的匹配项按空归属返回。
+  /// 提供方归属用名称字典组装，缺失报告主体的匹配项按空归属返回。
   /// </remarks>
   /// <param name="item">仓储返回的匹配项行投影。</param>
-  /// <param name="sourceNames">来源方名称字典。</param>
+  /// <param name="sourceNames">提供方名称字典。</param>
   /// <returns>匹配项读模型。</returns>
   private static RecognitionMatchRecordItemReadModel MapMatchRecordItem(
     RecognitionMatchRecordViewItem item,
@@ -1371,9 +1371,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <summary>
   /// 不采纳原因行按汇总分组键归并所用的键：与汇总分组语句同套的维度取值。
   /// </summary>
-  /// <param name="OrganizationCode">接收组织编码；未参与分组的维度为空。</param>
-  /// <param name="HospitalCode">接收医院编码。</param>
-  /// <param name="BranchCode">接收院区编码。</param>
+  /// <param name="OrganizationCode">使用方组织编码；未参与分组的维度为空。</param>
+  /// <param name="HospitalCode">使用方医院编码。</param>
+  /// <param name="BranchCode">使用方院区编码。</param>
   /// <param name="RecognitionDeptId">互认科室ID。</param>
   /// <param name="ItemType">项目类型。</param>
   /// <param name="StandardProjectCode">标准项目编码。</param>

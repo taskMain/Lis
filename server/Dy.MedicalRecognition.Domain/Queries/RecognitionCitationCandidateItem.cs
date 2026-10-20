@@ -14,11 +14,11 @@ namespace Dy.MedicalRecognition.Domain.Queries;
 /// </remarks>
 public sealed record RecognitionCitationCandidateItem
 {
-  /// <summary>所属互认匹配记录的接收组织编码；与本次可信组织一致是候选成立的条件。限定键，不作为投影列返回。</summary>
+  /// <summary>所属互认匹配记录的使用方组织编码；与本次可信组织一致是候选成立的条件。限定键，不作为投影列返回。</summary>
   public string ReceiverOrganizationCode { get; init; } = string.Empty;
-  /// <summary>所属互认匹配记录的接收医院编码。限定键，不作为投影列返回。</summary>
+  /// <summary>所属互认匹配记录的使用方医院编码。限定键，不作为投影列返回。</summary>
   public string ReceiverHospitalCode { get; init; } = string.Empty;
-  /// <summary>所属互认匹配记录的接收院区编码。限定键，不作为投影列返回。</summary>
+  /// <summary>所属互认匹配记录的使用方院区编码。限定键，不作为投影列返回。</summary>
   public string ReceiverBranchCode { get; init; } = string.Empty;
   /// <summary>匹配记录上的患者证件类型代码。限定键，不作为投影列返回。</summary>
   public string IdentityDocumentTypeCode { get; init; } = string.Empty;

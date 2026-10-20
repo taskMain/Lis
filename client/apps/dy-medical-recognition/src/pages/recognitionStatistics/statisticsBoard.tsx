@@ -1,12 +1,12 @@
 /**
- * 四个统计页面（平台/本院 × 接收侧/来源侧）共享的页面主体（S6-D11、S6-D19；查询区与报告管理列表页同构）。
+ * 四个统计页面（平台/本院 × 使用方/提供方）共享的页面主体（S6-D11、S6-D19；查询区与报告管理列表页同构）。
  *
  * 主体承载统计页的全部行为编排：筛选区、范围选择、汇总维度单选与汇总表、
- * 明细类型单选与明细表、导出入口与匹配记录弹窗；接收侧与来源侧的结构差异用 `side` 表达，
+ * 明细类型单选与明细表、导出入口与匹配记录弹窗；使用方与提供方的结构差异用 `side` 表达，
  * 平台/本院的范围形态差异用 `scopeSpec` 表达。数据源由四个页面注入（查询/导出入口以适配层为边界），
  * 主体不接触生成的 Kiota 类型，也不创建 API Client。
  *
- * 查询区同构（S6-D19）：统一关键字（占位按侧区分，来源侧语句无医生列故不含互认医生）+ 项目类型下拉
+ * 查询区同构（S6-D19）：统一关键字（占位按侧区分，提供方语句无医生列故不含互认医生）+ 项目类型下拉
  * + 预设日期区间选择器（今天/近 7 天/近 30 天，不可清空，默认近 30 天）+ 主色查询按钮；不设重置，
  * 关键字与项目类型可清空、清空后经「查询」生效。筛选控件改动只进草稿、零请求；点「查询」把草稿
  * 提交为已生效条件，一次提交同时重读汇总与明细，同条件再次提交等价刷新。汇总数字下钻把维度值
@@ -75,7 +75,7 @@ import {
 } from './statisticsDisplays'
 import './statisticsBoard.css'
 
-/** 统计页侧别：接收侧（互认使用）或来源侧（被互认）。 */
+/** 统计页侧别：使用方（互认使用）或提供方（被互认）。 */
 export type StatisticsSide = 'usage' | 'source'
 
 /** 主体内两侧行的联合：行的实际类型与 `side` 一致（数据源由页面按侧注入）。 */
@@ -91,7 +91,7 @@ export interface StatisticsFilters {
   startTime: string
   endTime: string
   /**
-   * 本院页本侧院区（接收侧页为使用方院区，来源侧页为提供方院区）：恒为登录院区，
+   * 本院页本侧院区（使用方页为使用方院区，提供方页为提供方院区）：恒为登录院区，
    * 页面不提供院区选择；缺失属权限配置错误，页面零业务请求、以空态呈现（`missingScopeText`）；
    * 服务端全院统计契约仅为接口面保留（S6-D1），前端已不按其触发。
    */
@@ -143,11 +143,11 @@ export interface StatisticsBoardProps {
     filters: StatisticsFilters,
     request: { exportType: number; groupDimension: number; detailType: number | null; downloadFileName: string },
   ) => Promise<void> | null
-  /** 匹配记录查询出口；仅接收侧注入（来源侧明细不提供匹配记录入口，S6-D10）。 */
+  /** 匹配记录查询出口；仅使用方注入（提供方明细不提供匹配记录入口，S6-D10）。 */
   queryMatchRecord?: (recognitionMatchRecordId: string) => Promise<MatchRecordView>
 }
 
-/** 汇总维度选项：固定页面文案（四个页面差异只取值来源与固定文案）；来源侧不含互认科室维度（S6-D2）。 */
+/** 汇总维度选项：固定页面文案（四个页面差异只取值来源与固定文案）；提供方不含互认科室维度（S6-D2）。 */
 const USAGE_DIMENSION_OPTIONS = [
   { value: 1, label: '医院' },
   { value: 2, label: '院区' },
@@ -160,7 +160,7 @@ const SOURCE_DIMENSION_OPTIONS = [
   { value: 4, label: '标准项目' },
 ]
 
-/** 接收侧明细类型选项（S6-D2 明细类型枚举取值）。 */
+/** 使用方明细类型选项（S6-D2 明细类型枚举取值）。 */
 const DETAIL_TYPE_OPTIONS = [
   { value: 1, label: '提醒' },
   { value: 2, label: '采纳' },
@@ -216,7 +216,7 @@ function usageSummaryRowKey(row: UsageSummaryRow): string {
   ].map((part) => part ?? '').join('|')
 }
 
-/** 来源侧汇总行的稳定行标识，口径同接收侧。 */
+/** 提供方汇总行的稳定行标识，口径同使用方。 */
 function sourceSummaryRowKey(row: SourceSummaryRow): string {
   return [
     row.sourceOrganizationCode,
@@ -227,7 +227,7 @@ function sourceSummaryRowKey(row: SourceSummaryRow): string {
   ].map((part) => part ?? '').join('|')
 }
 
-/** 接收侧汇总行下钻的筛选预填：按维度值落到对应条件字段（本院页用不到的字段由页面映射忽略）。 */
+/** 使用方汇总行下钻的筛选预填：按维度值落到对应条件字段（本院页用不到的字段由页面映射忽略）。 */
 function usageDrilldownPatch(row: UsageSummaryRow): Partial<StatisticsFilters> {
   switch (row.groupDimension) {
     case 1: return { receiverHospitalCode: row.receiverHospitalCode ?? undefined }
@@ -240,7 +240,7 @@ function usageDrilldownPatch(row: UsageSummaryRow): Partial<StatisticsFilters> {
   }
 }
 
-/** 来源侧汇总行下钻的筛选预填，口径同接收侧（来源侧无互认科室维度）。 */
+/** 提供方汇总行下钻的筛选预填，口径同使用方（提供方无互认科室维度）。 */
 function sourceDrilldownPatch(row: SourceSummaryRow): Partial<StatisticsFilters> {
   switch (row.groupDimension) {
     case 1: return { sourceHospitalCode: row.sourceHospitalCode ?? undefined }
@@ -264,7 +264,7 @@ function sameFilters(left: StatisticsFilters, right: StatisticsFilters): boolean
   return leftKeys.every((key) => left[key] === right[key])
 }
 
-/** 接收侧汇总列：维度列随所选维度出列（未参与分组的维度列不渲染），后接六项指标列。 */
+/** 使用方汇总列：维度列随所选维度出列（未参与分组的维度列不渲染），后接六项指标列。 */
 function usageSummaryColumns(
   dimension: number,
   onMetricDrill: (row: UsageSummaryRow, detailType: UsageDetailTypeValue) => void,
@@ -316,7 +316,7 @@ function usageSummaryColumns(
   ]
 }
 
-/** 来源侧汇总列：只计被互认次数，无金额、互认率与原因区（C22）。 */
+/** 提供方汇总列：只计被互认次数，无金额、互认率与原因区（C22）。 */
 function sourceSummaryColumns(
   dimension: number,
   onDrill: (row: SourceSummaryRow) => void,
@@ -358,7 +358,7 @@ function usageReasonCell(row: UsageDetailRow): ReactNode {
     : name
 }
 
-/** 接收侧明细列：未反馈行显示「未反馈」且处理结果列留空；末列为匹配记录入口（S6-D10）。 */
+/** 使用方明细列：未反馈行显示「未反馈」且处理结果列留空；末列为匹配记录入口（S6-D10）。 */
 function usageDetailColumns(onOpenRecord: (recognitionMatchRecordId: string) => void): TableColumnsType<UsageDetailRow> {
   return [
     { title: '匹配生成时间', width: 130, render: (_, row) => formatStatisticsDateTime(row.matchCreatedTime) },
@@ -395,7 +395,7 @@ function usageDetailColumns(onOpenRecord: (recognitionMatchRecordId: string) => 
   ]
 }
 
-/** 来源侧明细列：双方归属三行式；只反映被采纳事实，无匹配记录入口（S6-D10、D-04）。 */
+/** 提供方明细列：双方归属三行式；只反映被采纳事实，无匹配记录入口（S6-D10、D-04）。 */
 function sourceDetailColumns(): TableColumnsType<SourceDetailRow> {
   return [
     { title: '提供方', width: 170, ellipsis: true, render: (_, row) => <PartyCell {...row.source} /> },
@@ -1034,7 +1034,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
             />
           </div>
         </> : null}
-        {/* 原因下钻的精确筛选标记（S6-D19，仅接收侧明细区）：只在原因代码已生效时出现，移除按即时提交语义生效。 */}
+        {/* 原因下钻的精确筛选标记（S6-D19，仅使用方明细区）：只在原因代码已生效时出现，移除按即时提交语义生效。 */}
         {side === 'usage' && reasonFilterName !== null
           ? <Tag closable onClose={removeReasonFilter}>不采纳原因：{reasonFilterName}</Tag>
           : null}

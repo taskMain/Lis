@@ -5,7 +5,7 @@ namespace Dy.MedicalRecognition.Domain.Queries;
 /// </summary>
 /// <remarks>
 /// 只承载报告主体上的检索列与按当前版本指向关联取得的版本序号，不承载专项目明细；
-/// 来源组织、医院、院区名称不在此投影内，由应用层按名称回填口径对当页整体赋值。
+/// 提供方组织、医院、院区名称不在此投影内，由应用层按名称回填口径对当页整体赋值。
 /// </remarks>
 public sealed record MedicalReportListItem
 {

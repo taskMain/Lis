@@ -324,7 +324,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <summary>
   /// 把一条普通检验结果映射为引用详情的检验结果明细。
   /// </summary>
-  /// <remarks>异常标志与危急值标志按枚举声明解析为中文文本，只表达来源医院的判断，平台不重新计算。</remarks>
+  /// <remarks>异常标志与危急值标志按枚举声明解析为中文文本，只表达提供方医院的判断，平台不重新计算。</remarks>
   /// <param name="result">来源报告版本下的一条普通检验结果。</param>
   /// <returns>引用详情的检验结果明细。</returns>
   private static RecognitionCitationLaboratoryResultReadModel MapCitationLaboratoryResult(LaboratoryResultItemView result) => new()
@@ -359,7 +359,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 文件入口不携带独立有效期，也不携带一次性或消费状态，下载入口指向阶段 4 已交付的下载动作。
   /// </remarks>
   /// <param name="context">本次报告的报告公共上下文行。</param>
-  /// <param name="sourcePath">已校验通过的来源组织路径，提供三层名称。</param>
+  /// <param name="sourcePath">已校验通过的提供方组织路径，提供三层名称。</param>
   /// <returns>引用详情的报告公共上下文。</returns>
   private static RecognitionReportContextReadModel MapReportContext(
     RecognitionCitationReportContextItem context, OrganizationPath sourcePath) => new()

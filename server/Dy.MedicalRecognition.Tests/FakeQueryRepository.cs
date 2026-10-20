@@ -156,9 +156,9 @@ internal sealed class FakeQueryRepository : IMedicalRecognitionReportQueryReposi
   public Task<IEnumerable<ExaminationSiteView>> QueryExaminationSitesByItemsAsync(IReadOnlyList<Guid> examinationItemIds) => throw new NotSupportedException(UnusedMember);
 
   /// <summary>本替身不覆盖：候选报告查询。</summary>
-  /// <param name="organizationCode">可信接收组织编码。</param>
-  /// <param name="hospitalCode">可信接收医院编码。</param>
-  /// <param name="branchCode">可信接收院区编码。</param>
+  /// <param name="organizationCode">可信使用方组织编码。</param>
+  /// <param name="hospitalCode">可信使用方医院编码。</param>
+  /// <param name="branchCode">可信使用方院区编码。</param>
   /// <param name="patientId">已解析到的平台患者标识。</param>
   /// <param name="identityDocumentTypeCode">证件类型代码。</param>
   /// <param name="identityDocumentNo">证件号码。</param>
@@ -261,9 +261,9 @@ internal sealed class FakeQueryRepository : IMedicalRecognitionReportQueryReposi
   public Task<IEnumerable<RecognitionAmountListItem>> QueryRecognitionAmountListAsync(string organizationCode, string hospitalCode, string branchCode, string? standardProjectCode, string? keyword) => throw new NotSupportedException(UnusedMember);
 
   /// <summary>本替身不覆盖：引用详情候选采纳记录查询。</summary>
-  /// <param name="organizationCode">可信接收组织编码。</param>
-  /// <param name="hospitalCode">可信接收医院编码。</param>
-  /// <param name="branchCode">可信接收院区编码。</param>
+  /// <param name="organizationCode">可信使用方组织编码。</param>
+  /// <param name="hospitalCode">可信使用方医院编码。</param>
+  /// <param name="branchCode">可信使用方院区编码。</param>
   /// <param name="identityDocumentTypeCode">患者证件类型代码。</param>
   /// <param name="identityDocumentNo">患者证件号码。</param>
   /// <param name="visitType">本次来源就诊类型。</param>

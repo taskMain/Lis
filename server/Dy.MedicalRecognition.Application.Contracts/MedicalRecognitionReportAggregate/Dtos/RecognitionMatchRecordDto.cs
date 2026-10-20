@@ -14,15 +14,15 @@ public partial record RecognitionMatchRecordDto : Dto
   /// </summary>
   public partial Guid Id { get; set; }
   /// <summary>
-  /// 接收组织编码，来自服务端可信身份上下文，不由请求提交；记录下全部匹配项共用该组织。
+  /// 使用方组织编码，来自服务端可信身份上下文，不由请求提交；记录下全部匹配项共用该组织。
   /// </summary>
   public partial string ReceiverOrganizationCode { get; set; }
   /// <summary>
-  /// 接收医院编码，来自服务端可信身份上下文；决定采纳时读取哪一组织的互认金额。
+  /// 使用方医院编码，来自服务端可信身份上下文；决定采纳时读取哪一组织的互认金额。
   /// </summary>
   public partial string ReceiverHospitalCode { get; set; }
   /// <summary>
-  /// 接收院区编码，来自服务端可信身份上下文；金额与统计归属到该院区层级。
+  /// 使用方院区编码，来自服务端可信身份上下文；金额与统计归属到该院区层级。
   /// </summary>
   public partial string ReceiverBranchCode { get; set; }
   /// <summary>

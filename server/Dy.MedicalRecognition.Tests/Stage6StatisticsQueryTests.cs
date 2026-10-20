@@ -11,10 +11,10 @@ using Xunit;
 namespace Dy.MedicalRecognition.Tests;
 
 /// <summary>
-/// 阶段 6 接收侧与来源侧汇总、明细及匹配记录集合视图的应用层行为：分页窗口先于仓储访问、
+/// 阶段 6 使用方与提供方汇总、明细及匹配记录集合视图的应用层行为：分页窗口先于仓储访问、
 /// 平台版两组范围解析与一致性拒绝、本院版可信注入与院区为空分支、汇总行结构、同期互认率与原因占比的行内计算、
 /// 名称批量回填、明细四类型业务时间与未反馈语义、明细筛选与分页、汇总数字与明细计数的一致性，
-/// 以及来源侧维度子集拒绝、来源侧双侧名称回填与匹配记录集合视图的单记录读取、已处理记录的记录级字段、
+/// 以及提供方维度子集拒绝、提供方双侧名称回填与匹配记录集合视图的单记录读取、已处理记录的记录级字段、
 /// 名称回填读取次数与未知标识拒绝。
 /// </summary>
 /// <remarks>
@@ -37,13 +37,13 @@ public sealed class Stage6StatisticsQueryTests
   /// <summary>同组织下的第二家医院编码。</summary>
   private const string SecondHospital = "HOS-B";
 
-  /// <summary>来源组织编码；平台版用例的来源组取值。</summary>
+  /// <summary>提供方组织编码；平台版用例的来源组取值。</summary>
   private const string SourceOrganization = "ORG-S";
 
-  /// <summary>来源医院编码。</summary>
+  /// <summary>提供方医院编码。</summary>
   private const string SourceHospital = "HOS-S";
 
-  /// <summary>来源院区编码。</summary>
+  /// <summary>提供方院区编码。</summary>
   private const string SourceBranch = "BRH-S";
 
   /// <summary>组织名称前缀；替身按编码拼出唯一名称，用于核对回填来源。</summary>
@@ -457,7 +457,7 @@ public sealed class Stage6StatisticsQueryTests
   // ---------- 本院版汇总：V13 ----------
 
   /// <summary>
-  /// V13：本院版接收组织与接收医院由可信上下文注入，请求不含本侧组织与医院字段；
+  /// V13：本院版使用方组织与使用方医院由可信上下文注入，请求不含本侧组织与医院字段；
   /// 院区为空时按可信医院全院范围统计，筛选不附加院区条件，也不进入院区层解析。
   /// </summary>
   [Fact]
@@ -512,8 +512,8 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V13：本院版仅提交来源医院、来源院区为空时按层独立处理：来源医院经可信组织校验存在、启用与父子归属，
-  /// 筛选附加可信组织与来源医院条件、来源院区条件保持空值，院区层读取一次都没有发生。
+  /// V13：本院版仅提交提供方医院、提供方院区为空时按层独立处理：提供方医院经可信组织校验存在、启用与父子归属，
+  /// 筛选附加可信组织与提供方医院条件、提供方院区条件保持空值，院区层读取一次都没有发生。
   /// </summary>
   [Fact]
   public async Task Branch_usage_summary_resolves_source_hospital_only_without_source_branch_filter()
@@ -569,7 +569,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V13：不属于可信医院的院区、不属于可信组织的来源医院都按业务拒绝，不返回越界数据。
+  /// V13：不属于可信医院的院区、不属于可信组织的提供方医院都按业务拒绝，不返回越界数据。
   /// </summary>
   [Fact]
   public async Task Branch_usage_summary_rejects_branch_or_source_hospital_outside_trusted_scope()
@@ -597,7 +597,7 @@ public sealed class Stage6StatisticsQueryTests
         GroupDimension = RecognitionStatisticsGroupDimension.Hospital,
         Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
       }));
-    Assert.Equal("业务拒绝：来源医院不存在、已停用或不属于可信组织。", sourceError.Message);
+    Assert.Equal("业务拒绝：提供方医院不存在、已停用或不属于可信组织。", sourceError.Message);
     Assert.Equal(0, repository.TotalCalls);
   }
 
@@ -929,7 +929,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V24、V30：明细行同时回填接收方与来源方的组织、医院、院区名称，读取次数按不同组织与医院进行、不随行数增长。
+  /// V24、V30：明细行同时回填使用方与提供方的组织、医院、院区名称，读取次数按不同组织与医院进行、不随行数增长。
   /// </summary>
   [Fact]
   public async Task Usage_details_backfill_both_sides_names_without_row_proportional_calls()
@@ -972,7 +972,7 @@ public sealed class Stage6StatisticsQueryTests
   // ---------- 本院版明细：V13 ----------
 
   /// <summary>
-  /// V13：本院版明细的接收组织与接收医院由可信上下文注入，院区为空时筛选不附加院区条件，来源组织恒为可信组织。
+  /// V13：本院版明细的使用方组织与使用方医院由可信上下文注入，院区为空时筛选不附加院区条件，提供方组织恒为可信组织。
   /// </summary>
   [Fact]
   public async Task Branch_usage_details_inject_trusted_scope_into_the_filter()
@@ -1022,11 +1022,11 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(0, repository.TotalCalls);
   }
 
-  // ---------- 平台版来源侧汇总：V31、V32、V33、S6-D18 ----------
+  // ---------- 平台版提供方汇总：V31、V32、V33、S6-D18 ----------
 
   /// <summary>
-  /// V33：平台版来源侧汇总入口的非法分页窗口在第一次仓储访问之前按业务拒绝，
-  /// 计数与取页一次都没有被调用，与来源侧明细及本院版来源侧入口的窗口校验同构。
+  /// V33：平台版提供方汇总入口的非法分页窗口在第一次仓储访问之前按业务拒绝，
+  /// 计数与取页一次都没有被调用，与提供方明细及本院版提供方入口的窗口校验同构。
   /// </summary>
   [Theory]
   [InlineData(0, 20, "页码不能小于 1")]
@@ -1045,7 +1045,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V32：互认科室维度值在来源侧汇总查询按业务拒绝，校验先于第一次仓储访问，
+  /// V32：互认科室维度值在提供方汇总查询按业务拒绝，校验先于第一次仓储访问，
   /// 组织服务三层读取一次都没有发生；平台版与本院版入口同口径（本院版由专门用例再取证）。
   /// </summary>
   [Fact]
@@ -1155,7 +1155,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V31：提供的来源医院取值经组织路径解析校验，医院不属于所选组织时整次拒绝，不返回部分结果。
+  /// V31：提供的提供方医院取值经组织路径解析校验，医院不属于所选组织时整次拒绝，不返回部分结果。
   /// </summary>
   [Fact]
   public async Task Source_summary_rejects_scope_outside_the_organization_tree()
@@ -1180,12 +1180,12 @@ public sealed class Stage6StatisticsQueryTests
         Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
       }));
 
-    Assert.Equal("业务拒绝：来源医院不存在、已停用或不属于所选组织。", error.Message);
+    Assert.Equal("业务拒绝：提供方医院不存在、已停用或不属于所选组织。", error.Message);
     Assert.Equal(0, repository.TotalCalls);
   }
 
   /// <summary>
-  /// V32、V14：每行为所选来源侧维度的一个分组值，未参与分组的维度字段为空，无总计行；
+  /// V32、V14：每行为所选提供方维度的一个分组值，未参与分组的维度字段为空，无总计行；
   /// 被互认次数随行返回，读模型统计期间按本地日闭区间解释。
   /// </summary>
   [Fact]
@@ -1241,7 +1241,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V33：来源侧汇总分页在服务端窗口内完成；越界页返回空集合且保留真实总数；无命中时返回空页成功。
+  /// V33：提供方汇总分页在服务端窗口内完成；越界页返回空集合且保留真实总数；无命中时返回空页成功。
   /// </summary>
   [Fact]
   public async Task Source_summary_pages_by_server_window_and_keeps_real_total()
@@ -1276,7 +1276,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V24：来源侧汇总行的组织、医院与院区名称按当页分组行涉及的编码批量解析回填，
+  /// V24：提供方汇总行的组织、医院与院区名称按当页分组行涉及的编码批量解析回填，
   /// 读取次数不随行数增长；标准项目维度行没有来源归属，名称保持空值。
   /// </summary>
   [Theory]
@@ -1311,10 +1311,10 @@ public sealed class Stage6StatisticsQueryTests
     });
   }
 
-  // ---------- 平台版来源侧明细：V32、V33、V30、V24 ----------
+  // ---------- 平台版提供方明细：V32、V33、V30、V24 ----------
 
   /// <summary>
-  /// V33：来源侧明细入口的非法分页窗口在第一次仓储访问之前按业务拒绝，计数与取页一次都没有被调用。
+  /// V33：提供方明细入口的非法分页窗口在第一次仓储访问之前按业务拒绝，计数与取页一次都没有被调用。
   /// </summary>
   [Theory]
   [InlineData(0, 20, "页码不能小于 1")]
@@ -1386,9 +1386,9 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V32、V30、V24：来源侧明细只反映被采纳事实——互认时间随行返回为业务时间，
+  /// V32、V30、V24：提供方明细只反映被采纳事实——互认时间随行返回为业务时间，
   /// 互认科室与医生取处理结果自身保存值，患者姓名与证件号码按业务原值返回；
-  /// 接收方与来源方名称按双侧编码批量回填，读取次数按不同组织与医院进行、不随行数增长。
+  /// 使用方与提供方名称按双侧编码批量回填，读取次数按不同组织与医院进行、不随行数增长。
   /// </summary>
   [Fact]
   public async Task Source_details_map_adopted_fact_fields_and_backfill_both_sides_names()
@@ -1434,12 +1434,12 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(2, organizationService.BranchReadCount);
   }
 
-  // ---------- 本院版来源侧：V31、V32、V33 ----------
+  // ---------- 本院版提供方：V31、V32、V33 ----------
 
   /// <summary>
-  /// V31：本院版来源侧的来源组织与来源医院由可信上下文注入，请求无法指定其他来源医院；
-  /// 本侧来源院区为空时按可信医院全部来源院区统计，筛选不附加院区条件，也不进入院区层解析；
-  /// 接收组织恒为可信组织，接收组筛选为空时不附加该层条件。
+  /// V31：本院版提供方的提供方组织与提供方医院由可信上下文注入，请求无法指定其他提供方医院；
+  /// 本侧提供方院区为空时按可信医院全部提供方院区统计，筛选不附加院区条件，也不进入院区层解析；
+  /// 使用方组织恒为可信组织，接收组筛选为空时不附加该层条件。
   /// </summary>
   [Fact]
   public async Task Branch_source_summary_injects_trusted_source_scope_and_skips_branch_layer_when_branch_is_empty()
@@ -1463,7 +1463,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V31：本侧来源院区非空时经解析校验存在、启用且属于可信医院，并以解析后的编码附加院区过滤。
+  /// V31：本侧提供方院区非空时经解析校验存在、启用且属于可信医院，并以解析后的编码附加院区过滤。
   /// </summary>
   [Fact]
   public async Task Branch_source_summary_resolves_optional_source_branch_when_provided()
@@ -1511,7 +1511,7 @@ public sealed class Stage6StatisticsQueryTests
 
   /// <summary>
   /// V31：接收组医院与院区筛选限可信组织——取值经解析校验属于可信组织与可信医院后按下推，
-  /// 接收组织恒为可信组织。
+  /// 使用方组织恒为可信组织。
   /// </summary>
   [Fact]
   public async Task Branch_source_summary_resolves_receiver_filters_limited_to_trusted_organization()
@@ -1544,7 +1544,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V32：本院版来源侧汇总同样拒绝互认科室维度值，校验先于第一次仓储访问，
+  /// V32：本院版提供方汇总同样拒绝互认科室维度值，校验先于第一次仓储访问，
   /// 组织服务三层读取一次都没有发生。
   /// </summary>
   [Fact]
@@ -1566,7 +1566,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V33：本院版来源侧汇总入口的非法分页窗口在第一次仓储访问之前按业务拒绝；
+  /// V33：本院版提供方汇总入口的非法分页窗口在第一次仓储访问之前按业务拒绝；
   /// 可信范围解析与请求校验先于窗口校验，计数与取页一次都没有被调用。
   /// </summary>
   [Theory]
@@ -1592,7 +1592,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V31：本院版来源侧明细的来源组织与来源医院由可信上下文注入，本侧来源院区为空不附加院区条件；
+  /// V31：本院版提供方明细的提供方组织与提供方医院由可信上下文注入，本侧提供方院区为空不附加院区条件；
   /// 接收组医院筛选限可信组织并按下推。
   /// </summary>
   [Fact]
@@ -1623,7 +1623,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V33：本院版来源侧明细入口的非法分页窗口同样在第一次仓储访问之前按业务拒绝。
+  /// V33：本院版提供方明细入口的非法分页窗口同样在第一次仓储访问之前按业务拒绝。
   /// </summary>
   [Theory]
   [InlineData(0, 20, "页码不能小于 1")]
@@ -1692,7 +1692,7 @@ public sealed class Stage6StatisticsQueryTests
   /// <summary>
   /// V39：按标识取单记录返回组级信息、患者字段、就诊、反馈状态、决定主体与全部匹配项；
   /// 未反馈记录没有记录级互认时间与科室、医生归属；各项的反馈状态与决策取自身处理结果，
-  /// 未反馈项不推断为不采纳；接收方与来源方名称按编码批量回填。
+  /// 未反馈项不推断为不采纳；使用方与提供方名称按编码批量回填。
   /// </summary>
   [Fact]
   public async Task Match_record_view_maps_group_info_feedback_state_items_and_backfills_names()
@@ -1816,7 +1816,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V39：接收方按组级单键、来源方按匹配项编码去重批量解析名称，
+  /// V39：使用方按组级单键、提供方按匹配项编码去重批量解析名称，
   /// 组织服务各层读取次数与明细链同口径地不随匹配项数量增长；各项名称取批量解析结果回填。
   /// </summary>
   [Theory]
@@ -1875,11 +1875,11 @@ public sealed class Stage6StatisticsQueryTests
     StatisticsExportFileReadModel file = await service.GetStatisticsExportAsync(
       BuildExportRequest(RecognitionStatisticsExportType.RecognitionReminderDetails));
 
-    Assert.Equal("接收侧提醒明细-20260901-20260930.xlsx", file.FileName);
+    Assert.Equal("使用方提醒明细-20260901-20260930.xlsx", file.FileName);
     Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", file.FileFormat);
     using XLWorkbook workbook = new(new MemoryStream(file.FileStream));
     IXLWorksheet worksheet = Assert.Single(workbook.Worksheets);
-    Assert.Equal("接收侧提醒明细", worksheet.Name);
+    Assert.Equal("使用方提醒明细", worksheet.Name);
   }
 
   /// <summary>
@@ -1974,7 +1974,7 @@ public sealed class Stage6StatisticsQueryTests
   /// <summary>
   /// V35（S6-D19 修订面）：导出继承发起时的全部查询条件——接收组与来源组经组织路径解析后按去空白编码下推，
   /// 日期范围按本地日换算，统一关键字经空白归一后下推（空白视为未提供、非空白去首尾空白），
-  /// 不采纳原因代码仅作用于接收侧不采纳明细导出。
+  /// 不采纳原因代码仅作用于使用方不采纳明细导出。
   /// </summary>
   [Fact]
   public async Task Export_resolves_requested_scope_groups_and_conditions_into_the_filter()
@@ -2024,7 +2024,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V46 的应用面：统一关键字在平台版汇总入口、本院版汇总入口与来源侧明细入口
+  /// V46 的应用面：统一关键字在平台版汇总入口、本院版汇总入口与提供方明细入口
   /// 均经空白归一后下推——空白输入不携带条件，非空白输入去除首尾空白（审查回改 F-01 口径）。
   /// </summary>
   [Fact]
@@ -2096,8 +2096,8 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V47（S6-D19 修订面）：汇总导出、接收侧明细导出与来源侧明细导出都继承统一关键字，命中口径与页面查询一致；
-  /// 不采纳原因代码仍仅作用于接收侧不采纳明细导出——提醒明细导出与来源侧明细导出提交原因代码也不下推。
+  /// V47（S6-D19 修订面）：汇总导出、使用方明细导出与提供方明细导出都继承统一关键字，命中口径与页面查询一致；
+  /// 不采纳原因代码仍仅作用于使用方不采纳明细导出——提醒明细导出与提供方明细导出提交原因代码也不下推。
   /// </summary>
   [Fact]
   public async Task Exports_inherit_the_keyword_and_keep_reason_code_scope()
@@ -2213,7 +2213,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V34、S6-D15：来源侧导出类型不接受互认科室维度值，进入仓储之前按业务拒绝。
+  /// V34、S6-D15：提供方导出类型不接受互认科室维度值，进入仓储之前按业务拒绝。
   /// </summary>
   [Theory]
   [InlineData(RecognitionStatisticsExportType.SourceRecognitionSummary)]
@@ -2226,12 +2226,12 @@ public sealed class Stage6StatisticsQueryTests
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetStatisticsExportAsync(
       BuildExportRequest(exportType, RecognitionStatisticsGroupDimension.RecognitionDepartment)));
 
-    Assert.Equal("业务拒绝：来源侧汇总不支持按互认科室维度统计。", error.Message);
+    Assert.Equal("业务拒绝：提供方汇总不支持按互认科室维度统计。", error.Message);
     Assert.Equal(0, repository.TotalCalls);
   }
 
   /// <summary>
-  /// V34：汇总导出忽略不采纳原因代码——该代码仅作用于接收侧不采纳明细导出，汇总导出不拦截、不下推。
+  /// V34：汇总导出忽略不采纳原因代码——该代码仅作用于使用方不采纳明细导出，汇总导出不拦截、不下推。
   /// </summary>
   [Fact]
   public async Task Usage_summary_export_ignores_the_non_adoption_reason_code()
@@ -2322,7 +2322,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V34：接收侧汇总导出为页面汇总行同结构、按当前条件重新聚合，不采纳原因按行展开——
+  /// V34：使用方汇总导出为页面汇总行同结构、按当前条件重新聚合，不采纳原因按行展开——
   /// 每个原因一行、组级字段重复，原因次数与占比来自行内装配的原因汇总，占比以行内不采纳次数为分母。
   /// </summary>
   [Fact]
@@ -2353,7 +2353,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V34：来源侧汇总导出复用来源侧语句按当前条件重新聚合，被互认次数随分组行导出。
+  /// V34：提供方汇总导出复用提供方语句按当前条件重新聚合，被互认次数随分组行导出。
   /// </summary>
   [Fact]
   public async Task Source_summary_export_reads_source_side_summary_statements()
@@ -2367,7 +2367,7 @@ public sealed class Stage6StatisticsQueryTests
 
     using XLWorkbook workbook = new(new MemoryStream(file.FileStream));
     IXLWorksheet worksheet = workbook.Worksheets.First();
-    Assert.Equal("来源医院被互认汇总", worksheet.Name);
+    Assert.Equal("提供方医院被互认汇总", worksheet.Name);
     Assert.Equal(2, worksheet.LastRowUsed()!.RowNumber());
     IXLRow dataRow = worksheet.Row(2);
     Assert.Equal("被互认次数", worksheet.Row(1).Cell(14).GetString());
@@ -2377,7 +2377,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V34：来源侧明细导出按匹配项一行展开并携带互认匹配记录与匹配项标识，复用来源侧明细语句全量读取。
+  /// V34：提供方明细导出按匹配项一行展开并携带互认匹配记录与匹配项标识，复用提供方明细语句全量读取。
   /// </summary>
   [Fact]
   public async Task Source_detail_export_carries_both_side_ids()
@@ -2392,7 +2392,7 @@ public sealed class Stage6StatisticsQueryTests
     using XLWorkbook workbook = new(new MemoryStream(file.FileStream));
     IXLWorksheet worksheet = workbook.Worksheets.First();
     IXLRow dataRow = worksheet.Row(2);
-    Assert.Equal("接收医院编码", worksheet.Row(1).Cell(11).GetString());
+    Assert.Equal("使用方医院编码", worksheet.Row(1).Cell(11).GetString());
     Assert.Equal(TrustedHospital, dataRow.Cell(11).GetString());
     Assert.Equal("互认时间", worksheet.Row(1).Cell(20).GetString());
     Assert.Equal(2, repository.SourceDetailCalls);
@@ -2447,7 +2447,7 @@ public sealed class Stage6StatisticsQueryTests
     {
       [RecognitionStatisticsExportType.RecognitionUsageSummary] =
       [
-        "接收组织编码", "接收组织名称", "接收医院编码", "接收医院名称", "接收院区编码", "接收院区名称",
+        "使用方组织编码", "使用方组织名称", "使用方医院编码", "使用方医院名称", "使用方院区编码", "使用方院区名称",
         "互认科室ID", "互认科室名称", "项目类型", "标准项目编码", "标准项目名称", "分类名称", "分组名称",
         "统计开始日期", "统计结束日期",
         "提醒次数", "采纳次数", "不采纳次数", "引用次数", "同期互认率", "预计节省金额",
@@ -2456,8 +2456,8 @@ public sealed class Stage6StatisticsQueryTests
       [RecognitionStatisticsExportType.RecognitionReminderDetails] =
       [
         "互认匹配记录ID", "互认匹配项ID", "匹配生成时间", "就诊类型", "就诊流水号",
-        "来源组织编码", "来源组织名称", "来源医院编码", "来源医院名称", "来源院区编码", "来源院区名称",
-        "接收组织编码", "接收组织名称", "接收医院编码", "接收医院名称", "接收院区编码", "接收院区名称",
+        "提供方组织编码", "提供方组织名称", "提供方医院编码", "提供方医院名称", "提供方院区编码", "提供方院区名称",
+        "使用方组织编码", "使用方组织名称", "使用方医院编码", "使用方医院名称", "使用方院区编码", "使用方院区名称",
         "项目类型", "分类名称", "分组名称", "标准项目编码", "标准项目名称",
         "业务时间", "患者姓名", "证件号码",
         "互认科室ID", "互认科室名称", "互认医生ID", "互认医生名称", "处理结果", "互认时间"
@@ -2476,27 +2476,27 @@ public sealed class Stage6StatisticsQueryTests
       ],
       [RecognitionStatisticsExportType.SourceRecognitionSummary] =
       [
-        "来源组织编码", "来源组织名称", "来源医院编码", "来源医院名称", "来源院区编码", "来源院区名称",
+        "提供方组织编码", "提供方组织名称", "提供方医院编码", "提供方医院名称", "提供方院区编码", "提供方院区名称",
         "项目类型", "标准项目编码", "标准项目名称", "分类名称", "分组名称",
         "统计开始日期", "统计结束日期", "被互认次数"
       ],
       [RecognitionStatisticsExportType.SourceRecognitionDetails] =
       [
         "互认匹配记录ID", "互认匹配项ID",
-        "来源组织编码", "来源组织名称", "来源医院编码", "来源医院名称", "来源院区编码", "来源院区名称",
-        "接收组织编码", "接收组织名称", "接收医院编码", "接收医院名称", "接收院区编码", "接收院区名称",
+        "提供方组织编码", "提供方组织名称", "提供方医院编码", "提供方医院名称", "提供方院区编码", "提供方院区名称",
+        "使用方组织编码", "使用方组织名称", "使用方医院编码", "使用方医院名称", "使用方院区编码", "使用方院区名称",
         "标准项目编码",
         "互认科室ID", "互认科室名称", "互认医生ID", "互认医生名称",
         "互认时间", "患者姓名", "证件号码"
       ]
     };
 
-  /// <summary>接收侧明细导出的基础列头（不含类型专属列）。</summary>
+  /// <summary>使用方明细导出的基础列头（不含类型专属列）。</summary>
   private static string[] ExpectedExportDetailBaseHeaders { get; } =
   [
     "互认匹配记录ID", "互认匹配项ID", "匹配生成时间", "就诊类型", "就诊流水号",
-    "来源组织编码", "来源组织名称", "来源医院编码", "来源医院名称", "来源院区编码", "来源院区名称",
-    "接收组织编码", "接收组织名称", "接收医院编码", "接收医院名称", "接收院区编码", "接收院区名称",
+    "提供方组织编码", "提供方组织名称", "提供方医院编码", "提供方医院名称", "提供方院区编码", "提供方院区名称",
+    "使用方组织编码", "使用方组织名称", "使用方医院编码", "使用方医院名称", "使用方院区编码", "使用方院区名称",
     "项目类型", "分类名称", "分组名称", "标准项目编码", "标准项目名称",
     "业务时间", "患者姓名", "证件号码",
     "互认科室ID", "互认科室名称", "互认医生ID", "互认医生名称", "处理结果", "互认时间"
@@ -2505,8 +2505,8 @@ public sealed class Stage6StatisticsQueryTests
   // ---------- 本院版统计导出：V13、V31、V35 的应用层替身取证 ----------
 
   /// <summary>
-  /// V13：本院版接收侧导出的本侧组织与医院取自可信上下文注入，院区为空按可信医院全院范围；
-  /// 来源组织恒为可信组织，来源组医院与院区取请求并经解析校验。
+  /// V13：本院版使用方导出的本侧组织与医院取自可信上下文注入，院区为空按可信医院全院范围；
+  /// 提供方组织恒为可信组织，来源组医院与院区取请求并经解析校验。
   /// </summary>
   [Fact]
   public async Task Branch_export_injects_trusted_receiver_scope_and_resolves_source_group()
@@ -2541,7 +2541,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V13：本院版接收侧导出提交本侧院区时，筛选按可信医院下的该院区收敛。
+  /// V13：本院版使用方导出提交本侧院区时，筛选按可信医院下的该院区收敛。
   /// </summary>
   [Fact]
   public async Task Branch_export_injects_local_branch_filter_when_provided()
@@ -2565,8 +2565,8 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V31：本院版来源侧导出的来源组织与来源医院恒为可信上下文，请求无法指定其他来源医院；
-  /// 本侧来源院区可选，接收组医院与院区取请求并限可信组织。
+  /// V31：本院版提供方导出的提供方组织与提供方医院恒为可信上下文，请求无法指定其他提供方医院；
+  /// 本侧提供方院区可选，接收组医院与院区取请求并限可信组织。
   /// </summary>
   [Fact]
   public async Task Branch_export_locks_source_side_to_the_trusted_scope()
@@ -2594,7 +2594,7 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
-  /// V31：本院版来源侧导出提交本侧来源院区时，筛选按可信医院下的该院区收敛。
+  /// V31：本院版提供方导出提交本侧提供方院区时，筛选按可信医院下的该院区收敛。
   /// </summary>
   [Fact]
   public async Task Branch_export_injects_local_source_branch_filter_when_provided()
@@ -2674,7 +2674,7 @@ public sealed class Stage6StatisticsQueryTests
   };
 
   /// <summary>
-  /// 构建同时包含可信组织与独立来源组织的组织服务替身，供明细行的双侧名称回填使用。
+  /// 构建同时包含可信组织与独立提供方组织的组织服务替身，供明细行的双侧名称回填使用。
   /// </summary>
   /// <returns>含两侧组织、医院与院区拓扑的组织服务替身。</returns>
   private static RecordingOrganizationAppService CreateReceiverAndSourceOrganizationService() =>
@@ -2705,7 +2705,7 @@ public sealed class Stage6StatisticsQueryTests
     Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
   };
 
-  /// <summary>构建平台版来源侧汇总查询请求。</summary>
+  /// <summary>构建平台版提供方汇总查询请求。</summary>
   /// <param name="pageIndex">页码。</param>
   /// <param name="pageSize">页容量。</param>
   /// <param name="dimension">汇总维度，默认医院。</param>
@@ -2721,7 +2721,7 @@ public sealed class Stage6StatisticsQueryTests
     Page = new PageRequestDto { PageIndex = pageIndex, PageSize = pageSize }
   };
 
-  /// <summary>构建平台版来源侧明细查询请求。</summary>
+  /// <summary>构建平台版提供方明细查询请求。</summary>
   /// <param name="pageIndex">页码。</param>
   /// <param name="pageSize">页容量。</param>
   /// <returns>按通用日期范围构造的请求。</returns>
@@ -2732,7 +2732,7 @@ public sealed class Stage6StatisticsQueryTests
     Page = new PageRequestDto { PageIndex = pageIndex, PageSize = pageSize }
   };
 
-  /// <summary>构建本院版来源侧汇总查询请求。</summary>
+  /// <summary>构建本院版提供方汇总查询请求。</summary>
   /// <param name="pageIndex">页码。</param>
   /// <param name="pageSize">页容量。</param>
   /// <param name="dimension">汇总维度，默认医院。</param>
@@ -2748,11 +2748,11 @@ public sealed class Stage6StatisticsQueryTests
     Page = new PageRequestDto { PageIndex = pageIndex, PageSize = pageSize }
   };
 
-  /// <summary>构建一条来源侧汇总分组行。</summary>
-  /// <param name="hospitalCode">来源医院编码（分组值）。</param>
+  /// <summary>构建一条提供方汇总分组行。</summary>
+  /// <param name="hospitalCode">提供方医院编码（分组值）。</param>
   /// <param name="count">被互认次数。</param>
-  /// <param name="branchCode">来源院区编码；医院维度行为空。</param>
-  /// <returns>来源侧汇总分组行投影。</returns>
+  /// <param name="branchCode">提供方院区编码；医院维度行为空。</param>
+  /// <returns>提供方汇总分组行投影。</returns>
   private static SourceRecognitionSummaryGroupItem BuildSourceSummaryRow(
     string hospitalCode,
     long count = 0,
@@ -2764,10 +2764,10 @@ public sealed class Stage6StatisticsQueryTests
       RecognitionCount = count
     };
 
-  /// <summary>构建一条标准项目维度的来源侧汇总分组行。</summary>
+  /// <summary>构建一条标准项目维度的提供方汇总分组行。</summary>
   /// <param name="standardProjectCode">标准项目编码（分组值）。</param>
   /// <param name="count">被互认次数。</param>
-  /// <returns>标准项目维度的来源侧汇总分组行投影。</returns>
+  /// <returns>标准项目维度的提供方汇总分组行投影。</returns>
   private static SourceRecognitionSummaryGroupItem BuildSourceStandardItemRow(string standardProjectCode, long count) => new()
   {
     ItemType = MedicalItemType.Laboratory,
@@ -2778,10 +2778,10 @@ public sealed class Stage6StatisticsQueryTests
     RecognitionCount = count
   };
 
-  /// <summary>构建一条来源侧被互认明细行。</summary>
+  /// <summary>构建一条提供方被互认明细行。</summary>
   /// <param name="index">序号，驱动互认时间与患者姓名。</param>
-  /// <param name="sourceOrganizationCode">来源组织编码；默认取独立的来源组织，供同组织拓扑用例改取可信组织。</param>
-  /// <returns>来源侧明细行投影。</returns>
+  /// <param name="sourceOrganizationCode">提供方组织编码；默认取独立的提供方组织，供同组织拓扑用例改取可信组织。</param>
+  /// <returns>提供方明细行投影。</returns>
   private static SourceRecognitionDetailItem BuildSourceDetailItem(int index, string? sourceOrganizationCode = null) => new()
   {
     RecognitionMatchRecordId = Guid.NewGuid(),
@@ -2863,13 +2863,13 @@ public sealed class Stage6StatisticsQueryTests
     NonAdoptionReason = processed && decision == RecognitionResult.NotAdopted ? reason : null
   };
 
-  /// <summary>构建一条接收侧汇总分组行。</summary>
-  /// <param name="hospitalCode">接收医院编码（分组值）。</param>
+  /// <summary>构建一条使用方汇总分组行。</summary>
+  /// <param name="hospitalCode">使用方医院编码（分组值）。</param>
   /// <param name="reminder">提醒次数。</param>
   /// <param name="adoption">采纳次数。</param>
   /// <param name="nonAdoption">不采纳次数。</param>
   /// <param name="reference">引用次数。</param>
-  /// <param name="branchCode">接收院区编码；医院维度行为空。</param>
+  /// <param name="branchCode">使用方院区编码；医院维度行为空。</param>
   /// <returns>汇总分组行投影。</returns>
   private static RecognitionUsageSummaryGroupItem BuildSummaryRow(
     string hospitalCode,
@@ -2889,7 +2889,7 @@ public sealed class Stage6StatisticsQueryTests
     };
 
   /// <summary>构建一条与指定医院分组键同套的原因行。</summary>
-  /// <param name="hospitalCode">接收医院编码（分组值）。</param>
+  /// <param name="hospitalCode">使用方医院编码（分组值）。</param>
   /// <param name="reason">不采纳原因代码。</param>
   /// <param name="count">该原因的次数。</param>
   /// <returns>原因汇总行投影。</returns>

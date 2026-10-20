@@ -30,7 +30,7 @@ public partial record OrganizationHospitalBranchRecognitionAmountDto : Dto
   /// </summary>
   public partial string StandardProjectCode { get; set; }
   /// <summary>
-  /// 当前金额，单位元；不得小于零且最多两位小数，零元是有效配置；为接收侧统计口径，不代表实际收费、医保结算或医院收入。
+  /// 当前金额，单位元；不得小于零且最多两位小数，零元是有效配置；为使用方统计口径，不代表实际收费、医保结算或医院收入。
   /// </summary>
   public partial decimal CurrentAmount { get; set; }
   /// <summary>

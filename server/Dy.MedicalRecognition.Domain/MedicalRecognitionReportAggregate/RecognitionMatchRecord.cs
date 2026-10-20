@@ -14,15 +14,15 @@ public partial class RecognitionMatchRecord : Dy.Core.Abstractions.Domain.Entity
   /// </summary>
   public partial Guid Id { get; set; }
   /// <summary>
-  /// 接收组织编码；记录下全部匹配项共用同一接收组织。
+  /// 使用方组织编码；记录下全部匹配项共用同一使用方组织。
   /// </summary>
   public partial string ReceiverOrganizationCode { get; set; }
   /// <summary>
-  /// 接收医院编码
+  /// 使用方医院编码
   /// </summary>
   public partial string ReceiverHospitalCode { get; set; }
   /// <summary>
-  /// 接收院区编码
+  /// 使用方院区编码
   /// </summary>
   public partial string ReceiverBranchCode { get; set; }
   /// <summary>

@@ -168,7 +168,7 @@ const usageDetailProcessed: UsageDetailRow = {
   },
 }
 
-/** 来源侧医院维度汇总行。 */
+/** 提供方医院维度汇总行。 */
 const sourceSummaryRow: SourceSummaryRow = {
   groupDimension: 1,
   sourceOrganizationCode: 'ORG2',
@@ -186,7 +186,7 @@ const sourceSummaryRow: SourceSummaryRow = {
   recognitionCount: 7,
 }
 
-/** 来源侧明细行。 */
+/** 提供方明细行。 */
 const sourceDetailRow: SourceDetailRow = {
   recognitionMatchRecordId: 'RECORD-1',
   recognitionMatchItemId: 'ITEM-1',
@@ -255,7 +255,7 @@ function deferred<T>() {
 function boardProps(overrides: Partial<StatisticsBoardProps> = {}): StatisticsBoardProps {
   return {
     title: '使用方互认使用统计',
-    subtitle: '按组织、医院与院区查询接收侧互认使用汇总与明细',
+    subtitle: '按组织、医院与院区查询使用方互认使用汇总与明细',
     side: 'usage',
     scopeKey: 'platform',
     scopeSpec: { kind: 'platform' },
@@ -435,7 +435,7 @@ describe('统计主体：明细表与匹配记录弹窗（C13、C14、C16、C17�
 })
 
 describe('统计主体：明细表三行式', () => {
-  it('接收侧明细表提供方、使用方各一列，单元格三行只显名称，院区行为灰色小字，无归属编码列', async () => {
+  it('使用方明细表提供方、使用方各一列，单元格三行只显名称，院区行为灰色小字，无归属编码列', async () => {
     renderBoard()
 
     expect(await screen.findByText('张三')).toBeInTheDocument()
@@ -458,7 +458,7 @@ describe('统计主体：明细表三行式', () => {
     expect(screen.queryByText('HOS2')).toBeNull()
   })
 
-  it('来源侧明细表同款：提供方、使用方各一列三行式', async () => {
+  it('提供方明细表同款：提供方、使用方各一列三行式', async () => {
     summaryQuery.mockImplementation(() => Promise.resolve(pageOf([sourceSummaryRow])))
     detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
     renderBoard(boardProps({
@@ -529,7 +529,7 @@ describe('统计主体：下钻联动与导出入口（C12、C15、下钻经提�
     await waitFor(() => expect(exportQuery).toHaveBeenCalledTimes(1))
     expect(exportQuery).toHaveBeenLastCalledWith(
       expect.objectContaining({ startTime: '2026-02-01', endTime: '2026-02-28' }),
-      { exportType: 1, groupDimension: 1, detailType: null, downloadFileName: '接收侧互认使用汇总-20260201-20260228.xlsx' },
+      { exportType: 1, groupDimension: 1, detailType: null, downloadFileName: '使用方互认使用汇总-20260201-20260228.xlsx' },
     )
     expect(screen.getByRole('button', { name: '导出汇总' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '导出明细' })).toBeDisabled()
@@ -542,7 +542,7 @@ describe('统计主体：下钻联动与导出入口（C12、C15、下钻经提�
     fireEvent.click(screen.getByRole('button', { name: '导出明细' }))
     await waitFor(() => expect(exportQuery).toHaveBeenLastCalledWith(
       expect.anything(),
-      { exportType: 5, groupDimension: 1, detailType: 4, downloadFileName: '接收侧引用明细-20260201-20260228.xlsx' },
+      { exportType: 5, groupDimension: 1, detailType: 4, downloadFileName: '使用方引用明细-20260201-20260228.xlsx' },
     ))
   })
 })
@@ -584,12 +584,12 @@ describe('统计主体：提交式筛选与查询区（提交式筛选、提交�
   })
 
 describe('C31 查询区同构与间距（S6-D19）', () => {
-  it('关键字占位按侧区分：使用侧含互认医生、来源侧不含（来源侧语句无医生列）', () => {
+  it('关键字占位按侧区分：使用侧含互认医生、提供方不含（提供方语句无医生列）', () => {
     renderBoard()
     expect(screen.getByPlaceholderText('互认科室 / 互认项目 / 互认医生')).toBeInTheDocument()
   })
 
-  it('来源侧关键字占位不含互认医生', () => {
+  it('提供方关键字占位不含互认医生', () => {
     renderBoard(boardProps({
       title: '提供方医院被互认统计',
       side: 'source',
@@ -641,7 +641,7 @@ describe('C31 查询区同构与间距（S6-D19）', () => {
     }
   })
 
-  it('平台页两方范围卡并排：使用方在左、提供方在右，各带称谓与角色说明（来源侧同序）', () => {
+  it('平台页两方范围卡并排：使用方在左、提供方在右，各带称谓与角色说明（提供方同序）', () => {
     renderBoard()
     expect(screen.getByRole('region', { name: '使用方范围' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: '提供方范围' })).toBeInTheDocument()
@@ -649,7 +649,7 @@ describe('C31 查询区同构与间距（S6-D19）', () => {
     expect(screen.getByText('出具并提供报告')).toBeInTheDocument()
 
     cleanup()
-    // 来源侧平台页：两方沿用同一顺序，使用方在左。
+    // 提供方平台页：两方沿用同一顺序，使用方在左。
     renderBoard(boardProps({
       title: '提供方医院被互认统计',
       side: 'source',
@@ -834,7 +834,7 @@ describe('C35 下钻写关键字（S6-D19）', () => {
       expect.objectContaining({ keyword: 'A01', itemType: 0 }), 1, expect.anything()))
   })
 
-  it('来源侧标准项目维度下钻把项目编码写入关键字', async () => {
+  it('提供方标准项目维度下钻把项目编码写入关键字', async () => {
     summaryQuery.mockImplementation(() => Promise.resolve(pageOf([{
       ...sourceSummaryRow,
       groupDimension: 4,
@@ -845,7 +845,7 @@ describe('C35 下钻写关键字（S6-D19）', () => {
       standardProjectCode: 'B02',
       standardProjectName: 'CT',
     }])))
-    // 来源侧明细表列按来源侧行取值：明细替身交付来源侧行，避免列取值形态错配。
+    // 提供方明细表列按提供方行取值：明细替身交付提供方行，避免列取值形态错配。
     detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
     renderBoard(boardProps({
       title: '提供方医院被互认统计',
@@ -932,8 +932,8 @@ describe('统计主体：范围筛选与本院形态（范围随登录上下文�
   })
 })
 
-describe('统计主体：来源侧口径（C22）', () => {
-  it('来源侧只计被互认次数：无明细类型切换、无原因区、无金额与互认率，明细无匹配记录入口', async () => {
+describe('统计主体：提供方口径（C22）', () => {
+  it('提供方只计被互认次数：无明细类型切换、无原因区、无金额与互认率，明细无匹配记录入口', async () => {
     summaryQuery.mockImplementation(() => Promise.resolve(pageOf([sourceSummaryRow])))
     detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
     renderBoard(boardProps({

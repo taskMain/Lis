@@ -4,25 +4,25 @@ using Dy.MedicalRecognition.Domain.Share.Enums;
 namespace Dy.MedicalRecognition.Application.Contracts.ReadModels;
 
 /// <summary>
-/// 来源医院被互认汇总行：每个来源侧汇总维度的一个分组值与被互认次数。
+/// 提供方医院被互认汇总行：每个提供方汇总维度的一个分组值与被互认次数。
 /// </summary>
 /// <remarks>
-/// 被互认次数只计采纳事实、不等待引用、不含金额；来源侧仅接受来源医院、来源院区与标准项目三个维度，
-/// 汇总维度枚举的互认科室值在来源侧按业务拒绝。
+/// 被互认次数只计采纳事实、不等待引用、不含金额；提供方仅接受提供方医院、提供方院区与标准项目三个维度，
+/// 汇总维度枚举的互认科室值在提供方按业务拒绝。
 /// </remarks>
 public sealed record SourceRecognitionSummaryReadModel
 {
-  /// <summary>来源组织编码；仅来源医院与来源院区维度行携带。</summary>
+  /// <summary>提供方组织编码；仅提供方医院与提供方院区维度行携带。</summary>
   public string? SourceOrganizationCode { get; init; }
-  /// <summary>来源组织名称；按当页涉及编码批量回填。</summary>
+  /// <summary>提供方组织名称；按当页涉及编码批量回填。</summary>
   public string? SourceOrganizationName { get; init; }
-  /// <summary>来源医院编码；仅来源医院维度行携带。</summary>
+  /// <summary>提供方医院编码；仅提供方医院维度行携带。</summary>
   public string? SourceHospitalCode { get; init; }
-  /// <summary>来源医院名称；按当页涉及编码批量回填。</summary>
+  /// <summary>提供方医院名称；按当页涉及编码批量回填。</summary>
   public string? SourceHospitalName { get; init; }
-  /// <summary>来源院区编码；仅来源院区维度行携带。</summary>
+  /// <summary>提供方院区编码；仅提供方院区维度行携带。</summary>
   public string? SourceBranchCode { get; init; }
-  /// <summary>来源院区名称；按当页涉及编码批量回填。</summary>
+  /// <summary>提供方院区名称；按当页涉及编码批量回填。</summary>
   public string? SourceBranchName { get; init; }
   /// <summary>项目类型；仅标准项目维度行携带。</summary>
   public MedicalItemType? ItemType { get; init; }

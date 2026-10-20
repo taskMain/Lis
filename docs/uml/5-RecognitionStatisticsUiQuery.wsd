@@ -18,7 +18,7 @@ Enum('RecognitionStatisticsGroupDimensionEnum')[
     标准项目(StandardItem 4)
 ]
 Enum('RecognitionUsageDetailTypeEnum')[
-    接收侧互认使用明细类型
+    使用方互认使用明细类型
     --属性--
     提醒(Reminder 1)
     采纳(Adopted 2)
@@ -28,16 +28,16 @@ Enum('RecognitionUsageDetailTypeEnum')[
 Enum('RecognitionStatisticsExportTypeEnum')[
     互认统计导出类型
     --属性--
-    接收侧互认使用汇总(RecognitionUsageSummary 1)
-    接收侧提醒明细(RecognitionReminderDetails 2)
-    接收侧采纳明细(RecognitionAdoptionDetails 3)
-    接收侧不采纳明细(RecognitionNonAdoptionDetails 4)
-    接收侧引用明细(RecognitionReferenceDetails 5)
+    使用方互认使用汇总(RecognitionUsageSummary 1)
+    使用方提醒明细(RecognitionReminderDetails 2)
+    使用方采纳明细(RecognitionAdoptionDetails 3)
+    使用方不采纳明细(RecognitionNonAdoptionDetails 4)
+    使用方引用明细(RecognitionReferenceDetails 5)
     提供方医院被互认汇总(SourceRecognitionSummary 6)
     提供方医院被互认明细(SourceRecognitionDetails 7)
 ]
 ReadModel('RecognitionUsageSummaryReadModel')[
-    接收侧互认使用汇总
+    使用方互认使用汇总
     --属性--
     使用方组织编码(ReceiverOrganizationCode String)
     使用方组织名称(ReceiverOrganizationName String)
@@ -65,7 +65,7 @@ ReadModel('RecognitionUsageSummaryReadModel')[
     汇总维度(GroupDimension RecognitionStatisticsGroupDimensionEnum)
 ]
 ReadModel('RecognitionUsageDetailReadModel')[
-    接收侧互认使用明细
+    使用方互认使用明细
     --属性--
     匹配记录ID(RecognitionMatchRecordId Guid)
     匹配项ID(RecognitionMatchItemId Guid)
@@ -228,7 +228,7 @@ ReadModel('RecognitionReferenceDetailReadModel')[
     引用医生名称(ReferenceDoctorName String)
 ]
 Query('QueryRecognitionUsageSummary')[
-    查询接收侧互认使用汇总（平台版）
+    查询使用方互认使用汇总（平台版）
     --入参--
     分页对象(Page PageRequestDto)
     开始时间(StartTime DateOnly)
@@ -246,7 +246,7 @@ Query('QueryRecognitionUsageSummary')[
     汇总维度(GroupDimension RecognitionStatisticsGroupDimensionEnum)
 ]
 Query('QueryBranchRecognitionUsageSummary')[
-    查询接收侧互认使用汇总（本院版）
+    查询使用方互认使用汇总（本院版）
     --入参--
     分页对象(Page PageRequestDto)
     开始时间(StartTime DateOnly)
@@ -261,7 +261,7 @@ Query('QueryBranchRecognitionUsageSummary')[
     汇总维度(GroupDimension RecognitionStatisticsGroupDimensionEnum)
 ]
 Query('QueryRecognitionUsageDetails')[
-    查询接收侧互认使用明细（平台版）
+    查询使用方互认使用明细（平台版）
     --入参--
     分页对象(Page PageRequestDto)
     开始时间(StartTime DateOnly)
@@ -280,7 +280,7 @@ Query('QueryRecognitionUsageDetails')[
     明细类型(DetailType RecognitionUsageDetailTypeEnum)
 ]
 Query('QueryBranchRecognitionUsageDetails')[
-    查询接收侧互认使用明细（本院版）
+    查询使用方互认使用明细（本院版）
     --入参--
     分页对象(Page PageRequestDto)
     开始时间(StartTime DateOnly)
@@ -361,7 +361,7 @@ Query('QueryBranchSourceRecognitionDetails')[
 ]
 note right of QueryBranchSourceRecognitionDetails
   提供方医院被互认明细只反映被采纳事实，不适用不采纳原因代码筛选。
-  统计导出的不采纳原因代码仅适用于接收侧不采纳明细。
+  统计导出的不采纳原因代码仅适用于使用方不采纳明细。
   本院版请求不携带本侧组织与医院字段，由可信上下文注入；本侧院区可选，
   为空按可信医院全院范围统计；对侧组医院、院区为可选筛选。
 end note
@@ -412,12 +412,12 @@ note right of GetRecognitionMatchRecord
   导出继承页面查询条件与汇总维度，不使用页面分页，导出请求不携带分页对象。
   四个查询请求以内嵌分页对象 page: { pageIndex, pageSize } 承载分页
   （页码一基、页容量 1–200），响应为 items + page；匹配记录集合视图为单记录读取，不分页。
-  统一关键字按互认科室 ID/名称、标准项目编码/名称、互认医生 ID/姓名（接收侧明细）任一前缀命中
-  （大小写不敏感），空白视为未提供；来源侧语句命中科室与项目列、无医生列。
+  统一关键字按互认科室 ID/名称、标准项目编码/名称、互认医生 ID/姓名（使用方明细）任一前缀命中
+  （大小写不敏感），空白视为未提供；提供方语句命中科室与项目列、无医生列。
 end note
 note right of RecognitionUsageSummaryReadModel
   统计仅覆盖当前组织内事实；提供方组织与使用方组织必须一致。
-  接收侧汇总仅支持医院、院区、互认科室、标准项目维度；来源侧汇总仅支持提供方医院、提供方院区、标准项目维度。
+  使用方汇总仅支持医院、院区、互认科室、标准项目维度；提供方汇总仅支持提供方医院、提供方院区、标准项目维度。
   提醒按非空匹配记录生成时间统计；采纳/不采纳/金额按互认时间统计；引用按实际引用时间统计。
   未反馈匹配项进入提醒明细，IsUnprocessed=true，不推断为不采纳。
   同期互认率分母为同期提醒次数；提醒为零时 Calculated=false，数值无业务含义。

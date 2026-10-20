@@ -22,6 +22,6 @@ public sealed record RecognitionMatchItemReadModel
   public IReadOnlyList<RecognitionMatchLaboratoryResultReadModel> LaboratoryResults { get; init; } = [];
   /// <summary>命中项目的检查部位集合；检验项目为空集合。</summary>
   public IReadOnlyList<RecognitionExaminationSiteReadModel> ExaminationSites { get; init; } = [];
-  /// <summary>来源报告的整体异常标识；只表达来源医院判断，平台不重新计算。</summary>
+  /// <summary>来源报告的整体异常标识；只表达提供方医院判断，平台不重新计算。</summary>
   public string? OverallAbnormalFlag { get; init; }
 }

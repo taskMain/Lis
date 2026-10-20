@@ -48,11 +48,11 @@ export type {
 }
 
 /**
- * 提供方医院被互认统计的适配层：来源侧只有「被互认次数」一个指标，没有金额、
+ * 提供方医院被互认统计的适配层：提供方只有「被互认次数」一个指标，没有金额、
  * 明细类型切换与不采纳原因区（阶段 6 前端设计「页面与交互」节）；
  * 平台/本院双版本请求分支与读模型映射收敛在本模块，页面组件不感知请求形态差异。
  *
- * 边界（遵循 Frontend API Client 第 2、5 节，口径与接收侧适配层一致）：
+ * 边界（遵循 Frontend API Client 第 2、5 节，口径与使用方适配层一致）：
  * 1. 本模块不创建 Client、不读取 token、不解析平台错误响应、不新增错误拦截器；
  * 2. 双版本用可辨识联合表达：本院版条件的类型上不存在本侧提供方组织与医院字段，也不存在
  *    使用方组织字段（使用方组织恒为可信组织），结构上保证这些字段不会被提交。
@@ -60,7 +60,7 @@ export type {
 
 // ========== 视图模型 ==========
 
-/** 来源侧汇总行视图：每个来源侧汇总维度的一个分组值与被互认次数；未参与分组的维度字段保持 `null`。 */
+/** 提供方汇总行视图：每个提供方汇总维度的一个分组值与被互认次数；未参与分组的维度字段保持 `null`。 */
 export interface SourceSummaryRow {
   groupDimension: StatisticsGroupDimensionValue | null
   sourceOrganizationCode: string | null
@@ -79,7 +79,7 @@ export interface SourceSummaryRow {
   recognitionCount: number
 }
 
-/** 来源侧明细行视图：来源与接收两组归属平铺在行上；患者字段按服务端原值承载（S6-D9）。 */
+/** 提供方明细行视图：来源与接收两组归属平铺在行上；患者字段按服务端原值承载（S6-D9）。 */
 export interface SourceDetailRow {
   recognitionMatchRecordId: string
   recognitionMatchItemId: string
@@ -97,7 +97,7 @@ export interface SourceDetailRow {
 
 // ========== 查询条件（页面稳定模型） ==========
 
-/** 平台管理员入口的来源侧汇总条件：来源组与接收组三级范围都随请求提交；统一关键字承载互认科室、互认项目条件（S6-D19）。 */
+/** 平台管理员入口的提供方汇总条件：来源组与接收组三级范围都随请求提交；统一关键字承载互认科室、互认项目条件（S6-D19）。 */
 export interface PlatformSourceSummaryQuery {
   version: 'platform'
   startTime: string
@@ -116,7 +116,7 @@ export interface PlatformSourceSummaryQuery {
 }
 
 /**
- * 医院管理员入口的来源侧汇总条件：提供方组织与提供方医院固定为可信上下文，类型上不存在对应字段；
+ * 医院管理员入口的提供方汇总条件：提供方组织与提供方医院固定为可信上下文，类型上不存在对应字段；
  * 本侧提供方院区恒为登录院区（缺失或空白在构造时拒绝）；使用方组织恒为可信组织，只提交使用方医院与院区。
  */
 export interface BranchSourceSummaryQuery {
@@ -135,7 +135,7 @@ export interface BranchSourceSummaryQuery {
 
 export type SourceSummaryQuery = PlatformSourceSummaryQuery | BranchSourceSummaryQuery
 
-/** 平台管理员入口的来源侧明细条件：来源侧明细只反映被采纳事实，没有明细类型、医生与原因筛选。 */
+/** 平台管理员入口的提供方明细条件：提供方明细只反映被采纳事实，没有明细类型、医生与原因筛选。 */
 export interface PlatformSourceDetailsQuery {
   version: 'platform'
   startTime: string
@@ -152,7 +152,7 @@ export interface PlatformSourceDetailsQuery {
   groupName?: string
 }
 
-/** 医院管理员入口的来源侧明细条件：本侧提供方院区恒为登录院区（缺失在构造时拒绝），接收组医院/院区可选。 */
+/** 医院管理员入口的提供方明细条件：本侧提供方院区恒为登录院区（缺失在构造时拒绝），接收组医院/院区可选。 */
 export interface BranchSourceDetailsQuery {
   version: 'branch'
   startTime: string
@@ -168,7 +168,7 @@ export interface BranchSourceDetailsQuery {
 
 export type SourceDetailsQuery = PlatformSourceDetailsQuery | BranchSourceDetailsQuery
 
-/** 平台管理员入口的来源侧导出条件：两组组织编码同时提交，供服务端做一致性校验。 */
+/** 平台管理员入口的提供方导出条件：两组组织编码同时提交，供服务端做一致性校验。 */
 export interface PlatformSourceExportQuery {
   version: 'platform'
   exportType: SourceExportTypeValue
@@ -187,7 +187,7 @@ export interface PlatformSourceExportQuery {
   groupName?: string
 }
 
-/** 医院管理员入口的来源侧导出条件：不含本侧提供方组织与医院，也不含使用方组织。 */
+/** 医院管理员入口的提供方导出条件：不含本侧提供方组织与医院，也不含使用方组织。 */
 export interface BranchSourceExportQuery {
   version: 'branch'
   exportType: SourceExportTypeValue
@@ -255,7 +255,7 @@ function applyBranchSourceFilters(
   if (query.itemType !== undefined) body.itemType = query.itemType
 }
 
-/** 构造来源侧汇总查询；校验口径与接收侧一致（日期、维度、项目类型与分页，本院版登录院区缺失或空白拒绝构造）。 */
+/** 构造提供方汇总查询；校验口径与使用方一致（日期、维度、项目类型与分页，本院版登录院区缺失或空白拒绝构造）。 */
 export function buildSourceSummaryQuery(query: SourceSummaryQuery, page: StatisticsPageInput): BuiltSourceSummaryQuery | null {
   if (!isStatisticsPageInput(page)) return null
   // 本院版提供方院区恒为登录院区：缺失属权限配置错误，拒绝构造（与金额、报告适配层同款）；平台页院区是可选筛选，不在此校验。
@@ -266,7 +266,7 @@ export function buildSourceSummaryQuery(query: SourceSummaryQuery, page: Statist
   return normalizeStatisticsTexts({ ...query, ...page }, [...SOURCE_SCOPE_TEXT_KEYS])
 }
 
-/** 构造来源侧明细查询；来源侧没有明细类型、互认医生与不采纳原因筛选，本院版登录院区缺失或空白拒绝构造。 */
+/** 构造提供方明细查询；提供方没有明细类型、互认医生与不采纳原因筛选，本院版登录院区缺失或空白拒绝构造。 */
 export function buildSourceDetailsQuery(query: SourceDetailsQuery, page: StatisticsPageInput): BuiltSourceDetailsQuery | null {
   if (!isStatisticsPageInput(page)) return null
   if (query.version === 'branch' && (query.sourceBranchCode ?? '').trim().length === 0) return null
@@ -275,7 +275,7 @@ export function buildSourceDetailsQuery(query: SourceDetailsQuery, page: Statist
   return normalizeStatisticsTexts({ ...query, ...page }, [...SOURCE_SCOPE_TEXT_KEYS])
 }
 
-/** 构造来源侧导出条件：导出类型只接受来源侧取值（6-7），无分页对象；本院版登录院区缺失或空白拒绝构造。 */
+/** 构造提供方导出条件：导出类型只接受提供方取值（6-7），无分页对象；本院版登录院区缺失或空白拒绝构造。 */
 export function buildSourceExportQuery(query: SourceExportQuery): SourceExportQuery | null {
   // 本院版导出同走零请求口径：登录院区缺失时不构造导出请求（导出也是业务请求）。
   if (query.version === 'branch' && (query.sourceBranchCode ?? '').trim().length === 0) return null
@@ -286,7 +286,7 @@ export function buildSourceExportQuery(query: SourceExportQuery): SourceExportQu
   return normalizeStatisticsTexts(query, [...SOURCE_SCOPE_TEXT_KEYS])
 }
 
-/** 平台版来源侧汇总请求体：两组三级范围 + 汇总维度 + 内嵌分页。 */
+/** 平台版提供方汇总请求体：两组三级范围 + 汇总维度 + 内嵌分页。 */
 function toPlatformSourceSummaryBody(query: PlatformSourceSummaryQuery & StatisticsPageInput): SourceRecognitionSummaryQueryRequest {
   const body: SourceRecognitionSummaryQueryRequest = {
     startTime: requireStatisticsDate(query.startTime, '开始日期'),
@@ -298,7 +298,7 @@ function toPlatformSourceSummaryBody(query: PlatformSourceSummaryQuery & Statist
   return body
 }
 
-/** 本院版来源侧汇总请求体：类型上不存在本侧提供方组织与医院、使用方组织字段。 */
+/** 本院版提供方汇总请求体：类型上不存在本侧提供方组织与医院、使用方组织字段。 */
 function toBranchSourceSummaryBody(
   query: BranchSourceSummaryQuery & StatisticsPageInput,
 ): BranchSourceRecognitionSummaryQueryRequest {
@@ -312,7 +312,7 @@ function toBranchSourceSummaryBody(
   return body
 }
 
-/** 平台版来源侧明细请求体：结构与汇总一致，无明细类型与医生、原因筛选。 */
+/** 平台版提供方明细请求体：结构与汇总一致，无明细类型与医生、原因筛选。 */
 function toPlatformSourceDetailsBody(query: PlatformSourceDetailsQuery & StatisticsPageInput): SourceRecognitionDetailsQueryRequest {
   const body: SourceRecognitionDetailsQueryRequest = {
     startTime: requireStatisticsDate(query.startTime, '开始日期'),
@@ -323,7 +323,7 @@ function toPlatformSourceDetailsBody(query: PlatformSourceDetailsQuery & Statist
   return body
 }
 
-/** 本院版来源侧明细请求体：本侧提供方院区可选，接收组医院/院区可选。 */
+/** 本院版提供方明细请求体：本侧提供方院区可选，接收组医院/院区可选。 */
 function toBranchSourceDetailsBody(query: BranchSourceDetailsQuery & StatisticsPageInput): BranchSourceRecognitionDetailsQueryRequest {
   const body: BranchSourceRecognitionDetailsQueryRequest = {
     startTime: requireStatisticsDate(query.startTime, '开始日期'),
@@ -334,7 +334,7 @@ function toBranchSourceDetailsBody(query: BranchSourceDetailsQuery & StatisticsP
   return body
 }
 
-/** 平台版来源侧导出请求体：两组组织编码同时提交，供服务端做一致性校验；无分页对象。 */
+/** 平台版提供方导出请求体：两组组织编码同时提交，供服务端做一致性校验；无分页对象。 */
 function toPlatformSourceExportBody(query: PlatformSourceExportQuery): RecognitionStatisticsExportRequest {
   const body: RecognitionStatisticsExportRequest = {
     exportType: query.exportType,
@@ -355,7 +355,7 @@ function toPlatformSourceExportBody(query: PlatformSourceExportQuery): Recogniti
   return body
 }
 
-/** 本院版来源侧导出请求体：不含本侧提供方组织与医院，也不含使用方组织；无分页对象。 */
+/** 本院版提供方导出请求体：不含本侧提供方组织与医院，也不含使用方组织；无分页对象。 */
 function toBranchSourceExportBody(query: BranchSourceExportQuery): BranchRecognitionStatisticsExportRequest {
   const body: BranchRecognitionStatisticsExportRequest = {
     exportType: query.exportType,
@@ -399,7 +399,7 @@ export async function querySourceDetailsPage(
   return toStatisticsPage(response?.items, response?.page, toSourceDetailRow)
 }
 
-/** 导出来源侧统计：已鉴权取字节、按给定下载名保存、失败交宿主统一提示。 */
+/** 导出提供方统计：已鉴权取字节、按给定下载名保存、失败交宿主统一提示。 */
 export async function exportSourceStatistics(
   client: MedicalRecognitionClient,
   query: SourceExportQuery,
@@ -416,7 +416,7 @@ export async function exportSourceStatistics(
 
 // ========== 读模型映射 ==========
 
-/** 来源侧汇总读模型 → 汇总行视图模型：维度字段保持 `null` 兜底，枚举文本服务端优先。 */
+/** 提供方汇总读模型 → 汇总行视图模型：维度字段保持 `null` 兜底，枚举文本服务端优先。 */
 function toSourceSummaryRow(value: SourceRecognitionSummaryReadModel): SourceSummaryRow {
   const itemType = isMedicalItemTypeValue(value.itemType) ? value.itemType : null
   return {
@@ -437,7 +437,7 @@ function toSourceSummaryRow(value: SourceRecognitionSummaryReadModel): SourceSum
   }
 }
 
-/** 来源侧明细读模型 → 明细行视图模型：双方归属从平铺字段收拢为两个组织视图，患者字段原样承载（S6-D9）。 */
+/** 提供方明细读模型 → 明细行视图模型：双方归属从平铺字段收拢为两个组织视图，患者字段原样承载（S6-D9）。 */
 function toSourceDetailRow(value: SourceRecognitionDetailReadModel): SourceDetailRow {
   return {
     recognitionMatchRecordId: value.recognitionMatchRecordId ?? '',
@@ -469,12 +469,12 @@ function toSourceDetailRow(value: SourceRecognitionDetailReadModel): SourceDetai
   }
 }
 
-/** 来源侧汇总读模型集合 → 汇总行视图模型集合。 */
+/** 提供方汇总读模型集合 → 汇总行视图模型集合。 */
 export function toSourceSummaryRows(values: readonly SourceRecognitionSummaryReadModel[]): SourceSummaryRow[] {
   return values.map(toSourceSummaryRow)
 }
 
-/** 来源侧明细读模型集合 → 明细行视图模型集合。 */
+/** 提供方明细读模型集合 → 明细行视图模型集合。 */
 export function toSourceDetailRows(values: readonly SourceRecognitionDetailReadModel[]): SourceDetailRow[] {
   return values.map(toSourceDetailRow)
 }

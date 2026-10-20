@@ -6,7 +6,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.ReadModels;
 /// 报告公共上下文：医院 HIS 写入病历时用于注明结果出处的必要信息。
 /// </summary>
 /// <remarks>
-/// 来源组织、医院、院区名称由服务端按来源三值经组织路径解析点批量回填，页面不按编码拼接名称；
+/// 提供方组织、医院、院区名称由服务端按来源三值经组织路径解析点批量回填，页面不按编码拼接名称；
 /// 检查所见与检查结论属于整份报告的公共内容，随本对象返回，医生据此写入病历；
 /// 文件入口承载平台保存的 PDF 文件标识、下载入口与原始文件名，以及来源影像状态与调阅地址。
 /// </remarks>
@@ -27,17 +27,17 @@ public sealed record RecognitionReportContextReadModel
   public string ReportNo { get; init; } = string.Empty;
   /// <summary>来源报告名称。</summary>
   public string ReportName { get; init; } = string.Empty;
-  /// <summary>来源组织编码。</summary>
+  /// <summary>提供方组织编码。</summary>
   public string SourceOrganizationCode { get; init; } = string.Empty;
-  /// <summary>来源组织名称；由服务端回填，不按编码拼接。</summary>
+  /// <summary>提供方组织名称；由服务端回填，不按编码拼接。</summary>
   public string SourceOrganizationName { get; init; } = string.Empty;
-  /// <summary>来源医院编码。</summary>
+  /// <summary>提供方医院编码。</summary>
   public string SourceHospitalCode { get; init; } = string.Empty;
-  /// <summary>来源医院名称；由服务端回填。</summary>
+  /// <summary>提供方医院名称；由服务端回填。</summary>
   public string SourceHospitalName { get; init; } = string.Empty;
-  /// <summary>来源院区编码。</summary>
+  /// <summary>提供方院区编码。</summary>
   public string SourceBranchCode { get; init; } = string.Empty;
-  /// <summary>来源院区名称；由服务端回填。</summary>
+  /// <summary>提供方院区名称；由服务端回填。</summary>
   public string SourceBranchName { get; init; } = string.Empty;
   /// <summary>检查或检验时间；检验取检测完成时间，检查取实际检查时间。</summary>
   public DateTime ClinicalTime { get; init; }

@@ -38,7 +38,7 @@ describe('C8 导出保存：按响应字节构造工作簿 Blob，按下载名�
     })
 
     try {
-      saveExportWorkbook(workbook, '接收侧互认使用汇总.xlsx')
+      saveExportWorkbook(workbook, '使用方互认使用汇总.xlsx')
 
       expect(createObjectURL).toHaveBeenCalledTimes(1)
       expect(createObjectURL.mock.calls[0][0]).toBeInstanceOf(Blob)
@@ -46,11 +46,11 @@ describe('C8 导出保存：按响应字节构造工作簿 Blob，按下载名�
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       )
       expect(clicked).toHaveLength(1)
-      expect(clicked[0].download).toBe('接收侧互认使用汇总.xlsx')
+      expect(clicked[0].download).toBe('使用方互认使用汇总.xlsx')
       expect(clicked[0].href).toBe('blob:statistics-export')
       // 对象地址在保存动作结束后释放，不残留引用。
       expect(revokeObjectURL).toHaveBeenCalledWith('blob:statistics-export')
-      expect(document.querySelector('a[download="接收侧互认使用汇总.xlsx"]')).toBeNull()
+      expect(document.querySelector('a[download="使用方互认使用汇总.xlsx"]')).toBeNull()
     } finally {
       clickSpy.mockRestore()
       URL.createObjectURL = originalCreate

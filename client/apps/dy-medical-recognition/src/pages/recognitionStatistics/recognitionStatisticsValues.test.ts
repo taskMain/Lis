@@ -11,11 +11,11 @@ import { buildStatisticsExportDownloadName, statisticsExportTypeText } from './r
 
 describe('统计导出类型中文名', () => {
   it('七个取值与后端枚举描述逐一同名', () => {
-    expect(statisticsExportTypeText(1)).toBe('接收侧互认使用汇总')
-    expect(statisticsExportTypeText(2)).toBe('接收侧提醒明细')
-    expect(statisticsExportTypeText(3)).toBe('接收侧采纳明细')
-    expect(statisticsExportTypeText(4)).toBe('接收侧不采纳明细')
-    expect(statisticsExportTypeText(5)).toBe('接收侧引用明细')
+    expect(statisticsExportTypeText(1)).toBe('使用方互认使用汇总')
+    expect(statisticsExportTypeText(2)).toBe('使用方提醒明细')
+    expect(statisticsExportTypeText(3)).toBe('使用方采纳明细')
+    expect(statisticsExportTypeText(4)).toBe('使用方不采纳明细')
+    expect(statisticsExportTypeText(5)).toBe('使用方引用明细')
     expect(statisticsExportTypeText(6)).toBe('提供方医院被互认汇总')
     expect(statisticsExportTypeText(7)).toBe('提供方医院被互认明细')
   })
@@ -29,7 +29,7 @@ describe('统计导出类型中文名', () => {
 describe('统计导出下载文件名构造', () => {
   it('按服务端命名规则构造：导出类型中文名-起止日期（yyyyMMdd-yyyyMMdd）.xlsx', () => {
     expect(buildStatisticsExportDownloadName(2, '2026-09-01', '2026-09-30')).toBe(
-      '接收侧提醒明细-20260901-20260930.xlsx',
+      '使用方提醒明细-20260901-20260930.xlsx',
     )
     expect(buildStatisticsExportDownloadName(6, '2026-02-01', '2026-02-28')).toBe(
       '提供方医院被互认汇总-20260201-20260228.xlsx',

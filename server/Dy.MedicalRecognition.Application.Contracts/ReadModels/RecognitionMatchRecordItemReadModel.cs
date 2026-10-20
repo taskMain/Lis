@@ -12,7 +12,7 @@ public sealed record RecognitionMatchRecordItemReadModel
   public Guid RecognitionMatchItemId { get; init; }
   /// <summary>互认项目：项目类型与标准目录资料。</summary>
   public RecognitionStatisticsItemReadModel Item { get; init; } = new();
-  /// <summary>来源归属：来源组织、医院与院区编码及回填名称。</summary>
+  /// <summary>来源归属：提供方组织、医院与院区编码及回填名称。</summary>
   public SourceOrganizationReadModel Source { get; init; } = new();
   /// <summary>匹配项绑定报告的标识。</summary>
   public Guid ReportId { get; init; }

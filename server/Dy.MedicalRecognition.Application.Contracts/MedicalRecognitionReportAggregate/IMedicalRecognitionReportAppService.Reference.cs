@@ -8,7 +8,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAg
 /// </summary>
 /// <remarks>
 /// 本分片声明一个医院接入能力：提交已成功写入本次病历的实际引用事实。成功统一返回 <see langword="true"/>，失败以业务异常表达；
-/// 接收组织、医院、院区取自可信上下文，操作人取自登录上下文，调用方都不提交。
+/// 使用方组织、医院、院区取自可信上下文，操作人取自登录上下文，调用方都不提交。
 /// </remarks>
 public partial interface IMedicalRecognitionReportAppService
 {

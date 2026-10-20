@@ -929,7 +929,7 @@ public sealed class Stage5QueryTests
     if (validHoursValue is not null) systemParameterAppService.ValuesByCode[CitationDetailValidHours] = validHoursValue;
     else if (!parameterMissing) systemParameterAppService.ValuesByCode[CitationDetailValidHours] = (validHours == 0 ? 6 : validHours).ToString();
 
-    // 来源侧涉及两家医院：名称回填按不同组织与医院批量读取，读取次数由替身按层级记录。
+    // 提供方涉及两家医院：名称回填按不同组织与医院批量读取，读取次数由替身按层级记录。
     StubOrganizationAppService organizationAppService = new()
     {
       Organizations = [new OrganizationDto { Id = TrustedOrganization, Name = "示范组织-ORG-A", IsValid = true }],
@@ -988,8 +988,8 @@ public sealed class Stage5QueryTests
   /// <param name="ReportType">报告类型。</param>
   /// <param name="ReportNo">来源报告单号。</param>
   /// <param name="ReportName">来源报告名称。</param>
-  /// <param name="SourceHospitalCode">来源医院编码。</param>
-  /// <param name="SourceBranchCode">来源院区编码。</param>
+  /// <param name="SourceHospitalCode">提供方医院编码。</param>
+  /// <param name="SourceBranchCode">提供方院区编码。</param>
   /// <param name="ClinicalTime">检查或检验时间。</param>
   /// <param name="ReportTime">报告时间。</param>
   /// <param name="PdfFileId">PDF 文件标识。</param>
@@ -1035,8 +1035,8 @@ public sealed class Stage5QueryTests
   /// <param name="reportType">报告类型；默认检验报告，用于构造检查侧的引用详情时需要显式指定。</param>
   /// <param name="reportNo">来源报告单号。</param>
   /// <param name="reportName">来源报告名称。</param>
-  /// <param name="sourceHospitalCode">来源医院编码。</param>
-  /// <param name="sourceBranchCode">来源院区编码。</param>
+  /// <param name="sourceHospitalCode">提供方医院编码。</param>
+  /// <param name="sourceBranchCode">提供方院区编码。</param>
   /// <param name="clinicalTime">检查或检验时间。</param>
   /// <param name="reportTime">报告时间。</param>
   /// <param name="pdfFileId">PDF 文件标识。</param>

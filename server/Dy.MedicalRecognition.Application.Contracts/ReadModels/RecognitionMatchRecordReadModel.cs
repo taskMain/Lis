@@ -7,7 +7,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.ReadModels;
 /// 互认匹配记录集合视图：按匹配记录标识取单记录的组级信息，弹窗呈现。
 /// </summary>
 /// <remarks>
-/// 入口只挂接收侧提醒、采纳、不采纳与引用四类明细行；记录级的是否已反馈取组内全部匹配项的反馈状态，
+/// 入口只挂使用方提醒、采纳、不采纳与引用四类明细行；记录级的是否已反馈取组内全部匹配项的反馈状态，
 /// 未反馈记录没有互认时间、互认科室与互认医生；患者姓名与证件号码按业务原值返回。
 /// </remarks>
 public sealed record RecognitionMatchRecordReadModel
@@ -16,7 +16,7 @@ public sealed record RecognitionMatchRecordReadModel
   public Guid RecognitionMatchRecordId { get; init; }
   /// <summary>互认匹配生成时间。</summary>
   public DateTime MatchCreatedTime { get; init; }
-  /// <summary>接收归属：接收组织、医院与院区编码及回填名称。</summary>
+  /// <summary>接收归属：使用方组织、医院与院区编码及回填名称。</summary>
   public ReceiverOrganizationReadModel Receiver { get; init; } = new();
   /// <summary>患者姓名；按业务原值返回。</summary>
   public string PatientName { get; init; } = string.Empty;

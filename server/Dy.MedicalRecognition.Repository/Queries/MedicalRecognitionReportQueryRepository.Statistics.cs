@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Dy.MedicalRecognition.Repository.Queries;
 
 /// <summary>
-/// 互认统计与导出的只读查询映射实现：两侧汇总、接收侧四类明细、来源侧明细与匹配记录集合视图。
+/// 互认统计与导出的只读查询映射实现：两侧汇总、使用方四类明细、提供方明细与匹配记录集合视图。
 /// </summary>
 /// <remarks>
 /// 全部查询都只筛选与投影，不修改数据，也不判断业务状态；筛选条件的组织路径解析与分页窗口校验在应用层完成。

@@ -120,7 +120,7 @@ internal sealed class FakeMatchQueryRepository : IMedicalRecognitionReportQueryR
   /// <param name="standardProjectCode">本次命中的标准项目编码。</param>
   /// <param name="reportId">报告标识。</param>
   /// <param name="reportVersionId">报告版本标识。</param>
-  /// <param name="sourceHospitalCode">来源医院编码。</param>
+  /// <param name="sourceHospitalCode">提供方医院编码。</param>
   /// <param name="matchBaselineTime">匹配基准时间；传空表示该报告版本没有可用的业务时间。</param>
   /// <param name="reportTime">报告时间。</param>
   /// <param name="patientId">该报告主体所属的平台患者标识；传空表示取当前已解析到的患者。</param>

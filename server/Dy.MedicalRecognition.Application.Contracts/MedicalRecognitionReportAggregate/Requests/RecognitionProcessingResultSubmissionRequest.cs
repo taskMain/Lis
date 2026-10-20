@@ -10,7 +10,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAg
 /// </summary>
 /// <remarks>
 /// 互认时间、互认科室与互认医生共同适用于本次提交的全部匹配项，只在组级提供一次；
-/// 接收组织、医院与院区取自可信调用身份，操作人取自登录上下文，调用方都不提交；
+/// 使用方组织、医院与院区取自可信调用身份，操作人取自登录上下文，调用方都不提交；
 /// 项目集合必须完整覆盖本组全部匹配项，缺项、重复项或夹带其他组的匹配项由领域校验整批拒绝。
 /// </remarks>
 [IPropertyChangedAware]

@@ -21,8 +21,8 @@ namespace Dy.MedicalRecognition.Tests;
 /// 用例把手写仓储替身、查询端口替身、外部组织与用户服务替身与系统参数服务替身注入公开应用服务入口，
 /// 验证可观察结果：匹配响应内容、处理结果内容与保存时间、引用事实内容、写入的匹配记录与匹配项、登记的领域事件、失败时的零写入与拒绝文案；
 /// 空匹配与负向用例同时断言"无写入"与"无事件"。
-/// V14（报告已作废或报告版本非当前有效）、V15（报告已形成后续版本）与 V16（来源组织与接收组织不一致）三条由候选语句的
-/// 生命周期状态筛选、当前版本内联连接与来源组织范围三条判据在 <see cref="Stage5SqlMapTests"/> 的静态面承接，不在本文件内构造行为用例。
+/// V14（报告已作废或报告版本非当前有效）、V15（报告已形成后续版本）与 V16（提供方组织与使用方组织不一致）三条由候选语句的
+/// 生命周期状态筛选、当前版本内联连接与提供方组织范围三条判据在 <see cref="Stage5SqlMapTests"/> 的静态面承接，不在本文件内构造行为用例。
 /// V92（未认证请求被拒绝）的取证面是框架认证失败路径的对外响应，属真实宿主取证，不在本文件内承接。
 /// V33、V35b 与 V36 三条在本文件内只取得请求校验面的拒绝证据：三条的取值与成对规则先由公开请求类型上的枚举、必填与非空白校验拦截，
 /// 拒绝发生在任何领域读取与写入之前；领域层的同口径判定为防御性分支、经公开入口不可达，本文件不为其提供行为证据，
@@ -553,7 +553,7 @@ public sealed class Stage5WritePathTests
   }
 
   /// <summary>
-  /// V17：本院报告开关关闭时来源医院与接收医院相同的报告不参与匹配，不区分院区；他院报告照常参与。
+  /// V17：本院报告开关关闭时提供方医院与使用方医院相同的报告不参与匹配，不区分院区；他院报告照常参与。
   /// </summary>
   [Fact]
   public async Task Own_hospital_reports_do_not_match_when_the_switch_is_off()
@@ -974,7 +974,7 @@ public sealed class Stage5WritePathTests
   /// 构建一次匹配用例的替身集合与入口，并预置可信请求上下文。
   /// </summary>
   /// <param name="patientExists">是否预置本次证件对应的平台患者。</param>
-  /// <param name="ownHospitalMatchEnabled">本院报告匹配开关取值；默认开启，使来源医院与接收医院相同的报告能参与匹配。</param>
+  /// <param name="ownHospitalMatchEnabled">本院报告匹配开关取值；默认开启，使提供方医院与使用方医院相同的报告能参与匹配。</param>
   /// <param name="ownHospitalExcludeHours">本院报告排除时长取值。</param>
   /// <param name="switchValue">预置的开关返回值；为 <see langword="null"/> 表示按布尔开关换算。</param>  /// <param name="excludeHoursValue">预置的排除时长返回值；为 <see langword="null"/> 表示按整数时长换算。</param>
   /// <param name="parameterServiceFailure">非空时表示参数服务读取失败。</param>
@@ -1066,11 +1066,11 @@ public sealed class Stage5WritePathTests
   /// </remarks>
   /// <param name="fixture">用例夹具。</param>
   /// <param name="standardProjectCode">标准项目编码。</param>
-  /// <param name="sourceHospitalCode">来源医院编码。</param>
+  /// <param name="sourceHospitalCode">提供方医院编码。</param>
   /// <param name="recognitionDurationDays">可互认时间天数，用于把报告时间放在该项目的可互认范围内。</param>
   /// <param name="matchBaselineTime">匹配基准时间；为空时取固定临床时间。</param>
   /// <param name="reportTime">报告时间；为空时取固定报告时间。</param>
-  /// <param name="sourceBranchCode">来源院区编码；为空时取可信院区。</param>
+  /// <param name="sourceBranchCode">提供方院区编码；为空时取可信院区。</param>
   /// <param name="sourceProjectName">该报告主明细的来源项目名称；为空时取该明细标准项目编码对应的统一形态。</param>
   /// <param name="additionalResultProjectCodes">同一份报告下另外登记检验结果明细的标准项目编码；只登记明细，不改变报告绑定。</param>
   /// <returns>本次登记的报告版本标识。</returns>
@@ -1310,7 +1310,7 @@ public sealed class Stage5WritePathTests
   /// V23：整组采纳提交保存全部匹配项的采纳决定、形成预计节省金额、写入处理结果保存时间并登记一次事件。
   /// </summary>
   /// <remarks>
-  /// 预计节省金额只出现在互认处理结果上：来源组织与来源医院侧不存在承载该金额的记录或列，
+  /// 预计节省金额只出现在互认处理结果上：提供方组织与提供方医院侧不存在承载该金额的记录或列，
   /// 因此本用例断言采纳项目的金额只写入处理结果行，且合计等于两项金额之和。
   /// </remarks>
   [Fact]
@@ -1346,7 +1346,7 @@ public sealed class Stage5WritePathTests
       Assert.Equal(TrustedOperId, result.OperId);
     });
 
-    // 采纳项目按接收组织、医院、院区与标准项目编码读取当前金额并形成预计节省金额。
+    // 采纳项目按使用方组织、医院、院区与标准项目编码读取当前金额并形成预计节省金额。
     Assert.Equal(12.34m, firstResult.EstimatedSavingAmount);
     Assert.Equal(5.66m, secondResult.EstimatedSavingAmount);
     Assert.Equal(2, fixture.Repository.AmountReadCalls);
@@ -1675,9 +1675,9 @@ public sealed class Stage5WritePathTests
   /// <summary>
   /// V36b：提交的组织、医院、院区与匹配记录接收三值不一致时整次失败，不保存任何项目。
   /// </summary>
-  /// <param name="recordOrganization">匹配记录的接收组织编码。</param>
-  /// <param name="recordHospital">匹配记录的接收医院编码。</param>
-  /// <param name="recordBranch">匹配记录的接收院区编码。</param>
+  /// <param name="recordOrganization">匹配记录的使用方组织编码。</param>
+  /// <param name="recordHospital">匹配记录的使用方医院编码。</param>
+  /// <param name="recordBranch">匹配记录的使用方院区编码。</param>
   [Theory]
   [InlineData("ORG-B", TrustedHospital, TrustedBranch)]
   [InlineData(TrustedOrganization, OtherHospital, TrustedBranch)]
@@ -2085,7 +2085,7 @@ public sealed class Stage5WritePathTests
   /// </summary>
   /// <remarks>
   /// 逐项反查通过后整批保存：引用事实只写入匹配项标识、实际引用时间、引用科室与医生与操作字段，
-  /// 不写入匹配记录标识、本次来源就诊与互认时间，也不写入采纳次数、来源医院被认次数或预计节省金额。
+  /// 不写入匹配记录标识、本次来源就诊与互认时间，也不写入采纳次数、提供方医院被认次数或预计节省金额。
   /// </remarks>
   [Fact]
   public async Task Reference_submission_saves_facts_and_records_one_event()
@@ -2242,9 +2242,9 @@ public sealed class Stage5WritePathTests
   /// <summary>
   /// V64：当前可信三值与匹配记录接收三值不一致时整次失败、不保存任何项目。
   /// </summary>
-  /// <param name="recordOrganization">匹配记录的接收组织编码。</param>
-  /// <param name="recordHospital">匹配记录的接收医院编码。</param>
-  /// <param name="recordBranch">匹配记录的接收院区编码。</param>
+  /// <param name="recordOrganization">匹配记录的使用方组织编码。</param>
+  /// <param name="recordHospital">匹配记录的使用方医院编码。</param>
+  /// <param name="recordBranch">匹配记录的使用方院区编码。</param>
   [Theory]
   [InlineData("ORG-B", TrustedHospital, TrustedBranch)]
   [InlineData(TrustedOrganization, OtherHospital, TrustedBranch)]
@@ -2540,7 +2540,7 @@ public sealed class Stage5WritePathTests
   }
 
   /// <summary>
-  /// V72：引用只增加引用次数；采纳次数、来源医院被认次数与预计节省金额不变。
+  /// V72：引用只增加引用次数；采纳次数、提供方医院被认次数与预计节省金额不变。
   /// </summary>
   /// <remarks>
   /// 三条派生统计在本阶段不落库，因此观察口径为：提交引用结果既不读取任何当前金额，也不改写任何既有处理结果，
@@ -2563,7 +2563,7 @@ public sealed class Stage5WritePathTests
     Assert.Equal(0, fixture.Repository.AmountReadCalls);
     Assert.Single(fixture.Repository.ProcessingResults);
     Assert.Equal(savedResult.EstimatedSavingAmount, Assert.Single(fixture.Repository.ProcessingResults.Values).EstimatedSavingAmount);
-    // 不更新处理结果保存时间，采纳次数与来源医院被认次数在本阶段不落库、不被写入。
+    // 不更新处理结果保存时间，采纳次数与提供方医院被认次数在本阶段不落库、不被写入。
     Assert.Equal(0, fixture.Repository.DecisionSavedTimeUpdateCalls);
     Assert.Single(events.Events.OfType<RecognitionReferencesRecordedEvent>());
   }
@@ -2986,9 +2986,9 @@ public sealed class Stage5WritePathTests
   /// </summary>
   /// <param name="fixture">用例夹具。</param>
   /// <param name="standardProjectCodes">组内匹配项的标准项目编码，按提交顺序各成一项。</param>
-  /// <param name="recordOrganization">匹配记录的接收组织编码；默认取可信组织。</param>
-  /// <param name="recordHospital">匹配记录的接收医院编码；默认取可信医院。</param>
-  /// <param name="recordBranch">匹配记录的接收院区编码；默认取可信院区。</param>
+  /// <param name="recordOrganization">匹配记录的使用方组织编码；默认取可信组织。</param>
+  /// <param name="recordHospital">匹配记录的使用方医院编码；默认取可信医院。</param>
+  /// <param name="recordBranch">匹配记录的使用方院区编码；默认取可信院区。</param>
   /// <returns>第一条匹配项绑定的报告版本标识。</returns>
   private static Guid SeedMatchGroup(
     ProcessingFixture fixture,
@@ -3025,9 +3025,9 @@ public sealed class Stage5WritePathTests
   /// </summary>
   /// <param name="fixture">用例夹具。</param>
   /// <param name="standardProjectCode">组内匹配项的标准项目编码。</param>
-  /// <param name="recordOrganization">匹配记录的接收组织编码。</param>
-  /// <param name="recordHospital">匹配记录的接收医院编码。</param>
-  /// <param name="recordBranch">匹配记录的接收院区编码。</param>
+  /// <param name="recordOrganization">匹配记录的使用方组织编码。</param>
+  /// <param name="recordHospital">匹配记录的使用方医院编码。</param>
+  /// <param name="recordBranch">匹配记录的使用方院区编码。</param>
   /// <returns>第一条匹配项绑定的报告版本标识。</returns>
   private static Guid SeedMatchGroup(
     ProcessingFixture fixture,

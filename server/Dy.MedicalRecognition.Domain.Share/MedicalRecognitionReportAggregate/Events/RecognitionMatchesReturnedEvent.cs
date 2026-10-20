@@ -29,15 +29,15 @@ public record RecognitionMatchesReturnedEvent : DomainEvent
   /// </summary>
   public DateTime MatchCreatedTime { get; set; }
   /// <summary>
-  /// 接收组织编码；取自可信调用身份
+  /// 使用方组织编码；取自可信调用身份
   /// </summary>
   public string ReceiverOrganizationCode { get; set; } = string.Empty;
   /// <summary>
-  /// 接收医院编码；取自可信调用身份
+  /// 使用方医院编码；取自可信调用身份
   /// </summary>
   public string ReceiverHospitalCode { get; set; } = string.Empty;
   /// <summary>
-  /// 接收院区编码；取自可信调用身份
+  /// 使用方院区编码；取自可信调用身份
   /// </summary>
   public string ReceiverBranchCode { get; set; } = string.Empty;
   /// <summary>

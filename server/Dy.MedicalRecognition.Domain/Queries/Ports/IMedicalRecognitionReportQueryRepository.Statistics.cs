@@ -1,7 +1,7 @@
 namespace Dy.MedicalRecognition.Domain.Queries.Ports;
 
 /// <summary>
-/// 互认统计与导出的只读查询端口：接收侧与来源侧汇总、接收侧四类明细、来源侧明细与匹配记录集合视图。
+/// 互认统计与导出的只读查询端口：使用方与提供方汇总、使用方四类明细、提供方明细与匹配记录集合视图。
 /// </summary>
 /// <remarks>
 /// 方法名去掉 <c>Async</c> 后缀即查询作用域 <c>MedicalRecognitionReportQuery</c> 下的语句标识，
@@ -13,7 +13,7 @@ namespace Dy.MedicalRecognition.Domain.Queries.Ports;
 public partial interface IMedicalRecognitionReportQueryRepository
 {
   /// <summary>
-  /// 统计接收侧互认使用汇总满足筛选条件的分组行总数。
+  /// 统计使用方互认使用汇总满足筛选条件的分组行总数。
   /// </summary>
   /// <remarks>计数对象是按所选维度聚合后的分组行；与当页分组语句共用同一套筛选条件，计数语句不带排序。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界、汇总维度。</param>
@@ -21,7 +21,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<long> CountRecognitionUsageSummaryGroupsAsync(RecognitionUsageSummaryFilter filter);
 
   /// <summary>
-  /// 取接收侧互认使用汇总的当页分组行。
+  /// 取使用方互认使用汇总的当页分组行。
   /// </summary>
   /// <remarks>
   /// 六项指标与预计节省金额由条件聚合一次成型：提醒按匹配生成时间、采纳与不采纳及金额按处理结果互认时间、
@@ -36,7 +36,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<IEnumerable<RecognitionUsageSummaryGroupItem>> QueryRecognitionUsageSummaryPageAsync(RecognitionUsageSummaryFilter filter, int skipCount, int pageSize);
 
   /// <summary>
-  /// 取接收侧汇总的不采纳原因汇总行。
+  /// 取使用方汇总的不采纳原因汇总行。
   /// </summary>
   /// <remarks>
   /// 行集按与汇总当页语句同套的分组键加原因代码分组，独立成行返回原因代码与次数；
@@ -48,7 +48,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<IEnumerable<RecognitionUsageReasonItem>> QueryRecognitionUsageSummaryReasonsAsync(RecognitionUsageSummaryFilter filter);
 
   /// <summary>
-  /// 统计来源医院被互认汇总满足筛选条件的分组行总数。
+  /// 统计提供方医院被互认汇总满足筛选条件的分组行总数。
   /// </summary>
   /// <remarks>行集为统计范围内的采纳事实，计数对象是按所选维度聚合后的分组行；与当页分组语句共用同一套筛选条件。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界、汇总维度。</param>
@@ -56,17 +56,17 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<long> CountSourceRecognitionSummaryGroupsAsync(SourceRecognitionSummaryFilter filter);
 
   /// <summary>
-  /// 取来源医院被互认汇总的当页分组行。
+  /// 取提供方医院被互认汇总的当页分组行。
   /// </summary>
   /// <remarks>被互认次数等于本行范围内的采纳事实数；分组键升序即稳定唯一顺序；未匹配任何分组时返回空集合。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界、汇总维度。</param>
   /// <param name="skipCount">分页窗口起点。</param>
   /// <param name="pageSize">页容量。</param>
-  /// <returns>当页来源侧汇总分组行。</returns>
+  /// <returns>当页提供方汇总分组行。</returns>
   Task<IEnumerable<SourceRecognitionSummaryGroupItem>> QuerySourceRecognitionSummaryPageAsync(SourceRecognitionSummaryFilter filter, int skipCount, int pageSize);
 
   /// <summary>
-  /// 统计接收侧提醒明细满足筛选条件的行数。
+  /// 统计使用方提醒明细满足筛选条件的行数。
   /// </summary>
   /// <remarks>提醒事实即统计范围内按匹配生成时间落入的匹配项，含尚未反馈处理结果的项；与当页明细语句共用同一套筛选条件。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界。</param>
@@ -74,7 +74,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<long> CountRecognitionUsageReminderDetailsAsync(RecognitionUsageDetailFilter filter);
 
   /// <summary>
-  /// 取接收侧提醒明细的当页行。
+  /// 取使用方提醒明细的当页行。
   /// </summary>
   /// <remarks>
   /// 包含尚未反馈处理结果的项，处理结果字段为空值表示未反馈；
@@ -87,7 +87,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<IEnumerable<RecognitionReminderDetailItem>> QueryRecognitionUsageReminderDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize);
 
   /// <summary>
-  /// 统计接收侧采纳明细满足筛选条件的行数。
+  /// 统计使用方采纳明细满足筛选条件的行数。
   /// </summary>
   /// <remarks>行集限定为处理结果为采纳且互认时间在统计范围内的匹配项；与当页明细语句共用同一套筛选条件。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界。</param>
@@ -95,7 +95,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<long> CountRecognitionUsageAdoptionDetailsAsync(RecognitionUsageDetailFilter filter);
 
   /// <summary>
-  /// 取接收侧采纳明细的当页行。
+  /// 取使用方采纳明细的当页行。
   /// </summary>
   /// <remarks>随行返回预计节省金额；排序为互认时间倒序加匹配项标识升序；无匹配时返回空集合。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界。</param>
@@ -105,7 +105,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<IEnumerable<RecognitionAdoptionDetailItem>> QueryRecognitionUsageAdoptionDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize);
 
   /// <summary>
-  /// 统计接收侧不采纳明细满足筛选条件的行数。
+  /// 统计使用方不采纳明细满足筛选条件的行数。
   /// </summary>
   /// <remarks>行集限定为处理结果为不采纳且互认时间在统计范围内的匹配项；与当页明细语句共用同一套筛选条件。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界。</param>
@@ -113,7 +113,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<long> CountRecognitionUsageNonAdoptionDetailsAsync(RecognitionUsageDetailFilter filter);
 
   /// <summary>
-  /// 取接收侧不采纳明细的当页行。
+  /// 取使用方不采纳明细的当页行。
   /// </summary>
   /// <remarks>随行返回原因代码与补充说明；排序为互认时间倒序加匹配项标识升序；无匹配时返回空集合。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界。</param>
@@ -123,7 +123,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<IEnumerable<RecognitionNonAdoptionDetailItem>> QueryRecognitionUsageNonAdoptionDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize);
 
   /// <summary>
-  /// 统计接收侧引用明细满足筛选条件的行数。
+  /// 统计使用方引用明细满足筛选条件的行数。
   /// </summary>
   /// <remarks>行集限定为引用事实的实际引用时间在统计范围内的匹配项；与当页明细语句共用同一套筛选条件。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界。</param>
@@ -131,7 +131,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<long> CountRecognitionUsageReferenceDetailsAsync(RecognitionUsageDetailFilter filter);
 
   /// <summary>
-  /// 取接收侧引用明细的当页行。
+  /// 取使用方引用明细的当页行。
   /// </summary>
   /// <remarks>随行返回引用科室与引用医生；排序为实际引用时间倒序加匹配项标识升序；无匹配时返回空集合。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界。</param>
@@ -141,21 +141,21 @@ public partial interface IMedicalRecognitionReportQueryRepository
   Task<IEnumerable<RecognitionReferenceDetailItem>> QueryRecognitionUsageReferenceDetailsAsync(RecognitionUsageDetailFilter filter, int skipCount, int pageSize);
 
   /// <summary>
-  /// 统计来源侧被互认明细满足筛选条件的行数。
+  /// 统计提供方被互认明细满足筛选条件的行数。
   /// </summary>
   /// <remarks>行集限定为来源组与接收组范围内、互认时间在统计范围内的采纳事实；与当页明细语句共用同一套筛选条件。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界。</param>
-  /// <returns>满足条件的来源侧明细行数。</returns>
+  /// <returns>满足条件的提供方明细行数。</returns>
   Task<long> CountSourceRecognitionDetailsAsync(SourceRecognitionDetailFilter filter);
 
   /// <summary>
-  /// 取来源侧被互认明细的当页行。
+  /// 取提供方被互认明细的当页行。
   /// </summary>
-  /// <remarks>来源侧明细只反映被采纳事实；排序为互认时间倒序加匹配项标识升序；无匹配时返回空集合。</remarks>
+  /// <remarks>提供方明细只反映被采纳事实；排序为互认时间倒序加匹配项标识升序；无匹配时返回空集合。</remarks>
   /// <param name="filter">已解析的筛选条件与必填的日期边界。</param>
   /// <param name="skipCount">分页窗口起点。</param>
   /// <param name="pageSize">页容量。</param>
-  /// <returns>当页来源侧明细行。</returns>
+  /// <returns>当页提供方明细行。</returns>
   Task<IEnumerable<SourceRecognitionDetailItem>> QuerySourceRecognitionDetailsAsync(SourceRecognitionDetailFilter filter, int skipCount, int pageSize);
 
   /// <summary>

@@ -1,12 +1,12 @@
 /**
- * 「来源医院被互认统计」「本院被互认统计」页面入口 Component 层用例
+ * 「提供方医院被互认统计」「本院被互认统计」页面入口 Component 层用例
  * （阶段 6 前端测试矩阵 C15、C21、C22 的页面接线面）。
  *
- * 装配边界与接收侧页面用例一致（遵循 Frontend Testing 第 2 节）：来源侧适配层只替换 I/O 出口，
+ * 装配边界与使用方页面用例一致（遵循 Frontend Testing 第 2 节）：提供方适配层只替换 I/O 出口，
  * 请求构造等纯函数使用真实实现；占位 client 原样透传；范围选择器替换整个包；
  * 可信组织与可信医院接缝替换为可控值；枚举元数据钩子返回兜底选项。
  *
- * 主体行为（来源侧口径展示、下钻、分页）由 statisticsBoard.test.tsx 覆盖，本文件不重复。
+ * 主体行为（提供方口径展示、下钻、分页）由 statisticsBoard.test.tsx 覆盖，本文件不重复。
  */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ConfigProvider } from 'antd'
@@ -147,7 +147,7 @@ function renderPage(component: React.ReactElement) {
 }
 
 describe('提供方医院被互认统计（平台页）', () => {
-  it('进入自动加载：两路查询以占位 client 与平台版 built 查询发起；导出沿用条件且导出类型为来源侧汇总（C22）', async () => {
+  it('进入自动加载：两路查询以占位 client 与平台版 built 查询发起；导出沿用条件且导出类型为提供方汇总（C22）', async () => {
     renderPage(<SourceRecognitionStatistics />)
 
     await waitFor(() => expect(sourceApi.querySourceSummaryPage).toHaveBeenCalledTimes(1))
@@ -190,7 +190,7 @@ describe('提供方医院被互认统计（平台页）', () => {
     ))
   })
 
-  it('明细导出为来源医院被互认明细（C15、C22）', async () => {
+  it('明细导出为提供方医院被互认明细（C15、C22）', async () => {
     renderPage(<SourceRecognitionStatistics />)
     await waitFor(() => expect(sourceApi.querySourceDetailsPage).toHaveBeenCalled())
 

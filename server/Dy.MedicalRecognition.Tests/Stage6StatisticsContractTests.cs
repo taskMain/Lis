@@ -181,10 +181,10 @@ public sealed class Stage6StatisticsContractTests
     ]),
     ("RecognitionStatisticsExportType",
     [
-      ("RecognitionUsageSummary", 1, "接收侧互认使用汇总"), ("RecognitionReminderDetails", 2, "接收侧提醒明细"),
-      ("RecognitionAdoptionDetails", 3, "接收侧采纳明细"), ("RecognitionNonAdoptionDetails", 4, "接收侧不采纳明细"),
-      ("RecognitionReferenceDetails", 5, "接收侧引用明细"), ("SourceRecognitionSummary", 6, "来源医院被互认汇总"),
-      ("SourceRecognitionDetails", 7, "来源医院被互认明细")
+      ("RecognitionUsageSummary", 1, "使用方互认使用汇总"), ("RecognitionReminderDetails", 2, "使用方提醒明细"),
+      ("RecognitionAdoptionDetails", 3, "使用方采纳明细"), ("RecognitionNonAdoptionDetails", 4, "使用方不采纳明细"),
+      ("RecognitionReferenceDetails", 5, "使用方引用明细"), ("SourceRecognitionSummary", 6, "提供方医院被互认汇总"),
+      ("SourceRecognitionDetails", 7, "提供方医院被互认明细")
     ])
   ];
 
@@ -259,7 +259,7 @@ public sealed class Stage6StatisticsContractTests
   }
 
   /// <summary>
-  /// V1（S6-D19 修订面）：平台版接收侧两个请求承载接收组与来源组两组组织/医院/院区、
+  /// V1（S6-D19 修订面）：平台版使用方两个请求承载接收组与来源组两组组织/医院/院区、
   /// 统一关键字、汇总或明细专属筛选与内嵌分页对象；统一关键字替换互认科室ID、标准项目编码与互认医生ID独立字段，
   /// 不采纳原因代码仍仅由明细请求携带。
   /// </summary>
@@ -288,7 +288,7 @@ public sealed class Stage6StatisticsContractTests
   }
 
   /// <summary>
-  /// V1（S6-D19 修订面）：本院版接收侧两个请求不含本侧组织与医院字段（由可信上下文注入），本侧院区可选，
+  /// V1（S6-D19 修订面）：本院版使用方两个请求不含本侧组织与医院字段（由可信上下文注入），本侧院区可选，
   /// 携带来源组医院/院区可选筛选与统一关键字；统一关键字替换互认科室ID、标准项目编码与互认医生ID独立字段。
   /// </summary>
   [Fact]
@@ -314,8 +314,8 @@ public sealed class Stage6StatisticsContractTests
   }
 
   /// <summary>
-  /// V1（S6-D19 修订面）：平台版来源侧两个请求承载来源组与接收组两组组织/医院/院区与统一关键字；
-  /// 统一关键字替换标准项目编码独立字段，来源侧语句不承载互认医生列。
+  /// V1（S6-D19 修订面）：平台版提供方两个请求承载来源组与接收组两组组织/医院/院区与统一关键字；
+  /// 统一关键字替换标准项目编码独立字段，提供方语句不承载互认医生列。
   /// </summary>
   [Fact]
   public void Platform_source_side_requests_carry_both_scope_groups()
@@ -340,7 +340,7 @@ public sealed class Stage6StatisticsContractTests
   }
 
   /// <summary>
-  /// V1（S6-D19 修订面）：本院版来源侧两个请求不含来源组织与来源医院字段（固定为可信上下文），本侧来源院区可选，
+  /// V1（S6-D19 修订面）：本院版提供方两个请求不含提供方组织与提供方医院字段（固定为可信上下文），本侧提供方院区可选，
   /// 携带接收组医院/院区可选筛选与统一关键字；统一关键字替换标准项目编码独立字段。
   /// </summary>
   [Fact]
@@ -366,7 +366,7 @@ public sealed class Stage6StatisticsContractTests
   /// <summary>
   /// V1（S6-D19 修订面）：两个导出请求含导出类型、必填汇总维度、统一关键字与可选不采纳原因代码，
   /// 承载统计查询条件，且不含分页对象；统一关键字替换互认科室ID、标准项目编码与互认医生ID独立字段，
-  /// 不采纳原因代码仍仅作用于接收侧不采纳明细导出。
+  /// 不采纳原因代码仍仅作用于使用方不采纳明细导出。
   /// 本院版导出请求不含任何组织与医院字段，仅保留本侧院区与来源/接收两组院区可选筛选。
   /// </summary>
   [Fact]
@@ -456,7 +456,7 @@ public sealed class Stage6StatisticsContractTests
   }
 
   /// <summary>
-  /// V5：接收侧汇总读模型携带汇总维度字段，两个汇总读模型都携带标准项目名称，
+  /// V5：使用方汇总读模型携带汇总维度字段，两个汇总读模型都携带标准项目名称，
   /// 不采纳原因汇总为嵌套集合，匹配记录集合视图的匹配项为嵌套集合。
   /// </summary>
   [Fact]

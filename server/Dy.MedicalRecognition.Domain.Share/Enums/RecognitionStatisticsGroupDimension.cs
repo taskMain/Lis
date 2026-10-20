@@ -9,7 +9,7 @@ namespace Dy.MedicalRecognition.Domain.Share.Enums;
 /// <remarks>
 /// 本枚举属于对外契约的一部分：启用 SourceGen 描述器生成后，应用层的 OpenAPI 转换器据其补充 `enum`、
 /// `x-enumNames` 与 `x-enumDescriptions`，前端按数值交互并可从事先声明的中文说明取值。
-/// 来源侧汇总只接受来源医院、来源院区与标准项目三个维度，互认科室维度值在来源侧按业务拒绝。
+/// 提供方汇总只接受提供方医院、提供方院区与标准项目三个维度，互认科室维度值在提供方按业务拒绝。
 /// </remarks>
 [EnumDescriptor]
 public enum RecognitionStatisticsGroupDimension

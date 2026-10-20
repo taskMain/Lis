@@ -3,7 +3,7 @@ using Dy.MedicalRecognition.Domain.Share.Enums;
 namespace Dy.MedicalRecognition.Domain.Queries;
 
 /// <summary>
-/// 接收侧提醒明细的行级投影：统计范围内按匹配生成时间落入的匹配项，含尚未反馈处理结果的项。
+/// 使用方提醒明细的行级投影：统计范围内按匹配生成时间落入的匹配项，含尚未反馈处理结果的项。
 /// </summary>
 /// <remarks>
 /// 处理结果字段为空值表示该项未反馈，由应用层显示「未反馈」，不推断为不采纳；
@@ -22,17 +22,17 @@ public sealed record RecognitionReminderDetailItem
   public VisitType VisitType { get; init; }
   /// <summary>本次来源就诊流水号。</summary>
   public string VisitSerialNo { get; init; } = string.Empty;
-  /// <summary>接收组织编码。</summary>
+  /// <summary>使用方组织编码。</summary>
   public string ReceiverOrganizationCode { get; init; } = string.Empty;
-  /// <summary>接收医院编码。</summary>
+  /// <summary>使用方医院编码。</summary>
   public string ReceiverHospitalCode { get; init; } = string.Empty;
-  /// <summary>接收院区编码。</summary>
+  /// <summary>使用方院区编码。</summary>
   public string ReceiverBranchCode { get; init; } = string.Empty;
-  /// <summary>来源组织编码；取自匹配项绑定报告的主体。</summary>
+  /// <summary>提供方组织编码；取自匹配项绑定报告的主体。</summary>
   public string? SourceOrganizationCode { get; init; }
-  /// <summary>来源医院编码。</summary>
+  /// <summary>提供方医院编码。</summary>
   public string? SourceHospitalCode { get; init; }
-  /// <summary>来源院区编码。</summary>
+  /// <summary>提供方院区编码。</summary>
   public string? SourceBranchCode { get; init; }
   /// <summary>项目类型：取匹配项自身保存值。</summary>
   public MedicalItemType ItemType { get; init; }

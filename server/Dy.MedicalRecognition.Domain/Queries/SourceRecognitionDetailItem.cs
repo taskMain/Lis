@@ -1,7 +1,7 @@
 namespace Dy.MedicalRecognition.Domain.Queries;
 
 /// <summary>
-/// 来源医院被互认明细的行级投影：本组织作为来源方被其他医院采纳的逐项事实。
+/// 提供方医院被互认明细的行级投影：本组织作为提供方被其他医院采纳的逐项事实。
 /// </summary>
 /// <remarks>
 /// 行集限定为采纳事实，互认时间恒有值；互认科室与医生取处理结果自身保存值；
@@ -13,21 +13,21 @@ public sealed record SourceRecognitionDetailItem
   public Guid RecognitionMatchRecordId { get; init; }
   /// <summary>互认匹配项标识。</summary>
   public Guid RecognitionMatchItemId { get; init; }
-  /// <summary>来源组织编码：取自匹配项绑定报告的主体。</summary>
+  /// <summary>提供方组织编码：取自匹配项绑定报告的主体。</summary>
   public string SourceOrganizationCode { get; init; } = string.Empty;
-  /// <summary>来源医院编码。</summary>
+  /// <summary>提供方医院编码。</summary>
   public string SourceHospitalCode { get; init; } = string.Empty;
-  /// <summary>来源院区编码。</summary>
+  /// <summary>提供方院区编码。</summary>
   public string SourceBranchCode { get; init; } = string.Empty;
-  /// <summary>接收组织编码。</summary>
+  /// <summary>使用方组织编码。</summary>
   public string ReceiverOrganizationCode { get; init; } = string.Empty;
-  /// <summary>接收医院编码。</summary>
+  /// <summary>使用方医院编码。</summary>
   public string ReceiverHospitalCode { get; init; } = string.Empty;
-  /// <summary>接收院区编码。</summary>
+  /// <summary>使用方院区编码。</summary>
   public string ReceiverBranchCode { get; init; } = string.Empty;
   /// <summary>标准项目编码。</summary>
   public string StandardProjectCode { get; init; } = string.Empty;
-  /// <summary>处理结果的互认时间；来源侧明细的业务时间。</summary>
+  /// <summary>处理结果的互认时间；提供方明细的业务时间。</summary>
   public DateTime RecognitionTime { get; init; }
   /// <summary>互认科室ID：取处理结果自身保存值。</summary>
   public string RecognitionDeptId { get; init; } = string.Empty;

@@ -48,9 +48,9 @@ public sealed class Stage5SqlMapTests
       ],
       [
         ("id", "主键ID"),
-        ("receiver_organization_code", "接收组织编码"),
-        ("receiver_hospital_code", "接收医院编码"),
-        ("receiver_branch_code", "接收院区编码"),
+        ("receiver_organization_code", "使用方组织编码"),
+        ("receiver_hospital_code", "使用方医院编码"),
+        ("receiver_branch_code", "使用方院区编码"),
         ("identity_document_type_code", "证件类型代码"),
         ("identity_document_no", "证件号码"),
         ("visit_type", "就诊类型"),
@@ -1677,7 +1677,7 @@ public sealed class Stage5SqlMapTests
     Assert.Empty(AliasViolations(contexts));
     Assert.Contains("v.id as id", scalar, StringComparison.Ordinal);
 
-    // 变异证据：把来源组织列的别名改成另一个名字后，同一判据必须报出该列未按属性名取别名。
+    // 变异证据：把提供方组织列的别名改成另一个名字后，同一判据必须报出该列未按属性名取别名。
     string renamed = facts.Replace("as source_organization_code", "as source_org_code", StringComparison.Ordinal);
     Assert.NotEqual(facts, renamed);
     Assert.Equal("r.organization_code", Assert.Single(AliasViolations(renamed)));
@@ -1774,11 +1774,11 @@ public sealed class Stage5SqlMapTests
   }
 
   /// <summary>
-  /// V14、V15、V16 的静态面（票 03）：候选报告语句按当前有效报告、当前版本与接收组织三条判据筛选候选。
+  /// V14、V15、V16 的静态面（票 03）：候选报告语句按当前有效报告、当前版本与使用方组织三条判据筛选候选。
   /// </summary>
   /// <remarks>
-  /// 报告已作废或版本非当前有效（V14）、报告已形成后续版本（V15）、来源组织与接收组织不一致（V16）三条行为用例不在本文件，
-  /// 由三条判据静态承接：生命周期状态筛选、当前版本内联连接与来源组织范围。三条判据分布在两个报告类型分支上，
+  /// 报告已作废或版本非当前有效（V14）、报告已形成后续版本（V15）、提供方组织与使用方组织不一致（V16）三条行为用例不在本文件，
+  /// 由三条判据静态承接：生命周期状态筛选、当前版本内联连接与提供方组织范围。三条判据分布在两个报告类型分支上，
   /// 任一分支漏写都会让该类型报告参与匹配或读到历史版本，而语句仍可执行、编译与既有用例都不失败。
   /// 判据按语句文本中的谓词片段逐项计数，不使用宽松的子串包含。
   /// </remarks>
@@ -1791,7 +1791,7 @@ public sealed class Stage5SqlMapTests
     Assert.Equal(2, PredicateOccurrences(statement, "r.status", "1"));
     // V15：候选筛选落在报告的当前版本指向上，历史版本不参与匹配。
     Assert.Equal(2, Regex.Matches(statement, @"join mrec_medical_report_version v on v\.id = r\.current_version_id", RegexOptions.CultureInvariant).Count);
-    // V16：MVP 只匹配来源组织与接收组织一致的报告，两个分支同一口径。
+    // V16：MVP 只匹配提供方组织与使用方组织一致的报告，两个分支同一口径。
     Assert.Equal(2, PredicateOccurrences(statement, "r.organization_code", "$OrganizationCode"));
 
     // 变异证据：把任一分支的状态筛选改成"取已作废报告"后，状态判据必须判为不再满足。
@@ -1801,11 +1801,11 @@ public sealed class Stage5SqlMapTests
   }
 
   /// <summary>
-  /// V79b：候选报告查询只按来源组织限定来源范围（票 09）：两个报告类型分支各只保留
-  /// <c>r.organization_code = $OrganizationCode</c> 一条来源范围谓词，来源医院与来源院区不作为过滤条件。
+  /// V79b：候选报告查询只按提供方组织限定来源范围（票 09）：两个报告类型分支各只保留
+  /// <c>r.organization_code = $OrganizationCode</c> 一条来源范围谓词，提供方医院与提供方院区不作为过滤条件。
   /// </summary>
   /// <remarks>
-  /// 本院报告判定在域层完成，候选语句若保留来源医院或来源院区的等值谓词，同组织跨医院报告与本院跨院区报告
+  /// 本院报告判定在域层完成，候选语句若保留提供方医院或提供方院区的等值谓词，同组织跨医院报告与本院跨院区报告
   /// 会在 SQL 层被过滤，域层的本院判定与跨院直通分支空转，而语句仍可执行、编译与既有用例都不失败。
   /// 判据按语句文本中的谓词片段逐项计数，并带变异证据：重新引入任一过滤谓词后对应计数必须翻转。
   /// </remarks>
@@ -1814,15 +1814,15 @@ public sealed class Stage5SqlMapTests
   {
     string statement = NormaliseStatement(QueryStatement("QueryRecognitionMatchCandidateReports"));
 
-    // 来源组织谓词两个分支各一条，V16 的 MVP 组织边界不变。
+    // 提供方组织谓词两个分支各一条，V16 的 MVP 组织边界不变。
     Assert.Equal(2, PredicateOccurrences(statement, "r.organization_code", "$OrganizationCode"));
-    // 来源医院与来源院区不作为过滤条件出现。
+    // 提供方医院与提供方院区不作为过滤条件出现。
     Assert.Equal(0, Regex.Matches(statement, @"r\.hospital_code\s*=", RegexOptions.CultureInvariant).Count);
     Assert.Equal(0, Regex.Matches(statement, @"r\.branch_code\s*=", RegexOptions.CultureInvariant).Count);
-    // 来源医院列仍投影给域层完成本院报告判定。
+    // 提供方医院列仍投影给域层完成本院报告判定。
     Assert.Equal(2, Regex.Matches(statement, @"r\.hospital_code\s+as\s+source_hospital_code", RegexOptions.CultureInvariant).Count);
 
-    // 变异证据：重新引入来源院区过滤后，「院区不作为过滤条件」判据必须报为不再满足。
+    // 变异证据：重新引入提供方院区过滤后，「院区不作为过滤条件」判据必须报为不再满足。
     Assert.Equal(2, PredicateOccurrences(statement, "r.patient_id", "$PatientId"));
     string branchFilterReintroduced = statement.Replace(
       "and r.patient_id = $PatientId", "and r.branch_code = $BranchCode and r.patient_id = $PatientId", StringComparison.Ordinal);

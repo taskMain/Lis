@@ -5,14 +5,14 @@
  * - 平台页 `/subApps/medical-recognition/source-recognition-statistics`
  * - 本院页 `/subApps/medical-recognition/branch-source-recognition-statistics`
  *
- * 与接收侧页面同构（共享 StatisticsBoard），差异在数据口径与范围形态：
+ * 与使用方页面同构（共享 StatisticsBoard），差异在数据口径与范围形态：
  * 只统计被互认次数，无金额、无明细类型切换与不采纳原因区（C22）；
  * 平台页来源组与接收组的组织、医院、院区三级都由页面选择并随请求提交；
  * 本院页提供方组织与提供方医院取可信上下文并固定展示，请求不提交这两项（由服务端注入），
  * 提供方院区恒为登录院区（不提供院区选择；缺失属权限配置错误，页面零业务请求、以空态呈现，
  * 服务端全院统计契约仅为接口面保留（S6-D1），前端已不按其触发），
  * 接收组只提交医院与院区（使用方组织恒为可信组织）。
- * 来源侧明细不提供匹配记录入口（S6-D10），页面不注入匹配记录查询出口。
+ * 提供方明细不提供匹配记录入口（S6-D10），页面不注入匹配记录查询出口。
  */
 import { Typography } from 'antd'
 import { useCallback, useMemo, useState } from 'react'
@@ -49,7 +49,7 @@ import { defaultStatisticsFilters } from './statisticsDisplays'
 /** 页面版本：平台管理员入口或医院管理员入口；双版本请求分支由适配层按 version 收敛。 */
 type StatisticsPageVersion = 'platform' | 'branch'
 
-/** 页面级筛选 → 平台/本院版来源侧汇总查询条件的装配；统一关键字承载互认科室、互认项目条件（S6-D19）。 */
+/** 页面级筛选 → 平台/本院版提供方汇总查询条件的装配；统一关键字承载互认科室、互认项目条件（S6-D19）。 */
 function toSummaryQuery(version: StatisticsPageVersion, filters: StatisticsFilters, dimension: StatisticsGroupDimensionValue): SourceSummaryQuery {
   const shared = {
     startTime: filters.startTime,
@@ -79,7 +79,7 @@ function toSummaryQuery(version: StatisticsPageVersion, filters: StatisticsFilte
   }
 }
 
-/** 页面级筛选 → 平台/本院版来源侧明细查询条件的装配；来源侧没有明细类型与医生、原因筛选。 */
+/** 页面级筛选 → 平台/本院版提供方明细查询条件的装配；提供方没有明细类型与医生、原因筛选。 */
 function toDetailsQuery(version: StatisticsPageVersion, filters: StatisticsFilters): SourceDetailsQuery {
   const shared = {
     startTime: filters.startTime,
@@ -108,7 +108,7 @@ function toDetailsQuery(version: StatisticsPageVersion, filters: StatisticsFilte
   }
 }
 
-/** 页面级筛选 → 来源侧导出查询条件的装配（沿用当前查询条件，不带分页）。 */
+/** 页面级筛选 → 提供方导出查询条件的装配（沿用当前查询条件，不带分页）。 */
 function toExportQuery(version: StatisticsPageVersion, filters: StatisticsFilters, request: {
   exportType: SourceExportTypeValue
   groupDimension: StatisticsGroupDimensionValue

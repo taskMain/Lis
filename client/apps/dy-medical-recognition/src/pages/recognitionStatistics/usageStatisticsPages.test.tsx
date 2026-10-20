@@ -3,7 +3,7 @@
  * （阶段 6 前端测试矩阵 C10、C13、C15、C20 的页面接线面）。
  *
  * 装配边界（遵循 Frontend Testing 第 2 节「mock 位于 Client/适配层边界，并保持真实契约形态」）：
- * 1. 接收侧适配层只替换 I/O 出口（汇总/明细查询、匹配记录读取、导出），请求构造等纯函数
+ * 1. 使用方适配层只替换 I/O 出口（汇总/明细查询、匹配记录读取、导出），请求构造等纯函数
  *    使用真实实现——用例断言的是**经真实构造校验的 built 查询**；本院页「不提交本侧组织与医院」
  *    由可辨识联合类型与构造函数共同保证，用例再以字段缺失断言冻结该口径；
  * 2. `../../contexts/ApiClientContext` 只提供占位 client，页面把 client 原样透传给适配层出口；
@@ -261,14 +261,14 @@ describe('使用方互认使用统计（平台页）', () => {
     expect(summaryQuery).toMatchObject({ version: 'platform', exportType: 1, groupDimension: 1 })
     expect(summaryQuery).not.toHaveProperty('pageIndex')
     expect(summaryQuery).not.toHaveProperty('pageSize')
-    expect(summaryName).toMatch(/^接收侧互认使用汇总-\d{8}-\d{8}\.xlsx$/)
+    expect(summaryName).toMatch(/^使用方互认使用汇总-\d{8}-\d{8}\.xlsx$/)
 
     fireEvent.click(within(screen.getByRole('region', { name: '使用明细' })).getByRole('radio', { name: '引用' }))
     fireEvent.click(screen.getByRole('button', { name: '导出明细' }))
     await waitFor(() => expect(usageApi.exportUsageStatistics).toHaveBeenCalledTimes(2))
     const [, detailsQuery, detailsName] = usageApi.exportUsageStatistics.mock.calls[1]
     expect(detailsQuery).toMatchObject({ version: 'platform', exportType: 5, groupDimension: 1 })
-    expect(detailsName).toMatch(/^接收侧引用明细-\d{8}-\d{8}\.xlsx$/)
+    expect(detailsName).toMatch(/^使用方引用明细-\d{8}-\d{8}\.xlsx$/)
   })
 
   it('明细行提供匹配记录出口：以 client 与行记录标识发起单记录查询（C13、C14 接线面）', async () => {

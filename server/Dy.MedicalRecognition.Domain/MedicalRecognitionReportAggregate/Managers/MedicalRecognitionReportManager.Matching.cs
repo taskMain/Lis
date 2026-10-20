@@ -149,7 +149,7 @@ public partial class MedicalRecognitionReportManager
   /// 任一项的类型与该项目互认配置归属的标准目录分类不一致时同样按不可用处理，避免按错误类型选到另一侧的候选报告。
   /// 返回值第二个分量非空表示整批校验失败，调用方按整次失败处理。
   /// </remarks>
-  /// <param name="organizationCode">可信接收组织编码，决定读取哪个组织的互认配置与标准目录范围。</param>
+  /// <param name="organizationCode">可信使用方组织编码，决定读取哪个组织的互认配置与标准目录范围。</param>
   /// <param name="proposedItems">本次提交的拟开项目集合。</param>
   /// <returns>
   /// 有效编码到提交项的映射、有效编码到互认配置行的映射（供逐项目取可互认时间），
@@ -234,11 +234,11 @@ public partial class MedicalRecognitionReportManager
   /// <remarks>
   /// 匹配基准时间缺失、匹配基准时间晚于本次查询时点、报告时间晚于本次查询时点的候选都不参与匹配；
   /// 可互认时间从报告时间起按连续二十四小时计算，经过时间小于或等于配置值才满足，边界包含；
-  /// 本院报告指来源医院与接收医院相同，判定不区分院区；排除时长大于该项目可互认时间时该项目不返回本院报告，按正常成功处理而不是配置错误。
+  /// 本院报告指提供方医院与使用方医院相同，判定不区分院区；排除时长大于该项目可互认时间时该项目不返回本院报告，按正常成功处理而不是配置错误。
   /// </remarks>
   /// <param name="candidate">待判定的候选行。</param>
   /// <param name="recognitionDurationDays">该项目当前配置的可互认时间天数。</param>
-  /// <param name="command">匹配查询命令，提供接收医院、匹配截止点与本院报告两个参数。</param>
+  /// <param name="command">匹配查询命令，提供使用方医院、匹配截止点与本院报告两个参数。</param>
   /// <returns>该候选参与匹配时为 <see langword="true"/>。</returns>
   private static bool IsMatchableCandidate(
     RecognitionMatchCandidateReportItem candidate, int recognitionDurationDays, QueryRecognitionMatchesCommand command)

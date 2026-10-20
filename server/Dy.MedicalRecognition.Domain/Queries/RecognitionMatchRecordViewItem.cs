@@ -23,11 +23,11 @@ public sealed record RecognitionMatchRecordViewItem
   public string StandardProjectCode { get; init; } = string.Empty;
   /// <summary>标准项目名称：实时取自标准目录。</summary>
   public string? StandardItemName { get; init; }
-  /// <summary>来源组织编码：取自匹配项绑定报告的主体。</summary>
+  /// <summary>提供方组织编码：取自匹配项绑定报告的主体。</summary>
   public string? SourceOrganizationCode { get; init; }
-  /// <summary>来源医院编码。</summary>
+  /// <summary>提供方医院编码。</summary>
   public string? SourceHospitalCode { get; init; }
-  /// <summary>来源院区编码。</summary>
+  /// <summary>提供方院区编码。</summary>
   public string? SourceBranchCode { get; init; }
   /// <summary>匹配项绑定报告的标识。</summary>
   public Guid ReportId { get; init; }

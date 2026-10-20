@@ -18,9 +18,9 @@ public partial interface IMedicalRecognitionReportQueryRepository
   /// 排序为匹配基准时间倒序、报告时间倒序、报告版本标识升序，调用方按该顺序逐项目取第一条即可得到最晚出具的一份稳定候选；
   /// 标准项目编码集合为空时返回空集合，由调用方表达为成功的空匹配。
   /// </remarks>
-  /// <param name="organizationCode">可信接收组织编码，同时作为 MVP 的来源组织范围。</param>
-  /// <param name="hospitalCode">可信接收医院编码，与来源医院是否相同决定本院报告是否参与匹配。</param>
-  /// <param name="branchCode">可信接收院区编码。</param>
+  /// <param name="organizationCode">可信使用方组织编码，同时作为 MVP 的提供方组织范围。</param>
+  /// <param name="hospitalCode">可信使用方医院编码，与提供方医院是否相同决定本院报告是否参与匹配。</param>
+  /// <param name="branchCode">可信使用方院区编码。</param>
   /// <param name="patientId">本次按证件解析到的平台患者标识，候选报告主体必须关联该患者。</param>
   /// <param name="identityDocumentTypeCode">患者证件类型代码，应为去除首尾空白后的规范形式。</param>
   /// <param name="identityDocumentNo">患者证件号码，应为去除首尾空白并统一大写后的规范形式。</param>

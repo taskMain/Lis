@@ -54,7 +54,7 @@ public partial record RecognitionProcessingResultDto : Dto
   /// </summary>
   public partial string? NonAdoptionDescription { get; set; }
   /// <summary>
-  /// 预计节省金额，单位元；采纳时按接收组织、医院、院区的当前金额一次形成，未配置时按零元形成。
+  /// 预计节省金额，单位元；采纳时按使用方组织、医院、院区的当前金额一次形成，未配置时按零元形成。
   /// </summary>
   public partial decimal? EstimatedSavingAmount { get; set; }
   /// <summary>

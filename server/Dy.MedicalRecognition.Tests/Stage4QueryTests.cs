@@ -314,7 +314,7 @@ public sealed class Stage4QueryTests
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
       () => service.QueryMedicalReportListAsync(new ReportListQueryRequest { Page = new PageRequestDto { PageIndex = 1, PageSize = 20 } }));
 
-    Assert.Equal("业务拒绝：报告来源医院不存在、已停用或不属于该组织。", error.Message);
+    Assert.Equal("业务拒绝：报告提供方医院不存在、已停用或不属于该组织。", error.Message);
   }
 
   /// <summary>

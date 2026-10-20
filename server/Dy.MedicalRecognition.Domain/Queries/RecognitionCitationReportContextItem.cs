@@ -5,7 +5,7 @@ namespace Dy.MedicalRecognition.Domain.Queries;
 /// </summary>
 /// <remarks>
 /// 行集由本次要返回的报告版本标识集合决定，每个版本恰好一行；
-/// 来源组织、医院与院区只保存编码，名称由应用层按来源三值经组织路径解析点批量回填，本投影不携带名称；
+/// 提供方组织、医院与院区只保存编码，名称由应用层按来源三值经组织路径解析点批量回填，本投影不携带名称；
 /// 检查或检验时间按报告类型合并取值：检验取检测完成时间、检查取实际检查时间；
 /// 检查所见与检查结论只在检查侧有值，检验报告为空值；
 /// 来源影像状态与影像调阅地址只在检查侧有值，检验报告为空值。
@@ -23,11 +23,11 @@ public sealed record RecognitionCitationReportContextItem
   public string ReportNo { get; init; } = string.Empty;
   /// <summary>来源报告名称；取自报告版本的来源原值。</summary>
   public string ReportName { get; init; } = string.Empty;
-  /// <summary>来源组织编码；供应用层批量回填来源医疗机构名称。</summary>
+  /// <summary>提供方组织编码；供应用层批量回填来源医疗机构名称。</summary>
   public string SourceOrganizationCode { get; init; } = string.Empty;
-  /// <summary>来源医院编码；供应用层批量回填来源医疗机构名称。</summary>
+  /// <summary>提供方医院编码；供应用层批量回填来源医疗机构名称。</summary>
   public string SourceHospitalCode { get; init; } = string.Empty;
-  /// <summary>来源院区编码；供应用层批量回填来源医疗机构名称。</summary>
+  /// <summary>提供方院区编码；供应用层批量回填来源医疗机构名称。</summary>
   public string SourceBranchCode { get; init; } = string.Empty;
   /// <summary>检查或检验时间；检验取检测完成时间、检查取实际检查时间。</summary>
   public DateTime ClinicalTime { get; init; }

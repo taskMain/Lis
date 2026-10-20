@@ -5,7 +5,7 @@ namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Ports;
 /// </summary>
 /// <remarks>
 /// 只做数据读写并返回行数，不判断业务状态：整组完整性、时间顺序、决定内容、幂等与冲突判定都在领域层完成；
-/// 处理结果表不保存标准项目编码，采纳项目的当前金额按接收组织、医院、院区与由匹配项反查得到的项目编码读取。
+/// 处理结果表不保存标准项目编码，采纳项目的当前金额按使用方组织、医院、院区与由匹配项反查得到的项目编码读取。
 /// </remarks>
 public partial interface IMedicalRecognitionReportRepository
 {

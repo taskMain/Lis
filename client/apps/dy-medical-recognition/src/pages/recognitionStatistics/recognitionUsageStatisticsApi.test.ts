@@ -1,5 +1,5 @@
 /**
- * 接收侧互认使用统计适配层的请求形状、分页收敛与读模型映射用例
+ * 使用方互认使用统计适配层的请求形状、分页收敛与读模型映射用例
  * （阶段 6 前端测试矩阵 C4 / C5 / C6 的适配层单元面）。
  *
  * 装配边界：纯映射函数用真实实现；I/O 出口用生成端同形的伪 Client 驱动，
@@ -197,7 +197,7 @@ describe('C4 本院版汇总请求：类型与请求体都不含本侧组织与�
   })
 })
 
-describe('C4 接收侧明细请求：明细类型必填，关键字承载医生条件，原因只随不采纳明细', () => {
+describe('C4 使用方明细请求：明细类型必填，关键字承载医生条件，原因只随不采纳明细', () => {
   it('平台版不采纳明细请求提交统一关键字与不采纳原因代码，独立医生字段不再出现', async () => {
     const built = buildUsageDetailsQuery(
       {
@@ -365,7 +365,7 @@ describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录
     expect(built).not.toBeNull()
 
     const client = stubClient({ exportPlatform: new ArrayBuffer(8) })
-    await exportUsageStatistics(client, built as NonNullable<typeof built>, '接收侧互认使用汇总.xlsx')
+    await exportUsageStatistics(client, built as NonNullable<typeof built>, '使用方互认使用汇总.xlsx')
     const post = client.api.v1.statisticsExport.platform.post
     expect(post).toHaveBeenCalledTimes(1)
     const body = bodyOf(post)
@@ -393,7 +393,7 @@ describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录
     })
     expect(referenceBuilt).not.toBeNull()
     const referenceClient = stubClient({ exportPlatform: new ArrayBuffer(8) })
-    await exportUsageStatistics(referenceClient, referenceBuilt as NonNullable<typeof referenceBuilt>, '接收侧引用明细.xlsx')
+    await exportUsageStatistics(referenceClient, referenceBuilt as NonNullable<typeof referenceBuilt>, '使用方引用明细.xlsx')
     expect(bodyOf(referenceClient.api.v1.statisticsExport.platform.post)).not.toHaveProperty('nonAdoptionReasonCode')
 
     // 不采纳明细导出（类型 4）：原因代码提交。
@@ -407,7 +407,7 @@ describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录
     })
     expect(nonAdoptionBuilt).not.toBeNull()
     const nonAdoptionClient = stubClient({ exportPlatform: new ArrayBuffer(8) })
-    await exportUsageStatistics(nonAdoptionClient, nonAdoptionBuilt as NonNullable<typeof nonAdoptionBuilt>, '接收侧不采纳明细.xlsx')
+    await exportUsageStatistics(nonAdoptionClient, nonAdoptionBuilt as NonNullable<typeof nonAdoptionBuilt>, '使用方不采纳明细.xlsx')
     expect(bodyOf(nonAdoptionClient.api.v1.statisticsExport.platform.post).nonAdoptionReasonCode).toBe('R1')
   })
 
@@ -426,7 +426,7 @@ describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录
     expect(built).not.toBeNull()
 
     const client = stubClient({ exportBranch: new ArrayBuffer(8) })
-    await exportUsageStatistics(client, built as NonNullable<typeof built>, '接收侧提醒明细.xlsx')
+    await exportUsageStatistics(client, built as NonNullable<typeof built>, '使用方提醒明细.xlsx')
     const post = client.api.v1.statisticsExport.branch.post
     expect(post).toHaveBeenCalledTimes(1)
     const body = bodyOf(post)

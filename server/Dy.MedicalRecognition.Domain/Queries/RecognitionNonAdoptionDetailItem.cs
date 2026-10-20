@@ -3,7 +3,7 @@ using Dy.MedicalRecognition.Domain.Share.Enums;
 namespace Dy.MedicalRecognition.Domain.Queries;
 
 /// <summary>
-/// 接收侧不采纳明细的行级投影：统计范围内按互认时间落入的不采纳事实及其原因代码与补充说明。
+/// 使用方不采纳明细的行级投影：统计范围内按互认时间落入的不采纳事实及其原因代码与补充说明。
 /// </summary>
 /// <remarks>
 /// 原因代码取平台统一原因枚举值；补充说明按业务原值返回，只在明细与导出展示，原因汇总不聚合该文本；
@@ -21,17 +21,17 @@ public sealed record RecognitionNonAdoptionDetailItem
   public VisitType VisitType { get; init; }
   /// <summary>本次来源就诊流水号。</summary>
   public string VisitSerialNo { get; init; } = string.Empty;
-  /// <summary>接收组织编码。</summary>
+  /// <summary>使用方组织编码。</summary>
   public string ReceiverOrganizationCode { get; init; } = string.Empty;
-  /// <summary>接收医院编码。</summary>
+  /// <summary>使用方医院编码。</summary>
   public string ReceiverHospitalCode { get; init; } = string.Empty;
-  /// <summary>接收院区编码。</summary>
+  /// <summary>使用方院区编码。</summary>
   public string ReceiverBranchCode { get; init; } = string.Empty;
-  /// <summary>来源组织编码；取自匹配项绑定报告的主体。</summary>
+  /// <summary>提供方组织编码；取自匹配项绑定报告的主体。</summary>
   public string? SourceOrganizationCode { get; init; }
-  /// <summary>来源医院编码。</summary>
+  /// <summary>提供方医院编码。</summary>
   public string? SourceHospitalCode { get; init; }
-  /// <summary>来源院区编码。</summary>
+  /// <summary>提供方院区编码。</summary>
   public string? SourceBranchCode { get; init; }
   /// <summary>项目类型：取匹配项自身保存值。</summary>
   public MedicalItemType ItemType { get; init; }

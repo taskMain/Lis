@@ -1,8 +1,8 @@
 /**
- * 来源医院被互认统计适配层的请求形状、分页收敛与读模型映射用例
- * （阶段 6 前端测试矩阵 C4 / C5 / C6 的来源侧适配层单元面）。
+ * 提供方医院被互认统计适配层的请求形状、分页收敛与读模型映射用例
+ * （阶段 6 前端测试矩阵 C4 / C5 / C6 的提供方适配层单元面）。
  *
- * 装配边界：与接收侧适配层测试一致——纯映射函数用真实实现；I/O 出口用生成端同形的伪 Client
+ * 装配边界：与使用方适配层测试一致——纯映射函数用真实实现；I/O 出口用生成端同形的伪 Client
  * 驱动，断言真实下发的请求体形状，不构造真实鉴权适配器、不替换任何模块。
  */
 import { describe, expect, it, vi } from 'vitest'
@@ -61,7 +61,7 @@ const summaryPageResponse = {
   page: { pageIndex: 1, pageSize: 20, totalCount: 3 },
 }
 
-describe('C4 平台版来源侧汇总请求：来源组与接收组三级范围都随请求提交', () => {
+describe('C4 平台版提供方汇总请求：来源组与接收组三级范围都随请求提交', () => {
   it('请求体携带两组组织编码、统一关键字、日期原样、维度与内嵌分页', async () => {
     const built = buildSourceSummaryQuery(
       {
@@ -92,7 +92,7 @@ describe('C4 平台版来源侧汇总请求：来源组与接收组三级范围�
     expect(body.receiverOrganizationCode).toBe('ORG1')
     expect(body.receiverHospitalCode).toBe('HOS1')
     expect(body.receiverBranchCode).toBe('BR1')
-    // 统一关键字承载互认科室、互认项目条件（来源侧语句无医生列）：输入原文去首尾空白后提交。
+    // 统一关键字承载互认科室、互认项目条件（提供方语句无医生列）：输入原文去首尾空白后提交。
     expect(body.keyword).toBe('A01')
     // 标准项目编码独立字段不再提交（S6-D19）。
     expect(body).not.toHaveProperty('standardProjectCode')
@@ -103,7 +103,7 @@ describe('C4 平台版来源侧汇总请求：来源组与接收组三级范围�
   })
 })
 
-describe('C4 本院版来源侧请求：本侧来源组织与医院、接收组织都不提交', () => {
+describe('C4 本院版提供方请求：本侧来源组织与医院、接收组织都不提交', () => {
   it('汇总请求只提交本侧来源院区、接收组医院/院区与统一关键字', async () => {
     const built = buildSourceSummaryQuery(
       {
@@ -136,7 +136,7 @@ describe('C4 本院版来源侧请求：本侧来源组织与医院、接收组�
     expect(body).not.toHaveProperty('standardProjectCode')
   })
 
-  it('明细请求走 queryBranchSourceRecognitionDetails，来源侧没有明细类型与独立项目编码字段', async () => {
+  it('明细请求走 queryBranchSourceRecognitionDetails，提供方没有明细类型与独立项目编码字段', async () => {
     const built = buildSourceDetailsQuery(
       { version: 'branch', startTime: '2026-03-01', endTime: '2026-03-31', sourceBranchCode: 'BR9', receiverBranchCode: 'BR1', keyword: '血常规' },
       pageInput,
@@ -158,7 +158,7 @@ describe('C4 本院版来源侧请求：本侧来源组织与医院、接收组�
   })
 })
 
-describe('C4 来源侧构造拒绝面与导出请求', () => {
+describe('C4 提供方构造拒绝面与导出请求', () => {
   it('日期、维度、项目类型或分页非法拒绝构造', () => {
     const base: PlatformSourceSummaryQuery = {
       version: 'platform',
@@ -213,7 +213,7 @@ describe('C4 来源侧构造拒绝面与导出请求', () => {
     )).not.toBeNull()
   })
 
-  it('来源侧导出只接受导出类型 6-7；平台版提交两组组织编码、统一关键字且无分页', async () => {
+  it('提供方导出只接受导出类型 6-7；平台版提交两组组织编码、统一关键字且无分页', async () => {
     const base: PlatformSourceExportQuery = {
       version: 'platform',
       exportType: 6,
@@ -230,7 +230,7 @@ describe('C4 来源侧构造拒绝面与导出请求', () => {
     const built = buildSourceExportQuery(base)
     expect(built).not.toBeNull()
     const client = stubClient({ exportPlatform: new ArrayBuffer(4) })
-    await exportSourceStatistics(client, built as NonNullable<typeof built>, '来源医院被互认汇总.xlsx')
+    await exportSourceStatistics(client, built as NonNullable<typeof built>, '提供方医院被互认汇总.xlsx')
     const body = bodyOf(client.api.v1.statisticsExport.platform.post)
     expect(body.exportType).toBe(6)
     expect(body.sourceOrganizationCode).toBe('ORG2')
@@ -240,7 +240,7 @@ describe('C4 来源侧构造拒绝面与导出请求', () => {
     expect(body).not.toHaveProperty('page')
   })
 
-  it('本院版来源侧导出走 branch 端点且不提交两组组织编码', async () => {
+  it('本院版提供方导出走 branch 端点且不提交两组组织编码', async () => {
     const built = buildSourceExportQuery({
       version: 'branch',
       exportType: 7,
@@ -253,10 +253,10 @@ describe('C4 来源侧构造拒绝面与导出请求', () => {
     })
     expect(built).not.toBeNull()
     const client = stubClient({ exportBranch: new ArrayBuffer(4) })
-    await exportSourceStatistics(client, built as NonNullable<typeof built>, '来源医院被互认明细.xlsx')
+    await exportSourceStatistics(client, built as NonNullable<typeof built>, '提供方医院被互认明细.xlsx')
     const body = bodyOf(client.api.v1.statisticsExport.branch.post)
     expect(body.exportType).toBe(7)
-    // 导出请求的本侧院区是统一槽位 branchCode（查询请求里按来源侧命名为 sourceBranchCode，导出请求统一）。
+    // 导出请求的本侧院区是统一槽位 branchCode（查询请求里按提供方命名为 sourceBranchCode，导出请求统一）。
     expect(body.branchCode).toBe('BR9')
     expect(body.receiverHospitalCode).toBe('HOS1')
     expect(body.keyword).toBe('CT')
@@ -275,7 +275,7 @@ const sourceHospitalRow = {
   recognitionCount: 12,
 } as unknown as SourceRecognitionSummaryReadModel
 
-describe('C6 来源侧汇总读模型映射', () => {
+describe('C6 提供方汇总读模型映射', () => {
   it('来源组维度字段保留，未参与分组字段为 null，被互认次数映射', () => {
     const rows = toSourceSummaryRows([sourceHospitalRow])
     expect(rows[0].groupDimension).toBe(1)
@@ -306,7 +306,7 @@ describe('C6 来源侧汇总读模型映射', () => {
   })
 })
 
-/** 来源侧明细行：患者字段原值、双方归属平铺。 */
+/** 提供方明细行：患者字段原值、双方归属平铺。 */
 const sourceDetailRow = {
   recognitionMatchRecordId: '6ef0d691-0d1e-4f0f-9f2c-3bd6f4d5c011',
   recognitionMatchItemId: '6ef0d691-0d1e-4f0f-9f2c-3bd6f4d5c012',
@@ -332,7 +332,7 @@ const sourceDetailRow = {
   identityDocumentNo: 'id-raw',
 } as unknown as SourceRecognitionDetailReadModel
 
-describe('C6 来源侧明细读模型映射', () => {
+describe('C6 提供方明细读模型映射', () => {
   it('患者姓名与证件号码原样承载，双方归属与科室医生映射', () => {
     const rows = toSourceDetailRows([sourceDetailRow])
     expect(rows[0].patientName).toBe(' 王五')

@@ -32,15 +32,15 @@ public sealed record RecognitionMatchReportFactsItem
   /// </summary>
   public string ReportName { get; init; } = string.Empty;
   /// <summary>
-  /// 来源组织编码；供应用层批量回填来源医疗机构名称。
+  /// 提供方组织编码；供应用层批量回填来源医疗机构名称。
   /// </summary>
   public string SourceOrganizationCode { get; init; } = string.Empty;
   /// <summary>
-  /// 来源医院编码。
+  /// 提供方医院编码。
   /// </summary>
   public string SourceHospitalCode { get; init; } = string.Empty;
   /// <summary>
-  /// 来源院区编码。
+  /// 提供方院区编码。
   /// </summary>
   public string SourceBranchCode { get; init; } = string.Empty;
   /// <summary>
@@ -64,7 +64,7 @@ public sealed record RecognitionMatchReportFactsItem
   /// </summary>
   public string? SpecimenTypeName { get; init; }
   /// <summary>
-  /// 来源报告的整体异常标识；只表达来源医院的判断，应用层不重新计算。
+  /// 来源报告的整体异常标识；只表达提供方医院的判断，应用层不重新计算。
   /// </summary>
   public string? OverallAbnormalFlag { get; init; }
   /// <summary>

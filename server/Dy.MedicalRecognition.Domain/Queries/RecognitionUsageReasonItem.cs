@@ -3,7 +3,7 @@ using Dy.MedicalRecognition.Domain.Share.Enums;
 namespace Dy.MedicalRecognition.Domain.Queries;
 
 /// <summary>
-/// 接收侧汇总的不采纳原因行投影：与汇总分组键同套的一个分组值加一种原因代码及其次数。
+/// 使用方汇总的不采纳原因行投影：与汇总分组键同套的一个分组值加一种原因代码及其次数。
 /// </summary>
 /// <remarks>
 /// 原因行独立成行返回，避免使用方言字符串聚合；应用层按分组键把原因行装配进所属汇总行，
@@ -11,11 +11,11 @@ namespace Dy.MedicalRecognition.Domain.Queries;
 /// </remarks>
 public sealed record RecognitionUsageReasonItem
 {
-  /// <summary>接收组织编码；分组键随所选维度取值，未参与分组的维度为空值。</summary>
+  /// <summary>使用方组织编码；分组键随所选维度取值，未参与分组的维度为空值。</summary>
   public string? ReceiverOrganizationCode { get; init; }
-  /// <summary>接收医院编码。</summary>
+  /// <summary>使用方医院编码。</summary>
   public string? ReceiverHospitalCode { get; init; }
-  /// <summary>接收院区编码。</summary>
+  /// <summary>使用方院区编码。</summary>
   public string? ReceiverBranchCode { get; init; }
   /// <summary>互认科室ID。</summary>
   public string? RecognitionDeptId { get; init; }

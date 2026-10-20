@@ -53,16 +53,16 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     EnsureSourceSideExportDimension(request.ExportType, request.GroupDimension);
     EnsureSameOrganization(request.ReceiverOrganizationCode, request.SourceOrganizationCode);
 
-    // 来源侧导出类型先解析来源组再解析接收组，与来源侧查询入口的解析顺序一致。
+    // 提供方导出类型先解析来源组再解析接收组，与提供方查询入口的解析顺序一致。
     OrganizationPath? receiverScope;
     OrganizationPath? sourceScope;
     if (IsSourceSideExport(request.ExportType))
     {
       sourceScope = await ResolveOptionalScopeAsync(
         request.SourceOrganizationCode, request.SourceHospitalCode, request.SourceBranchCode,
-        "业务拒绝：来源组织不存在或已停用。",
-        "业务拒绝：来源医院不存在、已停用或不属于所选组织。",
-        "业务拒绝：来源院区不存在、已停用或不属于所选医院。");
+        "业务拒绝：提供方组织不存在或已停用。",
+        "业务拒绝：提供方医院不存在、已停用或不属于所选组织。",
+        "业务拒绝：提供方院区不存在、已停用或不属于所选医院。");
       receiverScope = await ResolveOptionalScopeAsync(
         request.ReceiverOrganizationCode, request.ReceiverHospitalCode, request.ReceiverBranchCode,
         "业务拒绝：组织不存在或已停用。",
@@ -78,9 +78,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
         "业务拒绝：院区不存在、已停用或不属于所选医院。");
       sourceScope = await ResolveOptionalScopeAsync(
         request.SourceOrganizationCode, request.SourceHospitalCode, request.SourceBranchCode,
-        "业务拒绝：来源组织不存在或已停用。",
-        "业务拒绝：来源医院不存在、已停用或不属于所选组织。",
-        "业务拒绝：来源院区不存在、已停用或不属于所选医院。");
+        "业务拒绝：提供方组织不存在或已停用。",
+        "业务拒绝：提供方医院不存在、已停用或不属于所选组织。",
+        "业务拒绝：提供方院区不存在、已停用或不属于所选医院。");
     }
 
     return await GenerateStatisticsExportAsync(new StatisticsExportCommand(
@@ -105,8 +105,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 按当前查询条件生成本可信范围的互认统计导出文件（医院管理员入口，由导出控制器的本院 POST 动作调用）。
   /// </summary>
   /// <remarks>
-  /// 本侧组织与医院取自可信上下文并按导出类型注入：接收侧导出类型注入接收组织与接收医院，
-  /// 来源侧导出类型固定来源组织与来源医院；本侧院区可选，为空按可信医院全院范围导出。
+  /// 本侧组织与医院取自可信上下文并按导出类型注入：使用方导出类型注入使用方组织与使用方医院，
+  /// 提供方导出类型固定提供方组织与提供方医院；本侧院区可选，为空按可信医院全院范围导出。
   /// 对侧组的医院与院区取请求并校验属于可信组织；其余校验、上限与文件组装与平台入口共用同一导出核心。
   /// </remarks>
   /// <param name="request">导出类型、汇总维度、日期范围与筛选条件；请求不携带本侧组织与医院字段。</param>
@@ -123,8 +123,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
 
     if (IsSourceSideExport(request.ExportType))
     {
-      // 来源侧导出类型：来源组织与来源医院固定为可信上下文，本侧来源院区可选；
-      // 接收组织恒为可信组织，接收组医院与院区取请求并校验属于可信组织。
+      // 提供方导出类型：提供方组织与提供方医院固定为可信上下文，本侧提供方院区可选；
+      // 使用方组织恒为可信组织，接收组医院与院区取请求并校验属于可信组织。
       OrganizationPath localSourceScope = await ResolveBranchLocalScopeAsync(trustedScope, request.SourceBranchCode);
       OrganizationPath? receiverScope = await ResolveBranchReceiverScopeAsync(trustedScope, request.ReceiverHospitalCode, request.ReceiverBranchCode);
 
@@ -146,8 +146,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
         request.GroupName?.Trim()));
     }
 
-    // 接收侧导出类型：接收组织与接收医院取可信上下文，本侧接收院区可选；
-    // 来源组织恒为可信组织，来源组医院与院区取请求并校验属于可信组织。
+    // 使用方导出类型：使用方组织与使用方医院取可信上下文，本侧使用方院区可选；
+    // 提供方组织恒为可信组织，来源组医院与院区取请求并校验属于可信组织。
     OrganizationPath localScope = await ResolveBranchLocalScopeAsync(trustedScope, request.BranchCode);
     OrganizationPath? sourceScope = await ResolveBranchSourceScopeAsync(trustedScope, request.SourceHospitalCode, request.SourceBranchCode);
 
@@ -170,19 +170,19 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 判断导出类型是否为来源侧导出：来源侧汇总与来源侧明细只反映本组织作为来源方的事实。
+  /// 判断导出类型是否为提供方导出：提供方汇总与提供方明细只反映本组织作为提供方的事实。
   /// </summary>
   /// <param name="exportType">请求提交的导出类型。</param>
-  /// <returns>来源侧导出类型返回 <see langword="true"/>，接收侧导出类型返回 <see langword="false"/>。</returns>
+  /// <returns>提供方导出类型返回 <see langword="true"/>，使用方导出类型返回 <see langword="false"/>。</returns>
   private static bool IsSourceSideExport(RecognitionStatisticsExportType exportType) =>
     exportType is RecognitionStatisticsExportType.SourceRecognitionSummary or RecognitionStatisticsExportType.SourceRecognitionDetails;
 
   /// <summary>
-  /// 校验导出请求的汇总维度子集：来源侧导出类型不接受互认科室维度值，进入仓储之前按业务拒绝。
+  /// 校验导出请求的汇总维度子集：提供方导出类型不接受互认科室维度值，进入仓储之前按业务拒绝。
   /// </summary>
   /// <param name="exportType">请求提交的导出类型。</param>
   /// <param name="groupDimension">请求提交的汇总维度。</param>
-  /// <exception cref="InvalidOperationException">来源侧导出类型的维度取互认科室值时抛出。</exception>
+  /// <exception cref="InvalidOperationException">提供方导出类型的维度取互认科室值时抛出。</exception>
   private static void EnsureSourceSideExportDimension(RecognitionStatisticsExportType exportType, RecognitionStatisticsGroupDimension groupDimension)
   {
     if (IsSourceSideExport(exportType))
@@ -192,7 +192,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 解析导出请求的不采纳原因代码：只对接收侧不采纳明细导出生效，其余导出类型不施加该筛选。
+  /// 解析导出请求的不采纳原因代码：只对使用方不采纳明细导出生效，其余导出类型不施加该筛选。
   /// </summary>
   /// <param name="exportType">请求提交的导出类型。</param>
   /// <param name="reasonCode">请求提交的原因代码文本；平台统一原因代码为枚举数值的十进制文本。</param>
@@ -204,7 +204,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       : null;
 
   /// <summary>
-  /// 按导出类型分发导出生成：四个接收侧明细类型共用同一读模型列，汇总与来源侧各用自己的语句与列。
+  /// 按导出类型分发导出生成：四个使用方明细类型共用同一读模型列，汇总与提供方各用自己的语句与列。
   /// </summary>
   /// <param name="command">已解析的导出条件：范围筛选取值、日期边界、汇总维度与明细筛选字段。</param>
   /// <returns>导出文件读模型。</returns>
@@ -223,11 +223,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     };
 
   /// <summary>
-  /// 生成接收侧汇总导出文件：先对分组行计数并校验零记录与上限，再全量读取分组行与原因行，
-  /// 接收方名称按全部分组行涉及编码批量回填，每个分组行按原因逐行展开、组级字段重复。
+  /// 生成使用方汇总导出文件：先对分组行计数并校验零记录与上限，再全量读取分组行与原因行，
+  /// 使用方名称按全部分组行涉及编码批量回填，每个分组行按原因逐行展开、组级字段重复。
   /// </summary>
   /// <param name="command">已解析的导出条件。</param>
-  /// <returns>接收侧汇总导出文件读模型。</returns>
+  /// <returns>使用方汇总导出文件读模型。</returns>
   /// <exception cref="InvalidOperationException">当前条件下无可导出数据、记录数超过十万行上限，或外部组织服务不可用时抛出。</exception>
   private async Task<StatisticsExportFileReadModel> ExportUsageSummaryFileAsync(StatisticsExportCommand command)
   {
@@ -241,12 +241,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     Dictionary<ReasonGroupKey, List<RecognitionUsageReasonItem>> reasonsByGroup =
       ClassifyReasonRows(await repository.QueryRecognitionUsageSummaryReasonsAsync(filter));
 
-    // 接收方名称按全部分组行涉及的编码批量解析，读取次数只随组织与医院数量增长，不随行数增长。
+    // 使用方名称按全部分组行涉及的编码批量解析，读取次数只随组织与医院数量增长，不随行数增长。
     Dictionary<(string, string, string), OrganizationPath> receiverNames = await ResolveStatisticsPageNamesAsync(
       [.. rows.Select(row => (row.ReceiverOrganizationCode, row.ReceiverHospitalCode, row.ReceiverBranchCode))],
-      "业务拒绝：汇总行的接收组织不存在或已停用。",
-      "业务拒绝：汇总行的接收医院不存在、已停用或不属于该组织。",
-      "业务拒绝：汇总行的接收院区不存在、已停用或不属于该医院。");
+      "业务拒绝：汇总行的使用方组织不存在或已停用。",
+      "业务拒绝：汇总行的使用方医院不存在、已停用或不属于该组织。",
+      "业务拒绝：汇总行的使用方院区不存在、已停用或不属于该医院。");
 
     IReadOnlyList<RecognitionUsageSummaryReadModel> models =
       [.. rows.Select(row => MapUsageSummaryRow(row, reasonsByGroup, receiverNames, filter))];
@@ -255,11 +255,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 生成接收侧明细导出文件：按导出类型先计数校验零记录与上限，再以「窗口起点 0、页容量等于计数」全量读取
+  /// 生成使用方明细导出文件：按导出类型先计数校验零记录与上限，再以「窗口起点 0、页容量等于计数」全量读取
   /// 对应事实语句，两侧名称按全部行涉及编码批量回填后组装工作簿。
   /// </summary>
   /// <param name="command">已解析的导出条件。</param>
-  /// <returns>接收侧明细导出文件读模型。</returns>
+  /// <returns>使用方明细导出文件读模型。</returns>
   /// <exception cref="InvalidOperationException">当前条件下无可导出数据、记录数超过十万行上限，或外部组织服务不可用时抛出。</exception>
   private async Task<StatisticsExportFileReadModel> ExportUsageDetailFileAsync(StatisticsExportCommand command)
   {
@@ -325,19 +325,19 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       }
 
       default:
-        throw new InvalidOperationException("导出类型不在接收侧明细取值范围内。");
+        throw new InvalidOperationException("导出类型不在使用方明细取值范围内。");
     }
   }
 
   /// <summary>
-  /// 用全量明细行组装接收侧明细导出工作簿：列头按导出类型补齐类型专属列，行序保持仓储给出的顺序。
+  /// 用全量明细行组装使用方明细导出工作簿：列头按导出类型补齐类型专属列，行序保持仓储给出的顺序。
   /// </summary>
   /// <typeparam name="TRow">全量明细行投影类型。</typeparam>
   /// <param name="command">已解析的导出条件。</param>
   /// <param name="rows">全量明细行。</param>
-  /// <param name="names">接收方与来源方名称字典。</param>
+  /// <param name="names">使用方与提供方名称字典。</param>
   /// <param name="mapRow">把行投影映射为明细读模型的映射器。</param>
-  /// <returns>接收侧明细导出文件读模型。</returns>
+  /// <returns>使用方明细导出文件读模型。</returns>
   private static StatisticsExportFileReadModel CreateUsageDetailWorkbook<TRow>(
     StatisticsExportCommand command,
     IReadOnlyList<TRow> rows,
@@ -353,7 +353,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 按导出类型组装接收侧明细导出的列头：基础列之后追加采纳金额、不采纳原因或引用事实的类型专属列。
+  /// 按导出类型组装使用方明细导出的列头：基础列之后追加采纳金额、不采纳原因或引用事实的类型专属列。
   /// </summary>
   /// <param name="exportType">导出类型。</param>
   /// <returns>与行取值顺序一致的列头集合。</returns>
@@ -366,10 +366,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   };
 
   /// <summary>
-  /// 把已解析的导出条件组装为接收侧汇总筛选：范围取值、日期边界、统一关键字与目录条件。
+  /// 把已解析的导出条件组装为使用方汇总筛选：范围取值、日期边界、统一关键字与目录条件。
   /// </summary>
   /// <param name="command">已解析的导出条件。</param>
-  /// <returns>接收侧汇总筛选条件。</returns>
+  /// <returns>使用方汇总筛选条件。</returns>
   private static RecognitionUsageSummaryFilter BuildUsageSummaryFilter(StatisticsExportCommand command) => new()
   {
     PeriodStart = command.StartTime.ToDateTime(TimeOnly.MinValue),
@@ -388,10 +388,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   };
 
   /// <summary>
-  /// 把已解析的导出条件组装为接收侧明细筛选：范围取值、日期边界、统一关键字、不采纳原因与目录条件。
+  /// 把已解析的导出条件组装为使用方明细筛选：范围取值、日期边界、统一关键字、不采纳原因与目录条件。
   /// </summary>
   /// <param name="command">已解析的导出条件。</param>
-  /// <returns>接收侧明细筛选条件。</returns>
+  /// <returns>使用方明细筛选条件。</returns>
   private static RecognitionUsageDetailFilter BuildUsageDetailFilter(StatisticsExportCommand command) => new()
   {
     PeriodStart = command.StartTime.ToDateTime(TimeOnly.MinValue),
@@ -437,11 +437,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 生成来源侧汇总导出文件：先对分组行计数并校验零记录与上限，再全量读取分组行，
-  /// 来源方名称按全部分组行涉及编码批量回填后按页面汇总行同结构导出。
+  /// 生成提供方汇总导出文件：先对分组行计数并校验零记录与上限，再全量读取分组行，
+  /// 提供方名称按全部分组行涉及编码批量回填后按页面汇总行同结构导出。
   /// </summary>
   /// <param name="command">已解析的导出条件。</param>
-  /// <returns>来源侧汇总导出文件读模型。</returns>
+  /// <returns>提供方汇总导出文件读模型。</returns>
   /// <exception cref="InvalidOperationException">当前条件下无可导出数据、记录数超过十万行上限，或外部组织服务不可用时抛出。</exception>
   private async Task<StatisticsExportFileReadModel> ExportSourceSummaryFileAsync(StatisticsExportCommand command)
   {
@@ -468,12 +468,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     IReadOnlyList<SourceRecognitionSummaryGroupItem> rows =
       [.. await repository.QuerySourceRecognitionSummaryPageAsync(filter, 0, (int)totalCount)];
 
-    // 来源方名称按全部分组行涉及的编码批量解析，读取次数只随组织与医院数量增长，不随行数增长。
+    // 提供方名称按全部分组行涉及的编码批量解析，读取次数只随组织与医院数量增长，不随行数增长。
     Dictionary<(string, string, string), OrganizationPath> sourceNames = await ResolveStatisticsPageNamesAsync(
       [.. rows.Select(row => (row.SourceOrganizationCode, row.SourceHospitalCode, row.SourceBranchCode))],
-      "业务拒绝：汇总行的来源组织不存在或已停用。",
-      "业务拒绝：汇总行的来源医院不存在、已停用或不属于该组织。",
-      "业务拒绝：汇总行的来源院区不存在、已停用或不属于该医院。");
+      "业务拒绝：汇总行的提供方组织不存在或已停用。",
+      "业务拒绝：汇总行的提供方医院不存在、已停用或不属于该组织。",
+      "业务拒绝：汇总行的提供方院区不存在、已停用或不属于该医院。");
 
     IReadOnlyList<object?[]> sheetRows =
     [
@@ -484,11 +484,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 生成来源侧明细导出文件：先计数校验零记录与上限，再全量读取来源侧被互认明细，
+  /// 生成提供方明细导出文件：先计数校验零记录与上限，再全量读取提供方被互认明细，
   /// 两侧名称按全部行涉及编码批量回填后按匹配项一行展开导出。
   /// </summary>
   /// <param name="command">已解析的导出条件。</param>
-  /// <returns>来源侧明细导出文件读模型。</returns>
+  /// <returns>提供方明细导出文件读模型。</returns>
   /// <exception cref="InvalidOperationException">当前条件下无可导出数据、记录数超过十万行上限，或外部组织服务不可用时抛出。</exception>
   private async Task<StatisticsExportFileReadModel> ExportSourceDetailFileAsync(StatisticsExportCommand command)
   {
@@ -529,19 +529,19 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 来源侧汇总导出的列头：列结构与口径同页面来源侧汇总行。
+  /// 提供方汇总导出的列头：列结构与口径同页面提供方汇总行。
   /// </summary>
   private static readonly string[] SourceSummaryHeaders =
   [
-    "来源组织编码", "来源组织名称", "来源医院编码", "来源医院名称", "来源院区编码", "来源院区名称",
+    "提供方组织编码", "提供方组织名称", "提供方医院编码", "提供方医院名称", "提供方院区编码", "提供方院区名称",
     "项目类型", "标准项目编码", "标准项目名称", "分类名称", "分组名称",
     "统计开始日期", "统计结束日期", "被互认次数"
   ];
 
   /// <summary>
-  /// 把一条来源侧汇总读模型写成导出行：分组维度字段未参与分组时按空值输出。
+  /// 把一条提供方汇总读模型写成导出行：分组维度字段未参与分组时按空值输出。
   /// </summary>
-  /// <param name="model">已组装的来源侧汇总行读模型。</param>
+  /// <param name="model">已组装的提供方汇总行读模型。</param>
   /// <returns>一行导出单元格取值，顺序与列头一致。</returns>
   private static object?[] BuildSourceSummaryRow(SourceRecognitionSummaryReadModel model) =>
   [
@@ -562,22 +562,22 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   ];
 
   /// <summary>
-  /// 来源侧明细导出的列头：两侧归属、互认科室与医生、互认时间与患者字段。
+  /// 提供方明细导出的列头：两侧归属、互认科室与医生、互认时间与患者字段。
   /// </summary>
   private static readonly string[] SourceDetailHeaders =
   [
     "互认匹配记录ID", "互认匹配项ID",
-    "来源组织编码", "来源组织名称", "来源医院编码", "来源医院名称", "来源院区编码", "来源院区名称",
-    "接收组织编码", "接收组织名称", "接收医院编码", "接收医院名称", "接收院区编码", "接收院区名称",
+    "提供方组织编码", "提供方组织名称", "提供方医院编码", "提供方医院名称", "提供方院区编码", "提供方院区名称",
+    "使用方组织编码", "使用方组织名称", "使用方医院编码", "使用方医院名称", "使用方院区编码", "使用方院区名称",
     "标准项目编码",
     "互认科室ID", "互认科室名称", "互认医生ID", "互认医生名称",
     "互认时间", "患者姓名", "证件号码"
   ];
 
   /// <summary>
-  /// 把一条来源侧明细读模型写成导出行：携带互认匹配记录与匹配项标识，两侧归属逐行重复。
+  /// 把一条提供方明细读模型写成导出行：携带互认匹配记录与匹配项标识，两侧归属逐行重复。
   /// </summary>
-  /// <param name="model">已组装的来源侧明细读模型。</param>
+  /// <param name="model">已组装的提供方明细读模型。</param>
   /// <returns>一行导出单元格取值，顺序与列头一致。</returns>
   private static object?[] BuildSourceDetailRow(SourceRecognitionDetailReadModel model) =>
   [
@@ -624,13 +624,13 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 接收侧明细导出的基础列头：互认匹配记录与匹配项标识、组级归属与项目资料按匹配项一行展开并逐行重复。
+  /// 使用方明细导出的基础列头：互认匹配记录与匹配项标识、组级归属与项目资料按匹配项一行展开并逐行重复。
   /// </summary>
   private static readonly string[] UsageDetailBaseHeaders =
   [
     "互认匹配记录ID", "互认匹配项ID", "匹配生成时间", "就诊类型", "就诊流水号",
-    "来源组织编码", "来源组织名称", "来源医院编码", "来源医院名称", "来源院区编码", "来源院区名称",
-    "接收组织编码", "接收组织名称", "接收医院编码", "接收医院名称", "接收院区编码", "接收院区名称",
+    "提供方组织编码", "提供方组织名称", "提供方医院编码", "提供方医院名称", "提供方院区编码", "提供方院区名称",
+    "使用方组织编码", "使用方组织名称", "使用方医院编码", "使用方医院名称", "使用方院区编码", "使用方院区名称",
     "项目类型", "分类名称", "分组名称", "标准项目编码", "标准项目名称",
     "业务时间", "患者姓名", "证件号码",
     "互认科室ID", "互认科室名称", "互认医生ID", "互认医生名称", "处理结果", "互认时间"
@@ -689,7 +689,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <param name="exportType">导出类型。</param>
   /// <param name="model">已组装的明细读模型。</param>
   /// <param name="cells">正在组装的行取值集合；类型专属列追加在其后。</param>
-  /// <exception cref="InvalidOperationException">导出类型不在接收侧明细取值范围内时抛出。</exception>
+  /// <exception cref="InvalidOperationException">导出类型不在使用方明细取值范围内时抛出。</exception>
   private static void AppendExportTypeTailCells(
     RecognitionStatisticsExportType exportType,
     RecognitionUsageDetailReadModel model,
@@ -715,16 +715,16 @@ public sealed partial class MedicalRecognitionReportQueryAppService
         cells.Add(model.Reference?.ReferenceDoctorName);
         break;
       default:
-        throw new InvalidOperationException("导出类型不在接收侧明细取值范围内。");
+        throw new InvalidOperationException("导出类型不在使用方明细取值范围内。");
     }
   }
 
   /// <summary>
-  /// 接收侧汇总导出的列头：列结构与口径同页面汇总行，并附不采纳原因的代码、名称、次数与占比。
+  /// 使用方汇总导出的列头：列结构与口径同页面汇总行，并附不采纳原因的代码、名称、次数与占比。
   /// </summary>
   private static readonly string[] UsageSummaryHeaders =
   [
-    "接收组织编码", "接收组织名称", "接收医院编码", "接收医院名称", "接收院区编码", "接收院区名称",
+    "使用方组织编码", "使用方组织名称", "使用方医院编码", "使用方医院名称", "使用方院区编码", "使用方院区名称",
     "互认科室ID", "互认科室名称", "项目类型", "标准项目编码", "标准项目名称", "分类名称", "分组名称",
     "统计开始日期", "统计结束日期",
     "提醒次数", "采纳次数", "不采纳次数", "引用次数", "同期互认率", "预计节省金额",
@@ -849,15 +849,15 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <param name="ExportType">导出类型。</param>
   /// <param name="StartTime">统计开始日期；按本地日构成闭区间起点，并进入导出文件名。</param>
   /// <param name="EndTime">统计结束日期；按本地日构成闭区间终点，并进入导出文件名。</param>
-  /// <param name="GroupDimension">汇总维度；来源侧导出类型已按维度子集校验。</param>
-  /// <param name="ReceiverOrganizationCode">接收组织筛选取值；未提供时为空。</param>
-  /// <param name="ReceiverHospitalCode">接收医院筛选取值；未提供时为空。</param>
-  /// <param name="ReceiverBranchCode">接收院区筛选取值；未提供时为空。</param>
-  /// <param name="SourceOrganizationCode">来源组织筛选取值；未提供时为空。</param>
-  /// <param name="SourceHospitalCode">来源医院筛选取值；未提供时为空。</param>
-  /// <param name="SourceBranchCode">来源院区筛选取值；未提供时为空。</param>
+  /// <param name="GroupDimension">汇总维度；提供方导出类型已按维度子集校验。</param>
+  /// <param name="ReceiverOrganizationCode">使用方组织筛选取值；未提供时为空。</param>
+  /// <param name="ReceiverHospitalCode">使用方医院筛选取值；未提供时为空。</param>
+  /// <param name="ReceiverBranchCode">使用方院区筛选取值；未提供时为空。</param>
+  /// <param name="SourceOrganizationCode">提供方组织筛选取值；未提供时为空。</param>
+  /// <param name="SourceHospitalCode">提供方医院筛选取值；未提供时为空。</param>
+  /// <param name="SourceBranchCode">提供方院区筛选取值；未提供时为空。</param>
   /// <param name="Keyword">统一关键字筛选条件；经空白归一传入（空白视为未提供、非空白去首尾空白），命中列与通配转义由语句侧完成。</param>
-  /// <param name="NonAdoptionReason">解析后的不采纳原因；仅对接收侧明细导出生效。</param>
+  /// <param name="NonAdoptionReason">解析后的不采纳原因；仅对使用方明细导出生效。</param>
   /// <param name="ItemType">项目类型筛选条件。</param>
   /// <param name="CategoryName">标准目录分类名称筛选条件。</param>
   /// <param name="GroupName">标准目录分组名称筛选条件。</param>

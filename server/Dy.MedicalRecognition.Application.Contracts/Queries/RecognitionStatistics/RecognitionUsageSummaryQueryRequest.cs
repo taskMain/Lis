@@ -6,7 +6,7 @@ using Dy.MedicalRecognition.Domain.Share.Enums;
 namespace Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionStatistics;
 
 /// <summary>
-/// 接收侧互认使用汇总查询：平台管理员入口，接收组与来源组两组范围条件都取自请求。
+/// 使用方互认使用汇总查询：平台管理员入口，接收组与来源组两组范围条件都取自请求。
 /// </summary>
 /// <remarks>
 /// 范围条件均可选，请求级空取值不附加该层过滤（全空即平台按授权全量）；
@@ -19,23 +19,23 @@ public sealed record RecognitionUsageSummaryQueryRequest
   public DateOnly StartTime { get; init; }
   /// <summary>统计结束日期；必填，按本地日与开始日期构成闭区间。</summary>
   public DateOnly EndTime { get; init; }
-  /// <summary>接收组织编码筛选条件；不传表示不按组织过滤。</summary>
+  /// <summary>使用方组织编码筛选条件；不传表示不按组织过滤。</summary>
   [NonEmpty(ErrorMessage = "参数校验失败：组织编码不能是空白。")]
   public string? OrganizationCode { get; init; }
-  /// <summary>接收医院编码筛选条件；不传表示不按医院过滤。</summary>
+  /// <summary>使用方医院编码筛选条件；不传表示不按医院过滤。</summary>
   [NonEmpty(ErrorMessage = "参数校验失败：医院编码不能是空白。")]
   public string? HospitalCode { get; init; }
-  /// <summary>接收院区编码筛选条件；不传表示不按院区过滤。</summary>
+  /// <summary>使用方院区编码筛选条件；不传表示不按院区过滤。</summary>
   [NonEmpty(ErrorMessage = "参数校验失败：院区编码不能是空白。")]
   public string? BranchCode { get; init; }
-  /// <summary>来源组织编码筛选条件；不传表示不按来源组织过滤。</summary>
-  [NonEmpty(ErrorMessage = "参数校验失败：来源组织编码不能是空白。")]
+  /// <summary>提供方组织编码筛选条件；不传表示不按提供方组织过滤。</summary>
+  [NonEmpty(ErrorMessage = "参数校验失败：提供方组织编码不能是空白。")]
   public string? SourceOrganizationCode { get; init; }
-  /// <summary>来源医院编码筛选条件；不传表示不按来源医院过滤。</summary>
-  [NonEmpty(ErrorMessage = "参数校验失败：来源医院编码不能是空白。")]
+  /// <summary>提供方医院编码筛选条件；不传表示不按提供方医院过滤。</summary>
+  [NonEmpty(ErrorMessage = "参数校验失败：提供方医院编码不能是空白。")]
   public string? SourceHospitalCode { get; init; }
-  /// <summary>来源院区编码筛选条件；不传表示不按来源院区过滤。</summary>
-  [NonEmpty(ErrorMessage = "参数校验失败：来源院区编码不能是空白。")]
+  /// <summary>提供方院区编码筛选条件；不传表示不按提供方院区过滤。</summary>
+  [NonEmpty(ErrorMessage = "参数校验失败：提供方院区编码不能是空白。")]
   public string? SourceBranchCode { get; init; }
   /// <summary>
   /// 统一关键字筛选条件；按互认科室ID/名称、标准项目编码/名称任一前缀命中（服务端大小写不敏感），任一命中即通过。

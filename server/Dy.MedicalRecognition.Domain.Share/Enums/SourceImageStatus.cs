@@ -4,7 +4,7 @@ using Dy.Core.SourceGen;
 namespace Dy.MedicalRecognition.Domain.Share.Enums;
 
 /// <summary>
-/// 检查报告来源影像的状态；平台不接收影像文件，也不按调阅地址是否为空反推状态，状态与地址的一致性由来源侧负责。
+/// 检查报告来源影像的状态；平台不接收影像文件，也不按调阅地址是否为空反推状态，状态与地址的一致性由提供方负责。
 /// </summary>
 /// <remarks>
 /// 本枚举属于对外契约的一部分：启用 SourceGen 描述器生成后，应用层的 OpenAPI 转换器据其补充 `enum`、
