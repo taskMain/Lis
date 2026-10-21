@@ -253,6 +253,10 @@ export interface PlatformUsageDetailsQuery {
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
+  /** 系统按选中汇总行填充的互认科室 ID；仅明细与明细导出使用。 */
+  recognitionDeptId?: string
+  /** 系统按选中汇总行填充的标准项目编码；仅明细与明细导出使用。 */
+  standardProjectCode?: string
 }
 
 /** 医院管理员入口的使用方明细条件：本侧院区恒为登录院区，缺失或空白在构造时拒绝（不构造请求）。 */
@@ -269,6 +273,10 @@ export interface BranchUsageDetailsQuery {
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
+  /** 系统按选中汇总行填充的互认科室 ID；仅明细与明细导出使用。 */
+  recognitionDeptId?: string
+  /** 系统按选中汇总行填充的标准项目编码；仅明细与明细导出使用。 */
+  standardProjectCode?: string
 }
 
 export type UsageDetailsQuery = PlatformUsageDetailsQuery | BranchUsageDetailsQuery
@@ -294,9 +302,13 @@ export interface PlatformUsageExportQuery {
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
+  /** 系统按选中汇总行填充的互认科室 ID；仅明细与明细导出使用。 */
+  recognitionDeptId?: string
+  /** 系统按选中汇总行填充的标准项目编码；仅明细与明细导出使用。 */
+  standardProjectCode?: string
 }
 
-/** 医院管理员入口的使用方导出条件：不含本侧组织与医院；来源组与接收组的医院/院区为可选筛选。 */
+/** 医院管理员入口的使用方导出条件：不含本侧组织、医院与院区；只保留本侧院区槽位 branchCode 与来源组医院/院区筛选。 */
 export interface BranchUsageExportQuery {
   version: 'branch'
   exportType: UsageExportTypeValue
@@ -306,13 +318,15 @@ export interface BranchUsageExportQuery {
   branchCode?: string
   sourceHospitalCode?: string
   sourceBranchCode?: string
-  receiverHospitalCode?: string
-  receiverBranchCode?: string
   keyword?: string
   nonAdoptionReasonCode?: string
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
+  /** 系统按选中汇总行填充的互认科室 ID；仅明细与明细导出使用。 */
+  recognitionDeptId?: string
+  /** 系统按选中汇总行填充的标准项目编码；仅明细与明细导出使用。 */
+  standardProjectCode?: string
 }
 
 export type UsageExportQuery = PlatformUsageExportQuery | BranchUsageExportQuery
@@ -323,7 +337,7 @@ export type BuiltUsageDetailsQuery = UsageDetailsQuery & StatisticsPageInput
 
 // ========== 请求构造 ==========
 
-/** 可选文本条件键集合：构造请求前统一去首尾空白。 */
+/** 可选文本条件键集合：构造请求前统一去首尾空白；统一关键字按输入原文提交，不在此列表。 */
 const USAGE_SCOPE_TEXT_KEYS = [
   'receiverOrganizationCode',
   'receiverHospitalCode',
@@ -332,10 +346,11 @@ const USAGE_SCOPE_TEXT_KEYS = [
   'sourceHospitalCode',
   'sourceBranchCode',
   'branchCode',
-  'keyword',
   'nonAdoptionReasonCode',
   'categoryName',
   'groupName',
+  'recognitionDeptId',
+  'standardProjectCode',
 ] as const
 
 /** 不采纳明细的明细类型值；与后端 `RecognitionUsageDetailType.NonAdoption`（3）一致。 */
@@ -446,6 +461,8 @@ function toPlatformUsageDetailsBody(query: PlatformUsageDetailsQuery & Statistic
     page: { pageIndex: query.pageIndex, pageSize: query.pageSize },
   }
   applyPlatformUsageFilters(body, query)
+  assignStatisticsText(body, 'recognitionDeptId', query.recognitionDeptId)
+  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.detailType === NON_ADOPTION_DETAIL_TYPE) {
     assignStatisticsText(body, 'nonAdoptionReasonCode', query.nonAdoptionReasonCode)
   }
@@ -461,6 +478,8 @@ function toBranchUsageDetailsBody(query: BranchUsageDetailsQuery & StatisticsPag
     page: { pageIndex: query.pageIndex, pageSize: query.pageSize },
   }
   applyBranchUsageFilters(body, query)
+  assignStatisticsText(body, 'recognitionDeptId', query.recognitionDeptId)
+  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.detailType === NON_ADOPTION_DETAIL_TYPE) {
     assignStatisticsText(body, 'nonAdoptionReasonCode', query.nonAdoptionReasonCode)
   }
@@ -487,11 +506,13 @@ function toPlatformUsageExportBody(query: PlatformUsageExportQuery): Recognition
   }
   assignStatisticsText(body, 'categoryName', query.categoryName)
   assignStatisticsText(body, 'groupName', query.groupName)
+  assignStatisticsText(body, 'recognitionDeptId', query.recognitionDeptId)
+  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.itemType !== undefined) body.itemType = query.itemType
   return body
 }
 
-/** 本院版导出请求体：不含本侧组织与医院；来源组与接收组的医院/院区为可选筛选；无分页对象；原因代码口径同平台版。 */
+/** 本院版导出请求体：不含本侧组织、医院与院区；只保留 branchCode 与来源组筛选；无分页对象；原因代码口径同平台版。 */
 function toBranchUsageExportBody(query: BranchUsageExportQuery): BranchRecognitionStatisticsExportRequest {
   const body: BranchRecognitionStatisticsExportRequest = {
     exportType: query.exportType,
@@ -502,14 +523,14 @@ function toBranchUsageExportBody(query: BranchUsageExportQuery): BranchRecogniti
   assignStatisticsText(body, 'branchCode', query.branchCode)
   assignStatisticsText(body, 'sourceHospitalCode', query.sourceHospitalCode)
   assignStatisticsText(body, 'sourceBranchCode', query.sourceBranchCode)
-  assignStatisticsText(body, 'receiverHospitalCode', query.receiverHospitalCode)
-  assignStatisticsText(body, 'receiverBranchCode', query.receiverBranchCode)
   assignStatisticsText(body, 'keyword', query.keyword)
   if (query.exportType === NON_ADOPTION_DETAILS_EXPORT_TYPE) {
     assignStatisticsText(body, 'nonAdoptionReasonCode', query.nonAdoptionReasonCode)
   }
   assignStatisticsText(body, 'categoryName', query.categoryName)
   assignStatisticsText(body, 'groupName', query.groupName)
+  assignStatisticsText(body, 'recognitionDeptId', query.recognitionDeptId)
+  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.itemType !== undefined) body.itemType = query.itemType
   return body
 }

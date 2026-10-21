@@ -5,7 +5,7 @@
  *
  * 读取失败只做本层恢复：保留弹窗、结束加载并提供重试，不弹本地接口错误（宿主统一提示）。
  */
-import { Alert, Button, Descriptions, Modal, Space, Spin, Table, type TableColumnsType } from 'antd'
+import { Button, Descriptions, Modal, Space, Spin, Table, Typography, type TableColumnsType } from 'antd'
 import type { MatchRecordItemView, MatchRecordView } from './recognitionUsageStatisticsApi'
 import { formatStatisticsDateTime, statisticsTextOrDash } from './statisticsDisplays'
 
@@ -47,15 +47,13 @@ export function MatchRecordModal({ state, onRetry, onClose }: MatchRecordModalPr
   >
     <Space direction='vertical' style={{ width: '100%' }}>
       {state.loading ? <Space><Spin size='small' /><span>正在读取匹配记录</span></Space> : null}
-      {!state.loading && state.failure ? <Alert
-        type='warning'
-        showIcon
-        title='匹配记录待刷新'
-        description='读取失败；可重试读取。'
-        action={<Button size='small' onClick={onRetry}>重试</Button>}
-      /> : null}
+      {!state.loading && state.failure ? <Space size={8} wrap role='alert'>
+        <Typography.Text type='danger'>匹配记录读取失败，请重试。</Typography.Text>
+        <Button size='small' onClick={onRetry}>重试</Button>
+      </Space> : null}
       {!state.loading && view !== null ? <>
         <Descriptions size='small' column={2} bordered>
+          <Descriptions.Item label='匹配记录标识' span={2}>{statisticsTextOrDash(view.recognitionMatchRecordId)}</Descriptions.Item>
           <Descriptions.Item label='匹配生成时间'>{formatStatisticsDateTime(view.matchCreatedTime)}</Descriptions.Item>
           <Descriptions.Item label='使用方医院'>{statisticsTextOrDash(view.receiver.hospitalName)}</Descriptions.Item>
           <Descriptions.Item label='患者姓名'>{view.patientName}</Descriptions.Item>

@@ -55,6 +55,12 @@ public sealed record RecognitionStatisticsExportRequest
   /// <summary>标准目录分组名称筛选条件；不传表示不按分组过滤。</summary>
   [NonEmpty(ErrorMessage = "参数校验失败：分组名称不能是空白。")]
   public string? GroupName { get; init; }
+  /// <summary>互认科室 ID 精确筛选条件；仅使用方明细导出使用，由页面按选中汇总行填充。</summary>
+  [NonEmpty(ErrorMessage = "参数校验失败：互认科室 ID 不能是空白。")]
+  public string? RecognitionDeptId { get; init; }
+  /// <summary>标准项目编码精确筛选条件；明细导出使用，由页面按选中汇总行填充。</summary>
+  [NonEmpty(ErrorMessage = "参数校验失败：标准项目编码不能是空白。")]
+  public string? StandardProjectCode { get; init; }
   /// <summary>不采纳原因代码筛选条件；仅作用于使用方不采纳明细导出。</summary>
   [NonEmpty(ErrorMessage = "参数校验失败：不采纳原因代码不能是空白。")]
   public string? NonAdoptionReasonCode { get; init; }

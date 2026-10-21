@@ -150,6 +150,8 @@ export interface PlatformSourceDetailsQuery {
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
+  /** 系统按选中汇总行填充的标准项目编码；仅明细与明细导出使用。 */
+  standardProjectCode?: string
 }
 
 /** 医院管理员入口的提供方明细条件：本侧提供方院区恒为登录院区（缺失在构造时拒绝），接收组医院/院区可选。 */
@@ -164,6 +166,8 @@ export interface BranchSourceDetailsQuery {
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
+  /** 系统按选中汇总行填充的标准项目编码；仅明细与明细导出使用。 */
+  standardProjectCode?: string
 }
 
 export type SourceDetailsQuery = PlatformSourceDetailsQuery | BranchSourceDetailsQuery
@@ -185,6 +189,8 @@ export interface PlatformSourceExportQuery {
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
+  /** 系统按选中汇总行填充的标准项目编码；仅明细与明细导出使用。 */
+  standardProjectCode?: string
 }
 
 /** 医院管理员入口的提供方导出条件：不含本侧提供方组织与医院，也不含使用方组织。 */
@@ -201,6 +207,8 @@ export interface BranchSourceExportQuery {
   itemType?: MedicalItemTypeValue
   categoryName?: string
   groupName?: string
+  /** 系统按选中汇总行填充的标准项目编码；仅明细与明细导出使用。 */
+  standardProjectCode?: string
 }
 
 export type SourceExportQuery = PlatformSourceExportQuery | BranchSourceExportQuery
@@ -211,7 +219,7 @@ export type BuiltSourceDetailsQuery = SourceDetailsQuery & StatisticsPageInput
 
 // ========== 请求构造与请求体映射 ==========
 
-/** 可选文本条件键集合：构造请求前统一去首尾空白。 */
+/** 可选文本条件键集合：构造请求前统一去首尾空白；统一关键字按输入原文提交，不在此列表。 */
 const SOURCE_SCOPE_TEXT_KEYS = [
   'sourceOrganizationCode',
   'sourceHospitalCode',
@@ -219,9 +227,9 @@ const SOURCE_SCOPE_TEXT_KEYS = [
   'receiverOrganizationCode',
   'receiverHospitalCode',
   'receiverBranchCode',
-  'keyword',
   'categoryName',
   'groupName',
+  'standardProjectCode',
 ] as const
 
 /** 平台版共享筛选写入：来源组与接收组三级范围、统一关键字与项目筛选。 */
@@ -320,6 +328,7 @@ function toPlatformSourceDetailsBody(query: PlatformSourceDetailsQuery & Statist
     page: { pageIndex: query.pageIndex, pageSize: query.pageSize },
   }
   applyPlatformSourceFilters(body, query)
+  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   return body
 }
 
@@ -331,6 +340,7 @@ function toBranchSourceDetailsBody(query: BranchSourceDetailsQuery & StatisticsP
     page: { pageIndex: query.pageIndex, pageSize: query.pageSize },
   }
   applyBranchSourceFilters(body, query)
+  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   return body
 }
 
@@ -351,6 +361,7 @@ function toPlatformSourceExportBody(query: PlatformSourceExportQuery): Recogniti
   assignStatisticsText(body, 'keyword', query.keyword)
   assignStatisticsText(body, 'categoryName', query.categoryName)
   assignStatisticsText(body, 'groupName', query.groupName)
+  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.itemType !== undefined) body.itemType = query.itemType
   return body
 }
@@ -369,6 +380,7 @@ function toBranchSourceExportBody(query: BranchSourceExportQuery): BranchRecogni
   assignStatisticsText(body, 'keyword', query.keyword)
   assignStatisticsText(body, 'categoryName', query.categoryName)
   assignStatisticsText(body, 'groupName', query.groupName)
+  assignStatisticsText(body, 'standardProjectCode', query.standardProjectCode)
   if (query.itemType !== undefined) body.itemType = query.itemType
   return body
 }

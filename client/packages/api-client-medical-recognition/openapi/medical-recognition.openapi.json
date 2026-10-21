@@ -4568,6 +4568,18 @@
               "string"
             ]
           },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "nonAdoptionReasonCode": {
             "type": [
               "null",
@@ -4624,6 +4636,18 @@
             ]
           },
           "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
             "type": [
               "null",
               "string"
@@ -4786,6 +4810,12 @@
             ]
           },
           "keyword": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
             "type": [
               "null",
               "string"
@@ -7778,6 +7808,18 @@
               "string"
             ]
           },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "nonAdoptionReasonCode": {
             "type": [
               "null",
@@ -7810,13 +7852,13 @@
           "SourceRecognitionDetails"
         ],
         "x-enumDescriptions": [
-          "接收侧互认使用汇总",
-          "接收侧提醒明细",
-          "接收侧采纳明细",
-          "接收侧不采纳明细",
-          "接收侧引用明细",
-          "来源医院被互认汇总",
-          "来源医院被互认明细"
+          "使用方互认使用汇总",
+          "使用方提醒明细",
+          "使用方采纳明细",
+          "使用方不采纳明细",
+          "使用方引用明细",
+          "提供方医院被互认汇总",
+          "提供方医院被互认明细"
         ]
       },
       "RecognitionStatisticsGroupDimension": {
@@ -8010,6 +8052,18 @@
             ]
           },
           "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "recognitionDeptId": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
             "type": [
               "null",
               "string"
@@ -8737,6 +8791,12 @@
             ]
           },
           "keyword": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "standardProjectCode": {
             "type": [
               "null",
               "string"

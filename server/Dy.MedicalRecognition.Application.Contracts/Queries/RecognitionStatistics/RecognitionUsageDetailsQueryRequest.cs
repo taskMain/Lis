@@ -50,6 +50,12 @@ public sealed record RecognitionUsageDetailsQueryRequest
   /// <summary>标准目录分组名称筛选条件；不传表示不按分组过滤。</summary>
   [NonEmpty(ErrorMessage = "参数校验失败：分组名称不能是空白。")]
   public string? GroupName { get; init; }
+  /// <summary>互认科室 ID 精确筛选条件；由页面按选中汇总行填充，不传表示不按科室过滤。</summary>
+  [NonEmpty(ErrorMessage = "参数校验失败：互认科室 ID 不能是空白。")]
+  public string? RecognitionDeptId { get; init; }
+  /// <summary>标准项目编码精确筛选条件；由页面按选中汇总行填充，不传表示不按项目过滤。</summary>
+  [NonEmpty(ErrorMessage = "参数校验失败：标准项目编码不能是空白。")]
+  public string? StandardProjectCode { get; init; }
   /// <summary>不采纳原因代码筛选条件；不传表示不按原因过滤。</summary>
   [NonEmpty(ErrorMessage = "参数校验失败：不采纳原因代码不能是空白。")]
   public string? NonAdoptionReasonCode { get; init; }

@@ -70,6 +70,39 @@ export function isSourceExportTypeValue(value: unknown): value is SourceExportTy
   return typeof value === 'number' && (SOURCE_EXPORT_TYPES as readonly number[]).includes(value)
 }
 
+/** 使用方明细类型与处理结果的服务端取值；页面只以名称引用，避免散落数字。 */
+export const USAGE_DETAIL_TYPE = Object.freeze({
+  reminder: 1,
+  adoption: 2,
+  nonAdoption: 3,
+  reference: 4,
+} as const)
+
+/** 处理结果决策值；反馈文案取服务端 decisionText，本对象只用于判断标签颜色。 */
+export const RECOGNITION_DECISION = Object.freeze({
+  adopted: 1,
+  nonAdopted: 2,
+} as const)
+
+/** 统计导出类型值；与后端 RecognitionStatisticsExportType 保持一致。 */
+export const STATISTICS_EXPORT_TYPE = Object.freeze({
+  usageSummary: 1,
+  usageDetailReminder: 2,
+  usageDetailAdoption: 3,
+  usageDetailNonAdoption: 4,
+  usageDetailReference: 5,
+  sourceSummary: 6,
+  sourceDetail: 7,
+} as const)
+
+/** 使用方明细类型到导出类型的映射，集中维护类型与导出枚举的关系。 */
+export const USAGE_DETAIL_EXPORT_TYPE: Record<UsageDetailTypeValue, UsageExportTypeValue> = {
+  [USAGE_DETAIL_TYPE.reminder]: STATISTICS_EXPORT_TYPE.usageDetailReminder,
+  [USAGE_DETAIL_TYPE.adoption]: STATISTICS_EXPORT_TYPE.usageDetailAdoption,
+  [USAGE_DETAIL_TYPE.nonAdoption]: STATISTICS_EXPORT_TYPE.usageDetailNonAdoption,
+  [USAGE_DETAIL_TYPE.reference]: STATISTICS_EXPORT_TYPE.usageDetailReference,
+}
+
 /**
  * 统计导出类型中文名；逐项镜像后端 `RecognitionStatisticsExportType` 枚举成员的描述文本，
  * 与服务端导出响应 `Content-Disposition` 的文件名首段同名。
@@ -254,8 +287,9 @@ export function toStatisticsDate(value: Date | null | undefined): Date | null {
 
 /**
  * 查询条件的可选文本字段归一：去首尾空白，空白从结果中剔除该键。
- * 双版本的键集合是两个变体字段的并集，因此键列表按字符串受理（调用方传编译期字面量数组），
- * 归一结果的类型保持查询条件原形；归一只发生在构造期，原始对象不被改写。
+ * 统一关键字不在归一列表内，按输入原文提交；双版本的键集合是两个变体字段的并集，
+ * 因此键列表按字符串受理（调用方传编译期字面量数组），归一结果的类型保持查询条件原形；
+ * 归一只发生在构造期，原始对象不被改写。
  */
 export function normalizeStatisticsTexts<T extends object>(query: T, keys: readonly string[]): T {
   const normalized = { ...query } as Record<string, unknown>

@@ -52,4 +52,27 @@ describe('共享分页控件', () => {
     config.onChange?.(2, 20)
     expect(onChange).toHaveBeenLastCalledWith(2, 20)
   })
+
+  it('未指定页容量选项时保持既有可选值与页容量选择器', () => {
+    const config = createTablePagination({ pageIndex: 1, pageSize: 10, totalCount: 37, loading: false, onChange: vi.fn() })
+
+    expect(config.pageSizeOptions).toEqual([...PAGE_SIZE_OPTIONS])
+    expect(config.showSizeChanger).toBe(true)
+  })
+
+  it('调用方可指定页容量选项并关闭页容量选择器，统计页固定每行数量时使用该入口', () => {
+    const config = createTablePagination({
+      pageIndex: 1,
+      pageSize: 8,
+      totalCount: 37,
+      loading: false,
+      onChange: vi.fn(),
+      pageSizeOptions: [8],
+      showSizeChanger: false,
+    })
+
+    expect(config.pageSizeOptions).toEqual([8])
+    expect(config.showSizeChanger).toBe(false)
+    expect(config.total).toBe(37)
+  })
 })

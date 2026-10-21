@@ -35,4 +35,6 @@ public sealed record SourceRecognitionDetailFilter
   /// 语句侧按互认科室ID/名称、标准项目编码/名称逐列前缀匹配（大小写不敏感）后 OR 组合；提供方语句不承载互认医生列。
   /// </summary>
   public string? Keyword { get; init; }
+  /// <summary>标准项目编码精确条件；为空表示不按项目过滤。</summary>
+  public string? StandardProjectCode { get; init; }
 }

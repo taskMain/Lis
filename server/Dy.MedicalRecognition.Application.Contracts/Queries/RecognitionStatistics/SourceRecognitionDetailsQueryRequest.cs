@@ -50,6 +50,9 @@ public sealed record SourceRecognitionDetailsQueryRequest
   /// 任一命中即通过。空白（含全空白字符）视为未提供、不附加条件；其余输入去首尾空白后参与匹配。
   /// </summary>
   public string? Keyword { get; init; }
+  /// <summary>标准项目编码精确筛选条件；由页面按选中汇总行填充，不传表示不按项目过滤。</summary>
+  [NonEmpty(ErrorMessage = "参数校验失败：标准项目编码不能是空白。")]
+  public string? StandardProjectCode { get; init; }
   /// <summary>分页对象：页码与页容量。</summary>
   public PageRequestDto Page { get; init; } = new();
 }

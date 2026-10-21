@@ -6,6 +6,8 @@
 ' 四个查询请求以内嵌分页对象承载分页，导出为 POST + 全部查询条件体、不使用页面分页。
 ' 统一关键字（2026-10-20 重开，S6-D19）：统计查询与导出请求以关键字承载互认科室、互认项目与互认医生（明细）
 ' 条件，替换原互认科室ID、标准项目编码、互认医生ID 三个独立条件字段；不采纳原因代码字段保留。
+' 精确分组字段（S6-D22）：四个明细请求与两个导出请求按侧别补充 RecognitionDeptId、StandardProjectCode；
+' 字段由页面按选中汇总行系统填充，汇总请求不携带，用户关键字独立提交。
 Person('PlatformAdministrator','平台管理员')
 Person('HospitalAdministrator','医院管理员')
 UserInterface('RecognitionStatisticsModule','互认统计分析模块')
@@ -276,6 +278,8 @@ Query('QueryRecognitionUsageDetails')[
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
     关键字(Keyword String?)
+    互认科室ID(RecognitionDeptId String?)
+    标准项目编码(StandardProjectCode String?)
     不采纳原因代码(NonAdoptionReasonCode String?)
     明细类型(DetailType RecognitionUsageDetailTypeEnum)
 ]
@@ -292,6 +296,8 @@ Query('QueryBranchRecognitionUsageDetails')[
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
     关键字(Keyword String?)
+    互认科室ID(RecognitionDeptId String?)
+    标准项目编码(StandardProjectCode String?)
     不采纳原因代码(NonAdoptionReasonCode String?)
     明细类型(DetailType RecognitionUsageDetailTypeEnum)
 ]
@@ -344,6 +350,7 @@ Query('QuerySourceRecognitionDetails')[
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
     关键字(Keyword String?)
+    标准项目编码(StandardProjectCode String?)
 ]
 Query('QueryBranchSourceRecognitionDetails')[
     查询提供方医院被互认明细（本院版）
@@ -358,6 +365,7 @@ Query('QueryBranchSourceRecognitionDetails')[
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
     关键字(Keyword String?)
+    标准项目编码(StandardProjectCode String?)
 ]
 note right of QueryBranchSourceRecognitionDetails
   提供方医院被互认明细只反映被采纳事实，不适用不采纳原因代码筛选。
@@ -381,6 +389,8 @@ Query('GetRecognitionStatisticsExport')[
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
     关键字(Keyword String?)
+    互认科室ID(RecognitionDeptId String?)
+    标准项目编码(StandardProjectCode String?)
     不采纳原因代码(NonAdoptionReasonCode String?)
     汇总维度(GroupDimension RecognitionStatisticsGroupDimensionEnum)
 ]
@@ -399,6 +409,8 @@ Query('GetBranchRecognitionStatisticsExport')[
     分类名称(CategoryName String?)
     分组名称(GroupName String?)
     关键字(Keyword String?)
+    互认科室ID(RecognitionDeptId String?)
+    标准项目编码(StandardProjectCode String?)
     不采纳原因代码(NonAdoptionReasonCode String?)
     汇总维度(GroupDimension RecognitionStatisticsGroupDimensionEnum)
 ]
@@ -410,6 +422,8 @@ Query('GetRecognitionMatchRecord')[
 note right of GetRecognitionMatchRecord
   导出为 POST + 全部查询条件体，平台/本院两个动作调用同一应用层入口；
   导出继承页面查询条件与汇总维度，不使用页面分页，导出请求不携带分页对象。
+  明细导出还携带选中汇总行的精确分组字段（使用方 RecognitionDeptId、StandardProjectCode；
+  提供方 StandardProjectCode），汇总导出不携带；字段由页面系统填充，用户关键字独立提交。
   四个查询请求以内嵌分页对象 page: { pageIndex, pageSize } 承载分页
   （页码一基、页容量 1–200），响应为 items + page；匹配记录集合视图为单记录读取，不分页。
   统一关键字按互认科室 ID/名称、标准项目编码/名称、互认医生 ID/姓名（使用方明细）任一前缀命中

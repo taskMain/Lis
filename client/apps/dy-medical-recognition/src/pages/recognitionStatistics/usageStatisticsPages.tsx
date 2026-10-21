@@ -93,6 +93,9 @@ function toDetailsQuery(version: StatisticsPageVersion, filters: StatisticsFilte
     keyword: filters.keyword,
     nonAdoptionReasonCode: filters.nonAdoptionReasonCode,
     itemType: filters.itemType,
+    // 明细专用精确分组字段由主体按选中行填充；汇总条件装配不读取它们。
+    recognitionDeptId: filters.recognitionDeptId,
+    standardProjectCode: filters.standardProjectCode,
   }
   if (version === 'platform') {
     return {
@@ -135,6 +138,8 @@ function toExportQuery(version: StatisticsPageVersion, filters: StatisticsFilter
     keyword: filters.keyword,
     nonAdoptionReasonCode: isDetailsExport ? filters.nonAdoptionReasonCode : undefined,
     itemType: filters.itemType,
+    recognitionDeptId: filters.recognitionDeptId,
+    standardProjectCode: filters.standardProjectCode,
   }
   if (version === 'platform') {
     return {
@@ -154,8 +159,6 @@ function toExportQuery(version: StatisticsPageVersion, filters: StatisticsFilter
     branchCode: filters.ownBranchCode,
     sourceHospitalCode: filters.sourceHospitalCode,
     sourceBranchCode: filters.sourceBranchCode,
-    receiverHospitalCode: filters.receiverHospitalCode,
-    receiverBranchCode: filters.receiverBranchCode,
   }
 }
 
@@ -190,11 +193,12 @@ function UsageStatisticsPage({ version }: { version: StatisticsPageVersion }) {
     return built === null ? null : queryUsageDetailsPage(client, built)
   }, [client, version])
 
-  const exportWorkbook = useCallback<NonNullable<StatisticsBoardProps['exportWorkbook']>>((filters, request) => {
+  const exportWorkbook = useCallback<NonNullable<StatisticsBoardProps['exportWorkbook']>>((filters, detailFilters, request) => {
     const { exportType, groupDimension } = request
     if (!isUsageExportTypeValue(exportType)) return null
     if (!isStatisticsGroupDimensionValue(groupDimension)) return null
-    const built = buildUsageExportQuery(toExportQuery(version, filters, {
+    const exportFilters = request.detailType === null ? filters : detailFilters
+    const built = buildUsageExportQuery(toExportQuery(version, exportFilters, {
       exportType,
       groupDimension,
       detailType: request.detailType,

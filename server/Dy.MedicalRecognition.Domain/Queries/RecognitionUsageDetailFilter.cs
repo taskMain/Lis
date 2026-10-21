@@ -40,4 +40,8 @@ public sealed record RecognitionUsageDetailFilter
   public string? CategoryName { get; init; }
   /// <summary>标准目录分组名称；为空表示不按分组过滤。</summary>
   public string? GroupName { get; init; }
+  /// <summary>互认科室 ID 精确条件；为空表示不按科室过滤。</summary>
+  public string? RecognitionDeptId { get; init; }
+  /// <summary>标准项目编码精确条件；为空表示不按项目过滤。</summary>
+  public string? StandardProjectCode { get; init; }
 }

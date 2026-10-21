@@ -283,6 +283,7 @@ public sealed class Stage6StatisticsContractTests
       ("SourceOrganizationCode", "string?"), ("SourceHospitalCode", "string?"), ("SourceBranchCode", "string?"),
       ("Keyword", "string?"), ("ItemType", "MedicalItemType?"),
       ("CategoryName", "string?"), ("GroupName", "string?"),
+      ("RecognitionDeptId", "string?"), ("StandardProjectCode", "string?"),
       ("NonAdoptionReasonCode", "string?"), ("DetailType", "RecognitionUsageDetailType"), ("Page", "PageRequestDto")
     ]);
   }
@@ -309,6 +310,7 @@ public sealed class Stage6StatisticsContractTests
       ("SourceHospitalCode", "string?"), ("SourceBranchCode", "string?"),
       ("Keyword", "string?"), ("ItemType", "MedicalItemType?"),
       ("CategoryName", "string?"), ("GroupName", "string?"),
+      ("RecognitionDeptId", "string?"), ("StandardProjectCode", "string?"),
       ("NonAdoptionReasonCode", "string?"), ("DetailType", "RecognitionUsageDetailType"), ("Page", "PageRequestDto")
     ]);
   }
@@ -335,7 +337,7 @@ public sealed class Stage6StatisticsContractTests
       ("SourceOrganizationCode", "string?"), ("SourceHospitalCode", "string?"), ("SourceBranchCode", "string?"),
       ("ReceiverOrganizationCode", "string?"), ("ReceiverHospitalCode", "string?"), ("ReceiverBranchCode", "string?"),
       ("ItemType", "MedicalItemType?"), ("CategoryName", "string?"), ("GroupName", "string?"),
-      ("Keyword", "string?"), ("Page", "PageRequestDto")
+      ("Keyword", "string?"), ("StandardProjectCode", "string?"), ("Page", "PageRequestDto")
     ]);
   }
 
@@ -359,7 +361,7 @@ public sealed class Stage6StatisticsContractTests
       ("StartTime", "DateOnly"), ("EndTime", "DateOnly"), ("SourceBranchCode", "string?"),
       ("ReceiverHospitalCode", "string?"), ("ReceiverBranchCode", "string?"),
       ("ItemType", "MedicalItemType?"), ("CategoryName", "string?"), ("GroupName", "string?"),
-      ("Keyword", "string?"), ("Page", "PageRequestDto")
+      ("Keyword", "string?"), ("StandardProjectCode", "string?"), ("Page", "PageRequestDto")
     ]);
   }
 
@@ -379,6 +381,7 @@ public sealed class Stage6StatisticsContractTests
       ("SourceOrganizationCode", "string?"), ("SourceHospitalCode", "string?"), ("SourceBranchCode", "string?"),
       ("Keyword", "string?"), ("ItemType", "MedicalItemType?"),
       ("CategoryName", "string?"), ("GroupName", "string?"),
+      ("RecognitionDeptId", "string?"), ("StandardProjectCode", "string?"),
       ("NonAdoptionReasonCode", "string?"), ("GroupDimension", "RecognitionStatisticsGroupDimension")
     ]);
 
@@ -390,6 +393,7 @@ public sealed class Stage6StatisticsContractTests
       ("ReceiverHospitalCode", "string?"), ("ReceiverBranchCode", "string?"),
       ("Keyword", "string?"), ("ItemType", "MedicalItemType?"),
       ("CategoryName", "string?"), ("GroupName", "string?"),
+      ("RecognitionDeptId", "string?"), ("StandardProjectCode", "string?"),
       ("NonAdoptionReasonCode", "string?"), ("GroupDimension", "RecognitionStatisticsGroupDimension")
     ]);
   }
@@ -584,6 +588,31 @@ public sealed class Stage6StatisticsContractTests
         EndTime = new DateOnly(2026, 1, 31),
         GroupDimension = RecognitionStatisticsGroupDimension.Hospital,
         OrganizationCode = " "
+      }));
+
+    // 系统填充的精确分组字段同样不能是空白：空白不降级为「不过滤」。
+    Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(() => MedicalRecognitionRequestValidator.Validate(
+      new RecognitionUsageDetailsQueryRequest
+      {
+        StartTime = new DateOnly(2026, 1, 1),
+        EndTime = new DateOnly(2026, 1, 31),
+        DetailType = RecognitionUsageDetailType.Reminder,
+        RecognitionDeptId = " "
+      }));
+    Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(() => MedicalRecognitionRequestValidator.Validate(
+      new RecognitionUsageDetailsQueryRequest
+      {
+        StartTime = new DateOnly(2026, 1, 1),
+        EndTime = new DateOnly(2026, 1, 31),
+        DetailType = RecognitionUsageDetailType.Reminder,
+        StandardProjectCode = " "
+      }));
+    Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(() => MedicalRecognitionRequestValidator.Validate(
+      new SourceRecognitionDetailsQueryRequest
+      {
+        StartTime = new DateOnly(2026, 1, 1),
+        EndTime = new DateOnly(2026, 1, 31),
+        StandardProjectCode = " "
       }));
 
     // 统一关键字空白（含全空白字符）按未提供语义放行：声明没有 NonEmpty 拒绝（S6-D19 修订面）。

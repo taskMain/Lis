@@ -34,6 +34,7 @@ import {
 import {
   isSourceExportTypeValue,
   isStatisticsGroupDimensionValue,
+  STATISTICS_EXPORT_TYPE,
   type SourceExportTypeValue,
   type StatisticsGroupDimensionValue,
   type StatisticsPageInput,
@@ -86,6 +87,8 @@ function toDetailsQuery(version: StatisticsPageVersion, filters: StatisticsFilte
     endTime: filters.endTime,
     keyword: filters.keyword,
     itemType: filters.itemType,
+    // 明细专用精确分组字段由主体按选中行填充；汇总条件装配不读取它。
+    standardProjectCode: filters.standardProjectCode,
   }
   if (version === 'platform') {
     return {
@@ -120,6 +123,7 @@ function toExportQuery(version: StatisticsPageVersion, filters: StatisticsFilter
     endTime: filters.endTime,
     keyword: filters.keyword,
     itemType: filters.itemType,
+    standardProjectCode: filters.standardProjectCode,
   }
   if (version === 'platform') {
     return {
@@ -172,11 +176,12 @@ function SourceStatisticsPage({ version }: { version: StatisticsPageVersion }) {
     return built === null ? null : querySourceDetailsPage(client, built)
   }, [client, version])
 
-  const exportWorkbook = useCallback<NonNullable<StatisticsBoardProps['exportWorkbook']>>((filters, request) => {
+  const exportWorkbook = useCallback<NonNullable<StatisticsBoardProps['exportWorkbook']>>((filters, detailFilters, request) => {
     const { exportType, groupDimension } = request
     if (!isSourceExportTypeValue(exportType)) return null
     if (!isStatisticsGroupDimensionValue(groupDimension)) return null
-    const built = buildSourceExportQuery(toExportQuery(version, filters, { exportType, groupDimension }))
+    const exportFilters = exportType === STATISTICS_EXPORT_TYPE.sourceDetail ? detailFilters : filters
+    const built = buildSourceExportQuery(toExportQuery(version, exportFilters, { exportType, groupDimension }))
     return built === null ? null : exportSourceStatistics(client, built, request.downloadFileName)
   }, [client, version])
 

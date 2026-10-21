@@ -1,13 +1,14 @@
-/* 统计页配套 CSS（S6-D19、T01-D6）：区块间距与「本院报告管理与历史版本」列表页同值
+/* 统计页配套 CSS（S6-D19、T01-D6、S6-D23）：区块间距与「本院报告管理与历史版本」列表页同值
    （页头 20、范围行 16、查询行 4、工具行 8），页头行 flex 左右结构承载标题区与登录范围条；
-   控件形态沿用组件库默认 token。T01-D6 新增两方并排卡片与方向列：两侧用浅底色区分，
-   底色只用于范围区卡片，不进入控件与表格。 */
-.statistics-board { min-width: 0; max-width: 100%; }
+   控件形态沿用组件库默认 token。平台页范围区为两方并排卡片与方向列，两侧用浅底色区分；
+   本院页范围区为一行对侧机构筛选，不渲染固定侧卡片。底色只用于平台页范围卡片，不进入控件与表格。 */
+.statistics-board { min-width: 0; max-width: 100%; container-type: inline-size; }
+.statistics-board-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .statistics-board-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .statistics-board-header h3.ant-typography { margin: 0; }
 .statistics-board-scope { margin-bottom: 16px; }
 
-/* 范围区双列：使用方与提供方左右等宽，中间方向列表达「使用方的报告来自提供方」。 */
+/* 范围区双列：使用方与提供方左右等宽，中间方向列只用箭头表达报告流向。 */
 .statistics-board-duo { display: grid; grid-template-columns: minmax(0, 1fr) 84px minmax(0, 1fr); align-items: stretch; }
 .statistics-board-party { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 12px 14px; border: 1px solid var(--ant-color-border, #d9d9d9); border-radius: 6px; }
 .statistics-board-party--using { border-color: #d6e4ff; background: #f7fbff; }
@@ -19,11 +20,95 @@
 .statistics-board-party__body .ant-space { display: flex; flex-direction: column; align-items: stretch; gap: 10px !important; width: 100%; }
 .statistics-board-party__body .ant-space-item { width: 100%; }
 .statistics-board-party__body .ant-select { width: 100%; }
-.statistics-board-party__locked { font-size: 13px; color: var(--ant-color-text-secondary, #595959); }
+/* 本院页对侧筛选：称谓与两个下拉同处一行，选项装载后仍保持横向排列。 */
+.statistics-board-opposite-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-width: 0; }
+.statistics-board-opposite-filter__label { font-size: 14px; font-weight: 600; }
+.statistics-board-opposite-filter .ant-select { min-width: 200px; }
 .statistics-board-flow { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
 .statistics-board-flow__arrow { font-size: 18px; line-height: 1; color: var(--ant-color-primary, #1677ff); }
-.statistics-board-flow__text { font-size: 12px; color: var(--ant-color-text-secondary, #595959); }
 
 /* 条件行：双列下方以虚线分隔，条件由「查询」提交。 */
 .statistics-board-filters { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--ant-color-border-secondary, #f0f0f0); margin-bottom: 4px; }
-.statistics-board-toolbar { margin-bottom: 8px; }
+
+/* 主从区：左汇总列表 400px（容器 1200–1279px 时 360px），右明细占剩余宽度；<1200px 单列堆叠。 */
+.statistics-board-master { display: grid; grid-template-columns: 400px minmax(0, 1fr); gap: 16px; align-items: start; }
+.statistics-board-master > section { display: flex; min-width: 0; }
+.statistics-board-master .ant-card { width: 100%; }
+
+/* 左汇总列表：卡头承载维度、总行数与导出汇总；列表内部滚动，分页固定在卡片底部。 */
+.statistics-board-list-card .ant-card-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.statistics-board-list { flex: 1 1 auto; max-height: min(560px, calc(100vh - 540px)); overflow-y: auto; padding-right: 4px; }
+.statistics-board-list__loading { display: flex; justify-content: center; padding: 24px 0; }
+.statistics-board-list__pager { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--ant-color-border-secondary, #f0f0f0); }
+.statistics-board-group-row { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 10px 12px; border: 0; border-left: 2px solid transparent; border-bottom: 1px solid var(--ant-color-border-secondary, #f0f0f0); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.statistics-board-group-row:hover { background: var(--ant-color-fill-quaternary, #fafafa); }
+/* 选中态同时使用底色、左侧竖条与 aria-pressed（颜色不是唯一状态表达）。 */
+.statistics-board-group-row.is-active,
+.statistics-board-group-row[aria-pressed='true'] { background: var(--ant-color-primary-bg, #e6f4ff); border-left-color: var(--ant-color-primary, #1677ff); }
+.statistics-board-group-row:focus-visible { outline: 2px solid var(--ant-color-primary, #1677ff); outline-offset: -2px; }
+.statistics-board-group-row__name { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; font-weight: 600; }
+.statistics-board-group-row__tag { margin-inline-end: 0; }
+.statistics-board-group-row__secondary { overflow: hidden; font-size: 12px; color: var(--ant-color-text-secondary, #595959); text-overflow: ellipsis; white-space: nowrap; }
+.statistics-board-group-row__metrics { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 12px; color: var(--ant-color-text-secondary, #595959); }
+
+/* 右明细卡片：标题、静态指标摘要、工具行明细类型切换与明细表。 */
+.statistics-board-detail-title { display: flex; flex-direction: column; gap: 2px; }
+.statistics-board-detail-title__name { font-size: 14px; font-weight: 600; }
+.statistics-board-detail-title__secondary { font-size: 12px; font-weight: 400; color: var(--ant-color-text-secondary, #595959); }
+.statistics-board-metric-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 0; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--ant-color-border-secondary, #f0f0f0); border-radius: 6px; background: var(--ant-color-fill-quaternary, #fafafa); }
+.statistics-board-metric-summary__item { display: flex; align-items: baseline; gap: 6px; padding: 0 16px; border-right: 1px solid var(--ant-color-border-secondary, #f0f0f0); }
+.statistics-board-metric-summary__item:first-child { padding-left: 0; }
+.statistics-board-metric-summary__item:last-child { border-right: 0; }
+.statistics-board-metric-summary__label { font-size: 12px; color: var(--ant-color-text-secondary, #595959); }
+.statistics-board-metric-summary__value { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.statistics-board-metric-summary__value--compact { font-size: 16px; }
+.statistics-board-detail-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 8px; }
+.statistics-board-detail-context { display: block; flex: 1 1 420px; margin: 0; font-size: 12px; }
+.statistics-board-detail-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 1 auto; }
+.statistics-board-type-control { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.statistics-board-type-control__label { font-size: 12px; color: var(--ant-color-text-secondary, #595959); }
+.statistics-board-type-tabs { display: inline-flex; padding: 3px; border: 1px solid var(--ant-color-border, #d9d9d9); border-radius: 6px; background: var(--ant-color-fill-quaternary, #fafafa); }
+.statistics-board-type-tab { min-height: 30px; padding: 0 12px; border: 0; border-radius: 4px; background: transparent; color: var(--ant-color-text, #1f1f1f); font: inherit; cursor: pointer; }
+.statistics-board-type-tab:hover { background: var(--ant-color-fill-secondary, #f0f0f0); }
+.statistics-board-type-tab.is-active { background: var(--ant-color-bg-container, #fff); color: var(--ant-color-primary, #1677ff); box-shadow: inset 0 0 0 1px var(--ant-color-primary-border, #91caff); }
+.statistics-board-type-tab:focus-visible { outline: 2px solid var(--ant-color-primary, #1677ff); outline-offset: 2px; }
+
+/* 明细单元格：主行与次行两行式；长文本省略并以 title 提供全文（设计 1.5）。 */
+.statistics-board-cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.statistics-board-cell__text,
+.statistics-board-cell__secondary,
+.statistics-board-party-cell__organization,
+.statistics-board-party-cell__hospital,
+.statistics-board-party-cell__branch { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.statistics-board-cell__secondary { font-size: 12px; color: var(--ant-color-text-secondary, #595959); }
+.statistics-board-cell__secondary--numeric { font-variant-numeric: tabular-nums; }
+.statistics-board-cell__tag { margin-inline-end: 0; }
+.statistics-board-party-cell__branch { color: var(--ant-color-text-secondary, #595959); }
+
+/* 不采纳原因工具行：选项只来自选中汇总行的原因分布。 */
+.statistics-board-reason-filter { display: flex; align-items: center; gap: 8px; margin: 0; }
+.statistics-board-reason-filter__label { font-size: 12px; color: var(--ant-color-text-secondary, #595959); }
+.statistics-board-reason-filter__select { min-width: 220px; max-width: 320px; }
+.statistics-board-detail-expanded { margin: 4px 0; }
+
+.statistics-board-detail-anchor { flex: 1 1 auto; width: 100%; min-width: 0; max-width: 100%; scroll-margin-top: 16px; }
+.statistics-board-detail-card,
+.statistics-board-detail-card .ant-card-body { min-width: 0; max-width: 100%; }
+.statistics-board-detail-card .ant-card-body { overflow: hidden; }
+.statistics-board-detail-table { max-width: 100%; overflow-x: auto; }
+/* antd 给 .ant-table-content 写入内联 overflow-y:hidden；固定表头需要显式压过内联值。
+   scrollbar-gutter 保留纵向滚动条槽位，明细行数变化时内容区宽度不跳变。 */
+.statistics-board-detail-table .ant-table-content { max-height: min(560px, calc(100vh - 420px)); overflow-y: auto !important; scrollbar-gutter: stable; }
+.statistics-board-detail-table .ant-table-thead > tr > th { position: sticky !important; top: 0; z-index: 3; background: var(--ant-color-bg-container, #fff); }
+
+@media (prefers-reduced-motion: reduce) {
+  .statistics-board-detail-anchor { scroll-behavior: auto; }
+}
+
+@container (max-width: 1279px) {
+  .statistics-board-master { grid-template-columns: 360px minmax(0, 1fr); }
+}
+
+@container (max-width: 1199px) {
+  .statistics-board-master { grid-template-columns: minmax(0, 1fr); }
+}

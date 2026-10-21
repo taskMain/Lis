@@ -108,8 +108,8 @@ describe('C4 平台版汇总请求：接收组与来源组三级范围都随请�
     expect(body.sourceOrganizationCode).toBe('ORG2')
     expect(body.sourceHospitalCode).toBe('HOS2')
     expect(body.sourceBranchCode).toBe('BR2')
-    // 统一关键字承载互认科室、互认项目条件：输入原文去首尾空白后提交。
-    expect(body.keyword).toBe('检验科')
+    // 统一关键字承载互认科室、互认项目条件：按输入原文提交，不做首尾空白归一。
+    expect(body.keyword).toBe(' 检验科 ')
     // 互认科室 ID、标准项目编码、互认医生 ID 三个独立字段不再提交（S6-D19）。
     expect(body).not.toHaveProperty('recognitionDeptId')
     expect(body).not.toHaveProperty('standardProjectCode')
@@ -125,7 +125,7 @@ describe('C4 平台版汇总请求：接收组与来源组三级范围都随请�
     expect(body.page).toEqual({ pageIndex: 2, pageSize: 50 })
   })
 
-  it('可选条件空白或缺失时不下发该字段', async () => {
+  it('可选条件空白或缺失时不下发该字段；统一关键字保留输入原文', async () => {
     const built = buildUsageSummaryQuery(
       {
         version: 'platform',
@@ -149,13 +149,14 @@ describe('C4 平台版汇总请求：接收组与来源组三级范围都随请�
       'sourceOrganizationCode',
       'sourceHospitalCode',
       'sourceBranchCode',
-      'keyword',
       'itemType',
       'categoryName',
       'groupName',
     ]) {
       expect(body).not.toHaveProperty(key)
     }
+    // 统一关键字不再 trim：空白原文照常提交，是否视为未提供由服务端判定。
+    expect(body.keyword).toBe('   ')
   })
 })
 
@@ -220,7 +221,7 @@ describe('C4 使用方明细请求：明细类型必填，关键字承载医生�
     const body = bodyOf(post)
     expect(body.detailType).toBe(3)
     expect(body.organizationCode).toBe('ORG1')
-    expect(body.keyword).toBe('DOC1')
+    expect(body.keyword).toBe(' DOC1 ')
     expect(body.nonAdoptionReasonCode).toBe('R1')
     expect(body).not.toHaveProperty('recognitionDeptId')
     expect(body).not.toHaveProperty('recognitionDoctorId')
@@ -268,6 +269,58 @@ describe('C4 使用方明细请求：明细类型必填，关键字承载医生�
     const body = bodyOf(client.api.medicalRecognitionReportQuery.queryBranchRecognitionUsageDetails.post)
     expect(body.detailType).toBe(1)
     expect(body.sourceBranchCode).toBe('BR2')
+    expect(body.keyword).toBe('李四')
+    expect(body).not.toHaveProperty('organizationCode')
+    expect(body).not.toHaveProperty('hospitalCode')
+    expect(body).not.toHaveProperty('sourceOrganizationCode')
+  })
+})
+
+describe('C48 使用方明细精确分组字段请求体', () => {
+  it('平台版明细提交互认科室 ID 与标准项目编码，用户关键字原样保留', async () => {
+    const built = buildUsageDetailsQuery(
+      {
+        version: 'platform',
+        startTime: '2026-02-01',
+        endTime: '2026-02-28',
+        detailType: 1,
+        keyword: ' DOC1 ',
+        recognitionDeptId: ' DEPT9 ',
+        standardProjectCode: ' P100 ',
+      },
+      pageInput,
+    )
+    expect(built).not.toBeNull()
+
+    const client = stubClient({ detailsPlatform: summaryPageResponse })
+    await queryUsageDetailsPage(client, built as NonNullable<typeof built>)
+    const body = bodyOf(client.api.medicalRecognitionReportQuery.queryRecognitionUsageDetails.post)
+    expect(body.recognitionDeptId).toBe('DEPT9')
+    expect(body.standardProjectCode).toBe('P100')
+    expect(body.keyword).toBe(' DOC1 ')
+  })
+
+  it('本院版明细提交互认科室 ID 与标准项目编码，不提交本侧组织与医院', async () => {
+    const built = buildUsageDetailsQuery(
+      {
+        version: 'branch',
+        startTime: '2026-02-01',
+        endTime: '2026-02-28',
+        detailType: 1,
+        branchCode: 'BR9',
+        keyword: '李四',
+        recognitionDeptId: 'DEPT9',
+        standardProjectCode: 'P100',
+      },
+      pageInput,
+    )
+    expect(built).not.toBeNull()
+
+    const client = stubClient({ detailsBranch: summaryPageResponse })
+    await queryUsageDetailsPage(client, built as NonNullable<typeof built>)
+    const body = bodyOf(client.api.medicalRecognitionReportQuery.queryBranchRecognitionUsageDetails.post)
+    expect(body.recognitionDeptId).toBe('DEPT9')
+    expect(body.standardProjectCode).toBe('P100')
     expect(body.keyword).toBe('李四')
     expect(body).not.toHaveProperty('organizationCode')
     expect(body).not.toHaveProperty('hospitalCode')
@@ -373,7 +426,7 @@ describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录
     expect(body.groupDimension).toBe(1)
     expect(body.receiverOrganizationCode).toBe('ORG1')
     expect(body.sourceOrganizationCode).toBe('ORG2')
-    expect(body.keyword).toBe('检验科')
+    expect(body.keyword).toBe(' 检验科 ')
     expect(body).not.toHaveProperty('recognitionDeptId')
     expect(body).not.toHaveProperty('standardProjectCode')
     expect(body).not.toHaveProperty('recognitionDoctorId')
@@ -411,7 +464,7 @@ describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录
     expect(bodyOf(nonAdoptionClient.api.v1.statisticsExport.platform.post).nonAdoptionReasonCode).toBe('R1')
   })
 
-  it('本院版导出不提交本侧组织与医院，走本院导出端点', async () => {
+  it('本院版导出只提交 branchCode 与来源组条件，不提交本侧组织、医院与院区', async () => {
     const built = buildUsageExportQuery({
       version: 'branch',
       exportType: 2,
@@ -420,7 +473,7 @@ describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录
       endTime: '2026-02-28',
       branchCode: 'BR9',
       sourceHospitalCode: 'HOS2',
-      receiverBranchCode: 'BR1',
+      sourceBranchCode: 'BR2',
       keyword: '血常规',
     })
     expect(built).not.toBeNull()
@@ -433,8 +486,10 @@ describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录
     expect(body.exportType).toBe(2)
     expect(body.branchCode).toBe('BR9')
     expect(body.sourceHospitalCode).toBe('HOS2')
-    expect(body.receiverBranchCode).toBe('BR1')
+    expect(body.sourceBranchCode).toBe('BR2')
     expect(body.keyword).toBe('血常规')
+    expect(body).not.toHaveProperty('receiverHospitalCode')
+    expect(body).not.toHaveProperty('receiverBranchCode')
     expect(body).not.toHaveProperty('receiverOrganizationCode')
     expect(body).not.toHaveProperty('sourceOrganizationCode')
     expect(body).not.toHaveProperty('page')

@@ -8,7 +8,7 @@
  *
  * 主体行为（提供方口径展示、下钻、分页）由 statisticsBoard.test.tsx 覆盖，本文件不重复。
  */
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -116,6 +116,17 @@ const sourceSummaryRow: SourceSummaryRow = {
   recognitionCount: 5,
 }
 
+const sourceProjectSummaryRow: SourceSummaryRow = {
+  ...sourceSummaryRow,
+  groupDimension: 4,
+  sourceHospitalCode: null,
+  sourceHospitalName: null,
+  itemType: 0,
+  itemTypeText: '检验',
+  standardProjectCode: 'P-200',
+  standardProjectName: '血常规',
+}
+
 const sourceDetailRow: SourceDetailRow = {
   recognitionMatchRecordId: 'RECORD-1',
   recognitionMatchItemId: 'ITEM-1',
@@ -146,15 +157,36 @@ function renderPage(component: React.ReactElement) {
   return render(<ConfigProvider locale={zhCN}>{component}</ConfigProvider>)
 }
 
+/** 打开 antd Select 下拉（antd 6 不产出原生 select，口径同主体用例）。 */
+function openAntdSelect(select: HTMLElement) {
+  fireEvent.mouseDown(select.closest('.ant-select') ?? select)
+}
+
+/** 从 portal 里按文本取下拉选项。 */
+function portalOption(label: string): HTMLElement {
+  const option = Array.from(document.querySelectorAll<HTMLElement>('.ant-select-item-option'))
+    .find((node) => node.textContent === label)
+  if (option === undefined) throw new Error(`下拉选项不存在：${label}`)
+  return option
+}
+
+/** 切换汇总维度下拉。 */
+async function chooseDimension(label: string) {
+  openAntdSelect(screen.getByLabelText('汇总维度'))
+  fireEvent.click(portalOption(label))
+  await waitFor(() => expect(screen.getByLabelText('汇总维度').closest('.ant-select')?.textContent).toContain(label))
+}
+
 describe('提供方医院被互认统计（平台页）', () => {
   it('进入自动加载：两路查询以占位 client 与平台版 built 查询发起；导出沿用条件且导出类型为提供方汇总（C22）', async () => {
     renderPage(<SourceRecognitionStatistics />)
 
     await waitFor(() => expect(sourceApi.querySourceSummaryPage).toHaveBeenCalledTimes(1))
-    expect(sourceApi.querySourceDetailsPage).toHaveBeenCalledTimes(1)
+    // 左汇总列表每页 8 行；明细在选中首行后读取。
+    await waitFor(() => expect(sourceApi.querySourceDetailsPage).toHaveBeenCalledTimes(1))
 
     const [, summaryBuilt] = sourceApi.querySourceSummaryPage.mock.calls[0]
-    expect(summaryBuilt).toMatchObject({ version: 'platform', groupDimension: 1, pageIndex: 1, pageSize: 10 })
+    expect(summaryBuilt).toMatchObject({ version: 'platform', groupDimension: 1, pageIndex: 1, pageSize: 8 })
     expect(String(summaryBuilt.startTime)).toMatch(/^\d{4}-\d{2}-\d{2}$/)
 
     fireEvent.click(screen.getByRole('button', { name: '导出汇总' }))
@@ -164,6 +196,56 @@ describe('提供方医院被互认统计（平台页）', () => {
     expect(exportQuery).toMatchObject({ version: 'platform', exportType: 6, groupDimension: 1 })
     expect(exportQuery).not.toHaveProperty('pageIndex')
     expect(exportName).toMatch(/^提供方医院被互认汇总-\d{8}-\d{8}\.xlsx$/)
+  })
+
+  it('切换标准项目维度后明细按选中行提交标准项目编码（C48 页面接线）', async () => {
+    sourceApi.querySourceSummaryPage.mockImplementation(async (_client, built) => {
+      const dimension = (built as { groupDimension: number }).groupDimension
+      return pageOf([dimension === 4 ? sourceProjectSummaryRow : sourceSummaryRow])
+    })
+    renderPage(<SourceRecognitionStatistics />)
+    await waitFor(() => expect(sourceApi.querySourceSummaryPage).toHaveBeenCalledTimes(1))
+
+    await chooseDimension('标准项目')
+
+    await waitFor(() => expect(sourceApi.querySourceDetailsPage.mock.calls.at(-1)?.[1]).toMatchObject({
+      version: 'platform',
+      itemType: 0,
+      standardProjectCode: 'P-200',
+    }))
+  })
+
+  it('明细导出按选中行携带标准项目编码，汇总导出不带（C55 页面接线）', async () => {
+    sourceApi.querySourceSummaryPage.mockImplementation(async (_client, built) => {
+      const dimension = (built as { groupDimension: number }).groupDimension
+      return pageOf([dimension === 4 ? sourceProjectSummaryRow : sourceSummaryRow])
+    })
+    renderPage(<SourceRecognitionStatistics />)
+    await waitFor(() => expect(sourceApi.querySourceSummaryPage).toHaveBeenCalledTimes(1))
+    await chooseDimension('标准项目')
+    await waitFor(() => expect(sourceApi.querySourceDetailsPage.mock.calls.at(-1)?.[1]).toMatchObject({
+      standardProjectCode: 'P-200',
+    }))
+
+    fireEvent.click(screen.getByRole('button', { name: '导出汇总' }))
+    await waitFor(() => expect(sourceApi.exportSourceStatistics).toHaveBeenCalledTimes(1))
+    const summaryBuilt = sourceApi.exportSourceStatistics.mock.calls[0][1] as Record<string, unknown>
+    expect(summaryBuilt).toMatchObject({ version: 'platform', exportType: 6, groupDimension: 4 })
+    expect(summaryBuilt.standardProjectCode).toBeUndefined()
+
+    await act(async () => {})
+    await waitFor(() => expect(screen.getByRole('button', { name: '导出明细' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: '导出明细' }))
+    await waitFor(() => expect(sourceApi.exportSourceStatistics).toHaveBeenCalledTimes(2), { timeout: 3000 })
+    const detailsBuilt = sourceApi.exportSourceStatistics.mock.calls[1][1] as Record<string, unknown>
+    expect(detailsBuilt).toMatchObject({
+      version: 'platform',
+      exportType: 7,
+      groupDimension: 4,
+      standardProjectCode: 'P-200',
+    })
+    expect(detailsBuilt).not.toHaveProperty('pageIndex')
+    expect(detailsBuilt).not.toHaveProperty('pageSize')
   })
 
   it('来源组与接收组范围改动进草稿零请求，点查询按已生效条件提交（提交式筛选）', async () => {
@@ -221,11 +303,31 @@ describe('本院被互认统计（本院页）', () => {
     expect(built).not.toHaveProperty('receiverOrganizationCode')
   })
 
+  it('本院页标准项目维度：明细按选中行提交标准项目编码且不提交来源组织与医院（C48 页面接线）', async () => {
+    sourceApi.querySourceSummaryPage.mockImplementation(async (_client, built) => {
+      const dimension = (built as { groupDimension: number }).groupDimension
+      return pageOf([dimension === 4 ? sourceProjectSummaryRow : sourceSummaryRow])
+    })
+    renderPage(<BranchSourceRecognitionStatistics />)
+    await waitFor(() => expect(sourceApi.querySourceSummaryPage).toHaveBeenCalledTimes(1))
+
+    await chooseDimension('标准项目')
+
+    await waitFor(() => expect(sourceApi.querySourceDetailsPage.mock.calls.at(-1)?.[1]).toMatchObject({
+      version: 'branch',
+      sourceBranchCode: 'BRA-1',
+      standardProjectCode: 'P-200',
+    }))
+    const detailsBuilt = sourceApi.querySourceDetailsPage.mock.calls.at(-1)?.[1] as Record<string, unknown>
+    expect(detailsBuilt).not.toHaveProperty('sourceOrganizationCode')
+    expect(detailsBuilt).not.toHaveProperty('sourceHospitalCode')
+  })
+
   it('对侧（接收）医院选择改动进草稿零请求，点查询按登录院区与对侧条件提交（随登录上下文取数、提交式筛选）', async () => {
     renderPage(<BranchSourceRecognitionStatistics />)
     await waitFor(() => expect(sourceApi.querySourceSummaryPage).toHaveBeenCalledTimes(1))
 
-    const receiverGroup = within(screen.getByRole('region', { name: '使用方范围' }))
+    const receiverGroup = within(screen.getByRole('region', { name: '使用方筛选' }))
     fireEvent.change(receiverGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS-2' } })
     // 草稿改动零请求。
     expect(sourceApi.querySourceSummaryPage).toHaveBeenCalledTimes(1)

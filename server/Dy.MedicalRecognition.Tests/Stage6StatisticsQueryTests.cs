@@ -454,6 +454,56 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(0, emptyResult.Page.TotalCount);
   }
 
+  /// <summary>
+  /// V48：使用方汇总查询与汇总导出保持仓储给出的业务量顺序——首行采纳次数最多，
+  /// 采纳次数相同的行按提醒次数降序，提醒次数也相同时按分组键升序；分页与全量导出不重排。
+  /// </summary>
+  /// <remarks>排序子句由 <see cref="Stage6SqlMapTests"/> 的语句断言负责，本用例冻结应用层与导出层对仓储行序的保持。</remarks>
+  [Fact]
+  public async Task Usage_summary_query_and_export_preserve_business_volume_order_and_group_key_tiebreak()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    repository.SummaryGroupItems.AddRange(
+    [
+      BuildSummaryRow(TrustedHospital, reminder: 8, adoption: 5),
+      BuildSummaryRow(SecondHospital, reminder: 7, adoption: 5),
+      BuildSummaryRow("HOS-C", reminder: 9, adoption: 4),
+      BuildSummaryRow("HOS-D", reminder: 6, adoption: 3),
+      BuildSummaryRow("HOS-E", reminder: 1, adoption: 2)
+    ]);
+    RecordingOrganizationAppService organizationService = CreateOrganizationService(
+      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital, "HOS-C", "HOS-D", "HOS-E"] });
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, organizationService);
+
+    PageResultDto<RecognitionUsageSummaryReadModel> firstPage = await service.QueryRecognitionUsageSummaryAsync(BuildSummaryRequest(1, 2));
+    PageResultDto<RecognitionUsageSummaryReadModel> middlePage = await service.QueryRecognitionUsageSummaryAsync(BuildSummaryRequest(2, 2));
+    PageResultDto<RecognitionUsageSummaryReadModel> lastPage = await service.QueryRecognitionUsageSummaryAsync(BuildSummaryRequest(3, 2));
+    string[] pageKeys =
+    [
+      .. firstPage.Items.Select(row => row.ReceiverHospitalCode!),
+      .. middlePage.Items.Select(row => row.ReceiverHospitalCode!),
+      .. lastPage.Items.Select(row => row.ReceiverHospitalCode!)
+    ];
+
+    Assert.Equal([TrustedHospital, SecondHospital, "HOS-C", "HOS-D", "HOS-E"], pageKeys);
+    Assert.Equal(5, pageKeys.Distinct(StringComparer.Ordinal).Count());
+    Assert.Equal(5, firstPage.Items[0].AdoptionCount);
+    Assert.Equal(8, firstPage.Items[0].ReminderCount);
+    Assert.Equal(5, firstPage.Items[1].AdoptionCount);
+    Assert.Equal(7, firstPage.Items[1].ReminderCount);
+
+    StatisticsExportFileReadModel file = await service.GetStatisticsExportAsync(
+      BuildExportRequest(RecognitionStatisticsExportType.RecognitionUsageSummary));
+    using XLWorkbook workbook = new(new MemoryStream(file.FileStream));
+    IXLWorksheet worksheet = workbook.Worksheets.First();
+    Assert.Equal(6, worksheet.LastRowUsed()!.RowNumber());
+    Assert.Equal(TrustedHospital, worksheet.Row(2).Cell(3).GetString());
+    Assert.Equal(SecondHospital, worksheet.Row(3).Cell(3).GetString());
+    Assert.Equal("HOS-C", worksheet.Row(4).Cell(3).GetString());
+    Assert.Equal("HOS-D", worksheet.Row(5).Cell(3).GetString());
+    Assert.Equal("HOS-E", worksheet.Row(6).Cell(3).GetString());
+  }
+
   // ---------- 本院版汇总：V13 ----------
 
   /// <summary>
@@ -789,6 +839,45 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Empty((await service.QueryRecognitionUsageDetailsAsync(BuildDetailsRequest(1, 20, RecognitionUsageDetailType.Adopted))).Items);
     Assert.Empty((await service.QueryRecognitionUsageDetailsAsync(BuildDetailsRequest(1, 20, RecognitionUsageDetailType.NotAdopted))).Items);
     Assert.Empty((await service.QueryRecognitionUsageDetailsAsync(BuildDetailsRequest(1, 20, RecognitionUsageDetailType.Referenced))).Items);
+  }
+
+  /// <summary>
+  /// V50、V51：明细查询把系统填充的精确分组字段原样下推——使用方传科室 ID 与标准项目编码，
+  /// 提供方只传标准项目编码；字段不参与汇总筛选，也不改变用户关键字。
+  /// </summary>
+  [Fact]
+  public async Task Detail_queries_forward_exact_group_fields()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    repository.ReminderItems.Add(BuildReminderItem(0, processed: true));
+    repository.SourceDetailItems.Add(BuildSourceDetailItem(0));
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateReceiverAndSourceOrganizationService());
+
+    await service.QueryRecognitionUsageDetailsAsync(
+      BuildDetailsRequest(1, 20) with { RecognitionDeptId = "DPT-9", StandardProjectCode = "SP-9" });
+    Assert.Equal("DPT-9", repository.LastDetailFilter!.RecognitionDeptId);
+    Assert.Equal("SP-9", repository.LastDetailFilter.StandardProjectCode);
+
+    await service.QuerySourceRecognitionDetailsAsync(
+      BuildSourceDetailsRequest(1, 20) with { StandardProjectCode = "SP-9" });
+    Assert.Equal("SP-9", repository.LastSourceDetailFilter!.StandardProjectCode);
+
+    StatisticsExportFileReadModel usageFile = await service.GetStatisticsExportAsync(
+      BuildExportRequest(RecognitionStatisticsExportType.RecognitionReminderDetails)
+        with { RecognitionDeptId = "DPT-9", StandardProjectCode = "SP-9" });
+    Assert.Equal("DPT-9", repository.LastDetailFilter!.RecognitionDeptId);
+    Assert.Equal("SP-9", repository.LastDetailFilter.StandardProjectCode);
+    using (XLWorkbook usageWorkbook = new(new MemoryStream(usageFile.FileStream)))
+    {
+      Assert.Equal(2, usageWorkbook.Worksheets.First().LastRowUsed()!.RowNumber());
+    }
+
+    StatisticsExportFileReadModel sourceFile = await service.GetStatisticsExportAsync(
+      BuildExportRequest(RecognitionStatisticsExportType.SourceRecognitionDetails)
+        with { StandardProjectCode = "SP-9" });
+    Assert.Equal("SP-9", repository.LastSourceDetailFilter!.StandardProjectCode);
+    using XLWorkbook sourceWorkbook = new(new MemoryStream(sourceFile.FileStream));
+    Assert.Equal(2, sourceWorkbook.Worksheets.First().LastRowUsed()!.RowNumber());
   }
 
   /// <summary>
@@ -1241,6 +1330,39 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
+  /// V32 修订面：提供方院区维度必须同时保留组织与医院键，名称解析才能完成；
+  /// 只按院区分组会让医院编码为空，页面读取被业务拒绝。
+  /// </summary>
+  [Fact]
+  public async Task Source_branch_summary_keeps_hospital_key_and_resolves_names()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    repository.SourceSummaryGroupItems.Add(
+      BuildSourceSummaryRow(TrustedHospital, count: 4, branchCode: TrustedBranch));
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService(
+      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital] },
+      branches: new Dictionary<string, string[]> { [TrustedHospital] = [TrustedBranch] }));
+
+    PageResultDto<SourceRecognitionSummaryReadModel> result = await service.QuerySourceRecognitionSummaryAsync(
+      new SourceRecognitionSummaryQueryRequest
+      {
+        StartTime = PeriodFrom,
+        EndTime = PeriodTo,
+        GroupDimension = RecognitionStatisticsGroupDimension.Branch,
+        Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
+      });
+
+    SourceRecognitionSummaryReadModel row = Assert.Single(result.Items);
+    Assert.Equal(TrustedOrganization, row.SourceOrganizationCode);
+    Assert.Equal(TrustedHospital, row.SourceHospitalCode);
+    Assert.Equal(TrustedBranch, row.SourceBranchCode);
+    Assert.False(string.IsNullOrWhiteSpace(row.SourceOrganizationName));
+    Assert.False(string.IsNullOrWhiteSpace(row.SourceHospitalName));
+    Assert.False(string.IsNullOrWhiteSpace(row.SourceBranchName));
+    Assert.Equal(4, row.RecognitionCount);
+  }
+
+  /// <summary>
   /// V33：提供方汇总分页在服务端窗口内完成；越界页返回空集合且保留真实总数；无命中时返回空页成功。
   /// </summary>
   [Fact]
@@ -1273,6 +1395,54 @@ public sealed class Stage6StatisticsQueryTests
       .QuerySourceRecognitionSummaryAsync(BuildSourceSummaryRequest(1, 20));
     Assert.Empty(emptyResult.Items);
     Assert.Equal(0, emptyResult.Page.TotalCount);
+  }
+
+  /// <summary>
+  /// V49：提供方汇总查询与汇总导出保持仓储给出的业务量顺序——首行被互认次数最多，
+  /// 次数相同的行按提供方医院编码升序；分页与全量导出不重排。
+  /// </summary>
+  /// <remarks>排序子句由 <see cref="Stage6SqlMapTests"/> 的语句断言负责，本用例冻结应用层与导出层对仓储行序的保持。</remarks>
+  [Fact]
+  public async Task Source_summary_query_and_export_preserve_recognition_count_order_and_group_key_tiebreak()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    repository.SourceSummaryGroupItems.AddRange(
+    [
+      BuildSourceSummaryRow(TrustedHospital, count: 9),
+      BuildSourceSummaryRow(SecondHospital, count: 7),
+      BuildSourceSummaryRow("HOS-C", count: 5),
+      BuildSourceSummaryRow("HOS-D", count: 5),
+      BuildSourceSummaryRow("HOS-E", count: 3)
+    ]);
+    RecordingOrganizationAppService organizationService = CreateOrganizationService(
+      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital, "HOS-C", "HOS-D", "HOS-E"] });
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, organizationService);
+
+    PageResultDto<SourceRecognitionSummaryReadModel> firstPage = await service.QuerySourceRecognitionSummaryAsync(BuildSourceSummaryRequest(1, 2));
+    PageResultDto<SourceRecognitionSummaryReadModel> middlePage = await service.QuerySourceRecognitionSummaryAsync(BuildSourceSummaryRequest(2, 2));
+    PageResultDto<SourceRecognitionSummaryReadModel> lastPage = await service.QuerySourceRecognitionSummaryAsync(BuildSourceSummaryRequest(3, 2));
+    string[] pageKeys =
+    [
+      .. firstPage.Items.Select(row => row.SourceHospitalCode!),
+      .. middlePage.Items.Select(row => row.SourceHospitalCode!),
+      .. lastPage.Items.Select(row => row.SourceHospitalCode!)
+    ];
+
+    Assert.Equal([TrustedHospital, SecondHospital, "HOS-C", "HOS-D", "HOS-E"], pageKeys);
+    Assert.Equal(5, pageKeys.Distinct(StringComparer.Ordinal).Count());
+    Assert.Equal(9, firstPage.Items[0].RecognitionCount);
+    Assert.Equal(7, firstPage.Items[1].RecognitionCount);
+
+    StatisticsExportFileReadModel file = await service.GetStatisticsExportAsync(
+      BuildExportRequest(RecognitionStatisticsExportType.SourceRecognitionSummary));
+    using XLWorkbook workbook = new(new MemoryStream(file.FileStream));
+    IXLWorksheet worksheet = workbook.Worksheets.First();
+    Assert.Equal(6, worksheet.LastRowUsed()!.RowNumber());
+    Assert.Equal(TrustedHospital, worksheet.Row(2).Cell(3).GetString());
+    Assert.Equal(SecondHospital, worksheet.Row(3).Cell(3).GetString());
+    Assert.Equal("HOS-C", worksheet.Row(4).Cell(3).GetString());
+    Assert.Equal("HOS-D", worksheet.Row(5).Cell(3).GetString());
+    Assert.Equal("HOS-E", worksheet.Row(6).Cell(3).GetString());
   }
 
   /// <summary>

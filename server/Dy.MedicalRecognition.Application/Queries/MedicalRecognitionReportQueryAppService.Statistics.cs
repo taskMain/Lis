@@ -118,7 +118,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
         : null,
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
-      GroupName = request.GroupName?.Trim()
+      GroupName = request.GroupName?.Trim(),
+      RecognitionDeptId = NullIfBlank(request.RecognitionDeptId),
+      StandardProjectCode = NullIfBlank(request.StandardProjectCode)
     };
 
     return await ReadUsageDetailPageAsync(filter, request.DetailType, window);
@@ -222,7 +224,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
-      GroupName = request.GroupName?.Trim()
+      GroupName = request.GroupName?.Trim(),
+      StandardProjectCode = NullIfBlank(request.StandardProjectCode)
     };
 
     return await ReadSourceDetailPageAsync(filter, window);
@@ -315,7 +318,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
         : null,
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
-      GroupName = request.GroupName?.Trim()
+      GroupName = request.GroupName?.Trim(),
+      RecognitionDeptId = NullIfBlank(request.RecognitionDeptId),
+      StandardProjectCode = NullIfBlank(request.StandardProjectCode)
     };
 
     return await ReadUsageDetailPageAsync(filter, request.DetailType, window);
@@ -410,7 +415,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
-      GroupName = request.GroupName?.Trim()
+      GroupName = request.GroupName?.Trim(),
+      StandardProjectCode = NullIfBlank(request.StandardProjectCode)
     };
 
     return await ReadSourceDetailPageAsync(filter, window);

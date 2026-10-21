@@ -92,8 +92,8 @@ describe('C4 平台版提供方汇总请求：来源组与接收组三级范围�
     expect(body.receiverOrganizationCode).toBe('ORG1')
     expect(body.receiverHospitalCode).toBe('HOS1')
     expect(body.receiverBranchCode).toBe('BR1')
-    // 统一关键字承载互认科室、互认项目条件（提供方语句无医生列）：输入原文去首尾空白后提交。
-    expect(body.keyword).toBe('A01')
+    // 统一关键字承载互认科室、互认项目条件（提供方语句无医生列）：按输入原文提交，不做首尾空白归一。
+    expect(body.keyword).toBe(' A01 ')
     // 标准项目编码独立字段不再提交（S6-D19）。
     expect(body).not.toHaveProperty('standardProjectCode')
     expect(body.startTime).toEqual({ year: 2026, month: 3, day: 1 })
@@ -154,6 +154,52 @@ describe('C4 本院版提供方请求：本侧来源组织与医院、接收组�
     expect(body).not.toHaveProperty('standardProjectCode')
     expect(body).not.toHaveProperty('nonAdoptionReasonCode')
     expect(body).not.toHaveProperty('sourceOrganizationCode')
+    expect(body).not.toHaveProperty('receiverOrganizationCode')
+  })
+})
+
+describe('C48 提供方明细精确分组字段请求体', () => {
+  it('平台版明细提交标准项目编码，用户关键字原样保留', async () => {
+    const built = buildSourceDetailsQuery(
+      {
+        version: 'platform',
+        startTime: '2026-03-01',
+        endTime: '2026-03-31',
+        keyword: ' A01 ',
+        standardProjectCode: ' P200 ',
+      },
+      pageInput,
+    )
+    expect(built).not.toBeNull()
+
+    const client = stubClient({ detailsPlatform: summaryPageResponse })
+    await querySourceDetailsPage(client, built as NonNullable<typeof built>)
+    const body = bodyOf(client.api.medicalRecognitionReportQuery.querySourceRecognitionDetails.post)
+    expect(body.standardProjectCode).toBe('P200')
+    expect(body.keyword).toBe(' A01 ')
+  })
+
+  it('本院版明细提交标准项目编码，不提交来源组织与医院', async () => {
+    const built = buildSourceDetailsQuery(
+      {
+        version: 'branch',
+        startTime: '2026-03-01',
+        endTime: '2026-03-31',
+        sourceBranchCode: 'BR9',
+        keyword: 'A01',
+        standardProjectCode: 'P200',
+      },
+      pageInput,
+    )
+    expect(built).not.toBeNull()
+
+    const client = stubClient({ detailsBranch: summaryPageResponse })
+    await querySourceDetailsPage(client, built as NonNullable<typeof built>)
+    const body = bodyOf(client.api.medicalRecognitionReportQuery.queryBranchSourceRecognitionDetails.post)
+    expect(body.standardProjectCode).toBe('P200')
+    expect(body.keyword).toBe('A01')
+    expect(body).not.toHaveProperty('sourceOrganizationCode')
+    expect(body).not.toHaveProperty('sourceHospitalCode')
     expect(body).not.toHaveProperty('receiverOrganizationCode')
   })
 })
@@ -235,7 +281,7 @@ describe('C4 提供方构造拒绝面与导出请求', () => {
     expect(body.exportType).toBe(6)
     expect(body.sourceOrganizationCode).toBe('ORG2')
     expect(body.receiverOrganizationCode).toBe('ORG1')
-    expect(body.keyword).toBe('A01')
+    expect(body.keyword).toBe(' A01 ')
     expect(body).not.toHaveProperty('standardProjectCode')
     expect(body).not.toHaveProperty('page')
   })

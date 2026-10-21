@@ -16,7 +16,7 @@
  * 主体行为（复位、竞态、分页、口径展示）由 statisticsBoard.test.tsx 覆盖，本文件不重复。
  * 仍属 Host 层：真实宿主菜单进入、真实范围选择器交互与宿主统一错误提示（C23-C30）。
  */
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import dayjs from 'dayjs'
@@ -137,6 +137,26 @@ const usageSummaryRow: UsageSummaryRow = {
   nonAdoptionReasons: [],
 }
 
+const usageDeptSummaryRow: UsageSummaryRow = {
+  ...usageSummaryRow,
+  groupDimension: 3,
+  receiverBranchCode: 'BRA-1',
+  receiverBranchName: '院区一',
+  recognitionDeptId: 'DEPT-9',
+  recognitionDeptName: '检验科',
+}
+
+const usageProjectSummaryRow: UsageSummaryRow = {
+  ...usageSummaryRow,
+  groupDimension: 4,
+  receiverHospitalCode: null,
+  receiverHospitalName: null,
+  itemType: 1,
+  itemTypeText: '检查',
+  standardProjectCode: 'P-100',
+  standardProjectName: 'CT',
+}
+
 const usageDetailRow: UsageDetailRow = {
   recognitionMatchRecordId: 'RECORD-1',
   recognitionMatchItemId: 'ITEM-1',
@@ -193,6 +213,26 @@ function renderPage(component: React.ReactElement) {
   return render(<ConfigProvider locale={zhCN}>{component}</ConfigProvider>)
 }
 
+/** 打开 antd Select 下拉（antd 6 不产出原生 select，口径同主体用例）。 */
+function openAntdSelect(select: HTMLElement) {
+  fireEvent.mouseDown(select.closest('.ant-select') ?? select)
+}
+
+/** 从 portal 里按文本取下拉选项。 */
+function portalOption(label: string): HTMLElement {
+  const option = Array.from(document.querySelectorAll<HTMLElement>('.ant-select-item-option'))
+    .find((node) => node.textContent === label)
+  if (option === undefined) throw new Error(`下拉选项不存在：${label}`)
+  return option
+}
+
+/** 切换汇总维度下拉。 */
+async function chooseDimension(label: string) {
+  openAntdSelect(screen.getByLabelText('汇总维度'))
+  fireEvent.click(portalOption(label))
+  await waitFor(() => expect(screen.getByLabelText('汇总维度').closest('.ant-select')?.textContent).toContain(label))
+}
+
 describe('使用方互认使用统计（平台页）', () => {
   it('进入自动加载：两路查询以占位 client 与平台版 built 查询发起，默认近 30 天窗口与默认维度、默认明细类型', async () => {
     /** 默认统计期间（近 30 天）：与页面同一口径，断言时按当天计算。 */
@@ -201,11 +241,12 @@ describe('使用方互认使用统计（平台页）', () => {
     renderPage(<RecognitionUsageStatistics />)
 
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
-    expect(usageApi.queryUsageDetailsPage).toHaveBeenCalledTimes(1)
+    // 左汇总列表每页 8 行；明细在选中首行后读取。
+    await waitFor(() => expect(usageApi.queryUsageDetailsPage).toHaveBeenCalledTimes(1))
 
     const [summaryClient, summaryBuilt] = usageApi.queryUsageSummaryPage.mock.calls[0]
     expect(summaryClient).toBe(clientRef.current)
-    expect(summaryBuilt).toMatchObject({ version: 'platform', groupDimension: 1, pageIndex: 1, pageSize: 10 })
+    expect(summaryBuilt).toMatchObject({ version: 'platform', groupDimension: 1, pageIndex: 1, pageSize: 8 })
     // 页面把 defaultStatisticsFilters 接进首次读取：默认窗口按当天为近 30 天滚动窗。
     expect(String(summaryBuilt.startTime)).toBe(expectedStart)
     expect(String(summaryBuilt.endTime)).toBe(expectedEnd)
@@ -217,7 +258,35 @@ describe('使用方互认使用统计（平台页）', () => {
     expect(String(detailsBuilt.endTime)).toBe(expectedEnd)
   })
 
+  it('切换标准项目维度后明细按选中行提交项目类型与标准项目编码（C48 页面接线）', async () => {
+    usageApi.queryUsageSummaryPage.mockImplementation(async (_client, built) => {
+      const dimension = (built as { groupDimension: number }).groupDimension
+      return pageOf([dimension === 4 ? usageProjectSummaryRow : usageSummaryRow])
+    })
+    renderPage(<RecognitionUsageStatistics />)
+    await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
+
+    await chooseDimension('标准项目')
+
+    await waitFor(() => expect(usageApi.queryUsageDetailsPage.mock.calls.at(-1)?.[1]).toMatchObject({
+      version: 'platform',
+      itemType: 1,
+      standardProjectCode: 'P-100',
+    }))
+    const detailsBuilt = usageApi.queryUsageDetailsPage.mock.calls.at(-1)?.[1] as Record<string, unknown>
+    expect(detailsBuilt.recognitionDeptId).toBeUndefined()
+  })
+
   it('两组范围与关键字条件改动进草稿零请求，点查询按已生效条件提交（提交式筛选与提交重读）', async () => {
+    // 汇总按提交的医院条件返回对应行：明细精确条件随选中行取该医院。
+    usageApi.queryUsageSummaryPage.mockImplementation(async (_client, built) => {
+      const receiverHospitalCode = (built as { receiverHospitalCode?: string }).receiverHospitalCode
+      return pageOf([{
+        ...usageSummaryRow,
+        receiverHospitalCode: receiverHospitalCode ?? 'HOS-1',
+        receiverHospitalName: receiverHospitalCode === 'HOS-2' ? '医院乙' : '医院甲',
+      }])
+    })
     renderPage(<RecognitionUsageStatistics />)
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
 
@@ -263,9 +332,9 @@ describe('使用方互认使用统计（平台页）', () => {
     expect(summaryQuery).not.toHaveProperty('pageSize')
     expect(summaryName).toMatch(/^使用方互认使用汇总-\d{8}-\d{8}\.xlsx$/)
 
-    fireEvent.click(within(screen.getByRole('region', { name: '使用明细' })).getByRole('radio', { name: '引用' }))
+    fireEvent.click(within(screen.getByRole('region', { name: '明细' })).getByRole('tab', { name: '引用' }))
     fireEvent.click(screen.getByRole('button', { name: '导出明细' }))
-    await waitFor(() => expect(usageApi.exportUsageStatistics).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(usageApi.exportUsageStatistics).toHaveBeenCalledTimes(2), { timeout: 3000 })
     const [, detailsQuery, detailsName] = usageApi.exportUsageStatistics.mock.calls[1]
     expect(detailsQuery).toMatchObject({ version: 'platform', exportType: 5, groupDimension: 1 })
     expect(detailsName).toMatch(/^使用方引用明细-\d{8}-\d{8}\.xlsx$/)
@@ -273,7 +342,7 @@ describe('使用方互认使用统计（平台页）', () => {
 
   it('明细行提供匹配记录出口：以 client 与行记录标识发起单记录查询（C13、C14 接线面）', async () => {
     renderPage(<RecognitionUsageStatistics />)
-    await screen.findByText('MZ001')
+    await screen.findByText('张三')
 
     fireEvent.click(screen.getAllByRole('button', { name: '查看互认匹配记录' })[0])
 
@@ -313,17 +382,90 @@ describe('本院互认使用统计（本院页）', () => {
     expect(built).not.toHaveProperty('organizationCode')
     expect(built).not.toHaveProperty('hospitalCode')
 
+    // 明细在首行自动选中后读取；等待其落地再断言精确条件。
+    await waitFor(() => expect(usageApi.queryUsageDetailsPage).toHaveBeenCalled())
     const detailsBuilt = usageApi.queryUsageDetailsPage.mock.calls[0][1]
     expect(detailsBuilt).toMatchObject({ version: 'branch', branchCode: 'BRA-1' })
     expect(detailsBuilt).not.toHaveProperty('organizationCode')
     expect(detailsBuilt).not.toHaveProperty('hospitalCode')
   })
 
+  it('明细导出按选中行携带精确分组条件，汇总导出不带（C55 页面接线）', async () => {
+    // 互认科室维度：汇总行带科室 ID，明细条件与明细导出的条件都应带上它。
+    usageApi.queryUsageSummaryPage.mockImplementation(async (_client, built) => {
+      const dimension = (built as { groupDimension: number }).groupDimension
+      return pageOf([dimension === 3 ? usageDeptSummaryRow : usageSummaryRow])
+    })
+    renderPage(<RecognitionUsageStatistics />)
+    await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
+    await chooseDimension('互认科室')
+    await waitFor(() => expect(usageApi.queryUsageDetailsPage.mock.calls.at(-1)?.[1]).toMatchObject({
+      recognitionDeptId: 'DEPT-9',
+    }))
+
+    fireEvent.click(screen.getByRole('button', { name: '导出汇总' }))
+    await waitFor(() => expect(usageApi.exportUsageStatistics).toHaveBeenCalledTimes(1))
+    const summaryBuilt = usageApi.exportUsageStatistics.mock.calls[0][1] as Record<string, unknown>
+    expect(summaryBuilt).toMatchObject({ version: 'platform', exportType: 1, groupDimension: 3 })
+    expect(summaryBuilt.recognitionDeptId).toBeUndefined()
+    expect(summaryBuilt.standardProjectCode).toBeUndefined()
+
+    await act(async () => {})
+    await waitFor(() => expect(screen.getByRole('button', { name: '导出明细' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: '导出明细' }))
+    await waitFor(() => expect(usageApi.exportUsageStatistics).toHaveBeenCalledTimes(2), { timeout: 3000 })
+    const detailsBuilt = usageApi.exportUsageStatistics.mock.calls[1][1] as Record<string, unknown>
+    expect(detailsBuilt).toMatchObject({
+      version: 'platform',
+      exportType: 2,
+      groupDimension: 3,
+      recognitionDeptId: 'DEPT-9',
+    })
+    expect(detailsBuilt).not.toHaveProperty('pageIndex')
+    expect(detailsBuilt).not.toHaveProperty('pageSize')
+  })
+
+  it('本院页互认科室维度：明细按选中行提交 RecognitionDeptId 且不提交本侧组织与医院（C48 页面接线）', async () => {
+    usageApi.queryUsageSummaryPage.mockImplementation(async (_client, built) => {
+      const dimension = (built as { groupDimension: number }).groupDimension
+      return pageOf([dimension === 3 ? usageDeptSummaryRow : usageSummaryRow])
+    })
+    renderPage(<BranchRecognitionUsageStatistics />)
+    await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
+
+    await chooseDimension('互认科室')
+
+    await waitFor(() => expect(usageApi.queryUsageDetailsPage.mock.calls.at(-1)?.[1]).toMatchObject({
+      version: 'branch',
+      branchCode: 'BRA-1',
+      recognitionDeptId: 'DEPT-9',
+    }))
+    const detailsBuilt = usageApi.queryUsageDetailsPage.mock.calls.at(-1)?.[1] as Record<string, unknown>
+    expect(detailsBuilt).not.toHaveProperty('organizationCode')
+    expect(detailsBuilt).not.toHaveProperty('hospitalCode')
+    expect(detailsBuilt.standardProjectCode).toBeUndefined()
+
+    // 明细导出同样不提交本侧接收组医院/院区，只保留 branchCode 与来源组条件。
+    await waitFor(() => expect(screen.getByRole('button', { name: '导出明细' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('button', { name: '导出明细' }))
+    await waitFor(() => expect(usageApi.exportUsageStatistics).toHaveBeenCalledTimes(1))
+    const exportBuilt = usageApi.exportUsageStatistics.mock.calls[0][1] as Record<string, unknown>
+    expect(exportBuilt).toMatchObject({
+      version: 'branch',
+      exportType: 2,
+      groupDimension: 3,
+      branchCode: 'BRA-1',
+      recognitionDeptId: 'DEPT-9',
+    })
+    expect(exportBuilt).not.toHaveProperty('receiverHospitalCode')
+    expect(exportBuilt).not.toHaveProperty('receiverBranchCode')
+  })
+
   it('对侧（来源）医院、院区选择改动进草稿零请求，点查询按登录院区与对侧条件提交（随登录上下文取数、提交式筛选）', async () => {
     renderPage(<BranchRecognitionUsageStatistics />)
     await waitFor(() => expect(usageApi.queryUsageSummaryPage).toHaveBeenCalledTimes(1))
 
-    const sourceGroup = within(screen.getByRole('region', { name: '提供方范围' }))
+    const sourceGroup = within(screen.getByRole('region', { name: '提供方筛选' }))
     expect(sourceGroup.getAllByRole('combobox')).toHaveLength(2)
     fireEvent.change(sourceGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS-2' } })
     fireEvent.change(sourceGroup.getByRole('combobox', { name: '院区' }), { target: { value: 'BRA-2' } })

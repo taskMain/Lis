@@ -7,6 +7,10 @@ export interface TablePaginationInput {
   totalCount: number
   loading: boolean
   onChange: (pageIndex: number, pageSize: number) => void
+  /** 覆盖页容量可选值；缺省沿用全站可选值。固定每行数量的列表传单一值。 */
+  pageSizeOptions?: readonly number[]
+  /** 是否显示页容量选择器；缺省显示。 */
+  showSizeChanger?: boolean
 }
 
 /**
@@ -41,9 +45,13 @@ export function createTablePagination({
   totalCount,
   loading,
   onChange,
+  pageSizeOptions,
+  showSizeChanger,
 }: TablePaginationInput): TablePaginationConfig {
   return {
     ...tablePaginationPresentation,
+    pageSizeOptions: pageSizeOptions === undefined ? [...PAGE_SIZE_OPTIONS] : [...pageSizeOptions],
+    showSizeChanger: showSizeChanger ?? true,
     current: pageIndex,
     pageSize,
     total: totalCount,

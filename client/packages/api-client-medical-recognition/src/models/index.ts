@@ -74,6 +74,10 @@ export interface BranchRecognitionStatisticsExportRequest extends AdditionalData
      */
     receiverHospitalCode?: string | null;
     /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
      * The sourceBranchCode property
      */
     sourceBranchCode?: string | null;
@@ -81,6 +85,10 @@ export interface BranchRecognitionStatisticsExportRequest extends AdditionalData
      * The sourceHospitalCode property
      */
     sourceHospitalCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
     /**
      * The startTime property
      */
@@ -124,6 +132,10 @@ export interface BranchRecognitionUsageDetailsQueryRequest extends AdditionalDat
      */
     page?: PageRequestDto | null;
     /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
      * The sourceBranchCode property
      */
     sourceBranchCode?: string | null;
@@ -131,6 +143,10 @@ export interface BranchRecognitionUsageDetailsQueryRequest extends AdditionalDat
      * The sourceHospitalCode property
      */
     sourceHospitalCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
     /**
      * The startTime property
      */
@@ -249,6 +265,10 @@ export interface BranchSourceRecognitionDetailsQueryRequest extends AdditionalDa
      * The sourceBranchCode property
      */
     sourceBranchCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
     /**
      * The startTime property
      */
@@ -1461,8 +1481,10 @@ export function deserializeIntoBranchRecognitionStatisticsExportRequest(branchRe
         "nonAdoptionReasonCode": n => { branchRecognitionStatisticsExportRequest.nonAdoptionReasonCode = n.getStringValue(); },
         "receiverBranchCode": n => { branchRecognitionStatisticsExportRequest.receiverBranchCode = n.getStringValue(); },
         "receiverHospitalCode": n => { branchRecognitionStatisticsExportRequest.receiverHospitalCode = n.getStringValue(); },
+        "recognitionDeptId": n => { branchRecognitionStatisticsExportRequest.recognitionDeptId = n.getStringValue(); },
         "sourceBranchCode": n => { branchRecognitionStatisticsExportRequest.sourceBranchCode = n.getStringValue(); },
         "sourceHospitalCode": n => { branchRecognitionStatisticsExportRequest.sourceHospitalCode = n.getStringValue(); },
+        "standardProjectCode": n => { branchRecognitionStatisticsExportRequest.standardProjectCode = n.getStringValue(); },
         "startTime": n => { branchRecognitionStatisticsExportRequest.startTime = n.getDateOnlyValue(); },
     }
 }
@@ -1483,8 +1505,10 @@ export function deserializeIntoBranchRecognitionUsageDetailsQueryRequest(branchR
         "keyword": n => { branchRecognitionUsageDetailsQueryRequest.keyword = n.getStringValue(); },
         "nonAdoptionReasonCode": n => { branchRecognitionUsageDetailsQueryRequest.nonAdoptionReasonCode = n.getStringValue(); },
         "page": n => { branchRecognitionUsageDetailsQueryRequest.page = n.getObjectValue<PageRequestDto>(createPageRequestDtoFromDiscriminatorValue); },
+        "recognitionDeptId": n => { branchRecognitionUsageDetailsQueryRequest.recognitionDeptId = n.getStringValue(); },
         "sourceBranchCode": n => { branchRecognitionUsageDetailsQueryRequest.sourceBranchCode = n.getStringValue(); },
         "sourceHospitalCode": n => { branchRecognitionUsageDetailsQueryRequest.sourceHospitalCode = n.getStringValue(); },
+        "standardProjectCode": n => { branchRecognitionUsageDetailsQueryRequest.standardProjectCode = n.getStringValue(); },
         "startTime": n => { branchRecognitionUsageDetailsQueryRequest.startTime = n.getDateOnlyValue(); },
     }
 }
@@ -1543,6 +1567,7 @@ export function deserializeIntoBranchSourceRecognitionDetailsQueryRequest(branch
         "receiverBranchCode": n => { branchSourceRecognitionDetailsQueryRequest.receiverBranchCode = n.getStringValue(); },
         "receiverHospitalCode": n => { branchSourceRecognitionDetailsQueryRequest.receiverHospitalCode = n.getStringValue(); },
         "sourceBranchCode": n => { branchSourceRecognitionDetailsQueryRequest.sourceBranchCode = n.getStringValue(); },
+        "standardProjectCode": n => { branchSourceRecognitionDetailsQueryRequest.standardProjectCode = n.getStringValue(); },
         "startTime": n => { branchSourceRecognitionDetailsQueryRequest.startTime = n.getDateOnlyValue(); },
     }
 }
@@ -2864,9 +2889,11 @@ export function deserializeIntoRecognitionStatisticsExportRequest(recognitionSta
         "receiverBranchCode": n => { recognitionStatisticsExportRequest.receiverBranchCode = n.getStringValue(); },
         "receiverHospitalCode": n => { recognitionStatisticsExportRequest.receiverHospitalCode = n.getStringValue(); },
         "receiverOrganizationCode": n => { recognitionStatisticsExportRequest.receiverOrganizationCode = n.getStringValue(); },
+        "recognitionDeptId": n => { recognitionStatisticsExportRequest.recognitionDeptId = n.getStringValue(); },
         "sourceBranchCode": n => { recognitionStatisticsExportRequest.sourceBranchCode = n.getStringValue(); },
         "sourceHospitalCode": n => { recognitionStatisticsExportRequest.sourceHospitalCode = n.getStringValue(); },
         "sourceOrganizationCode": n => { recognitionStatisticsExportRequest.sourceOrganizationCode = n.getStringValue(); },
+        "standardProjectCode": n => { recognitionStatisticsExportRequest.standardProjectCode = n.getStringValue(); },
         "startTime": n => { recognitionStatisticsExportRequest.startTime = n.getDateOnlyValue(); },
     }
 }
@@ -2934,9 +2961,11 @@ export function deserializeIntoRecognitionUsageDetailsQueryRequest(recognitionUs
         "nonAdoptionReasonCode": n => { recognitionUsageDetailsQueryRequest.nonAdoptionReasonCode = n.getStringValue(); },
         "organizationCode": n => { recognitionUsageDetailsQueryRequest.organizationCode = n.getStringValue(); },
         "page": n => { recognitionUsageDetailsQueryRequest.page = n.getObjectValue<PageRequestDto>(createPageRequestDtoFromDiscriminatorValue); },
+        "recognitionDeptId": n => { recognitionUsageDetailsQueryRequest.recognitionDeptId = n.getStringValue(); },
         "sourceBranchCode": n => { recognitionUsageDetailsQueryRequest.sourceBranchCode = n.getStringValue(); },
         "sourceHospitalCode": n => { recognitionUsageDetailsQueryRequest.sourceHospitalCode = n.getStringValue(); },
         "sourceOrganizationCode": n => { recognitionUsageDetailsQueryRequest.sourceOrganizationCode = n.getStringValue(); },
+        "standardProjectCode": n => { recognitionUsageDetailsQueryRequest.standardProjectCode = n.getStringValue(); },
         "startTime": n => { recognitionUsageDetailsQueryRequest.startTime = n.getDateOnlyValue(); },
     }
 }
@@ -3180,6 +3209,7 @@ export function deserializeIntoSourceRecognitionDetailsQueryRequest(sourceRecogn
         "sourceBranchCode": n => { sourceRecognitionDetailsQueryRequest.sourceBranchCode = n.getStringValue(); },
         "sourceHospitalCode": n => { sourceRecognitionDetailsQueryRequest.sourceHospitalCode = n.getStringValue(); },
         "sourceOrganizationCode": n => { sourceRecognitionDetailsQueryRequest.sourceOrganizationCode = n.getStringValue(); },
+        "standardProjectCode": n => { sourceRecognitionDetailsQueryRequest.standardProjectCode = n.getStringValue(); },
         "startTime": n => { sourceRecognitionDetailsQueryRequest.startTime = n.getDateOnlyValue(); },
     }
 }
@@ -5211,6 +5241,10 @@ export interface RecognitionStatisticsExportRequest extends AdditionalDataHolder
      */
     receiverOrganizationCode?: string | null;
     /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
      * The sourceBranchCode property
      */
     sourceBranchCode?: string | null;
@@ -5222,6 +5256,10 @@ export interface RecognitionStatisticsExportRequest extends AdditionalDataHolder
      * The sourceOrganizationCode property
      */
     sourceOrganizationCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
     /**
      * The startTime property
      */
@@ -5377,6 +5415,10 @@ export interface RecognitionUsageDetailsQueryRequest extends AdditionalDataHolde
      */
     page?: PageRequestDto | null;
     /**
+     * The recognitionDeptId property
+     */
+    recognitionDeptId?: string | null;
+    /**
      * The sourceBranchCode property
      */
     sourceBranchCode?: string | null;
@@ -5388,6 +5430,10 @@ export interface RecognitionUsageDetailsQueryRequest extends AdditionalDataHolde
      * The sourceOrganizationCode property
      */
     sourceOrganizationCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
     /**
      * The startTime property
      */
@@ -5824,8 +5870,10 @@ export function serializeBranchRecognitionStatisticsExportRequest(writer: Serial
     writer.writeStringValue("nonAdoptionReasonCode", branchRecognitionStatisticsExportRequest.nonAdoptionReasonCode);
     writer.writeStringValue("receiverBranchCode", branchRecognitionStatisticsExportRequest.receiverBranchCode);
     writer.writeStringValue("receiverHospitalCode", branchRecognitionStatisticsExportRequest.receiverHospitalCode);
+    writer.writeStringValue("recognitionDeptId", branchRecognitionStatisticsExportRequest.recognitionDeptId);
     writer.writeStringValue("sourceBranchCode", branchRecognitionStatisticsExportRequest.sourceBranchCode);
     writer.writeStringValue("sourceHospitalCode", branchRecognitionStatisticsExportRequest.sourceHospitalCode);
+    writer.writeStringValue("standardProjectCode", branchRecognitionStatisticsExportRequest.standardProjectCode);
     writer.writeDateOnlyValue("startTime", branchRecognitionStatisticsExportRequest.startTime);
     writer.writeAdditionalData(branchRecognitionStatisticsExportRequest.additionalData);
 }
@@ -5847,8 +5895,10 @@ export function serializeBranchRecognitionUsageDetailsQueryRequest(writer: Seria
     writer.writeStringValue("keyword", branchRecognitionUsageDetailsQueryRequest.keyword);
     writer.writeStringValue("nonAdoptionReasonCode", branchRecognitionUsageDetailsQueryRequest.nonAdoptionReasonCode);
     writer.writeObjectValue<PageRequestDto>("page", branchRecognitionUsageDetailsQueryRequest.page, serializePageRequestDto);
+    writer.writeStringValue("recognitionDeptId", branchRecognitionUsageDetailsQueryRequest.recognitionDeptId);
     writer.writeStringValue("sourceBranchCode", branchRecognitionUsageDetailsQueryRequest.sourceBranchCode);
     writer.writeStringValue("sourceHospitalCode", branchRecognitionUsageDetailsQueryRequest.sourceHospitalCode);
+    writer.writeStringValue("standardProjectCode", branchRecognitionUsageDetailsQueryRequest.standardProjectCode);
     writer.writeDateOnlyValue("startTime", branchRecognitionUsageDetailsQueryRequest.startTime);
     writer.writeAdditionalData(branchRecognitionUsageDetailsQueryRequest.additionalData);
 }
@@ -5910,6 +5960,7 @@ export function serializeBranchSourceRecognitionDetailsQueryRequest(writer: Seri
     writer.writeStringValue("receiverBranchCode", branchSourceRecognitionDetailsQueryRequest.receiverBranchCode);
     writer.writeStringValue("receiverHospitalCode", branchSourceRecognitionDetailsQueryRequest.receiverHospitalCode);
     writer.writeStringValue("sourceBranchCode", branchSourceRecognitionDetailsQueryRequest.sourceBranchCode);
+    writer.writeStringValue("standardProjectCode", branchSourceRecognitionDetailsQueryRequest.standardProjectCode);
     writer.writeDateOnlyValue("startTime", branchSourceRecognitionDetailsQueryRequest.startTime);
     writer.writeAdditionalData(branchSourceRecognitionDetailsQueryRequest.additionalData);
 }
@@ -7315,9 +7366,11 @@ export function serializeRecognitionStatisticsExportRequest(writer: Serializatio
     writer.writeStringValue("receiverBranchCode", recognitionStatisticsExportRequest.receiverBranchCode);
     writer.writeStringValue("receiverHospitalCode", recognitionStatisticsExportRequest.receiverHospitalCode);
     writer.writeStringValue("receiverOrganizationCode", recognitionStatisticsExportRequest.receiverOrganizationCode);
+    writer.writeStringValue("recognitionDeptId", recognitionStatisticsExportRequest.recognitionDeptId);
     writer.writeStringValue("sourceBranchCode", recognitionStatisticsExportRequest.sourceBranchCode);
     writer.writeStringValue("sourceHospitalCode", recognitionStatisticsExportRequest.sourceHospitalCode);
     writer.writeStringValue("sourceOrganizationCode", recognitionStatisticsExportRequest.sourceOrganizationCode);
+    writer.writeStringValue("standardProjectCode", recognitionStatisticsExportRequest.standardProjectCode);
     writer.writeDateOnlyValue("startTime", recognitionStatisticsExportRequest.startTime);
     writer.writeAdditionalData(recognitionStatisticsExportRequest.additionalData);
 }
@@ -7388,9 +7441,11 @@ export function serializeRecognitionUsageDetailsQueryRequest(writer: Serializati
     writer.writeStringValue("nonAdoptionReasonCode", recognitionUsageDetailsQueryRequest.nonAdoptionReasonCode);
     writer.writeStringValue("organizationCode", recognitionUsageDetailsQueryRequest.organizationCode);
     writer.writeObjectValue<PageRequestDto>("page", recognitionUsageDetailsQueryRequest.page, serializePageRequestDto);
+    writer.writeStringValue("recognitionDeptId", recognitionUsageDetailsQueryRequest.recognitionDeptId);
     writer.writeStringValue("sourceBranchCode", recognitionUsageDetailsQueryRequest.sourceBranchCode);
     writer.writeStringValue("sourceHospitalCode", recognitionUsageDetailsQueryRequest.sourceHospitalCode);
     writer.writeStringValue("sourceOrganizationCode", recognitionUsageDetailsQueryRequest.sourceOrganizationCode);
+    writer.writeStringValue("standardProjectCode", recognitionUsageDetailsQueryRequest.standardProjectCode);
     writer.writeDateOnlyValue("startTime", recognitionUsageDetailsQueryRequest.startTime);
     writer.writeAdditionalData(recognitionUsageDetailsQueryRequest.additionalData);
 }
@@ -7645,6 +7700,7 @@ export function serializeSourceRecognitionDetailsQueryRequest(writer: Serializat
     writer.writeStringValue("sourceBranchCode", sourceRecognitionDetailsQueryRequest.sourceBranchCode);
     writer.writeStringValue("sourceHospitalCode", sourceRecognitionDetailsQueryRequest.sourceHospitalCode);
     writer.writeStringValue("sourceOrganizationCode", sourceRecognitionDetailsQueryRequest.sourceOrganizationCode);
+    writer.writeStringValue("standardProjectCode", sourceRecognitionDetailsQueryRequest.standardProjectCode);
     writer.writeDateOnlyValue("startTime", sourceRecognitionDetailsQueryRequest.startTime);
     writer.writeAdditionalData(sourceRecognitionDetailsQueryRequest.additionalData);
 }
@@ -7923,6 +7979,10 @@ export interface SourceRecognitionDetailsQueryRequest extends AdditionalDataHold
      * The sourceOrganizationCode property
      */
     sourceOrganizationCode?: string | null;
+    /**
+     * The standardProjectCode property
+     */
+    standardProjectCode?: string | null;
     /**
      * The startTime property
      */

@@ -98,7 +98,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ResolveExportNonAdoptionReason(request.ExportType, request.NonAdoptionReasonCode),
       request.ItemType,
       request.CategoryName?.Trim(),
-      request.GroupName?.Trim()));
+      request.GroupName?.Trim(),
+      NullIfBlank(request.RecognitionDeptId),
+      NullIfBlank(request.StandardProjectCode)));
   }
 
   /// <summary>
@@ -143,7 +145,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
         ResolveExportNonAdoptionReason(request.ExportType, request.NonAdoptionReasonCode),
         request.ItemType,
         request.CategoryName?.Trim(),
-        request.GroupName?.Trim()));
+        request.GroupName?.Trim(),
+        NullIfBlank(request.RecognitionDeptId),
+        NullIfBlank(request.StandardProjectCode)));
     }
 
     // 使用方导出类型：使用方组织与使用方医院取可信上下文，本侧使用方院区可选；
@@ -166,7 +170,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ResolveExportNonAdoptionReason(request.ExportType, request.NonAdoptionReasonCode),
       request.ItemType,
       request.CategoryName?.Trim(),
-      request.GroupName?.Trim()));
+      request.GroupName?.Trim(),
+      NullIfBlank(request.RecognitionDeptId),
+      NullIfBlank(request.StandardProjectCode)));
   }
 
   /// <summary>
@@ -406,7 +412,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     NonAdoptionReason = command.NonAdoptionReason,
     ItemType = command.ItemType,
     CategoryName = command.CategoryName,
-    GroupName = command.GroupName
+    GroupName = command.GroupName,
+    RecognitionDeptId = command.RecognitionDeptId,
+    StandardProjectCode = command.StandardProjectCode
   };
 
   /// <summary>
@@ -505,7 +513,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       Keyword = command.Keyword,
       ItemType = command.ItemType,
       CategoryName = command.CategoryName,
-      GroupName = command.GroupName
+      GroupName = command.GroupName,
+      StandardProjectCode = command.StandardProjectCode
     };
 
     // 先计数再全量读取：窗口起点为 0、页容量取计数，同一语句在不截断行集的前提下取回全部记录。
@@ -861,6 +870,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <param name="ItemType">项目类型筛选条件。</param>
   /// <param name="CategoryName">标准目录分类名称筛选条件。</param>
   /// <param name="GroupName">标准目录分组名称筛选条件。</param>
+  /// <param name="RecognitionDeptId">互认科室 ID 精确条件；仅使用方明细导出使用。</param>
+  /// <param name="StandardProjectCode">标准项目编码精确条件；明细导出使用。</param>
   private sealed record StatisticsExportCommand(
     RecognitionStatisticsExportType ExportType,
     DateOnly StartTime,
@@ -876,5 +887,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     RecognitionNonAdoptionReason? NonAdoptionReason,
     MedicalItemType? ItemType,
     string? CategoryName,
-    string? GroupName);
+    string? GroupName,
+    string? RecognitionDeptId,
+    string? StandardProjectCode);
 }

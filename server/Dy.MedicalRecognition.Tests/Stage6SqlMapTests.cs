@@ -413,10 +413,13 @@ public sealed class Stage6SqlMapTests
   }
 
   /// <summary>
-  /// V23：汇总与明细的当页语句带稳定唯一的排序，计数语句不带排序；汇总排序键与分组键同套，分组行序即窗口序。
+  /// V23、V48、V49：汇总与明细的当页语句带稳定唯一的排序，计数语句不带排序；
+  /// 汇总先按业务量降序，再按完整分组键升序兜底。
   /// </summary>
   /// <remarks>
-  /// 汇总的排序键就是分组键本身：分组键元组在行集内唯一，排序自然跨页无重复无遗漏；
+  /// 使用方汇总先按采纳次数、再按提醒次数降序，随后按使用方组织、医院、院区、科室、项目类型与标准项目编码升序；
+  /// 提供方汇总先按被互认次数降序，随后按提供方组织、医院、院区、项目类型与标准项目编码升序；
+  /// 分组键元组在行集内唯一，业务量相同的行由分组键决定顺序，跨页无重复无遗漏。
   /// 明细按业务时间倒序加匹配项标识升序兜底；窗口语法由 Provider 适配层附加，语句文本不出现分页子句。
   /// </remarks>
   [Fact]
@@ -428,13 +431,13 @@ public sealed class Stage6SqlMapTests
     }
 
     Assert.Contains(
-      "order by g.receiver_organization_code asc, g.receiver_hospital_code asc, g.receiver_branch_code asc, " +
-      "g.recognition_dept_id asc, g.item_type asc, g.standard_project_code asc",
+      "order by g.adoption_count desc, g.reminder_count desc, g.receiver_organization_code asc, " +
+      "g.receiver_hospital_code asc, g.receiver_branch_code asc, g.recognition_dept_id asc, g.item_type asc, g.standard_project_code asc",
       StatisticsStatementText("QueryRecognitionUsageSummaryPage"),
       StringComparison.Ordinal);
     Assert.Contains(
-      "order by g.source_organization_code asc, g.source_hospital_code asc, g.source_branch_code asc, " +
-      "g.item_type asc, g.standard_project_code asc",
+      "order by g.recognition_count desc, g.source_organization_code asc, g.source_hospital_code asc, " +
+      "g.source_branch_code asc, g.item_type asc, g.standard_project_code asc",
       StatisticsStatementText("QuerySourceRecognitionSummaryPage"),
       StringComparison.Ordinal);
 
@@ -514,9 +517,15 @@ public sealed class Stage6SqlMapTests
 
     string source = StatisticsStatementText("QuerySourceRecognitionSummaryPage");
     Assert.Contains("case when $GroupDimension in (1, 2) then r.organization_code end", source, StringComparison.Ordinal);
-    Assert.Contains("case when $GroupDimension = 1 then r.hospital_code end", source, StringComparison.Ordinal);
+    Assert.Contains("case when $GroupDimension in (1, 2) then r.hospital_code end", source, StringComparison.Ordinal);
     Assert.Contains("case when $GroupDimension = 2 then r.branch_code end", source, StringComparison.Ordinal);
     Assert.Contains("case when $GroupDimension = 4 then mi.standard_project_code end", source, StringComparison.Ordinal);
+
+    // 计数语句必须使用与当页语句相同的提供方分组键；院区维度缺少医院键会把多个院区分组合并计数。
+    string sourceCount = StatisticsStatementText("CountSourceRecognitionSummaryGroups");
+    Assert.Contains("case when $GroupDimension in (1, 2) then r.organization_code end", sourceCount, StringComparison.Ordinal);
+    Assert.Contains("case when $GroupDimension in (1, 2) then r.hospital_code end", sourceCount, StringComparison.Ordinal);
+    Assert.Contains("case when $GroupDimension = 2 then r.branch_code end", sourceCount, StringComparison.Ordinal);
 
     // 判别力：同一分组键判定对真实语句判无缺失；把互认科室分组键换成使用方院区分组键构造变异文本后，
     // 同一判定必须恰好报出被换掉的互认科室键。
@@ -637,13 +646,62 @@ public sealed class Stage6SqlMapTests
         $"{statementId} 的关键字 OR 组缺失或写法不符：{string.Join("；", violations)}");
     }
 
-    // 十七条统计语句都不再出现互认科室ID、互认医生ID与标准项目编码的独立筛选参数。
-    foreach (string statementId in StatisticsStatementIds)
+    // 精确分组参数只出现在明细语句：汇总与原因语句不携带，使用方四类明细查询与计数携带科室与项目，
+    // 提供方明细只携带项目；互认医生 ID 在全部统计语句中保持缺席。
+    string[] summaryStatementIds =
+    [
+      "CountRecognitionUsageSummaryGroups",
+      "QueryRecognitionUsageSummaryPage",
+      "QueryRecognitionUsageSummaryReasons",
+      "CountSourceRecognitionSummaryGroups",
+      "QuerySourceRecognitionSummaryPage",
+    ];
+    foreach (string statementId in summaryStatementIds)
     {
       string statement = StatisticsStatementText(statementId);
       Assert.DoesNotContain("$RecognitionDeptId", statement, StringComparison.Ordinal);
-      Assert.DoesNotContain("$RecognitionDoctorId", statement, StringComparison.Ordinal);
       Assert.DoesNotContain("$StandardProjectCode", statement, StringComparison.Ordinal);
+    }
+
+    string[] usageDetailStatementIds =
+    [
+      "CountRecognitionUsageReminderDetails",
+      "QueryRecognitionUsageReminderDetails",
+      "CountRecognitionUsageAdoptionDetails",
+      "QueryRecognitionUsageAdoptionDetails",
+      "CountRecognitionUsageNonAdoptionDetails",
+      "QueryRecognitionUsageNonAdoptionDetails",
+      "CountRecognitionUsageReferenceDetails",
+      "QueryRecognitionUsageReferenceDetails",
+    ];
+    foreach (string statementId in usageDetailStatementIds)
+    {
+      string statement = StatisticsStatementText(statementId);
+      Assert.Contains("pr.recognition_dept_id = $RecognitionDeptId", statement, StringComparison.Ordinal);
+      Assert.Contains("mi.standard_project_code = $StandardProjectCode", statement, StringComparison.Ordinal);
+      Assert.DoesNotContain("$RecognitionDeptId like", statement, StringComparison.OrdinalIgnoreCase);
+      Assert.DoesNotContain("$StandardProjectCode like", statement, StringComparison.OrdinalIgnoreCase);
+    }
+
+    string[] sourceDetailStatementIds =
+    [
+      "CountSourceRecognitionDetails",
+      "QuerySourceRecognitionDetails",
+    ];
+    foreach (string statementId in sourceDetailStatementIds)
+    {
+      string statement = StatisticsStatementText(statementId);
+      Assert.DoesNotContain("$RecognitionDeptId", statement, StringComparison.Ordinal);
+      Assert.Contains("mi.standard_project_code = $StandardProjectCode", statement, StringComparison.Ordinal);
+      Assert.DoesNotContain("$StandardProjectCode like", statement, StringComparison.OrdinalIgnoreCase);
+    }
+
+    foreach (string statementId in StatisticsStatementIds)
+    {
+      Assert.DoesNotContain(
+        "$RecognitionDoctorId",
+        StatisticsStatementText(statementId),
+        StringComparison.Ordinal);
     }
 
     // 判别力：把关键字命中列改写为独立参数比较的变异文本上，同一判定必须恰好报出被删去的 OR 组谓词。

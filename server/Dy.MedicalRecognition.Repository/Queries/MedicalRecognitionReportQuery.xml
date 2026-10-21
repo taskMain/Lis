@@ -1060,7 +1060,7 @@
       结果：每行为所选维度的一个分组值，未参与分组的维度键为空值；
       提醒次数按匹配生成时间、采纳与不采纳次数与预计节省金额按处理结果互认时间、引用次数按实际引用时间各自独立过滤同一起止日期；
       互认科室维度的展示名称取查询范围内互认时间最晚一条处理结果保存的名称；
-      分组键排序升序即稳定唯一顺序，分页窗口由数据映射器的 Provider 适配层附加，本语句保持 Provider 中立。
+      排序先按采纳次数降序、采纳次数相同按提醒次数降序，再按完整分组键升序兜底，分页窗口由数据映射器的 Provider 适配层附加，本语句保持 Provider 中立。
     -->
     <Statement Id="QueryRecognitionUsageSummaryPage">
       select
@@ -1168,7 +1168,7 @@
           case when $GroupDimension = 4 then sc.name end,
           case when $GroupDimension = 4 then sg.name end
       ) g
-      order by g.receiver_organization_code asc, g.receiver_hospital_code asc, g.receiver_branch_code asc, g.recognition_dept_id asc, g.item_type asc, g.standard_project_code asc  <!-- 排序：分组键升序，分组键元组在行集内唯一，排序即稳定唯一 -->
+      order by g.adoption_count desc, g.reminder_count desc, g.receiver_organization_code asc, g.receiver_hospital_code asc, g.receiver_branch_code asc, g.recognition_dept_id asc, g.item_type asc, g.standard_project_code asc  <!-- 排序：先用采纳次数与提醒次数表达业务量，再按完整分组键升序兜底，分组键元组在行集内唯一 -->
     </Statement>
 
     <!--
@@ -1254,7 +1254,7 @@
       select count(1) as total_count from (
       select
         case when $GroupDimension in (1, 2) then r.organization_code end,
-        case when $GroupDimension = 1 then r.hospital_code end,
+        case when $GroupDimension in (1, 2) then r.hospital_code end,
         case when $GroupDimension = 2 then r.branch_code end,
         case when $GroupDimension = 4 then sc.item_type end,
         case when $GroupDimension = 4 then mi.standard_project_code end,
@@ -1302,7 +1302,7 @@
       and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
       group by
         case when $GroupDimension in (1, 2) then r.organization_code end,
-        case when $GroupDimension = 1 then r.hospital_code end,
+        case when $GroupDimension in (1, 2) then r.hospital_code end,
         case when $GroupDimension = 2 then r.branch_code end,
         case when $GroupDimension = 4 then sc.item_type end,
         case when $GroupDimension = 4 then mi.standard_project_code end,
@@ -1315,7 +1315,7 @@
     <!--
       功能：取提供方医院被互认汇总的当页分组行，按所选汇总维度在数据库侧聚合被互认次数。
       结果：每行为所选维度的一个分组值，未参与分组的维度键为空值；被互认次数等于本行范围内的采纳事实数；
-      分组键排序升序即稳定唯一顺序，分页窗口由数据映射器的 Provider 适配层附加，本语句保持 Provider 中立。
+      排序先按被互认次数降序，再按完整分组键升序兜底，分页窗口由数据映射器的 Provider 适配层附加，本语句保持 Provider 中立。
     -->
     <Statement Id="QuerySourceRecognitionSummaryPage">
       select
@@ -1331,7 +1331,7 @@
       from (
         select
           case when $GroupDimension in (1, 2) then r.organization_code end as source_organization_code,
-          case when $GroupDimension = 1 then r.hospital_code end as source_hospital_code,
+          case when $GroupDimension in (1, 2) then r.hospital_code end as source_hospital_code,
           case when $GroupDimension = 2 then r.branch_code end as source_branch_code,
           case when $GroupDimension = 4 then sc.item_type end as item_type,
           case when $GroupDimension = 4 then mi.standard_project_code end as standard_project_code,
@@ -1374,7 +1374,7 @@
         and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
         group by
           case when $GroupDimension in (1, 2) then r.organization_code end,
-          case when $GroupDimension = 1 then r.hospital_code end,
+          case when $GroupDimension in (1, 2) then r.hospital_code end,
           case when $GroupDimension = 2 then r.branch_code end,
           case when $GroupDimension = 4 then sc.item_type end,
           case when $GroupDimension = 4 then mi.standard_project_code end,
@@ -1382,7 +1382,7 @@
           case when $GroupDimension = 4 then sc.name end,
           case when $GroupDimension = 4 then sg.name end
       ) g
-      order by g.source_organization_code asc, g.source_hospital_code asc, g.source_branch_code asc, g.item_type asc, g.standard_project_code asc  <!-- 排序：分组键升序，分组键元组在行集内唯一 -->
+      order by g.recognition_count desc, g.source_organization_code asc, g.source_hospital_code asc, g.source_branch_code asc, g.item_type asc, g.standard_project_code asc  <!-- 排序：先按被互认次数降序，再按完整分组键升序兜底，分组键元组在行集内唯一 -->
     </Statement>
 
     <!--
@@ -1427,6 +1427,8 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称，转义口径同标准项目类查询 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 精确筛选：使用方选中行互认科室 ID -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code = $StandardProjectCode</IsNotEmpty>  <!-- 精确筛选：使用方选中行标准项目编码 -->
       <!-- 提醒口径：按互认匹配生成时间取行；不按处理结果排除，未反馈项与已反馈项都在提醒明细内。 -->
       and mr.match_created_time &gt;= $PeriodStart and mr.match_created_time &lt; $PeriodEnd
     </Statement>
@@ -1498,6 +1500,8 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 精确筛选：使用方选中行互认科室 ID -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code = $StandardProjectCode</IsNotEmpty>  <!-- 精确筛选：使用方选中行标准项目编码 -->
       and mr.match_created_time &gt;= $PeriodStart and mr.match_created_time &lt; $PeriodEnd
       order by mr.match_created_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底，跨页无重复无遗漏 -->
     </Statement>
@@ -1543,6 +1547,8 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 精确筛选：使用方选中行互认科室 ID -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code = $StandardProjectCode</IsNotEmpty>  <!-- 精确筛选：使用方选中行标准项目编码 -->
       <!-- 采纳口径：按处理结果互认时间取行，只含采纳决策。 -->
       and pr.recognition_result = 1 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
     </Statement>
@@ -1613,6 +1619,8 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 精确筛选：使用方选中行互认科室 ID -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code = $StandardProjectCode</IsNotEmpty>  <!-- 精确筛选：使用方选中行标准项目编码 -->
       and pr.recognition_result = 1 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
       order by pr.recognition_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底 -->
     </Statement>
@@ -1658,6 +1666,8 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 精确筛选：使用方选中行互认科室 ID -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code = $StandardProjectCode</IsNotEmpty>  <!-- 精确筛选：使用方选中行标准项目编码 -->
       <!-- 不采纳口径：按处理结果互认时间取行，只含不采纳决策；原因代码筛选作用于保存的原因列。 -->
       and pr.recognition_result = 2 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
     </Statement>
@@ -1730,6 +1740,8 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 精确筛选：使用方选中行互认科室 ID -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code = $StandardProjectCode</IsNotEmpty>  <!-- 精确筛选：使用方选中行标准项目编码 -->
       and pr.recognition_result = 2 and pr.recognition_time &gt;= $PeriodStart and pr.recognition_time &lt; $PeriodEnd
       order by pr.recognition_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底 -->
     </Statement>
@@ -1775,6 +1787,8 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 精确筛选：使用方选中行互认科室 ID -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code = $StandardProjectCode</IsNotEmpty>  <!-- 精确筛选：使用方选中行标准项目编码 -->
       <!-- 引用口径：按引用事实实际引用时间取行，无引用事实的匹配项不参与。 -->
       and rf.id is not null and rf.referenced_time &gt;= $PeriodStart and rf.referenced_time &lt; $PeriodEnd
     </Statement>
@@ -1849,6 +1863,8 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="RecognitionDeptId">pr.recognition_dept_id = $RecognitionDeptId</IsNotEmpty>  <!-- 精确筛选：使用方选中行互认科室 ID -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code = $StandardProjectCode</IsNotEmpty>  <!-- 精确筛选：使用方选中行标准项目编码 -->
       and rf.id is not null and rf.referenced_time &gt;= $PeriodStart and rf.referenced_time &lt; $PeriodEnd
       order by rf.referenced_time desc, mi.id asc  <!-- 排序：业务时间倒序加匹配项标识升序兜底 -->
     </Statement>
@@ -1877,6 +1893,7 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型，取匹配项自身保存值 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code = $StandardProjectCode</IsNotEmpty>  <!-- 精确筛选：提供方选中行标准项目编码 -->
       <!--
         处理：统一关键字按互认科室ID/名称、标准项目编码/名称逐列前缀匹配后 OR 组合，任一列命中即通过（来源侧语句无互认医生列）；
         对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
@@ -1935,6 +1952,7 @@
       <IsNotEmpty Prepend="and" Property="ItemType">mi.item_type = $ItemType</IsNotEmpty>  <!-- 可选筛选：项目类型 -->
       <IsNotEmpty Prepend="and" Property="CategoryName">sc.name like concat('%', replace(replace(replace($CategoryName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分类名称 -->
       <IsNotEmpty Prepend="and" Property="GroupName">sg.name like concat('%', replace(replace(replace($GroupName, '!', '!!'), '%', '!%'), '_', '!_'), '%') escape '!'</IsNotEmpty>  <!-- 可选筛选：标准目录分组名称 -->
+      <IsNotEmpty Prepend="and" Property="StandardProjectCode">mi.standard_project_code = $StandardProjectCode</IsNotEmpty>  <!-- 精确筛选：提供方选中行标准项目编码 -->
       <!--
         处理：统一关键字按互认科室ID/名称、标准项目编码/名称逐列前缀匹配后 OR 组合，任一列命中即通过（来源侧语句无互认医生列）；
         对用户输入的转义符 ! 先加倍、% 转义为 !%、_ 转义为 !_，尾部拼接通配符并用 escape '!' 声明转义符，
