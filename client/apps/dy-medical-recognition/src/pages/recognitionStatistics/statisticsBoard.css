@@ -82,7 +82,8 @@
 .statistics-board-party-cell__branch { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .statistics-board-cell__secondary { font-size: 12px; color: var(--ant-color-text-secondary, #595959); }
 .statistics-board-cell__secondary--numeric { font-variant-numeric: tabular-nums; }
-.statistics-board-cell__tag { margin-inline-end: 0; }
+/* 反馈结果列的不采纳标签与另两种标签同形：纵向单元格内按内容宽度收缩，不沿交叉轴拉伸。 */
+.statistics-board-cell__tag { margin-inline-end: 0; align-self: flex-start; }
 .statistics-board-party-cell__branch { color: var(--ant-color-text-secondary, #595959); }
 
 /* 不采纳原因工具行：选项只来自选中汇总行的原因分布。 */

@@ -1399,6 +1399,8 @@ describe('票据 04：查询区、范围区与提交式筛选', () => {
     expect(css).toMatch(/\.statistics-board-detail-anchor\s*\{[^}]*width:\s*100%/s)
     expect(css).toMatch(/\.statistics-board-detail-anchor\s*\{[^}]*flex:\s*1 1 auto/s)
     expect(css).toMatch(/\.statistics-board-group-row\[aria-pressed='true'\]\s*\{[^}]*border-left-color/s)
+    // 反馈结果列三种标签形态一致：不采纳标签在纵向单元格内按内容宽度收缩，不拉伸占满列宽。
+    expect(css).toMatch(/\.statistics-board-cell__tag\s*\{[^}]*align-self:\s*flex-start/s)
     // 主体引入配套 CSS，页头标题 margin 归零由 CSS 承载（内联 margin 等价物移除）。
     const board = readFileSync(boardPath, 'utf8')
     expect(board).toContain("import './statisticsBoard.css'")
