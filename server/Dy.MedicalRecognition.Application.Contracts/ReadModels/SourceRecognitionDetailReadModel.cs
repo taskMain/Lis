@@ -1,3 +1,6 @@
+using Dy.MedicalRecognition.Application.Contracts.Queries.EnumMetadata;
+using Dy.MedicalRecognition.Domain.Share.Enums;
+
 namespace Dy.MedicalRecognition.Application.Contracts.ReadModels;
 
 /// <summary>
@@ -39,6 +42,19 @@ public sealed record SourceRecognitionDetailReadModel
   public string ReceiverBranchName { get; init; } = string.Empty;
   /// <summary>标准项目编码。</summary>
   public string StandardProjectCode { get; init; } = string.Empty;
+  /// <summary>标准项目名称；取自标准目录当前版本，标准项目不在目录中时为空。</summary>
+  public string? StandardProjectName { get; init; }
+  /// <summary>项目类型；取匹配项自身保存值，恒有值。</summary>
+  public MedicalItemType ItemType { get; init; }
+  /// <summary>
+  /// 项目类型中文；由服务端按枚举声明解析，页面直接展示，不在前端重写一份类型文案。
+  /// </summary>
+  /// <remarks>取值未登记时返回 null（项目类型列无存储约束校验），由页面按「未知类型」安全展示。</remarks>
+  public string? ItemTypeText => EnumDescriptorText.GetOrNull(ItemType, MedicalItemTypeDescriptorList.List);
+  /// <summary>标准目录分类名称；取自标准项目所属分类，分类缺失时为空。</summary>
+  public string? CategoryName { get; init; }
+  /// <summary>标准目录分组名称；取自标准项目所属分组，分组缺失时为空。</summary>
+  public string? GroupName { get; init; }
   /// <summary>互认科室ID；取处理结果自身保存值。</summary>
   public string? RecognitionDeptId { get; init; }
   /// <summary>互认科室名称；取处理结果自身保存的名称。</summary>

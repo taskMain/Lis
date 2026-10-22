@@ -11,7 +11,7 @@ import {
   statisticsTextOrDash,
 } from './statisticsDisplays'
 import { RECOGNITION_DECISION } from './recognitionStatisticsValues'
-import { partyName } from './statisticsDetailValues'
+import { partyName, projectCodeText, projectNameText } from './statisticsDetailValues'
 
 /** 归属方三行式单元格：组织名、医院名、院区名各占一行，只显名称不显示编码。 */
 export function PartyCell(props: { organizationName?: string | null; hospitalName?: string | null; branchName?: string | null }) {
@@ -58,13 +58,21 @@ export function PatientCell(props: { patientName: string; identityDocumentNo: st
   </div>
 }
 
-/** 项目列：标准项目名称为主行，编码为次行；名称缺失时给出明确文案。 */
-export function ItemCell(props: { item: UsageDetailRow['item'] }) {
-  const projectName = (props.item.standardProjectName ?? '').trim()
-  const nameText = projectName.length > 0 ? projectName : '未匹配标准项目'
+/**
+ * 可空文本列：值缺失时整段省略、单元格留空；用于分类、分组这类无值即不展示的标准目录字段。
+ */
+export function OptionalTextCell(props: { value: string | null | undefined }) {
+  const text = (props.value ?? '').trim()
+  if (text.length === 0) return null
+  return <span className='statistics-board-cell__text' title={text}>{text}</span>
+}
+
+/** 项目列：标准项目名称为主行，编码为次行；名称与编码的兜底沿用统计页共用口径。 */
+export function ItemCell(props: { item: { standardProjectName: string | null | undefined; standardProjectCode: string | null } }) {
+  const nameText = projectNameText(props.item.standardProjectName)
   return <div className='statistics-board-cell'>
     <span className='statistics-board-cell__text' title={nameText}>{nameText}</span>
-    {cellSecondary(props.item.standardProjectCode)}
+    {cellSecondary(projectCodeText(props.item.standardProjectCode))}
   </div>
 }
 

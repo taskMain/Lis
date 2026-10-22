@@ -8692,6 +8692,33 @@
           "standardProjectCode": {
             "type": "string"
           },
+          "standardProjectName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "itemType": {
+            "$ref": "#/components/schemas/MedicalItemType"
+          },
+          "itemTypeText": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "categoryName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "groupName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "recognitionDeptId": {
             "type": [
               "null",

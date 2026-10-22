@@ -1,8 +1,9 @@
 /**
- * 统计页明细工具行：选中上下文文案、不采纳原因筛选与使用方明细类型页签。
+ * 使用方两页明细工具行：选中上下文文案、不采纳原因筛选与明细类型页签。
  *
  * 页签只承担明细类型切换；类型数量统一由上方静态指标摘要展示，避免同一数字出现两次。
  * 键盘左右/Home/End 切换沿用 WAI-ARIA tablist 口径，页签与 tabpanel 的 id 由共享取值模块生成。
+ * 提供方两页没有明细类型切换与原因筛选，其列表区主体直接渲染一行上下文（S6-D24）。
  */
 import { Select, Typography } from 'antd'
 import type { KeyboardEvent } from 'react'
@@ -10,8 +11,7 @@ import type { UsageDetailTypeValue } from './recognitionStatisticsValues'
 import { USAGE_DETAIL_TAB_ITEMS, usageDetailPanelId, usageDetailTabId } from './statisticsDetailTabs'
 
 interface StatisticsDetailToolbarProps {
-  side: 'usage' | 'source'
-  /** 页面主体的 useId 前缀；页签 id、aria-controls 与焦点定位共用。 */
+  /** 页面主体的挂载实例前缀；页签 id、aria-controls 与焦点定位共用。 */
   idPrefix: string
   contextText: string
   showReasonFilter: boolean
@@ -41,7 +41,7 @@ export function StatisticsDetailToolbar(props: StatisticsDetailToolbarProps) {
   return <div className='statistics-board-detail-toolbar'>
     <Typography.Text type='secondary' className='statistics-board-detail-context'>{props.contextText}</Typography.Text>
     <div className='statistics-board-detail-actions'>
-      {props.side === 'usage' && props.showReasonFilter ? <div className='statistics-board-reason-filter'>
+      {props.showReasonFilter ? <div className='statistics-board-reason-filter'>
         <span className='statistics-board-reason-filter__label'>不采纳原因</span>
         <Select<string>
           aria-label='不采纳原因'
@@ -51,8 +51,8 @@ export function StatisticsDetailToolbar(props: StatisticsDetailToolbarProps) {
           onChange={(value) => props.onReasonChange(value === '' ? null : value)}
         />
       </div> : null}
-      {/* 明细类型切换位于表格工具行；使用方四类，提供方无切换。 */}
-      {props.side === 'usage' ? <div className='statistics-board-type-control'>
+      {/* 明细类型切换位于表格工具行；使用方四类。 */}
+      <div className='statistics-board-type-control'>
         <span className='statistics-board-type-control__label'>明细类型</span>
         <div className='statistics-board-type-tabs' role='tablist' aria-label='明细类型'>
           {USAGE_DETAIL_TAB_ITEMS.map((item) => {
@@ -71,7 +71,7 @@ export function StatisticsDetailToolbar(props: StatisticsDetailToolbarProps) {
             >{item.label}</button>
           })}
         </div>
-      </div> : null}
+      </div>
     </div>
   </div>
 }

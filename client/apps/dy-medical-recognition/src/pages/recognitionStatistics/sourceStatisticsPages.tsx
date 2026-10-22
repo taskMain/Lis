@@ -212,7 +212,7 @@ function SourceStatisticsPage({ version }: { version: StatisticsPageVersion }) {
 
   const scopeSpec: StatisticsScopeSpec = version === 'platform'
     ? { kind: 'platform' }
-    : { kind: 'branch', organizationCode: organizationCode ?? '' }
+    : { kind: 'branch', organizationCode: organizationCode ?? '', hospitalCode: hospitalCode ?? '' }
 
   return <StatisticsBoard
     title={version === 'platform' ? '提供方医院被互认统计' : '本院被互认统计'}

@@ -1,5 +1,7 @@
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using Dy.MedicalRecognition.Domain.Queries;
 using Dy.MedicalRecognition.Tests.Architecture;
 using Xunit;
 
@@ -772,6 +774,127 @@ public sealed class Stage6SqlMapTests
     }
 
     Assert.Contains("max(r.patient_name) as patient_name", StatisticsStatementText("QueryRecognitionMatchRecordView"), StringComparison.Ordinal);
+  }
+
+  /// <summary>
+  /// V55、S6-D25：提供方明细当页语句只在原有选择列之后补标准项目名称、项目类型、分类名称与分组名称；
+  /// 关联集合与计数语句逐字一致，筛选条件与稳定排序保持不动，计数语句不投影这四列，语句仍不带分页窗口。
+  /// </summary>
+  /// <remarks>
+  /// 四项都取自语句已有的标准项目表、分组表与分类表关联，项目类型取匹配项自身保存值；
+  /// 新增关联会让计数与取页的行集口径分叉，因此关联片段按逐字等值冻结。
+  /// </remarks>
+  [Fact]
+  public void Source_detail_statement_only_extends_the_selected_columns()
+  {
+    string page = StatisticsStatementText("QuerySourceRecognitionDetails");
+    string count = StatisticsStatementText("CountSourceRecognitionDetails");
+
+    Assert.Contains(
+      "mi.standard_project_code, si.name as standard_project_name, mi.item_type, sc.name as category_name, sg.name as group_name, pr.recognition_time as recognition_time,",
+      page,
+      StringComparison.Ordinal);
+
+    string joinRegion(string statement) =>
+      statement[
+        statement.IndexOf("from mrec_recognition_processing_result pr", StringComparison.Ordinal)..
+        statement.IndexOf("where 1 = 1", StringComparison.Ordinal)];
+    Assert.Equal(joinRegion(count), joinRegion(page));
+
+    // 计数语句不投影标准项目名称、分类与分组：三项只属于当页展示，缺省时计数与取页的行集口径会分叉。
+    Assert.False(ProjectsColumn(count, "standard_project_name"));
+    Assert.False(ProjectsColumn(count, "category_name"));
+    Assert.False(ProjectsColumn(count, "group_name"));
+    Assert.EndsWith("order by pr.recognition_time desc, mi.id asc", page, StringComparison.Ordinal);
+
+    // 判别力：同一投影判定在当页语句上必须命中；把项目名称投影注入计数语句副本后，同一判定必须报出投影。
+    Assert.True(ProjectsColumn(page, "standard_project_name"));
+    string mutatedCount = count.Replace(
+      "select count(1) as total_count",
+      "select count(1) as total_count, si.name as standard_project_name",
+      StringComparison.Ordinal);
+    Assert.NotEqual(count, mutatedCount);
+    Assert.True(ProjectsColumn(mutatedCount, "standard_project_name"));
+
+    static bool ProjectsColumn(string statement, string column) =>
+      statement.Contains(column, StringComparison.Ordinal);
+  }
+
+  /// <summary>
+  /// V55、S6-D25：提供方明细语句的投影列与 <see cref="SourceRecognitionDetailItem"/> 的属性按 snake_case 一一对应，
+  /// 覆盖标准项目名称、项目类型、分类名称与分组名称四列；别名写错时字段静默漏绑，页面与导出恒空而行为用例只看得到空值。
+  /// </summary>
+  /// <remarks>
+  /// 投影清单与投影类型的公开属性集合先按完整集合相等冻结，再逐项核对「select 片段在语句中」与「别名等于属性名的 snake_case」；
+  /// 与 <see cref="Stage1SqlMapProbeTests"/> 的互认配置投影守卫同形。
+  /// </remarks>
+  [Fact]
+  public void Source_detail_statement_binds_every_projected_column_to_the_item_property()
+  {
+    string statement = StatisticsStatementText("QuerySourceRecognitionDetails");
+
+    string[] expectedAliases = [.. SourceDetailProjection
+      .Select(projection => ToSnakeCase(projection.PropertyName))
+      .Order(StringComparer.Ordinal)];
+    string[] projectedAliases = [.. typeof(SourceRecognitionDetailItem)
+      .GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+      .Select(property => ToSnakeCase(property.Name))
+      .Order(StringComparer.Ordinal)];
+    Assert.Equal(projectedAliases, expectedAliases);
+
+    foreach ((string selectExpression, string propertyName) in SourceDetailProjection)
+    {
+      Assert.Contains(NormalizeStatement(selectExpression), statement, StringComparison.Ordinal);
+      string expectedAlias = selectExpression.Contains(" as ", StringComparison.Ordinal)
+        ? selectExpression[(selectExpression.IndexOf(" as ", StringComparison.Ordinal) + " as ".Length)..]
+        : selectExpression[(selectExpression.IndexOf('.') + 1)..];
+      Assert.Equal(expectedAlias, ToSnakeCase(propertyName));
+    }
+  }
+
+  /// <summary>
+  /// 提供方明细语句的投影列与只读投影属性的逐项对应：select 列表里的列表达式，以及它绑定的属性名。
+  /// </summary>
+  private static readonly (string SelectExpression, string PropertyName)[] SourceDetailProjection =
+  [
+    ("mr.id as recognition_match_record_id", nameof(SourceRecognitionDetailItem.RecognitionMatchRecordId)),
+    ("mi.id as recognition_match_item_id", nameof(SourceRecognitionDetailItem.RecognitionMatchItemId)),
+    ("r.organization_code as source_organization_code", nameof(SourceRecognitionDetailItem.SourceOrganizationCode)),
+    ("r.hospital_code as source_hospital_code", nameof(SourceRecognitionDetailItem.SourceHospitalCode)),
+    ("r.branch_code as source_branch_code", nameof(SourceRecognitionDetailItem.SourceBranchCode)),
+    ("mr.receiver_organization_code", nameof(SourceRecognitionDetailItem.ReceiverOrganizationCode)),
+    ("mr.receiver_hospital_code", nameof(SourceRecognitionDetailItem.ReceiverHospitalCode)),
+    ("mr.receiver_branch_code", nameof(SourceRecognitionDetailItem.ReceiverBranchCode)),
+    ("mi.standard_project_code", nameof(SourceRecognitionDetailItem.StandardProjectCode)),
+    ("si.name as standard_project_name", nameof(SourceRecognitionDetailItem.StandardProjectName)),
+    ("mi.item_type", nameof(SourceRecognitionDetailItem.ItemType)),
+    ("sc.name as category_name", nameof(SourceRecognitionDetailItem.CategoryName)),
+    ("sg.name as group_name", nameof(SourceRecognitionDetailItem.GroupName)),
+    ("pr.recognition_time as recognition_time", nameof(SourceRecognitionDetailItem.RecognitionTime)),
+    ("pr.recognition_dept_id", nameof(SourceRecognitionDetailItem.RecognitionDeptId)),
+    ("pr.recognition_dept_name", nameof(SourceRecognitionDetailItem.RecognitionDeptName)),
+    ("pr.recognition_doctor_id", nameof(SourceRecognitionDetailItem.RecognitionDoctorId)),
+    ("pr.recognition_doctor_name", nameof(SourceRecognitionDetailItem.RecognitionDoctorName)),
+    ("r.patient_name as patient_name", nameof(SourceRecognitionDetailItem.PatientName)),
+    ("mr.identity_document_no as identity_document_no", nameof(SourceRecognitionDetailItem.IdentityDocumentNo))
+  ];
+
+  /// <summary>
+  /// 把投影属性名转换为查询别名使用的 snake_case 形式，用于逐项对应。
+  /// </summary>
+  /// <param name="propertyName">PascalCase 属性名。</param>
+  /// <returns>snake_case 形式，例如 <c>StandardProjectName</c> 对应 <c>standard_project_name</c>。</returns>
+  private static string ToSnakeCase(string propertyName)
+  {
+    System.Text.StringBuilder builder = new();
+    for (int index = 0; index < propertyName.Length; index++)
+    {
+      char current = propertyName[index];
+      if (char.IsUpper(current) && index > 0) builder.Append('_');
+      builder.Append(char.ToLowerInvariant(current));
+    }
+
+    return builder.ToString();
   }
 
   /// <summary>

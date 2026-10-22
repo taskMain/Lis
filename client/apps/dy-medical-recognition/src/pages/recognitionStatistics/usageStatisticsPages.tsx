@@ -238,7 +238,7 @@ function UsageStatisticsPage({ version }: { version: StatisticsPageVersion }) {
 
   const scopeSpec: StatisticsScopeSpec = version === 'platform'
     ? { kind: 'platform' }
-    : { kind: 'branch', organizationCode: organizationCode ?? '' }
+    : { kind: 'branch', organizationCode: organizationCode ?? '', hospitalCode: hospitalCode ?? '' }
 
   return <StatisticsBoard
     title={version === 'platform' ? '使用方互认使用统计' : '本院互认使用统计'}

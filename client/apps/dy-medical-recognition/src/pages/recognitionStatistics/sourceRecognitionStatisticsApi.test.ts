@@ -369,6 +369,11 @@ const sourceDetailRow = {
   receiverBranchCode: 'BR1',
   receiverBranchName: '院区一',
   standardProjectCode: 'A01',
+  standardProjectName: '血常规',
+  itemType: 0,
+  itemTypeText: '检验',
+  categoryName: '检验分类',
+  groupName: '血液',
   recognitionDeptId: 'DEPT1',
   recognitionDeptName: '检验科',
   recognitionDoctorId: 'DOC1',
@@ -387,6 +392,11 @@ describe('C6 提供方明细读模型映射', () => {
     expect(rows[0].source.branchName).toBe('来源院区')
     expect(rows[0].receiver.hospitalName).toBe('医院一')
     expect(rows[0].standardProjectCode).toBe('A01')
+    expect(rows[0].standardProjectName).toBe('血常规')
+    expect(rows[0].itemType).toBe(0)
+    expect(rows[0].itemTypeText).toBe('检验')
+    expect(rows[0].categoryName).toBe('检验分类')
+    expect(rows[0].groupName).toBe('血液')
     expect(rows[0].recognitionDeptName).toBe('检验科')
     expect(rows[0].recognitionDoctorName).toBe('李四')
     expect(rows[0].recognitionTime).toEqual(new Date('2026-03-05T10:00:00'))
@@ -398,5 +408,23 @@ describe('C6 提供方明细读模型映射', () => {
     ])
     expect(rows[0].recognitionDeptId).toBeNull()
     expect(rows[0].recognitionDoctorName).toBeNull()
+  })
+
+  it('标准目录字段缺失时名称、分类与分组保持 null，项目类型文本按枚举兜底', () => {
+    const rows = toSourceDetailRows([
+      {
+        ...sourceDetailRow,
+        standardProjectName: null,
+        itemType: null,
+        itemTypeText: null,
+        categoryName: null,
+        groupName: null,
+      },
+    ])
+    expect(rows[0].standardProjectName).toBeNull()
+    expect(rows[0].categoryName).toBeNull()
+    expect(rows[0].groupName).toBeNull()
+    expect(rows[0].itemType).toBeNull()
+    expect(rows[0].itemTypeText).toBe('未知类型')
   })
 })

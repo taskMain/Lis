@@ -90,6 +90,11 @@ vi.mock('../../hooks/useEnumMetadata', () => ({
   useEnumMetadata: (_enumName: string, fallback: readonly unknown[]) => fallback,
 }))
 
+vi.mock('../../components/scopeNameLookup', () => ({
+  /** 范围名称反查替身：页面用例不覆盖名称反查，三级按缺失处理（展示层显示「未知」）。 */
+  useScopeNames: () => ({ organization: null, hospital: null, branch: null }),
+}))
+
 const clientRef = vi.hoisted(() => ({ current: { marker: 'source-page-client' } }))
 
 vi.mock('../../contexts/ApiClientContext', () => ({
@@ -133,6 +138,11 @@ const sourceDetailRow: SourceDetailRow = {
   source: { organizationCode: 'ORG-A', organizationName: '组织甲', hospitalCode: 'HOS-1', hospitalName: '医院甲', branchCode: 'BRA-1', branchName: '院区一' },
   receiver: { organizationCode: 'ORG-B', organizationName: '组织乙', hospitalCode: 'HOS-2', hospitalName: '医院乙', branchCode: '', branchName: '' },
   standardProjectCode: 'A01',
+  standardProjectName: '血常规',
+  itemType: 0,
+  itemTypeText: '检验',
+  categoryName: null,
+  groupName: null,
   recognitionDeptId: null,
   recognitionDeptName: null,
   recognitionDoctorId: null,

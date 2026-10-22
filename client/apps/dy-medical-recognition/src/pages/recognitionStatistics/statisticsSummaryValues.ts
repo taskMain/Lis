@@ -4,7 +4,7 @@
  */
 import type { UsageSummaryRow } from './recognitionUsageStatisticsApi'
 import type { SourceSummaryRow } from './sourceRecognitionStatisticsApi'
-import { partyName } from './statisticsDetailValues'
+import { partyName, projectCodeText, projectNameText } from './statisticsDetailValues'
 
 /** 统计页侧别：使用方（互认使用）或提供方（被互认）。 */
 export type StatisticsSide = 'usage' | 'source'
@@ -12,8 +12,8 @@ export type StatisticsSide = 'usage' | 'source'
 /** 主体内两侧行的联合：行的实际类型与 `side` 一致（数据源由页面按侧注入）。 */
 export type StatisticsSummaryRow = UsageSummaryRow | SourceSummaryRow
 
-/** 汇总行次行文本：去掉空段，保留设计的三段式分隔。 */
-function joinSummaryParts(parts: readonly (string | null | undefined)[]): string {
+/** 多段文本拼接：去掉空段后以「 · 」连接，全空返回「—」；汇总行与承接范围共用。 */
+export function joinSummaryParts(parts: readonly (string | null | undefined)[]): string {
   const values = parts.map((part) => (part ?? '').trim()).filter((part) => part.length > 0)
   return values.length === 0 ? '—' : values.join(' · ')
 }
@@ -39,19 +39,31 @@ export function usageSummarySecondary(row: UsageSummaryRow, dimension: number): 
   return partyName(row.receiverOrganizationName)
 }
 
-/** 提供方汇总行主名称。 */
+/** 提供方汇总行主名称；标准项目维度按项目名称展示，名称缺失时给出明确文案。 */
 export function sourceSummaryPrimary(row: SourceSummaryRow, dimension: number): string {
   if (dimension === 2) return partyName(row.sourceBranchName)
-  if (dimension === 4) return partyName(row.standardProjectName)
+  if (dimension === 4) return projectNameText(row.standardProjectName)
   return partyName(row.sourceHospitalName)
 }
 
-/** 提供方汇总行次行。 */
+/** 标准项目分类与分组：两者都为空时整段省略，有值时以「/」连接。 */
+function projectCategoryGroupText(categoryName: string | null | undefined, groupName: string | null | undefined): string {
+  return [categoryName, groupName]
+    .map((part) => (part ?? '').trim())
+    .filter((part) => part.length > 0)
+    .join(' / ')
+}
+
+/**
+ * 提供方汇总行次行。标准项目维度为「编码 · 分类 / 分组」：
+ * 编码缺失补「—」，分类与分组同时为空时只保留编码，不追加占位分段。
+ */
 export function sourceSummarySecondary(row: SourceSummaryRow, dimension: number): string {
   if (dimension === 2) return joinSummaryParts([row.sourceHospitalName, row.sourceOrganizationName])
   if (dimension === 4) {
-    const categoryGroup = joinSummaryParts([row.categoryName, row.groupName]).replaceAll(' · ', ' / ')
-    return joinSummaryParts([row.standardProjectCode, categoryGroup])
+    const codeText = projectCodeText(row.standardProjectCode)
+    const categoryGroup = projectCategoryGroupText(row.categoryName, row.groupName)
+    return categoryGroup.length > 0 ? `${codeText} · ${categoryGroup}` : codeText
   }
   return partyName(row.sourceOrganizationName)
 }
@@ -70,8 +82,8 @@ export function summaryRowSecondary(side: StatisticsSide, row: StatisticsSummary
     : sourceSummarySecondary(row as SourceSummaryRow, dimension)
 }
 
-/** 汇总行的稳定行标识：由维度相关字段合成；服务端同一维度内分组值唯一。 */
-function usageSummaryRowKey(row: UsageSummaryRow): string {
+/** 使用方汇总行的稳定行标识：由维度相关字段合成；服务端同一维度内分组值唯一。 */
+export function usageSummaryRowKey(row: UsageSummaryRow): string {
   return [
     row.receiverOrganizationCode,
     row.receiverHospitalCode,
@@ -83,7 +95,7 @@ function usageSummaryRowKey(row: UsageSummaryRow): string {
 }
 
 /** 提供方汇总行的稳定行标识，口径同使用方。 */
-function sourceSummaryRowKey(row: SourceSummaryRow): string {
+export function sourceSummaryRowKey(row: SourceSummaryRow): string {
   return [
     row.sourceOrganizationCode,
     row.sourceHospitalCode,
@@ -100,23 +112,14 @@ export function summaryRowKey(side: StatisticsSide, row: StatisticsSummaryRow): 
     : sourceSummaryRowKey(row as SourceSummaryRow)
 }
 
-/** 左列表行的可访问名称：名称、次行与全部指标一起进入按钮名称。 */
-export function summaryRowAccessibleName(side: StatisticsSide, row: StatisticsSummaryRow, dimension: number): string {
-  if (side === 'usage') {
-    const usage = row as UsageSummaryRow
-    return [
-      usageSummaryPrimary(usage, dimension),
-      usageSummarySecondary(usage, dimension),
-      `提醒 ${usage.reminderCount}`,
-      `采纳 ${usage.adoptionCount}`,
-      `不采纳 ${usage.nonAdoptionCount}`,
-      `引用 ${usage.referenceCount}`,
-    ].join('，')
-  }
-  const source = row as SourceSummaryRow
+/** 使用方左列表行的可访问名称：名称、次行与四项指标一起进入按钮名称。 */
+export function usageSummaryAccessibleName(row: UsageSummaryRow, dimension: number): string {
   return [
-    sourceSummaryPrimary(source, dimension),
-    sourceSummarySecondary(source, dimension),
-    `被互认 ${source.recognitionCount}`,
+    usageSummaryPrimary(row, dimension),
+    usageSummarySecondary(row, dimension),
+    `提醒 ${row.reminderCount}`,
+    `采纳 ${row.adoptionCount}`,
+    `不采纳 ${row.nonAdoptionCount}`,
+    `引用 ${row.referenceCount}`,
   ].join('，')
 }

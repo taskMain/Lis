@@ -1,3 +1,5 @@
+using Dy.MedicalRecognition.Domain.Share.Enums;
+
 namespace Dy.MedicalRecognition.Domain.Queries;
 
 /// <summary>
@@ -25,8 +27,16 @@ public sealed record SourceRecognitionDetailItem
   public string ReceiverHospitalCode { get; init; } = string.Empty;
   /// <summary>使用方院区编码。</summary>
   public string ReceiverBranchCode { get; init; } = string.Empty;
-  /// <summary>标准项目编码。</summary>
+  /// <summary>标准项目编码：取匹配项自身保存值。</summary>
   public string StandardProjectCode { get; init; } = string.Empty;
+  /// <summary>标准项目名称：取自标准目录当前版本；标准项目不在目录中时为空。</summary>
+  public string? StandardProjectName { get; init; }
+  /// <summary>项目类型：取匹配项自身保存值，恒有值；取值未登记时保留原数值。</summary>
+  public MedicalItemType ItemType { get; init; }
+  /// <summary>标准目录分类名称：取自标准项目所属分类；分类缺失时为空。</summary>
+  public string? CategoryName { get; init; }
+  /// <summary>标准目录分组名称：取自标准项目所属分组；分组缺失时为空。</summary>
+  public string? GroupName { get; init; }
   /// <summary>处理结果的互认时间；提供方明细的业务时间。</summary>
   public DateTime RecognitionTime { get; init; }
   /// <summary>互认科室ID：取处理结果自身保存值。</summary>

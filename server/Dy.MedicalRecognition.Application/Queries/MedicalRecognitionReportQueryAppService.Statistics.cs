@@ -1067,8 +1067,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   }
 
   /// <summary>
-  /// 把一条提供方明细行映射为读模型：互认科室与医生取处理结果自身保存值，
-  /// 患者姓名与证件号码按业务原值返回，互认时间即提供方明细的业务时间。
+  /// 把一条提供方明细行映射为读模型：标准项目名称、项目类型与标准目录分类、分组随行返回，
+  /// 互认科室与医生取处理结果自身保存值，患者姓名与证件号码按业务原值返回，互认时间即提供方明细的业务时间。
   /// </summary>
   /// <param name="item">仓储返回的提供方明细行投影。</param>
   /// <param name="receiverNames">使用方名称字典。</param>
@@ -1100,6 +1100,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ReceiverBranchCode = item.ReceiverBranchCode,
       ReceiverBranchName = receiverPath.BranchName,
       StandardProjectCode = item.StandardProjectCode,
+      StandardProjectName = item.StandardProjectName,
+      ItemType = item.ItemType,
+      CategoryName = item.CategoryName,
+      GroupName = item.GroupName,
       RecognitionDeptId = item.RecognitionDeptId,
       RecognitionDeptName = item.RecognitionDeptName,
       RecognitionDoctorId = item.RecognitionDoctorId,

@@ -70,7 +70,6 @@ import {
   buildStatisticsDatePresets,
   defaultStatisticsFilters,
   formatStatisticsAmount,
-  formatStatisticsDateTime,
   formatStatisticsPercent,
 } from './statisticsDisplays'
 import {
@@ -81,8 +80,16 @@ import {
   PartyCell,
   TextCell,
   TimeCell,
+  UsageDetailExpanded,
 } from './statisticsDetailCells'
 import { StatisticsDetailPanel, type StatisticsDetailRow } from './statisticsDetailPanel'
+import {
+  showFixedBranchColumn,
+  statisticsDetailCardEmptyText,
+  statisticsSummaryEmptyText,
+  usageDetailTableEmptyText,
+} from './statisticsDetailValues'
+import { SourceStatisticsBoard } from './sourceStatisticsBoard'
 import { StatisticsDetailToolbar } from './statisticsDetailToolbar'
 import {
   USAGE_DETAIL_TAB_ITEMS,
@@ -97,6 +104,10 @@ import {
   summaryRowKey,
   summaryRowPrimary,
   summaryRowSecondary,
+  usageSummaryAccessibleName,
+  usageSummaryPrimary,
+  usageSummaryRowKey,
+  usageSummarySecondary,
   type StatisticsSide,
   type StatisticsSummaryRow,
 } from './statisticsSummaryValues'
@@ -138,10 +149,14 @@ export interface StatisticsFilters {
   standardProjectCode?: string
 }
 
-/** 范围选择区的形态：平台页两组三级可选；本院页不渲染固定侧卡片，对侧组医院/院区可选（本侧院区恒为登录院区）。 */
+/**
+ * 范围选择区的形态：平台页两组三级可选；本院页不渲染固定侧卡片，对侧组医院/院区可选
+ * （本侧组织、医院与院区恒为登录范围）。本院页变体携带可信组织与可信医院编码，
+ * 供列表区上下文行表达承接范围。
+ */
 export type StatisticsScopeSpec =
   | { kind: 'platform' }
-  | { kind: 'branch'; organizationCode: string }
+  | { kind: 'branch'; organizationCode: string; hospitalCode: string }
 
 /** 主体的数据源与装配边界；查询/导出入口返回 `null` 表示条件不完整，主体据此零发请求并阻断。 */
 export interface StatisticsBoardProps {
@@ -211,15 +226,13 @@ function usageMetricCards(row: UsageSummaryRow): { type: UsageDetailTypeValue; l
   return USAGE_DETAIL_TAB_ITEMS.map((item) => ({ type: item.value, label: item.label, count: counts[item.value] }))
 }
 
-/** 当前选中行在给定明细类型下的条数：使用方按类型取对应计数，提供方只有被互认计数。 */
-function selectedDetailCount(side: StatisticsSide, row: StatisticsSummaryRow, detailType: UsageDetailTypeValue): number {
-  if (side === 'source') return (row as SourceSummaryRow).recognitionCount
-  const usage = row as UsageSummaryRow
+/** 使用方选中行在给定明细类型下的条数；提供方只有被互认计数。 */
+function usageDetailCount(row: UsageSummaryRow, detailType: UsageDetailTypeValue): number {
   switch (detailType) {
-    case USAGE_DETAIL_TYPE.reminder: return usage.reminderCount
-    case USAGE_DETAIL_TYPE.adoption: return usage.adoptionCount
-    case USAGE_DETAIL_TYPE.nonAdoption: return usage.nonAdoptionCount
-    default: return usage.referenceCount
+    case USAGE_DETAIL_TYPE.reminder: return row.reminderCount
+    case USAGE_DETAIL_TYPE.adoption: return row.adoptionCount
+    case USAGE_DETAIL_TYPE.nonAdoption: return row.nonAdoptionCount
+    default: return row.referenceCount
   }
 }
 
@@ -329,18 +342,6 @@ function filtersGuardKey(filters: StatisticsFilters): string {
 }
 
 /**
- * 固定侧院区列只在医院维度、平台页且该院区未被已生效筛选锁定时出现。
- * 使用方与提供方明细列共用同一维度判断，避免两处各写一遍。
- */
-function showFixedBranchColumn(
-  dimension: number,
-  scopeKind: StatisticsScopeSpec['kind'],
-  fixedBranchLocked: boolean,
-): boolean {
-  return dimension === 1 && scopeKind === 'platform' && !fixedBranchLocked
-}
-
-/**
  * 使用方明细列：固定侧为使用方。
  * 医院维度且平台页未锁院区时保留「使用方院区」；其他维度或本院页已锁院区时不再重复固定侧。
  */
@@ -375,30 +376,6 @@ function usageDetailColumns(
         onClick={() => onOpenRecord(row.recognitionMatchRecordId)}
       >匹配记录</Button>,
     },
-  )
-  return columns
-}
-
-/**
- * 提供方明细列：固定侧为提供方。
- * 医院维度且平台页未锁院区时保留「提供方院区」；其他维度或本院页已锁院区时不再重复固定侧。
- */
-function sourceDetailColumns(
-  dimension: number,
-  scopeKind: StatisticsScopeSpec['kind'],
-  fixedBranchLocked: boolean,
-): TableColumnsType<SourceDetailRow> {
-  const columns: TableColumnsType<SourceDetailRow> = [
-    { title: '互认时间', width: 145, render: (_, row) => <TextCell value={formatStatisticsDateTime(row.recognitionTime)} /> },
-    { title: '患者', width: 150, render: (_, row) => <PatientCell patientName={row.patientName} identityDocumentNo={row.identityDocumentNo} /> },
-    { title: '项目', width: 210, render: (_, row) => <TextCell value={row.standardProjectCode} /> },
-  ]
-  if (showFixedBranchColumn(dimension, scopeKind, fixedBranchLocked)) {
-    columns.push({ title: '提供方院区', width: 96, render: (_, row) => <TextCell value={row.source.branchName} /> })
-  }
-  columns.push(
-    { title: '使用方', width: 180, render: (_, row) => <PartyCell {...row.receiver} /> },
-    { title: '科室 / 医生', width: 140, render: (_, row) => <DeptDoctorCell deptName={row.recognitionDeptName} doctorName={row.recognitionDoctorName} /> },
   )
   return columns
 }
@@ -497,7 +474,6 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
    */
   const [reloadNonce, setReloadNonce] = useState(0)
   const boardRef = useRef<HTMLDivElement | null>(null)
-  const detailCardRef = useRef<HTMLDivElement | null>(null)
   const userSelectedRef = useRef(false)
 
   // 条件/范围/页码变化先作废在途响应；读取效果随后才发起新请求。
@@ -875,9 +851,6 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
   const selectedUsageRow = side === 'usage' && selectedSummaryRow !== null
     ? selectedSummaryRow as UsageSummaryRow
     : null
-  const selectedSourceRow = side === 'source' && selectedSummaryRow !== null
-    ? selectedSummaryRow as SourceSummaryRow
-    : null
   const selectedPrimary = selectedSummaryRow === null
     ? ''
     : summaryRowPrimary(side, selectedSummaryRow, dimension)
@@ -900,15 +873,13 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
     }
   }, [detailFilters, detailPage, detailType, loadDetails, reloadNonce, selectedKey])
   const detailTypeText = side === 'source' ? '被互认' : usageDetailTypeLabel(detailType)
-  const summaryMetrics: StatisticsMetricSummaryItem[] = side === 'usage' && selectedUsageRow !== null
+  const summaryMetrics: StatisticsMetricSummaryItem[] = selectedUsageRow !== null
     ? [
         ...usageMetricCards(selectedUsageRow).map((item) => ({ label: item.label, value: String(item.count) })),
         { label: '同期互认率', value: formatStatisticsPercent(selectedUsageRow.samePeriodRecognitionRate) },
         { label: '预计节省金额', value: formatStatisticsAmount(selectedUsageRow.estimatedSavingAmount), compact: true },
       ]
-    : side === 'source' && selectedSourceRow !== null
-      ? [{ label: '被互认', value: String(selectedSourceRow.recognitionCount) }]
-      : []
+    : []
   /**
    * 不采纳原因选项只取选中汇总行的原因分布，不额外请求；行内没有原因时隐藏原因筛选。
    * 原因代码只在不采纳明细提交（见 `reasonDetailFilters`）。
@@ -937,10 +908,23 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
     () => usageDetailColumns(openMatchRecord, dimension, scopeSpec.kind, usageBranchLocked),
     [dimension, openMatchRecord, scopeSpec.kind, usageBranchLocked],
   )
-  const sourceDetailCols = useMemo(
-    () => sourceDetailColumns(dimension, scopeSpec.kind, sourceBranchLocked),
-    [dimension, scopeSpec.kind, sourceBranchLocked],
-  )
+  // 提供方明细的固定侧院区列按同一规则求值，由提供方列表区主体据此装配列。
+  const showSourceBranchColumn = showFixedBranchColumn(dimension, scopeSpec.kind, sourceBranchLocked)
+  /**
+   * 提供方列表区上下文行的承接范围取值：平台页取范围区所选的组织、医院与院区（仅院区维度带院区）；
+   * 本院页取可信组织、可信医院与登录院区（始终带院区）。取值来自已生效筛选，不读汇总行字段。
+   */
+  const sourceScopeValues = scopeSpec.kind === 'branch'
+    ? {
+        organizationCode: scopeSpec.organizationCode,
+        hospitalCode: scopeSpec.hospitalCode,
+        branchCode: filters.ownBranchCode,
+      }
+    : {
+        organizationCode: filters.sourceOrganizationCode,
+        hospitalCode: filters.sourceHospitalCode,
+        branchCode: dimension === 2 ? filters.sourceBranchCode : undefined,
+      }
 
   /** 左列表换页：换页清空选中，新页读取完成后由汇总读取自动选中第 1 行（设计 1.4）。 */
   const changeSummaryPage = (nextPageIndex: number) => {
@@ -965,35 +949,32 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
     : `统计时间 ${filters.startTime} 至 ${filters.endTime} · 承接范围 ${[selectedPrimary, selectedSecondary].filter((part) => part.length > 0).join(' · ')} · 共 ${detailTotal} 条${reasonCode === null ? '' : ` · 原因：${selectedReasonName ?? reasonCode}`}`
   const liveDetailCount = selectedSummaryRow === null
     ? 0
-    : selectedDetailCount(side, selectedSummaryRow, detailType)
-  const summaryEmptyText = summaryFailure !== null
-    ? '汇总加载失败，请点击查询重试'
-    : missingScopeText ?? '当前筛选条件没有汇总数据'
-  const detailEmptyText = summaryFailure !== null
-    ? '汇总加载失败，暂无可选明细'
-    : '从左侧选择一行查看明细'
-  const detailTableEmptyText = detailFailure !== null && detailRows.length === 0
-    ? side === 'usage'
-      ? '明细加载失败，请切换页签或重试'
-      : '明细加载失败，请点击查询重试'
-    : missingScopeText ?? '当前筛选条件没有明细数据'
+    : side === 'source'
+      ? (selectedSummaryRow as SourceSummaryRow).recognitionCount
+      : usageDetailCount(selectedSummaryRow as UsageSummaryRow, detailType)
+  const summaryEmptyText = statisticsSummaryEmptyText(summaryFailure !== null, missingScopeText)
+  const detailEmptyText = statisticsDetailCardEmptyText(summaryFailure !== null)
+  const detailTableEmptyText = usageDetailTableEmptyText(detailFailure !== null, detailRows.length, missingScopeText)
 
-  // 明细面板主体：只渲染表格；原因筛选归入上方工具行；提供方无页签时直接渲染。
-  const renderDetailPanel = () => <StatisticsDetailPanel
-    side={side}
-    rows={detailRows}
+  // 明细面板主体：只渲染表格与行展开；原因筛选归入上方工具行。
+  const renderDetailPanel = () => <StatisticsDetailPanel<UsageDetailRow>
+    rows={detailRows as UsageDetailRow[]}
+    columns={usageDetailCols}
     loading={detailLoading}
     pagination={detailPagination}
-    usageColumns={usageDetailCols}
-    sourceColumns={sourceDetailCols}
     emptyText={detailTableEmptyText}
+    expandable={{
+      columnWidth: 36,
+      expandedRowRender: (row) => <UsageDetailExpanded row={row} />,
+    }}
   />
 
   // 容器宽度进入单列后，选中行把明细卡滚入视口；减少动态偏好下用即时滚动。
+  // 明细卡位于各侧列表区主体内部，按锚点类名取本实例内的那一张，避免把 ref 穿过组件边界。
   useEffect(() => {
     if (selectedKey === null || !userSelectedRef.current) return
     const board = boardRef.current
-    const card = detailCardRef.current
+    const card = board === null ? null : board.querySelector<HTMLElement>('.statistics-board-detail-anchor')
     // 只有容器进入单列（<1200px）时才需要把明细卡滚入视口；两列并排时不跳动。
     if (board === null || card === null || board.getBoundingClientRect().width >= 1200) return
     if (typeof card.scrollIntoView !== 'function') return
@@ -1008,7 +989,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
         ? '未选择汇总行'
         : side === 'usage' && selectedUsageRow !== null
           ? `已选择${selectedPrimary}，提醒 ${selectedUsageRow.reminderCount} 条，采纳 ${selectedUsageRow.adoptionCount} 条，当前 ${detailTypeText} ${liveDetailCount} 条，明细共 ${detailTotal} 条`
-          : `已选择${selectedPrimary}，被互认 ${liveDetailCount} 条，当前 ${detailTypeText} ${liveDetailCount} 条，明细共 ${detailTotal} 条`}
+          : `已选择${selectedPrimary}，被互认 ${liveDetailCount} 条，明细共 ${detailTotal} 条`}
     </div>
     <div className='statistics-board-header'>
       <div>
@@ -1141,12 +1122,42 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
       </Form>
     </div>
 
-    {/* 主从区（设计 1.1）：左汇总列表卡片 + 右明细卡片，不再保留上下堆叠的两张表。 */}
-    <div className='statistics-board-master'>
+    {/* 主从区（设计 1.1）：左列表区 + 右明细区。提供方两页由自己的列表区主体承载（S6-D24），
+        使用方两页保留主从双栏的汇总列表与明细卡。 */}
+    {side === 'source' ? <SourceStatisticsBoard
+      dimension={dimension}
+      dimensionOptions={dimensionOptions}
+      summary={{
+        rows: summaryRows as SourceSummaryRow[],
+        totalCount: summaryTotal,
+        pageIndex: summaryPage.pageIndex,
+        selectedKey,
+        loading: summaryLoading,
+        failure: summaryFailure !== null,
+      }}
+      detail={{
+        rows: detailRows as SourceDetailRow[],
+        loading: detailLoading,
+        failure: detailFailure !== null,
+        pagination: detailPagination,
+        timeRangeText: `${filters.startTime} 至 ${filters.endTime}`,
+        detailTotal,
+        showBranchColumn: showSourceBranchColumn,
+      }}
+      scopeValues={sourceScopeValues}
+      includeScopeBranch={scopeSpec.kind === 'branch' || dimension === 2}
+      selectedRow={selectedSummaryRow as SourceSummaryRow | null}
+      missingScopeText={missingScopeText}
+      exporting={exporting}
+      onDimensionChange={(value) => setDimension(value)}
+      onSummaryPageChange={changeSummaryPage}
+      onSelectRow={selectSummaryRow}
+      onExportSummary={() => { void runExport('summary') }}
+      onExportDetails={() => { void runExport('details') }}
+    /> : <div className='statistics-board-master'>
       <Section label='汇总列表'>
-        <StatisticsSummaryList
-          side={side}
-          rows={summaryRows}
+        <StatisticsSummaryList<UsageSummaryRow>
+          rows={summaryRows as UsageSummaryRow[]}
           dimension={dimension}
           dimensionOptions={dimensionOptions}
           totalCount={summaryTotal}
@@ -1155,6 +1166,22 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
           exporting={exporting}
           emptyText={summaryEmptyText}
           pageIndex={summaryPage.pageIndex}
+          rowKey={usageSummaryRowKey}
+          accessibleName={(row) => usageSummaryAccessibleName(row, dimension)}
+          renderName={(row) => <>
+            {dimension === 4 ? <Tag color='blue' className='statistics-board-group-row__tag'>{row.itemTypeText}</Tag> : null}
+            {usageSummaryPrimary(row, dimension)}
+          </>}
+          renderSecondary={(row) => usageSummarySecondary(row, dimension)}
+          renderMetrics={(row) => <span className='statistics-board-group-row__metrics'>
+            <span>提醒 {row.reminderCount}</span>
+            <span>采纳 {row.adoptionCount}</span>
+            <span>不采纳 {row.nonAdoptionCount}</span>
+            <span>引用 {row.referenceCount}</span>
+          </span>}
+          renderNote={() => (dimension === 3 ? <Typography.Text type='secondary' className='statistics-board-note'>
+            互认科室维度不含未反馈项：该维度的提醒次数与同期互认率仅统计已反馈的匹配项，跨维度的提醒合计不可直接对账。
+          </Typography.Text> : null)}
           onDimensionChange={(value) => setDimension(value)}
           onPageChange={changeSummaryPage}
           onSelectRow={selectSummaryRow}
@@ -1163,7 +1190,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
       </Section>
 
       <Section label='明细'>
-        <div ref={detailCardRef} className='statistics-board-detail-anchor' aria-label='明细'>
+        <div className='statistics-board-detail-anchor' aria-label='明细'>
         <Card
           size='small'
           className='statistics-board-detail-card'
@@ -1186,7 +1213,6 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
             <StatisticsMetricSummary items={summaryMetrics} />
 
             <StatisticsDetailToolbar
-              side={side}
               idPrefix={detailTabsIdPrefix}
               contextText={selectedContextText}
               showReasonFilter={showReasonFilter}
@@ -1197,7 +1223,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
               onDetailTypeChange={setDetailType}
             />
 
-            {side === 'usage' ? USAGE_DETAIL_TAB_ITEMS.map((item) => (
+            {USAGE_DETAIL_TAB_ITEMS.map((item) => (
               <div
                 key={item.value}
                 id={usageDetailPanelId(detailTabsIdPrefix, String(item.value))}
@@ -1207,13 +1233,13 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
               >
                 {item.value === detailType ? renderDetailPanel() : null}
               </div>
-            )) : renderDetailPanel()}
+            ))}
 
           </>}
         </Card>
         </div>
       </Section>
-    </div>
+    </div>}
 
     {recordState === null ? null : <MatchRecordModal state={recordState} onRetry={retryMatchRecord} onClose={() => setRecordState(null)} />}
   </div>

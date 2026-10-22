@@ -79,6 +79,24 @@ vi.mock('../../hooks/useEnumMetadata', () => ({
   useEnumMetadata: (_enumName: string, fallback: readonly { value: number; label: string; name: string }[]) => fallback,
 }))
 
+const scopeNameByCode = vi.hoisted(() => ({
+  'ORG-A': '组织甲',
+  'ORG-B': '组织乙',
+  'HOS-1': '医院甲',
+  'HOS-2': '医院乙',
+  BRA1: '院区一',
+  BRA2: '院区二',
+} as Record<string, string>))
+
+vi.mock('../../components/scopeNameLookup', () => ({
+  /** 范围名称反查替身：按编码映射可读名称，未登记编码返回 null（展示层据此显示「未知」）。 */
+  useScopeNames: (_client: unknown, codes: { organizationCode: string; hospitalCode: string; branchCode: string }) => ({
+    organization: scopeNameByCode[codes.organizationCode] ?? null,
+    hospital: scopeNameByCode[codes.hospitalCode] ?? null,
+    branch: scopeNameByCode[codes.branchCode] ?? null,
+  }),
+}))
+
 // ========== 数据源替身 ==========
 
 const summaryQuery = vi.fn<(filters: StatisticsFilters, dimension: number, page: StatisticsPageInput) => Promise<StatisticsPage<UsageSummaryRow | SourceSummaryRow>> | null>()
@@ -233,10 +251,12 @@ const branchSourceSummaryRow: SourceSummaryRow = {
   sourceBranchName: '院区二',
 }
 
-/** 提供方标准项目维度汇总行：项目类型与标准项目编码取该行。 */
+/** 提供方标准项目维度汇总行：标准项目维度下服务端不返回提供方组织与医院。 */
 const projectSourceSummaryRow: SourceSummaryRow = {
   ...sourceSummaryRow,
   groupDimension: 4,
+  sourceOrganizationCode: null,
+  sourceOrganizationName: null,
   sourceHospitalCode: null,
   sourceHospitalName: null,
   itemType: 0,
@@ -252,6 +272,11 @@ const sourceDetailRow: SourceDetailRow = {
   source: { organizationCode: 'ORG2', organizationName: '组织二', hospitalCode: 'HOS2', hospitalName: '医院二', branchCode: 'BRA2', branchName: '院区二' },
   receiver: { organizationCode: 'ORG1', organizationName: '组织一', hospitalCode: 'HOS1', hospitalName: '医院一', branchCode: 'BRA1', branchName: '院区一' },
   standardProjectCode: 'A01',
+  standardProjectName: '血常规',
+  itemType: 0,
+  itemTypeText: '检验',
+  categoryName: '检验分类',
+  groupName: '血液',
   recognitionDeptId: 'DEPT1',
   recognitionDeptName: '检验科',
   recognitionDoctorId: 'DOC1',
@@ -615,31 +640,124 @@ describe('票据 04：自动选中与右卡指标摘要', () => {
     expect(within(detailPanel()).queryByText('张三')).toBeNull()
   })
 
-  it('提供方指标摘要只显示被互认、无明细类型切换，明细表使用提供方列', async () => {
-    summaryQuery.mockImplementation(() => Promise.resolve(pageOf([sourceSummaryRow])))
+  it('提供方右卡为承接方核查版式：卡头即归属链（医院维度两行）并内联被互认次数与导出明细，不渲染指标摘要条与独立工具行（C60）', async () => {
+    summaryQuery.mockImplementation(() => Promise.resolve(pageOf([
+      { ...sourceSummaryRow, sourceBranchCode: 'BRA2', sourceBranchName: '院区二' },
+    ])))
     detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
     renderBoard(boardProps({
       title: '提供方医院被互认统计',
       side: 'source',
-      initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28' },
+      initialFilters: {
+        startTime: '2026-02-01',
+        endTime: '2026-02-28',
+        sourceOrganizationCode: 'ORG-B',
+        sourceHospitalCode: 'HOS-2',
+      },
     }))
 
     await waitSummaryText('医院二')
-    expect(within(summaryList()).getByText('被互认 7')).toBeInTheDocument()
-    const summary = within(detailPanel()).getByRole('group', { name: '指标摘要' })
-    expect(summary).toHaveTextContent('被互认')
-    expect(summary).toHaveTextContent('7')
+    await screen.findByText('张三')
+    const card = detailPanel().querySelector<HTMLElement>('.statistics-board-detail-card')
+    const head = card?.querySelector<HTMLElement>('.ant-card-head') ?? null
+    expect(head).not.toBeNull()
+    // 卡头即归属链：医院维度只显示组织与医院两行，不适用层级不显示「未知」。
+    expect(head?.querySelector('.statistics-board-source-chain__organization')).toHaveTextContent('组织二')
+    expect(head?.querySelector('.statistics-board-source-chain__hospital')).toHaveTextContent('医院二')
+    expect(head?.querySelector('.statistics-board-source-chain__branch')).toBeNull()
+    expect(head).not.toHaveTextContent('未知')
+    // 右侧内联被互认次数与导出明细。
+    expect(head).toHaveTextContent('被互认 7 次')
+    expect(within(head as HTMLElement).getByRole('button', { name: '导出明细' })).toBeInTheDocument()
+    // 卡头下只有一行上下文；不渲染指标摘要条与独立工具行。
+    expect(within(detailPanel()).queryByRole('group', { name: '指标摘要' })).toBeNull()
+    expect(detailPanel().querySelector('.statistics-board-detail-toolbar')).toBeNull()
+    const contexts = detailPanel().querySelectorAll('.statistics-board-detail-context')
+    expect(contexts).toHaveLength(1)
+    expect(contexts[0]).toHaveTextContent('统计时间 2026-02-01 至 2026-02-28 · 承接范围 组织乙 · 医院乙 · 共 1 条')
+    // 承接范围只显名称，不出现编码。
+    expect(contexts[0]).not.toHaveTextContent('ORG-B')
+    expect(contexts[0]).not.toHaveTextContent('HOS-2')
     const live = document.querySelector('.statistics-board-live')
     expect(live?.textContent).toContain('已选择医院二')
     expect(live?.textContent).toContain('被互认 7 条')
-    expect(live?.textContent).toContain('当前 被互认 7 条')
+    expect(live?.textContent).toContain('明细共 1 条')
+    expect(live?.textContent).not.toContain('当前 被互认')
     expect(within(detailPanel()).queryByRole('tab')).toBeNull()
     expect(within(detailPanel()).queryByText('同期互认率')).toBeNull()
     expect(within(detailPanel()).queryByText('预计节省金额')).toBeNull()
     expect(within(detailPanel()).queryByText(/明细类型 被互认/)).toBeNull()
     expect(screen.queryByRole('button', { name: '查看互认匹配记录' })).toBeNull()
   })
-})
+
+  it('卡头归属链按维度取字段：院区维度三行，标准项目维度换为项目名称与编码 · 分类 / 分组两行（C60）', async () => {
+    summaryQuery.mockImplementation((_filters, dimension) => Promise.resolve(pageOf([
+      dimension === 2
+        ? branchSourceSummaryRow
+        : dimension === 4
+          ? projectSourceSummaryRow
+          : { ...sourceSummaryRow, sourceBranchCode: 'BRA2', sourceBranchName: '院区二' },
+    ])))
+    detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
+    renderBoard(boardProps({
+      title: '提供方医院被互认统计',
+      side: 'source',
+      initialFilters: {
+        startTime: '2026-02-01',
+        endTime: '2026-02-28',
+        sourceOrganizationCode: 'ORG-B',
+        sourceHospitalCode: 'HOS-2',
+        sourceBranchCode: 'BRA2',
+      },
+    }))
+    await waitSummaryText('医院二')
+
+    await chooseDimension('提供方院区')
+    await waitSummaryText('院区二')
+    let head = detailPanel().querySelector<HTMLElement>('.ant-card-head')
+    expect(head?.querySelector('.statistics-board-source-chain__organization')).toHaveTextContent('组织二')
+    expect(head?.querySelector('.statistics-board-source-chain__hospital')).toHaveTextContent('医院二')
+    expect(head?.querySelector('.statistics-board-source-chain__branch')).toHaveTextContent('院区二')
+    // 院区维度的承接范围由已生效筛选派生，再带院区。
+    expect(detailPanel().querySelector('.statistics-board-detail-context')).toHaveTextContent('承接范围 组织乙 · 医院乙 · 院区二')
+
+    await chooseDimension('标准项目')
+    await waitSummaryText('血常规')
+    head = detailPanel().querySelector<HTMLElement>('.ant-card-head')
+    // 标准项目维度不显示三级归属链，改为项目名称主行与编码 · 分类 / 分组次行。
+    expect(head?.querySelector('.statistics-board-source-chain__organization')).toBeNull()
+    expect(head?.querySelector('.statistics-board-source-chain__hospital')).toBeNull()
+    expect(head?.querySelector('.statistics-board-source-chain__branch')).toBeNull()
+    expect(head?.querySelector('.statistics-board-source-chain__project')).toHaveTextContent('血常规')
+    expect(head?.querySelector('.statistics-board-source-chain__secondary')).toHaveTextContent('P200')
+  })
+
+  it('标准项目维度名称为空时汇总主名称显示「未匹配标准项目」，项目类型缺失时不渲染类型标签（C60）', async () => {
+    summaryQuery.mockImplementation((_filters, dimension) => Promise.resolve(pageOf([
+      dimension === 4
+        ? { ...projectSourceSummaryRow, standardProjectName: null, itemType: null, itemTypeText: '未知类型' }
+        : sourceSummaryRow,
+    ])))
+    detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
+    renderBoard(boardProps({
+      title: '提供方医院被互认统计',
+      side: 'source',
+      initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28' },
+    }))
+    await waitSummaryText('医院二')
+    await chooseDimension('标准项目')
+
+    await waitSummaryText('未匹配标准项目')
+    const row = within(summaryList()).getByRole('button', { name: /未匹配标准项目/ })
+    expect(row.querySelector('.statistics-board-group-row__name')).toHaveTextContent('未匹配标准项目')
+    // 项目类型文本缺失时不渲染类型标签，也不显示「未知类型」。
+    expect(row.querySelector('.ant-tag')).toBeNull()
+    expect(within(row as HTMLElement).queryByText('未知类型')).toBeNull()
+    // 卡头同样使用「未匹配标准项目」。
+    const head = detailPanel().querySelector<HTMLElement>('.ant-card-head')
+    expect(head?.querySelector('.statistics-board-source-chain__project')).toHaveTextContent('未匹配标准项目')
+  })
+});
 
 describe('票据 05：选中行派生的明细条件（C46、C48）', () => {
   it('快速切换选中行时明细只采纳最后一次响应，迟到的旧响应不覆盖明细表（C46）', async () => {
@@ -1166,7 +1284,7 @@ describe('票据 06：明细表、行展开与匹配记录（C50、C51）', () =
     expect(screen.queryByText('HOS2')).toBeNull()
   })
 
-  it('提供方明细表 6 列：互认时间、患者、项目只显编码、提供方院区、使用方三行式、科室/医生；无反馈结果、无操作、无行展开', async () => {
+  it('提供方明细表按承接方核查口径排列：使用方首列、标准项目名称与编码、项目类型、分类、分组、互认时间、患者、科室/医生，提供方院区为末位条件列；无反馈结果、无操作、无行展开（C61）', async () => {
     summaryQuery.mockImplementation(() => Promise.resolve(pageOf([sourceSummaryRow])))
     detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
     renderBoard(boardProps({
@@ -1181,11 +1299,14 @@ describe('票据 06：明细表、行展开与匹配记录（C50、C51）', () =
     const headers = within(table).getAllByRole('columnheader')
       .map((node) => node.textContent)
       .filter((text) => text !== null && text.length > 0)
-    expect(headers).toEqual(['互认时间', '患者', '项目', '提供方院区', '使用方', '科室 / 医生'])
+    expect(headers).toEqual(['使用方', '标准项目', '项目类型', '分类', '分组', '互认时间', '患者', '科室 / 医生', '提供方院区'])
     expect(table.getAttribute('style')).toContain('table-layout: fixed')
-    // 项目列只显示标准项目编码。
+    // 标准项目名称主行、编码次行；项目类型、分类与分组各自成列，四字段取服务端返回值。
+    expect(within(table).getByText('血常规')).toBeInTheDocument()
     expect(within(table).getByText('A01')).toBeInTheDocument()
-    expect(within(table).queryByText('血常规')).toBeNull()
+    expect(within(table).getByText('检验')).toBeInTheDocument()
+    expect(within(table).getByText('检验分类')).toBeInTheDocument()
+    expect(within(table).getByText('血液')).toBeInTheDocument()
     // 无反馈结果、无操作、无行展开。
     expect(within(table).queryByText('未反馈')).toBeNull()
     expect(within(table).queryByRole('button', { name: '查看互认匹配记录' })).toBeNull()
@@ -1195,6 +1316,33 @@ describe('票据 06：明细表、行展开与匹配记录（C50、C51）', () =
     expect(receiverCell).not.toBeNull()
     expect(within(receiverCell ?? document.body).getByText('组织一')).toBeInTheDocument()
     expect(within(receiverCell ?? document.body).getByText('院区一')).toBeInTheDocument()
+
+    // 一次提交同时重读明细（提交重读口径）：初始一次 + 提交一次。
+    fireEvent.click(screen.getByRole('button', { name: '查询' }))
+    await waitFor(() => expect(detailsQuery).toHaveBeenCalledTimes(2))
+  })
+
+  it('提供方明细四字段缺失时：标准项目名称显示「未匹配标准项目」、编码显示「—」、分类与分组整段省略（C61）', async () => {
+    summaryQuery.mockImplementation(() => Promise.resolve(pageOf([sourceSummaryRow])))
+    detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([
+      { ...sourceDetailRow, standardProjectName: null, standardProjectCode: '', categoryName: null, groupName: null },
+    ])))
+    renderBoard(boardProps({
+      title: '提供方医院被互认统计',
+      side: 'source',
+      initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28' },
+    }))
+
+    await waitSummaryText('医院二')
+    await screen.findByText('未匹配标准项目')
+    const table = detailTable()
+    const dataRow = within(table).getAllByRole('row')[1]
+    const cells = within(dataRow).getAllByRole('cell')
+    expect(within(cells[1]).getByText('未匹配标准项目')).toBeInTheDocument()
+    expect(within(cells[1]).getByText('—')).toBeInTheDocument()
+    // 分类与分组缺失时整段省略：单元格为空，不以破折号或其他占位文字冒充分类值。
+    expect(cells[3].textContent).toBe('')
+    expect(cells[4].textContent).toBe('')
   })
 
   it('平台提供方页已锁来源院区时移除提供方院区列，保留使用方列', async () => {
@@ -1439,7 +1587,7 @@ describe('票据 04：查询区、范围区与提交式筛选', () => {
   it('本院页页头左右结构：范围条在页头右侧，范围区只保留提供方筛选（C20、C39）', () => {
     renderBoard(boardProps({
       scopeKey: 'ORG-A|HOS-1|BRA1',
-      scopeSpec: { kind: 'branch', organizationCode: 'ORG-A' },
+      scopeSpec: { kind: 'branch', organizationCode: 'ORG-A', hospitalCode: 'HOS-1' },
       initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28', ownBranchCode: 'BRA1' },
     }))
 
@@ -1487,8 +1635,8 @@ describe('票据 04：时间预设与范围复位', () => {
         startTime: dayjs().subtract(6, 'day').format('YYYY-MM-DD'),
         endTime: dayjs().format('YYYY-MM-DD'),
       }), 1, expect.anything()))
-    // 一次提交同时重读明细（提交重读口径）。
-    expect(detailsQuery).toHaveBeenCalledTimes(2)
+    // 一次提交同时重读明细（提交重读口径）：明细重读在汇总之后经效果排队执行，按到达条件等待。
+    await waitFor(() => expect(detailsQuery).toHaveBeenCalledTimes(2))
   })
 
   it('范围切换复位的默认窗按复位时刻重算（与报告管理页跨天语义同构）', async () => {
@@ -1652,7 +1800,7 @@ describe('票据 04：读取竞态、失败恢复与越界自愈', () => {
   it('本院使用方形态：仅提供方筛选，请求院区恒为登录院区；使用方医院、院区条件经草稿提交', async () => {
     renderBoard(boardProps({
       scopeKey: 'ORG-A|HOS-1|BRA1',
-      scopeSpec: { kind: 'branch', organizationCode: 'ORG-A' },
+      scopeSpec: { kind: 'branch', organizationCode: 'ORG-A', hospitalCode: 'HOS-1' },
       initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28', ownBranchCode: 'BRA1' },
     }))
     await waitSummaryText('医院一')
@@ -1697,10 +1845,13 @@ describe('票据 04：读取竞态、失败恢复与越界自愈', () => {
       title: '本院被互认统计',
       side: 'source',
       scopeKey: 'ORG-A|HOS-1|BRA1',
-      scopeSpec: { kind: 'branch', organizationCode: 'ORG-A' },
+      scopeSpec: { kind: 'branch', organizationCode: 'ORG-A', hospitalCode: 'HOS-1' },
       initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28', ownBranchCode: 'BRA1' },
     }))
     await waitSummaryText('医院二')
+
+    // 本院页的承接范围取可信组织、可信医院与登录院区：医院维度同样带院区。
+    expect(detailPanel().querySelector('.statistics-board-detail-context')).toHaveTextContent('承接范围 组织甲 · 医院甲 · 院区一')
 
     const header = document.querySelector('.statistics-board-header')
     expect(header).not.toBeNull()
@@ -1732,6 +1883,8 @@ describe('票据 04：读取竞态、失败恢复与越界自愈', () => {
       1, expect.anything()))
     const submittedFilters = summaryQuery.mock.calls.at(-1)?.[0]
     expect(submittedFilters).not.toHaveProperty('receiverOrganizationCode')
+    // 一次提交同时重读明细（提交重读口径）：初始读取一次，提交后再读一次。
+    await waitFor(() => expect(detailsQuery).toHaveBeenCalledTimes(2))
   })
 })
 
@@ -2142,5 +2295,208 @@ describe('票据 07：可访问性（C57）', () => {
     }
     expect(rootTabIds).toHaveLength(8)
     expect(new Set(rootTabIds).size).toBe(8)
+  })
+})
+
+describe('票 03：提供方承接方核查版式（C60、C61）', () => {
+  /** 提供方平台页主体入参：标题、副标题与侧别固定，条件只覆盖本组用例关心的部分。 */
+  const sourceBoard = (overrides: Partial<StatisticsBoardProps> = {}) => boardProps({
+    title: '提供方医院被互认统计',
+    subtitle: '按组织、医院与院区查询提供方医院被互认汇总与明细',
+    side: 'source',
+    initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28' },
+    ...overrides,
+  })
+
+  it('左栏为两行式分组清单：主名称与归属次行各占一行，行尾计数块为等宽数字加「被互认」小字，不绘制比较条（C60）', async () => {
+    summaryQuery.mockImplementation(() => Promise.resolve(pageOf([
+      { ...sourceSummaryRow, sourceBranchCode: 'BRA2', sourceBranchName: '院区二' },
+    ])))
+    detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
+    renderBoard(sourceBoard())
+    await waitSummaryText('医院二')
+
+    const row = within(summaryList()).getByRole('button', { name: /医院二/ })
+    expect(row).toHaveAttribute('aria-pressed', 'true')
+    expect(row.querySelector('.statistics-board-group-row__name')).toHaveTextContent('医院二')
+    expect(row.querySelector('.statistics-board-group-row__secondary')).toHaveTextContent('组织二')
+    expect(row.querySelector('.statistics-board-group-row__count-value')).toHaveTextContent('7')
+    expect(row.querySelector('.statistics-board-group-row__count-label')).toHaveTextContent('被互认')
+    // 不绘制比较条：行内没有任何进度语义元素。
+    expect(row.querySelectorAll('[role="progressbar"]').length).toBe(0)
+  })
+
+  it('明细首列为使用方三行式并固定在左侧，其后各列按承接方核查口径排列（C60、C61）', async () => {
+    summaryQuery.mockImplementation(() => Promise.resolve(pageOf([sourceSummaryRow])))
+    detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
+    renderBoard(sourceBoard({
+      initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28', sourceBranchCode: 'BRA2' },
+    }))
+    await waitSummaryText('医院二')
+    await screen.findByText('张三')
+
+    const table = detailTable()
+    const headerCells = within(table).getAllByRole('columnheader')
+    expect(headerCells.map((node) => node.textContent)).toEqual([
+      '使用方', '标准项目', '项目类型', '分类', '分组', '互认时间', '患者', '科室 / 医生',
+    ])
+    // antd 6 的固定列类名为逻辑方向写法（fix-start），两种写法都表达同一固定语义。
+    expect(headerCells[0].className).toContain('ant-table-cell-fix')
+    const receiverCell = within(table).getAllByText('组织一')[0]?.closest('td') ?? null
+    expect(receiverCell).not.toBeNull()
+    expect(within(receiverCell as HTMLElement).getByText('医院一')).toBeInTheDocument()
+    expect(within(receiverCell as HTMLElement).getByText('院区一')).toBeInTheDocument()
+    expect(receiverCell?.className).toContain('ant-table-cell-fix')
+  })
+
+  it('提供方院区列仅在医院维度且平台页未锁院区时出现，并排在明细末列（C61）', async () => {
+    summaryQuery.mockImplementation(() => Promise.resolve(pageOf([sourceSummaryRow])))
+    detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
+    renderBoard(sourceBoard())
+    await waitSummaryText('医院二')
+    const unlocked = within(detailTable()).getAllByRole('columnheader').map((node) => node.textContent)
+    expect(unlocked.at(-1)).toBe('提供方院区')
+    cleanup()
+
+    renderBoard(sourceBoard({
+      initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28', sourceBranchCode: 'BRA2' },
+    }))
+    await waitSummaryText('医院二')
+    const locked = within(detailTable()).getAllByRole('columnheader').map((node) => node.textContent)
+    expect(locked).not.toContain('提供方院区')
+  })
+
+  it('标准项目维度卡头与左栏次行：编码缺失补「—」，分类与分组同时为空时整段省略（C61）', async () => {
+    summaryQuery.mockImplementation((_filters, dimension) => Promise.resolve(pageOf([
+      dimension === 4
+        ? { ...projectSourceSummaryRow, standardProjectCode: '', categoryName: null, groupName: null }
+        : sourceSummaryRow,
+    ])))
+    detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
+    renderBoard(sourceBoard())
+    await waitSummaryText('医院二')
+    await chooseDimension('标准项目')
+
+    await waitSummaryText('血常规')
+    const row = within(summaryList()).getByRole('button', { name: /血常规/ })
+    expect(row.querySelector('.statistics-board-group-row__secondary')?.textContent).toBe('—')
+    const head = detailPanel().querySelector<HTMLElement>('.ant-card-head')
+    expect(head?.querySelector('.statistics-board-source-chain__secondary')?.textContent).toBe('—')
+    cleanup()
+
+    // 编码存在、分类与分组同时为空：只显示编码，不追加占位分段。
+    summaryQuery.mockImplementation((_filters, dimension) => Promise.resolve(pageOf([
+      dimension === 4
+        ? { ...projectSourceSummaryRow, standardProjectCode: 'P200', categoryName: null, groupName: null }
+        : sourceSummaryRow,
+    ])))
+    renderBoard(sourceBoard())
+    await waitSummaryText('医院二')
+    await chooseDimension('标准项目')
+    await waitSummaryText('血常规')
+    const codedRow = within(summaryList()).getByRole('button', { name: /血常规/ })
+    expect(codedRow.querySelector('.statistics-board-group-row__secondary')?.textContent).toBe('P200')
+  })
+
+  it('标准项目维度卡头下的上下文行按已生效筛选显示承接范围，不读汇总行空值、不重复项目名称与编码；左栏不渲染类型标签（C60、C61）', async () => {
+    // 标准项目维度的真实形态：服务端把提供方组织与医院置空，上下文行的承接范围必须来自筛选。
+    summaryQuery.mockImplementation((_filters, dimension) => Promise.resolve(pageOf([
+      dimension === 4 ? projectSourceSummaryRow : sourceSummaryRow,
+    ])))
+    detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
+    renderBoard(sourceBoard({
+      initialFilters: {
+        startTime: '2026-02-01',
+        endTime: '2026-02-28',
+        sourceOrganizationCode: 'ORG-B',
+        sourceHospitalCode: 'HOS-2',
+      },
+    }))
+    await waitSummaryText('医院二')
+    await chooseDimension('标准项目')
+    await waitSummaryText('血常规')
+    // 维度切换后明细按新选中行重读，等上下文行的总数到位再断言文案。
+    await waitFor(() => expect(detailPanel().querySelector('.statistics-board-detail-context')).toHaveTextContent('共 1 条'))
+
+    const row = within(summaryList()).getByRole('button', { name: /血常规/ })
+    expect(row.querySelector('.ant-tag')).toBeNull()
+
+    const contexts = detailPanel().querySelectorAll('.statistics-board-detail-context')
+    expect(contexts).toHaveLength(1)
+    expect(contexts[0]).toHaveTextContent('统计时间 2026-02-01 至 2026-02-28 · 承接范围 组织乙 · 医院乙 · 共 1 条')
+    expect(contexts[0]).not.toHaveTextContent('承接范围 —')
+    expect(contexts[0]).not.toHaveTextContent('ORG-B')
+    expect(contexts[0]).not.toHaveTextContent('血常规')
+    expect(contexts[0]).not.toHaveTextContent('P200')
+  })
+
+  it('承接范围反查失败时显示「未知」且不回退编码（C60）', async () => {
+    summaryQuery.mockImplementation((_filters, dimension) => Promise.resolve(pageOf([
+      dimension === 4 ? projectSourceSummaryRow : sourceSummaryRow,
+    ])))
+    detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
+    renderBoard(sourceBoard({
+      initialFilters: {
+        startTime: '2026-02-01',
+        endTime: '2026-02-28',
+        sourceOrganizationCode: 'ORG-X',
+        sourceHospitalCode: 'HOS-X',
+      },
+    }))
+    await waitSummaryText('医院二')
+    await chooseDimension('标准项目')
+    await waitSummaryText('血常规')
+    await waitFor(() => expect(detailPanel().querySelector('.statistics-board-detail-context')).toHaveTextContent('共 1 条'))
+
+    const context = detailPanel().querySelector('.statistics-board-detail-context')
+    expect(context).toHaveTextContent('承接范围 未知 · 未知')
+    // 不回退编码。
+    expect(context).not.toHaveTextContent('ORG-X')
+    expect(context).not.toHaveTextContent('HOS-X')
+  })
+
+  it('左栏换页清空选中并在新页读取完成后自动选中第 1 行，维度切换回第 1 页（C60）', async () => {
+    summaryQuery.mockImplementation((_filters, _dimension, page) => Promise.resolve({
+      items: page.pageIndex === 2
+        ? [{ ...sourceSummaryRow, sourceHospitalCode: 'HOS9', sourceHospitalName: '医院九' }]
+        : [sourceSummaryRow],
+      pageIndex: page.pageIndex,
+      pageSize: 8,
+      totalCount: 9,
+    }))
+    detailsQuery.mockImplementation(() => Promise.resolve(detailPageOf([sourceDetailRow])))
+    renderBoard(sourceBoard())
+    await waitSummaryText('医院二')
+
+    fireEvent.click(within(summaryList()).getByTitle('2'))
+    await waitFor(() => expect(summaryQuery).toHaveBeenLastCalledWith(expect.anything(), 1, { pageIndex: 2, pageSize: 8 }))
+    await waitSummaryText('医院九')
+    // 换页清空旧选中，新页读取完成后自动选中第 1 行。
+    expect(within(summaryList()).getByRole('button', { name: /医院九/ })).toHaveAttribute('aria-pressed', 'true')
+
+    await chooseDimension('标准项目')
+    await waitFor(() => expect(summaryQuery).toHaveBeenLastCalledWith(expect.anything(), 4, { pageIndex: 1, pageSize: 8 }))
+  })
+
+  it('配套 CSS 承载左栏三档宽度、行尾计数块、归属链卡头与 1200px 以下的横向分组选择带（C60 静态面）', () => {
+    const css = readFileSync(resolve(process.cwd(), 'src/pages/recognitionStatistics/statisticsBoard.css'), 'utf8')
+    // 左栏宽度：默认 400px，容器 ≥1600px 取 440px，1200–1279px 取 360px，<1200px 单列。
+    // 提供方列表区沿用基类网格与区块规则，只覆盖栏宽档位，不重复基类的网格、区块与卡片宽度。
+    expect(css).not.toMatch(/\.statistics-board-master--source\s*\{\s*display:\s*grid/s)
+    expect(css).not.toMatch(/\.statistics-board-master--source \.ant-card\s*\{/s)
+    expect(css).toMatch(/@container \(min-width:\s*1600px\)[\s\S]*?\.statistics-board-master--source\s*\{[^}]*grid-template-columns:\s*440px/s)
+    expect(css).toMatch(/@container \(max-width:\s*1279px\)[\s\S]*?\.statistics-board-master--source\s*\{[^}]*grid-template-columns:\s*360px/s)
+    expect(css).toMatch(/@container \(max-width:\s*1199px\)[\s\S]*?\.statistics-board-master--source\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s)
+    // 小于 1200px：分组清单退化为横向选择带（单格 168×112、单行横向滚动、分页压到带右端）。
+    expect(css).toMatch(/@container \(max-width:\s*1199px\)[\s\S]*?\.statistics-board-master--source \.statistics-board-list\s*\{[^}]*display:\s*flex[^}]*overflow-x:\s*auto/s)
+    expect(css).toMatch(/@container \(max-width:\s*1199px\)[\s\S]*?\.statistics-board-master--source \.statistics-board-group-row\s*\{[^}]*flex:\s*0 0 auto[^}]*min-height:\s*112px[^}]*width:\s*168px/s)
+    expect(css).toMatch(/@container \(max-width:\s*1199px\)[\s\S]*?\.statistics-board-master--source \.statistics-board-list__pager\s*\{[^}]*flex:\s*0 0 auto/s)
+    // 行尾计数块：等宽数字加「被互认」小字。
+    expect(css).toMatch(/\.statistics-board-group-row__count-value\s*\{[^}]*font-variant-numeric:\s*tabular-nums/s)
+    expect(css).toMatch(/\.statistics-board-group-row__count-label\s*\{[^}]*font-size:\s*12px/s)
+    // 归属链卡头三行：医院 14px 加粗，组织与院区 12px。
+    expect(css).toMatch(/\.statistics-board-source-chain__hospital\s*\{[^}]*font-size:\s*14px[^}]*font-weight:\s*600/s)
+    expect(css).toMatch(/\.statistics-board-source-chain__organization\s*\{[^}]*font-size:\s*12px/s)
+    expect(css).toMatch(/\.statistics-board-source-chain__branch\s*\{[^}]*font-size:\s*12px/s)
   })
 })

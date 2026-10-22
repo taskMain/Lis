@@ -102,6 +102,11 @@ vi.mock('../../hooks/useEnumMetadata', () => ({
   useEnumMetadata: (_enumName: string, fallback: readonly unknown[]) => fallback,
 }))
 
+vi.mock('../../components/scopeNameLookup', () => ({
+  /** 范围名称反查替身：页面用例不覆盖名称反查，三级按缺失处理（展示层显示「未知」）。 */
+  useScopeNames: () => ({ organization: null, hospital: null, branch: null }),
+}))
+
 /** 占位 client：页面把 API Client 原样交给适配层出口，自身不访问任何端点。 */
 const clientRef = vi.hoisted(() => ({ current: { marker: 'usage-page-client' } }))
 

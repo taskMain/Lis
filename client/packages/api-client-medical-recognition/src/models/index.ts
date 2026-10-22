@@ -3165,7 +3165,11 @@ export function deserializeIntoSourceOrganizationReadModel(sourceOrganizationRea
 // @ts-ignore
 export function deserializeIntoSourceRecognitionDetailReadModel(sourceRecognitionDetailReadModel: Partial<SourceRecognitionDetailReadModel> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
+        "categoryName": n => { sourceRecognitionDetailReadModel.categoryName = n.getStringValue(); },
+        "groupName": n => { sourceRecognitionDetailReadModel.groupName = n.getStringValue(); },
         "identityDocumentNo": n => { sourceRecognitionDetailReadModel.identityDocumentNo = n.getStringValue(); },
+        "itemType": n => { sourceRecognitionDetailReadModel.itemType = n.getNumberValue(); },
+        "itemTypeText": n => { sourceRecognitionDetailReadModel.itemTypeText = n.getStringValue(); },
         "patientName": n => { sourceRecognitionDetailReadModel.patientName = n.getStringValue(); },
         "receiverBranchCode": n => { sourceRecognitionDetailReadModel.receiverBranchCode = n.getStringValue(); },
         "receiverBranchName": n => { sourceRecognitionDetailReadModel.receiverBranchName = n.getStringValue(); },
@@ -3187,6 +3191,7 @@ export function deserializeIntoSourceRecognitionDetailReadModel(sourceRecognitio
         "sourceOrganizationCode": n => { sourceRecognitionDetailReadModel.sourceOrganizationCode = n.getStringValue(); },
         "sourceOrganizationName": n => { sourceRecognitionDetailReadModel.sourceOrganizationName = n.getStringValue(); },
         "standardProjectCode": n => { sourceRecognitionDetailReadModel.standardProjectCode = n.getStringValue(); },
+        "standardProjectName": n => { sourceRecognitionDetailReadModel.standardProjectName = n.getStringValue(); },
     }
 }
 /**
@@ -7655,7 +7660,11 @@ export function serializeSourceOrganizationReadModel(writer: SerializationWriter
 // @ts-ignore
 export function serializeSourceRecognitionDetailReadModel(writer: SerializationWriter, sourceRecognitionDetailReadModel: Partial<SourceRecognitionDetailReadModel> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!sourceRecognitionDetailReadModel || isSerializingDerivedType) { return; }
+    writer.writeStringValue("categoryName", sourceRecognitionDetailReadModel.categoryName);
+    writer.writeStringValue("groupName", sourceRecognitionDetailReadModel.groupName);
     writer.writeStringValue("identityDocumentNo", sourceRecognitionDetailReadModel.identityDocumentNo);
+    writer.writeNumberValue("itemType", sourceRecognitionDetailReadModel.itemType);
+    writer.writeStringValue("itemTypeText", sourceRecognitionDetailReadModel.itemTypeText);
     writer.writeStringValue("patientName", sourceRecognitionDetailReadModel.patientName);
     writer.writeStringValue("receiverBranchCode", sourceRecognitionDetailReadModel.receiverBranchCode);
     writer.writeStringValue("receiverBranchName", sourceRecognitionDetailReadModel.receiverBranchName);
@@ -7677,6 +7686,7 @@ export function serializeSourceRecognitionDetailReadModel(writer: SerializationW
     writer.writeStringValue("sourceOrganizationCode", sourceRecognitionDetailReadModel.sourceOrganizationCode);
     writer.writeStringValue("sourceOrganizationName", sourceRecognitionDetailReadModel.sourceOrganizationName);
     writer.writeStringValue("standardProjectCode", sourceRecognitionDetailReadModel.standardProjectCode);
+    writer.writeStringValue("standardProjectName", sourceRecognitionDetailReadModel.standardProjectName);
     writer.writeAdditionalData(sourceRecognitionDetailReadModel.additionalData);
 }
 /**
@@ -7842,9 +7852,25 @@ export interface SourceOrganizationReadModel extends AdditionalDataHolder, Parsa
 }
 export interface SourceRecognitionDetailReadModel extends AdditionalDataHolder, Parsable {
     /**
+     * The categoryName property
+     */
+    categoryName?: string | null;
+    /**
+     * The groupName property
+     */
+    groupName?: string | null;
+    /**
      * The identityDocumentNo property
      */
     identityDocumentNo?: string | null;
+    /**
+     * The itemType property
+     */
+    itemType?: number | null;
+    /**
+     * The itemTypeText property
+     */
+    itemTypeText?: string | null;
     /**
      * The patientName property
      */
@@ -7929,6 +7955,10 @@ export interface SourceRecognitionDetailReadModel extends AdditionalDataHolder, 
      * The standardProjectCode property
      */
     standardProjectCode?: string | null;
+    /**
+     * The standardProjectName property
+     */
+    standardProjectName?: string | null;
 }
 export interface SourceRecognitionDetailsQueryRequest extends AdditionalDataHolder, Parsable {
     /**

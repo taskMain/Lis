@@ -571,20 +571,22 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   ];
 
   /// <summary>
-  /// 提供方明细导出的列头：两侧归属、互认科室与医生、互认时间与患者字段。
+  /// 提供方明细导出的列头：两侧归属、标准项目名称与编码、项目类型、分类与分组、互认时间与患者字段、互认科室与医生。
   /// </summary>
+  /// <remarks>标准项目一组列与互认时间、患者、科室/医生的先后都与页面明细列一致：名称、编码、项目类型、分类、分组、互认时间、患者、科室/医生。</remarks>
   private static readonly string[] SourceDetailHeaders =
   [
     "互认匹配记录ID", "互认匹配项ID",
     "提供方组织编码", "提供方组织名称", "提供方医院编码", "提供方医院名称", "提供方院区编码", "提供方院区名称",
     "使用方组织编码", "使用方组织名称", "使用方医院编码", "使用方医院名称", "使用方院区编码", "使用方院区名称",
-    "标准项目编码",
-    "互认科室ID", "互认科室名称", "互认医生ID", "互认医生名称",
-    "互认时间", "患者姓名", "证件号码"
+    "标准项目名称", "标准项目编码", "项目类型", "分类名称", "分组名称",
+    "互认时间", "患者姓名", "证件号码",
+    "互认科室ID", "互认科室名称", "互认医生ID", "互认医生名称"
   ];
 
   /// <summary>
-  /// 把一条提供方明细读模型写成导出行：携带互认匹配记录与匹配项标识，两侧归属逐行重复。
+  /// 把一条提供方明细读模型写成导出行：携带互认匹配记录与匹配项标识，两侧归属逐行重复，
+  /// 标准项目名称、项目类型与标准目录分类、分组按行取值输出。
   /// </summary>
   /// <param name="model">已组装的提供方明细读模型。</param>
   /// <returns>一行导出单元格取值，顺序与列头一致。</returns>
@@ -604,14 +606,18 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     model.ReceiverHospitalName,
     model.ReceiverBranchCode,
     model.ReceiverBranchName,
+    model.StandardProjectName,
     model.StandardProjectCode,
+    model.ItemTypeText,
+    model.CategoryName,
+    model.GroupName,
+    model.RecognitionTime,
+    model.PatientName,
+    model.IdentityDocumentNo,
     model.RecognitionDeptId,
     model.RecognitionDeptName,
     model.RecognitionDoctorId,
-    model.RecognitionDoctorName,
-    model.RecognitionTime,
-    model.PatientName,
-    model.IdentityDocumentNo
+    model.RecognitionDoctorName
   ];
 
   /// <summary>

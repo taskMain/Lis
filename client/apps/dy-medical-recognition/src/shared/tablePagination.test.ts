@@ -6,7 +6,7 @@
  * 防止后续阶段各自重写一套收敛规则。
  */
 import { describe, expect, it, vi } from 'vitest'
-import { createTablePagination, PAGE_SIZE_OPTIONS } from './tablePagination'
+import { createTablePagination, PAGE_SIZE_OPTIONS, toPaginationProps } from './tablePagination'
 
 describe('共享分页控件', () => {
   it('页容量取值域与服务端公共请求声明一致，且上限不超过 200', () => {
@@ -58,6 +58,33 @@ describe('共享分页控件', () => {
 
     expect(config.pageSizeOptions).toEqual([...PAGE_SIZE_OPTIONS])
     expect(config.showSizeChanger).toBe(true)
+  })
+
+  it('普通分页控件沿用同一份分页状态，且不透传 Table 专用的位置字段', () => {
+    const onChange = vi.fn()
+    const config = createTablePagination({
+      pageIndex: 2,
+      pageSize: 8,
+      totalCount: 37,
+      loading: true,
+      onChange,
+      pageSizeOptions: [8],
+      showSizeChanger: false,
+    })
+    const props = toPaginationProps(config)
+
+    expect(props).toMatchObject({
+      current: 2,
+      pageSize: 8,
+      total: 37,
+      disabled: true,
+      showSizeChanger: false,
+      pageSizeOptions: [8],
+    })
+    expect(props).not.toHaveProperty('placement')
+    // 回调与 Table 配置同一份：翻页直接回传页码与页容量。
+    props.onChange?.(3, 8)
+    expect(onChange).toHaveBeenLastCalledWith(3, 8)
   })
 
   it('调用方可指定页容量选项并关闭页容量选择器，统计页固定每行数量时使用该入口', () => {

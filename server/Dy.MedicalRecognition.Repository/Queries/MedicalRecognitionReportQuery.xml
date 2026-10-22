@@ -1914,7 +1914,8 @@
 
     <!--
       功能：取来源侧被互认明细的当页行，逐匹配项返回本组织作为提供方被其他医院采纳的事实。
-      结果：互认科室与医生取处理结果自身保存值，患者姓名取自匹配项绑定报告的报告主体检索列，证件号码取匹配记录保存值；
+      结果：标准项目名称、项目类型与标准目录分类、分组取自语句已有的标准目录关联，互认科室与医生取处理结果自身保存值，
+      患者姓名取自匹配项绑定报告的报告主体检索列，证件号码取匹配记录保存值；
       排序为互认时间倒序加匹配项标识升序；分页窗口由数据映射器的 Provider 适配层附加。
     -->
     <Statement Id="QuerySourceRecognitionDetails">
@@ -1928,6 +1929,10 @@
         mr.receiver_hospital_code,              <!-- 使用方医院编码 -->
         mr.receiver_branch_code,                <!-- 使用方院区编码 -->
         mi.standard_project_code,               <!-- 标准项目编码 -->
+        si.name as standard_project_name,       <!-- 标准项目名称：取自标准目录当前版本，标准项目不在目录中时为空 -->
+        mi.item_type,                           <!-- 项目类型：取匹配项自身保存值 -->
+        sc.name as category_name,               <!-- 标准目录分类名称：分类缺失时为空 -->
+        sg.name as group_name,                  <!-- 标准目录分组名称：分组缺失时为空 -->
         pr.recognition_time as recognition_time,          <!-- 处理结果的互认时间：来源侧明细的业务时间，恒有值 -->
         pr.recognition_dept_id,                 <!-- 互认科室ID：取处理结果自身保存值 -->
         pr.recognition_dept_name,               <!-- 互认科室名称 -->

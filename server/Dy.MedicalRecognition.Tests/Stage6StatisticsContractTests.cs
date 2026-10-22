@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Dy.MedicalRecognition.Application.Contracts.Queries;
 using Dy.MedicalRecognition.Application.Contracts.Queries.Pagination;
 using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionStatistics;
@@ -17,8 +18,7 @@ namespace Dy.MedicalRecognition.Tests;
 /// 三个统计枚举的取值与描述器声明，以及分页禁用字段守卫。
 /// </summary>
 /// <remarks>
-/// 对应后端设计验证矩阵（docs/plans/008-阶段6-互认统计与导出/Server/design.md「验证矩阵」章）V1、V2、V3、V5、V6
-/// 与票 00（docs/plans/008-阶段6-互认统计与导出/阶段6-Tickets/00-契约准备与枚举登记.md）的交付范围。
+/// 对应后端设计验证矩阵（docs/plans/008-阶段6-互认统计与导出/Server/design.md「验证矩阵」章）V1、V2、V3、V5、V6。
 /// 全部为源码契约判定（Roslyn 语法节点，工具复用 <see cref="SourceSyntaxGuard"/>）：注释与字符串里的同名写法
 /// 不产生节点，声明被删除、字段被改名、类型退化为 <c>object</c> 都会直接失败；不启动宿主、不连库。
 /// </remarks>
@@ -104,7 +104,9 @@ public sealed class Stage6StatisticsContractTests
       ("ReceiverOrganizationCode", "string"), ("ReceiverOrganizationName", "string"),
       ("ReceiverHospitalCode", "string"), ("ReceiverHospitalName", "string"),
       ("ReceiverBranchCode", "string"), ("ReceiverBranchName", "string"),
-      ("StandardProjectCode", "string"),
+      ("StandardProjectCode", "string"), ("StandardProjectName", "string?"),
+      ("ItemType", "MedicalItemType"), ("ItemTypeText", "string?"),
+      ("CategoryName", "string?"), ("GroupName", "string?"),
       ("RecognitionDeptId", "string?"), ("RecognitionDeptName", "string?"),
       ("RecognitionDoctorId", "string?"), ("RecognitionDoctorName", "string?"),
       ("RecognitionTime", "DateTime"), ("PatientName", "string"), ("IdentityDocumentNo", "string")
@@ -479,6 +481,92 @@ public sealed class Stage6StatisticsContractTests
       property => property.Identifier.ValueText == "StandardProjectName");
     Assert.Single(sourceSummary.DescendantNodes().OfType<PropertyDeclarationSyntax>(),
       property => property.Identifier.ValueText == "StandardProjectName");
+  }
+
+  /// <summary>
+  /// V54、S6-D25：提供方明细读模型与领域投影随行携带标准项目名称、项目类型（枚举与文本计算属性）、
+  /// 分类名称与分组名称；四项按标准项目编码之后、互认科室之前的顺序声明，可空性与页面缺失显示规则一致。
+  /// </summary>
+  /// <remarks>
+  /// 四项取自提供方明细语句已关联的标准项目表、分组表与分类表；提供方明细不按分类或分组筛选，
+  /// 标准项目编码在标准目录缺失时仍随行返回，因此名称、分类与分组按可空声明，编码保持非空。
+  /// </remarks>
+  [Fact]
+  public void Source_detail_read_model_and_projection_carry_standard_catalog_fields()
+  {
+    CompilationUnitSyntax readModel = ReadSingleReadModel("SourceRecognitionDetailReadModel");
+    string[] readModelNames = [.. readModel.DescendantNodes().OfType<PropertyDeclarationSyntax>().Select(property => property.Identifier.ValueText)];
+    Assert.Equal(
+      ["StandardProjectCode", "StandardProjectName", "ItemType", "ItemTypeText", "CategoryName", "GroupName", "RecognitionDeptId"],
+      readModelNames.SkipWhile(name => name != "StandardProjectCode").Take(7).ToArray());
+
+    CompilationUnitSyntax projection = SourceSyntaxGuard.Read(
+      "server", "Dy.MedicalRecognition.Domain", "Queries", "SourceRecognitionDetailItem.cs");
+    string[] projectionNames = [.. projection.DescendantNodes().OfType<PropertyDeclarationSyntax>().Select(property => property.Identifier.ValueText)];
+    Assert.Equal(
+      ["StandardProjectCode", "StandardProjectName", "ItemType", "CategoryName", "GroupName", "RecognitionTime"],
+      projectionNames.SkipWhile(name => name != "StandardProjectCode").Take(6).ToArray());
+
+    ((string TypeName, string Property, string PropertyType) Entry, CompilationUnitSyntax Root)[] declarations =
+    [
+      (("SourceRecognitionDetailReadModel", "StandardProjectName", "string?"), readModel),
+      (("SourceRecognitionDetailReadModel", "ItemType", "MedicalItemType"), readModel),
+      (("SourceRecognitionDetailReadModel", "CategoryName", "string?"), readModel),
+      (("SourceRecognitionDetailReadModel", "GroupName", "string?"), readModel),
+      (("SourceRecognitionDetailItem", "StandardProjectName", "string?"), projection),
+      (("SourceRecognitionDetailItem", "ItemType", "MedicalItemType"), projection),
+      (("SourceRecognitionDetailItem", "CategoryName", "string?"), projection),
+      (("SourceRecognitionDetailItem", "GroupName", "string?"), projection)
+    ];
+    foreach (((string typeName, string property, string propertyType), CompilationUnitSyntax root) in declarations)
+    {
+      PropertyDeclarationSyntax declaration = Assert.Single(
+        root.DescendantNodes().OfType<PropertyDeclarationSyntax>(),
+        candidate => candidate.Identifier.ValueText == property);
+      Assert.True(
+        DescribeType(declaration.Type) == propertyType,
+        $"{typeName}.{property} 的属性类型应为 {propertyType}，实际为 {DescribeType(declaration.Type)}。");
+    }
+
+    AssertEnumTextProperty("SourceRecognitionDetailReadModel", "ItemTypeText", "MedicalItemTypeDescriptorList.List", safeParse: true);
+  }
+
+  /// <summary>
+  /// V54、S6-D25：固化的 OpenAPI 声明提供方明细的标准项目名称、项目类型、项目类型文本、分类名称与分组名称，
+  /// 字段集合与形态逐项冻结；字段漏声明、类型或可空性发生变化时本用例失败。
+  /// </summary>
+  /// <remarks>
+  /// 生成端不做文本比对：已提交的 OpenAPI 是 Kiota 的稳定输入，生成物与输入的一致性由生成锁的文档哈希
+  /// 与 <c>pnpm generate</c> 的生成流程保证，断言只读取 JSON 节点的结构化形态。
+  /// </remarks>
+  [Fact]
+  public void Frozen_openapi_declares_the_source_detail_standard_catalog_fields()
+  {
+    string repositoryRoot = SourceSyntaxGuard.FindRepositoryRoot();
+    JsonNode document = JsonNode.Parse(File.ReadAllText(Path.Combine(
+      repositoryRoot, "client", "packages", "api-client-medical-recognition", "openapi",
+      "medical-recognition.openapi.json")))!;
+
+    JsonNode properties = document["components"]!["schemas"]!["SourceRecognitionDetailReadModel"]!["properties"]!;
+    foreach (string propertyName in new[] { "standardProjectName", "itemType", "itemTypeText", "categoryName", "groupName" })
+    {
+      Assert.True(properties[propertyName] is not null, $"OpenAPI 的 SourceRecognitionDetailReadModel 缺少 {propertyName}。");
+    }
+
+    Assert.Equal(
+      ["null", "string"],
+      properties["standardProjectName"]!["type"]!.AsArray().Select(node => node!.GetValue<string>()).ToArray());
+    Assert.Equal("#/components/schemas/MedicalItemType", properties["itemType"]!["$ref"]!.GetValue<string>());
+    Assert.Null(properties["itemType"]!["type"]);
+    Assert.Equal(
+      ["null", "string"],
+      properties["itemTypeText"]!["type"]!.AsArray().Select(node => node!.GetValue<string>()).ToArray());
+    Assert.Equal(
+      ["null", "string"],
+      properties["categoryName"]!["type"]!.AsArray().Select(node => node!.GetValue<string>()).ToArray());
+    Assert.Equal(
+      ["null", "string"],
+      properties["groupName"]!["type"]!.AsArray().Select(node => node!.GetValue<string>()).ToArray());
   }
 
   /// <summary>

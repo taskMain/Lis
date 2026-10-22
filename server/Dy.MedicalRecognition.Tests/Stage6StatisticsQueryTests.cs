@@ -1604,6 +1604,39 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(2, organizationService.BranchReadCount);
   }
 
+  /// <summary>
+  /// V54、S6-D25：提供方明细每行随行返回标准项目名称、项目类型取值与文本、标准目录分类与分组名称；
+  /// 标准目录缺失时四项为空、标准项目编码原样保留，页面按缺失规则显示，不回查标准目录。
+  /// </summary>
+  [Fact]
+  public async Task Source_details_map_standard_catalog_fields_of_each_row()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    repository.SourceDetailItems.AddRange(
+    [
+      BuildSourceDetailItem(1),
+      BuildSourceDetailItem(2) with { StandardProjectName = null, CategoryName = null, GroupName = null }
+    ]);
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateReceiverAndSourceOrganizationService());
+
+    PageResultDto<SourceRecognitionDetailReadModel> result = await service.QuerySourceRecognitionDetailsAsync(BuildSourceDetailsRequest(1, 20));
+
+    Assert.Equal(2, result.Items.Count);
+    Assert.Equal("血常规", result.Items[0].StandardProjectName);
+    Assert.Equal(MedicalItemType.Laboratory, result.Items[0].ItemType);
+    Assert.Equal("检验", result.Items[0].ItemTypeText);
+    Assert.Equal("检验分类", result.Items[0].CategoryName);
+    Assert.Equal("血液", result.Items[0].GroupName);
+    Assert.Equal("STD-001", result.Items[0].StandardProjectCode);
+
+    Assert.Null(result.Items[1].StandardProjectName);
+    Assert.Equal(MedicalItemType.Laboratory, result.Items[1].ItemType);
+    Assert.Equal("检验", result.Items[1].ItemTypeText);
+    Assert.Null(result.Items[1].CategoryName);
+    Assert.Null(result.Items[1].GroupName);
+    Assert.Equal("STD-001", result.Items[1].StandardProjectCode);
+  }
+
   // ---------- 本院版提供方：V31、V32、V33 ----------
 
   /// <summary>
@@ -2569,6 +2602,57 @@ public sealed class Stage6StatisticsQueryTests
   }
 
   /// <summary>
+  /// V56、S6-D25：提供方明细导出的标准项目名称、编码、项目类型、分类与分组按页面明细列顺序输出，
+  /// 四列取值与页面同源，导出总数与页面明细总数一致。
+  /// </summary>
+  [Fact]
+  public async Task Source_detail_export_columns_follow_the_page_detail_order_and_share_the_row_values()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    repository.SourceDetailItems.AddRange([BuildSourceDetailItem(1), BuildSourceDetailItem(2), BuildSourceDetailItem(3)]);
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateReceiverAndSourceOrganizationService());
+
+    PageResultDto<SourceRecognitionDetailReadModel> page = await service.QuerySourceRecognitionDetailsAsync(BuildSourceDetailsRequest(1, 20));
+    SourceRecognitionDetailFilter? pageFilter = repository.LastSourceDetailFilter;
+
+    StatisticsExportFileReadModel file = await service.GetStatisticsExportAsync(
+      BuildExportRequest(RecognitionStatisticsExportType.SourceRecognitionDetails));
+
+    using XLWorkbook workbook = new(new MemoryStream(file.FileStream));
+    IXLWorksheet worksheet = workbook.Worksheets.First();
+    string[] headers = [.. worksheet.Row(1).CellsUsed().Select(cell => cell.GetString())];
+    int projectNameColumn = Array.IndexOf(headers, "标准项目名称") + 1;
+    Assert.True(projectNameColumn > 0, "提供方明细导出应包含标准项目名称列。");
+    Assert.Equal(
+      ["标准项目名称", "标准项目编码", "项目类型", "分类名称", "分组名称"],
+      headers[(projectNameColumn - 1)..(projectNameColumn + 4)]);
+
+    // 互认时间与患者排在科室/医生之前，与页面明细列序一致。
+    int recognitionTimeColumn = Array.IndexOf(headers, "互认时间");
+    Assert.True(recognitionTimeColumn > 0, "提供方明细导出应包含互认时间列。");
+    string[] tail = headers[recognitionTimeColumn..];
+    Assert.True(tail.Length >= 4, $"互认时间之后应还有患者与科室列，实际只有 {tail.Length} 列。");
+    Assert.Equal(["互认时间", "患者姓名", "证件号码", "互认科室ID"], tail[..4]);
+
+    IXLRow firstRow = worksheet.Row(2);
+    Assert.Equal("血常规", firstRow.Cell(projectNameColumn).GetString());
+    Assert.Equal("STD-001", firstRow.Cell(projectNameColumn + 1).GetString());
+    Assert.Equal("检验", firstRow.Cell(projectNameColumn + 2).GetString());
+    Assert.Equal("检验分类", firstRow.Cell(projectNameColumn + 3).GetString());
+    Assert.Equal("血液", firstRow.Cell(projectNameColumn + 4).GetString());
+
+    // 导出按同一筛选条件的计数取全量：行数与页面明细总数一致，筛选边界与页面查询逐项相同。
+    Assert.Equal(page.Page.TotalCount, worksheet.LastRowUsed()!.RowNumber() - 1L);
+    Assert.NotNull(pageFilter);
+    SourceRecognitionDetailFilter exportFilter = repository.LastSourceDetailFilter!;
+    Assert.Equal(pageFilter.PeriodStart, exportFilter.PeriodStart);
+    Assert.Equal(pageFilter.PeriodEnd, exportFilter.PeriodEnd);
+    Assert.Equal(pageFilter.SourceOrganizationCode, exportFilter.SourceOrganizationCode);
+    Assert.Equal(pageFilter.ReceiverOrganizationCode, exportFilter.ReceiverOrganizationCode);
+    Assert.Equal(pageFilter.StandardProjectCode, exportFilter.StandardProjectCode);
+  }
+
+  /// <summary>
   /// V37：七个导出类型的列头逐一冻结——列全部来自既有读模型已审字段，且全部单元格不出现
   /// 完整报告结构化内容、PDF 文件标识与下载入口、影像调阅地址、医院院内项目编码/名称/项目映射。
   /// </summary>
@@ -2655,9 +2739,9 @@ public sealed class Stage6StatisticsQueryTests
         "互认匹配记录ID", "互认匹配项ID",
         "提供方组织编码", "提供方组织名称", "提供方医院编码", "提供方医院名称", "提供方院区编码", "提供方院区名称",
         "使用方组织编码", "使用方组织名称", "使用方医院编码", "使用方医院名称", "使用方院区编码", "使用方院区名称",
-        "标准项目编码",
-        "互认科室ID", "互认科室名称", "互认医生ID", "互认医生名称",
-        "互认时间", "患者姓名", "证件号码"
+        "标准项目名称", "标准项目编码", "项目类型", "分类名称", "分组名称",
+        "互认时间", "患者姓名", "证件号码",
+        "互认科室ID", "互认科室名称", "互认医生ID", "互认医生名称"
       ]
     };
 
@@ -2963,6 +3047,10 @@ public sealed class Stage6StatisticsQueryTests
     ReceiverHospitalCode = TrustedHospital,
     ReceiverBranchCode = TrustedBranch,
     StandardProjectCode = "STD-001",
+    StandardProjectName = "血常规",
+    ItemType = MedicalItemType.Laboratory,
+    CategoryName = "检验分类",
+    GroupName = "血液",
     RecognitionTime = BusinessDate.AddHours(index),
     RecognitionDeptId = "DPT-1",
     RecognitionDeptName = "检验科",

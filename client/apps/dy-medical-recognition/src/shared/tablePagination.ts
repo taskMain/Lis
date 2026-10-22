@@ -34,6 +34,27 @@ const tablePaginationPresentation: TablePaginationConfig = {
 }
 
 /**
+ * 把 Table 受控分页配置还原为普通分页控件可接受的字段。
+ *
+ * Table 专用的位置字段（`placement`）不能透传给 `Pagination`；页码、页容量、总数、
+ * 禁用态、页容量选项与回调保持同一份取值，清单卡片在表格之外沿用同一套服务端分页口径。
+ */
+export function toPaginationProps(config: TablePaginationConfig) {
+  return {
+    size: config.size,
+    current: config.current,
+    pageSize: config.pageSize,
+    total: config.total,
+    disabled: config.disabled,
+    showSizeChanger: config.showSizeChanger,
+    pageSizeOptions: config.pageSizeOptions,
+    showQuickJumper: config.showQuickJumper,
+    showTotal: config.showTotal,
+    onChange: config.onChange,
+  }
+}
+
+/**
  * 把页面分页状态映射为无副作用的 Ant Design Table 受控分页配置。
  *
  * 分页控件位于表格下方、页容量可选、显示记录总数；总数来自服务端公共响应，不补造也不截断。

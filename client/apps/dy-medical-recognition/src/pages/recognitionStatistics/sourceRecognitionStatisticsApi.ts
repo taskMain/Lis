@@ -85,7 +85,18 @@ export interface SourceDetailRow {
   recognitionMatchItemId: string
   source: StatisticsOrganizationScopeView
   receiver: StatisticsOrganizationScopeView
+  /** 标准项目编码：匹配项保存值，标准目录缺失时仍随行返回。 */
   standardProjectCode: string
+  /** 标准项目名称：服务端随行返回；标准项目不在目录中时为 null。 */
+  standardProjectName: string | null
+  /** 项目类型取值；未登记时为 null。 */
+  itemType: MedicalItemTypeValue | null
+  /** 项目类型文本：服务端文本优先，缺失时按枚举兜底。 */
+  itemTypeText: string
+  /** 标准目录分类名称；分类缺失时为 null。 */
+  categoryName: string | null
+  /** 标准目录分组名称；分组缺失时为 null。 */
+  groupName: string | null
   recognitionDeptId: string | null
   recognitionDeptName: string | null
   recognitionDoctorId: string | null
@@ -449,8 +460,12 @@ function toSourceSummaryRow(value: SourceRecognitionSummaryReadModel): SourceSum
   }
 }
 
-/** 提供方明细读模型 → 明细行视图模型：双方归属从平铺字段收拢为两个组织视图，患者字段原样承载（S6-D9）。 */
+/**
+ * 提供方明细读模型 → 明细行视图模型：双方归属从平铺字段收拢为两个组织视图，患者字段原样承载（S6-D9）；
+ * 标准项目名称、项目类型、分类与分组随行承载（S6-D25），页面不回查标准目录。
+ */
 function toSourceDetailRow(value: SourceRecognitionDetailReadModel): SourceDetailRow {
+  const itemType = isMedicalItemTypeValue(value.itemType) ? value.itemType : null
   return {
     recognitionMatchRecordId: value.recognitionMatchRecordId ?? '',
     recognitionMatchItemId: value.recognitionMatchItemId ?? '',
@@ -471,6 +486,11 @@ function toSourceDetailRow(value: SourceRecognitionDetailReadModel): SourceDetai
       branchName: value.receiverBranchName,
     }),
     standardProjectCode: value.standardProjectCode ?? '',
+    standardProjectName: value.standardProjectName ?? null,
+    itemType,
+    itemTypeText: statisticsServerText(value.itemTypeText) ?? medicalItemTypeText(itemType),
+    categoryName: value.categoryName ?? null,
+    groupName: value.groupName ?? null,
     recognitionDeptId: value.recognitionDeptId ?? null,
     recognitionDeptName: value.recognitionDeptName ?? null,
     recognitionDoctorId: value.recognitionDoctorId ?? null,
