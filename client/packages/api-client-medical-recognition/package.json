@@ -28,13 +28,14 @@
     "release": "pnpm build && pnpm publish"
   },
   "dependencies": {
-    "@dy/micro-sdk": "^0.1.46",
-    "@microsoft/kiota-abstractions": "1.0.0-preview.103",
-    "@microsoft/kiota-http-fetchlibrary": "1.0.0-preview.103",
-    "@microsoft/kiota-serialization-form": "1.0.0-preview.103",
-    "@microsoft/kiota-serialization-json": "1.0.0-preview.103",
-    "@microsoft/kiota-serialization-multipart": "1.0.0-preview.103",
-    "@microsoft/kiota-serialization-text": "1.0.0-preview.103"
+    "@dy/micro-sdk": "0.1.48",
+    "@microsoft/kiota-abstractions": "1.0.0-preview.102",
+    "@microsoft/kiota-http-fetchlibrary": "1.0.0-preview.102",
+    "@microsoft/kiota-serialization-form": "1.0.0-preview.102",
+    "@microsoft/kiota-serialization-json": "1.0.0-preview.102",
+    "@microsoft/kiota-serialization-multipart": "1.0.0-preview.102",
+    "@microsoft/kiota-serialization-text": "1.0.0-preview.102",
+    "@dy/kiota-middleware": "0.1.48"
   },
   "devDependencies": {
     "tsup": "^8.0.0",

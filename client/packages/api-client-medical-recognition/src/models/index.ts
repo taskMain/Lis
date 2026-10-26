@@ -1732,7 +1732,7 @@ export function deserializeIntoBranchSourceRecognitionSummaryQueryRequest(branch
 // @ts-ignore
 export function deserializeIntoChangeMedicalStandardItemRemarkRequest(changeMedicalStandardItemRemarkRequest: Partial<ChangeMedicalStandardItemRemarkRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { changeMedicalStandardItemRemarkRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { changeMedicalStandardItemRemarkRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "id": n => { changeMedicalStandardItemRemarkRequest.id = n.getGuidValue(); },
         "remark": n => { changeMedicalStandardItemRemarkRequest.remark = n.getStringValue(); },
     }
@@ -1758,7 +1758,7 @@ export function deserializeIntoCompleteReportSubmissionRequest(completeReportSub
 // @ts-ignore
 export function deserializeIntoCreateMedicalStandardCategoryRequest(createMedicalStandardCategoryRequest: Partial<CreateMedicalStandardCategoryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { createMedicalStandardCategoryRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { createMedicalStandardCategoryRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "itemType": n => { createMedicalStandardCategoryRequest.itemType = n.getNumberValue(); },
         "name": n => { createMedicalStandardCategoryRequest.name = n.getStringValue(); },
         "remark": n => { createMedicalStandardCategoryRequest.remark = n.getStringValue(); },
@@ -1773,7 +1773,7 @@ export function deserializeIntoCreateMedicalStandardCategoryRequest(createMedica
 export function deserializeIntoCreateMedicalStandardGroupRequest(createMedicalStandardGroupRequest: Partial<CreateMedicalStandardGroupRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "categoryId": n => { createMedicalStandardGroupRequest.categoryId = n.getGuidValue(); },
-        "changedProperties": n => { createMedicalStandardGroupRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { createMedicalStandardGroupRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "name": n => { createMedicalStandardGroupRequest.name = n.getStringValue(); },
         "remark": n => { createMedicalStandardGroupRequest.remark = n.getStringValue(); },
     }
@@ -1787,7 +1787,7 @@ export function deserializeIntoCreateMedicalStandardGroupRequest(createMedicalSt
 export function deserializeIntoCreateMedicalStandardItemRequest(createMedicalStandardItemRequest: Partial<CreateMedicalStandardItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "categoryId": n => { createMedicalStandardItemRequest.categoryId = n.getGuidValue(); },
-        "changedProperties": n => { createMedicalStandardItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { createMedicalStandardItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "code": n => { createMedicalStandardItemRequest.code = n.getStringValue(); },
         "groupId": n => { createMedicalStandardItemRequest.groupId = n.getGuidValue(); },
         "name": n => { createMedicalStandardItemRequest.name = n.getStringValue(); },
@@ -1802,7 +1802,7 @@ export function deserializeIntoCreateMedicalStandardItemRequest(createMedicalSta
 // @ts-ignore
 export function deserializeIntoCreateMutualRecognitionItemRequest(createMutualRecognitionItemRequest: Partial<CreateMutualRecognitionItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { createMutualRecognitionItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { createMutualRecognitionItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "recognitionDurationDays": n => { createMutualRecognitionItemRequest.recognitionDurationDays = n.getNumberValue(); },
         "standardProjectCode": n => { createMutualRecognitionItemRequest.standardProjectCode = n.getStringValue(); },
     }
@@ -1815,9 +1815,9 @@ export function deserializeIntoCreateMutualRecognitionItemRequest(createMutualRe
 // @ts-ignore
 export function deserializeIntoCreateMutualRecognitionItemsRequest(createMutualRecognitionItemsRequest: Partial<CreateMutualRecognitionItemsRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { createMutualRecognitionItemsRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { createMutualRecognitionItemsRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "recognitionDurationDays": n => { createMutualRecognitionItemsRequest.recognitionDurationDays = n.getNumberValue(); },
-        "standardProjectCodes": n => { createMutualRecognitionItemsRequest.standardProjectCodes = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "standardProjectCodes": n => { createMutualRecognitionItemsRequest.standardProjectCodes = n.getCollectionOfPrimitiveValues<string>(); },
     }
 }
 /**
@@ -1862,7 +1862,7 @@ export function deserializeIntoCurrentSessionReadModel(currentSessionReadModel: 
 // @ts-ignore
 export function deserializeIntoDisableMedicalStandardCategoryRequest(disableMedicalStandardCategoryRequest: Partial<DisableMedicalStandardCategoryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { disableMedicalStandardCategoryRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { disableMedicalStandardCategoryRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "id": n => { disableMedicalStandardCategoryRequest.id = n.getGuidValue(); },
     }
 }
@@ -1874,7 +1874,7 @@ export function deserializeIntoDisableMedicalStandardCategoryRequest(disableMedi
 // @ts-ignore
 export function deserializeIntoDisableMedicalStandardGroupRequest(disableMedicalStandardGroupRequest: Partial<DisableMedicalStandardGroupRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { disableMedicalStandardGroupRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { disableMedicalStandardGroupRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "id": n => { disableMedicalStandardGroupRequest.id = n.getGuidValue(); },
     }
 }
@@ -1886,7 +1886,7 @@ export function deserializeIntoDisableMedicalStandardGroupRequest(disableMedical
 // @ts-ignore
 export function deserializeIntoDisableMedicalStandardItemRequest(disableMedicalStandardItemRequest: Partial<DisableMedicalStandardItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { disableMedicalStandardItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { disableMedicalStandardItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "id": n => { disableMedicalStandardItemRequest.id = n.getGuidValue(); },
     }
 }
@@ -1898,7 +1898,7 @@ export function deserializeIntoDisableMedicalStandardItemRequest(disableMedicalS
 // @ts-ignore
 export function deserializeIntoDisableMutualRecognitionItemRequest(disableMutualRecognitionItemRequest: Partial<DisableMutualRecognitionItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { disableMutualRecognitionItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { disableMutualRecognitionItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "id": n => { disableMutualRecognitionItemRequest.id = n.getGuidValue(); },
     }
 }
@@ -1985,7 +1985,7 @@ export function deserializeIntoEffectiveMedicalStandardCatalogTypeReadModel(effe
 // @ts-ignore
 export function deserializeIntoEnableMedicalStandardCategoryRequest(enableMedicalStandardCategoryRequest: Partial<EnableMedicalStandardCategoryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { enableMedicalStandardCategoryRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { enableMedicalStandardCategoryRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "id": n => { enableMedicalStandardCategoryRequest.id = n.getGuidValue(); },
     }
 }
@@ -1997,7 +1997,7 @@ export function deserializeIntoEnableMedicalStandardCategoryRequest(enableMedica
 // @ts-ignore
 export function deserializeIntoEnableMedicalStandardGroupRequest(enableMedicalStandardGroupRequest: Partial<EnableMedicalStandardGroupRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { enableMedicalStandardGroupRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { enableMedicalStandardGroupRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "id": n => { enableMedicalStandardGroupRequest.id = n.getGuidValue(); },
     }
 }
@@ -2009,7 +2009,7 @@ export function deserializeIntoEnableMedicalStandardGroupRequest(enableMedicalSt
 // @ts-ignore
 export function deserializeIntoEnableMedicalStandardItemRequest(enableMedicalStandardItemRequest: Partial<EnableMedicalStandardItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { enableMedicalStandardItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { enableMedicalStandardItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "id": n => { enableMedicalStandardItemRequest.id = n.getGuidValue(); },
     }
 }
@@ -2021,7 +2021,7 @@ export function deserializeIntoEnableMedicalStandardItemRequest(enableMedicalSta
 // @ts-ignore
 export function deserializeIntoEnableMutualRecognitionItemRequest(enableMutualRecognitionItemRequest: Partial<EnableMutualRecognitionItemRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { enableMutualRecognitionItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { enableMutualRecognitionItemRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "id": n => { enableMutualRecognitionItemRequest.id = n.getGuidValue(); },
     }
 }
@@ -2984,7 +2984,7 @@ export function deserializeIntoRecognitionProcessingResultItemRequest(recognitio
 // @ts-ignore
 export function deserializeIntoRecognitionProcessingResultSubmissionRequest(recognitionProcessingResultSubmissionRequest: Partial<RecognitionProcessingResultSubmissionRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { recognitionProcessingResultSubmissionRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { recognitionProcessingResultSubmissionRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "processingResults": n => { recognitionProcessingResultSubmissionRequest.processingResults = n.getCollectionOfObjectValues<RecognitionProcessingResultItemRequest>(createRecognitionProcessingResultItemRequestFromDiscriminatorValue); },
         "recognitionDeptId": n => { recognitionProcessingResultSubmissionRequest.recognitionDeptId = n.getStringValue(); },
         "recognitionDeptName": n => { recognitionProcessingResultSubmissionRequest.recognitionDeptName = n.getStringValue(); },
@@ -3353,7 +3353,7 @@ export function deserializeIntoReportVersionCommonReadModel(reportVersionCommonR
 export function deserializeIntoSaveBranchRecognitionAmountRequest(saveBranchRecognitionAmountRequest: Partial<SaveBranchRecognitionAmountRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "branchCode": n => { saveBranchRecognitionAmountRequest.branchCode = n.getStringValue(); },
-        "changedProperties": n => { saveBranchRecognitionAmountRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { saveBranchRecognitionAmountRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "currentAmount": n => { saveBranchRecognitionAmountRequest.currentAmount = n.getNumberValue(); },
         "standardProjectCode": n => { saveBranchRecognitionAmountRequest.standardProjectCode = n.getStringValue(); },
     }
@@ -3367,7 +3367,7 @@ export function deserializeIntoSaveBranchRecognitionAmountRequest(saveBranchReco
 export function deserializeIntoSaveOrganizationHospitalBranchRecognitionAmountRequest(saveOrganizationHospitalBranchRecognitionAmountRequest: Partial<SaveOrganizationHospitalBranchRecognitionAmountRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "branchCode": n => { saveOrganizationHospitalBranchRecognitionAmountRequest.branchCode = n.getStringValue(); },
-        "changedProperties": n => { saveOrganizationHospitalBranchRecognitionAmountRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { saveOrganizationHospitalBranchRecognitionAmountRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "currentAmount": n => { saveOrganizationHospitalBranchRecognitionAmountRequest.currentAmount = n.getNumberValue(); },
         "hospitalCode": n => { saveOrganizationHospitalBranchRecognitionAmountRequest.hospitalCode = n.getStringValue(); },
         "organizationCode": n => { saveOrganizationHospitalBranchRecognitionAmountRequest.organizationCode = n.getStringValue(); },
@@ -3545,7 +3545,7 @@ export function deserializeIntoTrustedOrganizationScopeReadModel(trustedOrganiza
 // @ts-ignore
 export function deserializeIntoUpdateMedicalStandardCategoryRequest(updateMedicalStandardCategoryRequest: Partial<UpdateMedicalStandardCategoryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { updateMedicalStandardCategoryRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { updateMedicalStandardCategoryRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "id": n => { updateMedicalStandardCategoryRequest.id = n.getGuidValue(); },
         "itemType": n => { updateMedicalStandardCategoryRequest.itemType = n.getNumberValue(); },
         "name": n => { updateMedicalStandardCategoryRequest.name = n.getStringValue(); },
@@ -3560,7 +3560,7 @@ export function deserializeIntoUpdateMedicalStandardCategoryRequest(updateMedica
 // @ts-ignore
 export function deserializeIntoUpdateMedicalStandardGroupRequest(updateMedicalStandardGroupRequest: Partial<UpdateMedicalStandardGroupRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { updateMedicalStandardGroupRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { updateMedicalStandardGroupRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "id": n => { updateMedicalStandardGroupRequest.id = n.getGuidValue(); },
         "name": n => { updateMedicalStandardGroupRequest.name = n.getStringValue(); },
         "remark": n => { updateMedicalStandardGroupRequest.remark = n.getStringValue(); },
@@ -3574,7 +3574,7 @@ export function deserializeIntoUpdateMedicalStandardGroupRequest(updateMedicalSt
 // @ts-ignore
 export function deserializeIntoUpdateMutualRecognitionItemConfigurationRequest(updateMutualRecognitionItemConfigurationRequest: Partial<UpdateMutualRecognitionItemConfigurationRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
-        "changedProperties": n => { updateMutualRecognitionItemConfigurationRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>("string"); },
+        "changedProperties": n => { updateMutualRecognitionItemConfigurationRequest.changedProperties = n.getCollectionOfPrimitiveValues<string>(); },
         "id": n => { updateMutualRecognitionItemConfigurationRequest.id = n.getGuidValue(); },
         "recognitionDurationDays": n => { updateMutualRecognitionItemConfigurationRequest.recognitionDurationDays = n.getNumberValue(); },
     }

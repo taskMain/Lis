@@ -43,9 +43,16 @@
 
 ## 5. 平台错误边界
 
+API 异常拦截按 `dy-dev-kiota-api-client` 的默认接入方式实现，不自研：
+
+- 适配器通过 `@dy/kiota-middleware` 的 `ErrorHandlerMiddleware` 装配进 `KiotaClientFactory.create` 链；关闭拦截才显式改链。
+- 拦截回调只做一件事：`setHostApiErrorHandler(error => MicroSDK.reportApiError(error))`，即统一上报给宿主呈现。
+- `ErrorHandlerMiddleware` 只处理已收到 HTTP Response 的失败；网络与 CORS 失败、取令牌失败不在其覆盖范围，也不得为此另造通道。
+- 401 与 403 不由适配器自动重放业务写请求；宿主会话变化时丢弃在途请求结果。
+
 适配层不得：
 
-- 新增错误拦截器、ResponseHandler、业务错误配置或页面专用异常对象。
+- 自研错误拦截器、ResponseHandler 或业务错误配置，也不新增页面专用异常对象。
 - 解析 `msg/Msg`、`message/Message`、`detail/title`、`errors`、响应体或异常文本生成提示。
 - 捕获后重构 `Error`、固定失败字符串，或覆盖/过滤 `MicroSDK.reportApiError`。
 
