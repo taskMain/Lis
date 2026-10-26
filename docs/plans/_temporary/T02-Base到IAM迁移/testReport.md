@@ -463,7 +463,7 @@ POST /Api/MedicalRecognitionReportQuery/QueryRecognitionUsageDetails
 | --- | --- |
 | 客户端包 build / typecheck | 通过 |
 | 子应用 build / lint | 通过；lint 0 |
-| 前端测试 | 32 文件 874 通过 / 2 跳过（新增会话版本切换与目标越界用例） |
+| 前端测试 | 32 文件 874 通过 / 0 跳过（新增会话版本切换与目标越界用例；两处原 `it.skip` 已按裁定收口） |
 | 后端全量 | 970 通过 / 0 失败，含 OpenAPI 快照与锁文件守卫 |
 | 真实链路 | 重载应用后业务接口全部 200：平台参数、本院报告列表、互认项目配置、统计汇总与明细、报告列表、组织范围查询 |
 | 构建产物静态核对 | `dist/index.js` 含 `setHostApiErrorHandler`、`ErrorHandlerMiddleware`、`reportApiError`、目标越界与会话变化文案 |
