@@ -237,8 +237,7 @@ public sealed class Stage4ContractTests
       [
         "BranchCode", "BranchName", "CurrentVersionSequence", "HospitalCode", "HospitalName", "IdentityDocumentNo",
         "OrganizationCode", "OrganizationName", "PatientName", "ReportId", "ReportNo", "ReportTime", "ReportType",
-        "ReportTypeText", "Status", "StatusText"
-      ],
+        "ReportTypeText", "Status", "StatusText" ],
       DeclaredPropertyNames(type));
 
     Assert.Equal(typeof(Guid), type.GetProperty("ReportId")!.PropertyType);
@@ -261,10 +260,9 @@ public sealed class Stage4ContractTests
     Type type = typeof(MedicalReportVersionListReadModel);
     Assert.Equal(
       [
-        "DetailInspectors", "ExaminerName", "InspectorName", "IsCurrentVersion", "IsSuperseded", "PdfFileName",
-        "PlatformReceivedTime", "ReportDoctorName", "ReportStatus", "ReportStatusText", "ReportVersionId",
-        "ReviewDoctorName", "SourceModifiedTime", "SourceReportRemark", "VersionSequence"
-      ],
+        "BranchName", "DetailInspectors", "ExaminerName", "HospitalName", "InspectorName", "IsCurrentVersion", "IsSuperseded",
+        "OrganizationName", "PdfFileName", "PlatformReceivedTime", "ReportDoctorName", "ReportStatus", "ReportStatusText",
+        "ReportVersionId", "ReviewDoctorName", "SourceModifiedTime", "SourceReportRemark", "VersionSequence" ],
       DeclaredPropertyNames(type));
 
     Assert.Equal(typeof(bool), type.GetProperty("IsCurrentVersion")!.PropertyType);
@@ -280,13 +278,13 @@ public sealed class Stage4ContractTests
   }
 
   /// <summary>
-  /// 版本文件信息只承载文件名，不承载文件标识、物理路径或对外下载地址。
+  /// 版本文件信息承载文件名与提供方实例标识（供下载比对可信范围），不承载文件标识、物理路径或对外下载地址。
   /// </summary>
   [Fact]
   public void Version_file_read_model_exposes_download_name_only()
   {
     Type type = typeof(MedicalReportVersionFileReadModel);
-    Assert.Equal(["FileName"], DeclaredPropertyNames(type));
+    Assert.Equal(["BranchName", "FileName", "HospitalName", "OrganizationName"], DeclaredPropertyNames(type));
 
     string[] forbidden = ["FileId", "PdfFileId", "FilePath", "PdfDownloadUrl", "DownloadUrl", "Url"];
     foreach (string propertyName in forbidden) Assert.Null(type.GetProperty(propertyName));
@@ -301,10 +299,9 @@ public sealed class Stage4ContractTests
     Type type = typeof(MedicalReportVersionDetailQueryReadModel);
     Assert.Equal(
       [
-        "Content", "DetailInspectors", "ExaminerName", "File", "InspectorName", "PlatformReceivedTime", "ReportDoctorName",
-        "ReportNo", "ReportType", "ReportTypeText", "ReportVersionId", "ReviewDoctorName", "SourceModifiedTime",
-        "SourceReportRemark", "VersionSequence"
-      ],
+        "BranchName", "Content", "DetailInspectors", "ExaminerName", "File", "HospitalName", "InspectorName",
+        "OrganizationName", "PlatformReceivedTime", "ReportDoctorName", "ReportNo", "ReportType", "ReportTypeText",
+        "ReportVersionId", "ReviewDoctorName", "SourceModifiedTime", "SourceReportRemark", "VersionSequence" ],
       DeclaredPropertyNames(type));
 
     Assert.Equal(typeof(MedicalReportVersionContentReadModel), type.GetProperty("Content")!.PropertyType);

@@ -5,10 +5,9 @@ import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { MicroSDK } from '@dy/micro-sdk'
 import { SubAppThemeProvider, setupSubAppDateLocale } from '@dy/micro-sdk/react'
-import { AuthProvider } from '@dy/auth-react'
-import { configureBaseComponents } from '@dy/components-base'
 import { AppRoutes } from './router'
 import { ApiClientProvider } from './contexts/ApiClientProvider'
+import { HostSessionProvider } from './session/HostSessionProvider'
 import { loadRuntimeConfig, subAppBase } from './runtimeConfig'
 import './index.css'
 
@@ -21,9 +20,6 @@ const initApp = async () => {
 
   const runtimeConfig = await loadRuntimeConfig()
 
-  // 组件库的 Base API 地址只在此初始化一次
-  configureBaseComponents({ baseUrl: runtimeConfig.baseApiBaseUrl })
-
   // micro-app 生命周期钩子
   window.mount = () => {
     MicroSDK.mount()
@@ -35,13 +31,13 @@ const initApp = async () => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <SubAppThemeProvider>
-        <AuthProvider>
+        <HostSessionProvider>
           <ApiClientProvider baseUrl={runtimeConfig.apiBaseUrl}>
             <BrowserRouter basename={basename}>
               <AppRoutes />
             </BrowserRouter>
           </ApiClientProvider>
-        </AuthProvider>
+        </HostSessionProvider>
       </SubAppThemeProvider>
     </StrictMode>,
   )

@@ -6,8 +6,8 @@
  * 列表组件保持挂载（详情激活时以 `display:none` 包裹层承载），范围、筛选草稿、已生效条件、
  * 分页与行数据因此跨导航存活（D-03 返回还原的挂载策略）。
  *
- * 组织与医院取可信上下文并固定展示；院区恒取 `LoginUserManager.getBranchID()` 的登录院区，
- * 不提供院区选择，查询请求只携带登录院区与筛选条件（组织与医院由服务端从可信上下文注入）。
+ * 组织与医院取可信范围并固定展示；院区恒取可信范围的院区业务编码，
+ * 不提供院区选择，查询请求只携带院区业务编码与筛选条件（组织与医院由服务端从可信上下文注入）。
  * 登录院区缺失属权限配置错误：页面不兜底、不伪造院区、不本地补默认，适配层对空院区拒绝构造请求
  * （`buildBranchReportListQuery` 返回 `null`，范围不可用），页面零业务请求并以空态呈现，
  * 恢复权限配置后按登录院区重读。可信组织或医院缺失时整页阻断：统一接入阻断面板（整页只渲染
@@ -47,7 +47,7 @@ export function BranchReportManagement() {
   const organizationCode = trustedOrganization.kind === 'ready' ? trustedOrganization.organizationCode : null
   const hospitalCode = trustedHospital.kind === 'ready' ? trustedHospital.hospitalCode : null
   const trustedBranchCode = trustedHospital.kind === 'ready' ? trustedHospital.branchCode : null
-  /** 院区恒取登录院区（不提供院区选择）；缺失时为 `undefined`，由适配层拒绝构造请求实现零业务请求。 */
+  /** 院区恒取登录院区的业务编码（不提供院区选择）；缺失时为 `undefined`，由适配层拒绝构造请求实现零业务请求。 */
   const branchId = trustedBranchCode ?? undefined
 
   /**

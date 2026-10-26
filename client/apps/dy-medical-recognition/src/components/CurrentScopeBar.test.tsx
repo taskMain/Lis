@@ -1,117 +1,99 @@
 /**
- * 页头当前范围条 CurrentScopeBar 的 Component 层用例（三级名称渲染、名称反查失败、随登录上下文取数的组件面）。
+ * 页头当前范围条 CurrentScopeBar 的 Component 层用例（C3、C6：三级名称渲染、缺失与失败展示、身份切换重算）。
  *
  * 装配边界（遵循 Frontend Testing 第 2 节「mock 位于 Client/适配层边界，并保持真实契约形态」）：
- * 1. `@dy/api-client-base` 只替换 `createBaseApiClient`，替身交付与生成契约同形的
- *    `HospitalDto` / `BranchDto`（含 id、name、hosId、orgId）；
- * 2. 本项目客户端只提供「可信范围查询」端点替身（组织名的取数来源），经 ApiClientContext 注入；
- * 3. `@dy/auth` / `@dy/auth-react` 替换为外部 store + `useSyncExternalStore`，token 变化等价于
- *    宿主重新签发 token（照互认项目页用例的同一构造）；
- * 4. `../runtimeConfig` 替换为即时完成的运行时配置，用例不触达配置文件读取。
+ * 1. 本项目客户端只提供「当前组织范围」查询端点替身，替身交付与生成契约同形的读模型；
+ * 2. 宿主会话替换为外部 store + `useSyncExternalStore`：`sessionVersion` 变化等价于身份或工作身份切换；
+ * 3. 范围条只依赖会话与范围查询，不读取登录管理器、不直连外部目录。
  *
- * 模块级名称缓存按编码跨用例共享（组件卸载不丢缓存的真实语义），因此各用例使用互不重复的编码。
  * 视觉上的真实截断宽度属宿主浏览器验收面；本文件断言省略样式与 Tooltip 全文（jsdom 无布局）。
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { HostSession } from '../session/hostSession'
 import { CurrentScopeBar } from './CurrentScopeBar'
 
-/** 可信登录态（token + 三级编码）的外部 store；notify 等价于宿主重新签发 token。 */
-const authState = vi.hoisted(() => {
-  const listeners = new Set<() => void>()
-  const state = {
-    token: 'token-1' as string | null,
-    organizationCode: 'ORG-A' as string | null,
-    hospitalCode: 'HOS-1' as string | null,
-    branchCode: 'BRA-1' as string | null,
-  }
+/** 匿名会话：未登录时不发业务请求。 */
+const ANONYMOUS_SESSION: HostSession = {
+  status: 'anonymous',
+  sessionVersion: 'anonymous',
+  userId: null,
+  account: null,
+  displayName: null,
+  organizationId: null,
+  hospitalId: null,
+  campusId: null,
+}
+
+/** 已登录会话：只有会话键参与范围查询的重算。 */
+function authenticatedSession(sessionVersion: string): HostSession {
   return {
-    state,
+    status: 'authenticated',
+    sessionVersion,
+    userId: 'user-1',
+    account: '191617',
+    displayName: '杨康健',
+    organizationId: 'ORG-1',
+    hospitalId: 'HOS-1',
+    campusId: 'BRA-1',
+  }
+}
+
+/** 宿主会话的外部 store：通知即代表宿主推进会话快照。 */
+const sessionStore = vi.hoisted(() => {
+  const listeners = new Set<() => void>()
+  return {
+    current: null as unknown,
+    set(next: unknown) {
+      sessionStore.current = next
+      for (const listener of [...listeners]) listener()
+    },
     subscribe(listener: () => void) {
       listeners.add(listener)
       return () => { listeners.delete(listener) }
     },
-    getVersion: () => versionRef.version,
-    change(next: Partial<typeof state>) {
-      Object.assign(state, next)
-      versionRef.version += 1
-      for (const listener of [...listeners]) listener()
-    },
   }
 })
 
-/** 订阅快照：任何一次登录态通知都推进它，让订阅方重新求值。 */
-const versionRef = vi.hoisted(() => ({ version: 0 }))
-
-/** 本项目客户端注入点：承载「可信范围查询」端点替身。 */
-const clientRef = vi.hoisted(() => ({ current: null as unknown }))
-
-/** 基础目录替身 client 注入点：承载 getHospitalById / getBranchById 端点。 */
-const baseClientRef = vi.hoisted(() => ({ current: null as unknown }))
-
-vi.mock('@dy/auth', () => ({
-  LoginUserManager: {
-    getOrgID: () => authState.state.organizationCode,
-    getHosID: () => authState.state.hospitalCode,
-    getBranchID: () => authState.state.branchCode,
-  },
-}))
-
-vi.mock('@dy/auth-react', async () => {
-  const { useSyncExternalStore: useStore } = await import('react')
+vi.mock('../session/HostSessionContext', async () => {
+  const { useSyncExternalStore } = await import('react')
   return {
-    /** 与真实包同形：订阅登录态，通知后重新求值；token 是页面判定可信范围的依据。 */
-    useAuth: () => {
-      useStore(authState.subscribe, authState.getVersion)
-      return {
-        isAuthenticated: authState.state.token !== null,
-        token: authState.state.token,
-        login: () => {},
-        logout: () => {},
-      }
+    useHostSession: () => {
+      useSyncExternalStore(sessionStore.subscribe, () => sessionStore.current)
+      return sessionStore.current
     },
   }
 })
+
+/** 本项目客户端注入点：承载「当前组织范围」查询端点替身。 */
+const clientRef = vi.hoisted(() => ({ current: null as unknown }))
 
 vi.mock('../contexts/ApiClientContext', () => ({
   ApiClientProvider: ({ children }: { children: unknown }) => children,
   useApiClientContext: () => clientRef.current,
 }))
 
-vi.mock('@dy/api-client-base', () => ({
-  createBaseApiClient: () => baseClientRef.current,
-}))
-
-vi.mock('../runtimeConfig', () => ({
-  loadRuntimeConfig: async () => ({ apiBaseUrl: 'http://api.test', baseApiBaseUrl: 'http://base.test' }),
-}))
-
-/** 构造「可信范围查询」端点替身：交付给定组织编码与名称。 */
-function givenOrganizationName(organizationCode: string, organizationName: string | null) {
+/** 构造「当前组织范围」端点替身；返回 post 便于断言请求次数与迟到响应。 */
+function givenCurrentScope(post: () => Promise<unknown>) {
+  const query = vi.fn(post)
   clientRef.current = {
-    api: {
-      medicalRecognitionReportQuery: {
-        queryTrustedOrganizationScope: { post: vi.fn(async () => ({ organizationCode, organizationName })) },
-      },
-    },
+    api: { organizationScopeQuery: { queryCurrentOrganizationScope: { post: query } } },
   }
+  return query
 }
 
-interface DirectoryOptions {
-  hospital?: { id: string; name: string | null; orgId: string }
-  branch?: { id: string; name: string | null; hosId: string; orgId: string }
-}
-
-/** 构造基础目录替身：post 为 vi.fn，便于断言请求入参确实携带编码。 */
-function givenDirectory(options: DirectoryOptions = {}) {
-  const getHospitalById = vi.fn(async () => options.hospital)
-  const getBranchById = vi.fn(async () => options.branch)
-  baseClientRef.current = {
-    api: { organization: { getHospitalById: { post: getHospitalById }, getBranchById: { post: getBranchById } } },
+/** 与生成契约同形的当前范围读模型。 */
+function scopeModel(organizationName: string | null, hospitalName: string | null, branchName: string | null) {
+  return {
+    organizationId: organizationName === null ? null : '11111111-1111-1111-1111-111111111111',
+    organizationName,
+    hospitalId: hospitalName === null ? null : '22222222-2222-2222-2222-222222222222',
+    hospitalName,
+    branchId: branchName === null ? null : '33333333-3333-3333-3333-333333333333',
+    branchName,
   }
-  return { getHospitalById, getBranchById }
 }
 
 function renderBar() {
@@ -122,191 +104,104 @@ function renderBar() {
 async function expectTooltipShows(trigger: HTMLElement, fullText: string) {
   fireEvent.mouseOver(trigger)
   await waitFor(() => {
-    // antd 6 的弹层结构：title 直接位于 role="tooltip" 的容器内。
     const overlays = document.querySelectorAll('[role="tooltip"]')
     expect(Array.from(overlays).some((node) => node.textContent === fullText)).toBe(true)
   }, { timeout: 3000 })
 }
 
 beforeEach(() => {
-  authState.state.token = 'token-1'
-  authState.state.organizationCode = 'ORG-A'
-  authState.state.hospitalCode = 'HOS-1'
-  authState.state.branchCode = 'BRA-1'
+  sessionStore.set(ANONYMOUS_SESSION)
   clientRef.current = null
-  baseClientRef.current = null
 })
 
-describe('页头范围条三级名称渲染', () => {
-  it('三级名称齐全时渲染单行「组织名 / 医院名 / 院区名」，不含任何编码文本', async () => {
-    givenOrganizationName('ORG-A', '组织甲')
-    const { getHospitalById, getBranchById } = givenDirectory({
-      hospital: { id: 'HOS-1', name: '医院一', orgId: 'ORG-A' },
-      branch: { id: 'BRA-1', name: '院区一', hosId: 'HOS-1', orgId: 'ORG-A' },
-    })
+describe('C3 页头范围条三级名称', () => {
+  it('三级名称齐全时渲染单行「医共体名 / 医院名 / 院区名」，不含任何组织实例标识文本', async () => {
+    sessionStore.set(authenticatedSession('v1'))
+    const query = givenCurrentScope(async () => scopeModel('县医共体', '测试医院一', '测试院区1-1'))
     renderBar()
 
-    // 目录反查按编码发起：请求入参仍携带编码，编码只作查询参数不进页面文本。
-    expect(await screen.findByText('组织甲 / 医院一 / 院区一')).toBeInTheDocument()
-    expect(getHospitalById).toHaveBeenCalledWith({ id: 'HOS-1' })
-    expect(getBranchById).toHaveBeenCalledWith({ id: 'BRA-1' })
-    expect(document.querySelector('.current-scope-bar')?.textContent).not.toContain('ORG-A')
-    expect(document.querySelector('.current-scope-bar')?.textContent).not.toContain('HOS-1')
-    expect(document.querySelector('.current-scope-bar')?.textContent).not.toContain('BRA-1')
+    expect(await screen.findByText('县医共体 / 测试医院一 / 测试院区1-1')).toBeInTheDocument()
+    expect(query).toHaveBeenCalledTimes(1)
+    const bar = document.querySelector('.current-scope-bar')?.textContent ?? ''
+    expect(bar).not.toContain('11111111-1111-1111-1111-111111111111')
+    expect(bar).not.toContain('22222222-2222-2222-2222-222222222222')
+    expect(bar).not.toContain('33333333-3333-3333-3333-333333333333')
   })
 
-  it('某级编码缺失时该级显示「未知」，且不发起该级目录反查', async () => {
-    authState.state.organizationCode = 'ORG-2A'
-    authState.state.hospitalCode = 'HOS-2A'
-    authState.state.branchCode = null
-    givenOrganizationName('ORG-2A', '组织乙')
-    const { getBranchById } = givenDirectory({
-      hospital: { id: 'HOS-2A', name: '医院二', orgId: 'ORG-2A' },
-    })
+  it('某级名称缺失时该级显示「未知」，其余层级正常', async () => {
+    sessionStore.set(authenticatedSession('v2'))
+    givenCurrentScope(async () => scopeModel('县医共体', '测试医院一', null))
     renderBar()
 
-    expect(await screen.findByText('组织乙 / 医院二 / 未知')).toBeInTheDocument()
-    expect(getBranchById).not.toHaveBeenCalled()
+    expect(await screen.findByText('县医共体 / 测试医院一 / 未知')).toBeInTheDocument()
   })
 
-  it('目录查无名称（空结果）的层级显示「未知」，不回退编码', async () => {
-    authState.state.organizationCode = 'ORG-3A'
-    authState.state.hospitalCode = 'HOS-3A'
-    authState.state.branchCode = 'BRA-3A'
-    givenOrganizationName('ORG-3A', '组织丙')
-    givenDirectory({
-      // 目录接口返回空（undefined）：按「未知」处理。
-      hospital: undefined,
-      branch: { id: 'BRA-3A', name: '院区三', hosId: 'HOS-3A', orgId: 'ORG-3A' },
-    })
+  it('范围查询失败时三级显示「未知」，页面不自行渲染错误提示', async () => {
+    sessionStore.set(authenticatedSession('v3'))
+    givenCurrentScope(async () => { throw new Error('范围查询失败') })
     renderBar()
 
-    expect(await screen.findByText('组织丙 / 未知 / 院区三')).toBeInTheDocument()
-    expect(screen.queryByText(/HOS-3A/)).not.toBeInTheDocument()
-  })
-
-  it('名称自带与编码一致的「（编码）」后缀时剔除后展示', async () => {
-    authState.state.organizationCode = 'ORG-4A'
-    authState.state.hospitalCode = '0101'
-    authState.state.branchCode = '0101001'
-    givenOrganizationName('ORG-4A', '组织四')
-    givenDirectory({
-      hospital: { id: '0101', name: '县人民医院（0101）', orgId: 'ORG-4A' },
-      branch: { id: '0101001', name: '总院(0101001)', hosId: '0101', orgId: 'ORG-4A' },
-    })
-    renderBar()
-
-    expect(await screen.findByText('组织四 / 县人民医院 / 总院')).toBeInTheDocument()
+    expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('超长名称单行省略并经 Tooltip 展示全文', async () => {
     const longOrganization = '超长组织名称'.repeat(12)
-    authState.state.organizationCode = 'ORG-5A'
-    authState.state.hospitalCode = 'HOS-5A'
-    authState.state.branchCode = 'BRA-5A'
-    givenOrganizationName('ORG-5A', longOrganization)
-    givenDirectory({
-      hospital: { id: 'HOS-5A', name: '医院五', orgId: 'ORG-5A' },
-      branch: { id: 'BRA-5A', name: '院区五', hosId: 'HOS-5A', orgId: 'ORG-5A' },
-    })
+    sessionStore.set(authenticatedSession('v4'))
+    givenCurrentScope(async () => scopeModel(longOrganization, '医院五', '院区五'))
     renderBar()
 
     const fullText = `${longOrganization} / 医院五 / 院区五`
     const bar = await screen.findByText(fullText)
-    // 省略由单行样式承载（视觉宽度表现属宿主验收面），全文经 Tooltip 可读。
     expect(bar.style.whiteSpace).toBe('nowrap')
     expect(bar.style.textOverflow).toBe('ellipsis')
     await expectTooltipShows(bar, fullText)
   })
 })
 
-describe('名称反查失败', () => {
-  it('目录反查 reject 的层级显示「未知」，不渲染错误提示，其余层级正常', async () => {
-    authState.state.organizationCode = 'ORG-6A'
-    authState.state.hospitalCode = 'HOS-6A'
-    authState.state.branchCode = 'BRA-6A'
-    givenOrganizationName('ORG-6A', '组织六')
-    // 医院端点拒绝：错误由宿主统一提示，范围条只把该级显示为「未知」。
-    const failing = givenDirectory({
-      branch: { id: 'BRA-6A', name: '院区六', hosId: 'HOS-6A', orgId: 'ORG-6A' },
-    })
-    failing.getHospitalById.mockRejectedValue(new Error('目录接口失败'))
+describe('C6 身份或工作身份切换后的范围重算', () => {
+  it('会话推进后按新会话重新查询并展示新范围名称', async () => {
+    sessionStore.set(authenticatedSession('v5'))
+    givenCurrentScope(async () => scopeModel('医共体甲', '医院甲', '院区甲'))
     renderBar()
+    expect(await screen.findByText('医共体甲 / 医院甲 / 院区甲')).toBeInTheDocument()
 
-    expect(await screen.findByText('组织六 / 未知 / 院区六')).toBeInTheDocument()
-    // 页面不自行渲染错误：无错误横幅（alert）出现。
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    givenCurrentScope(async () => scopeModel('医共体乙', '医院乙', '院区乙'))
+    await act(async () => {
+      sessionStore.set(authenticatedSession('v6'))
+    })
+
+    expect(await screen.findByText('医共体乙 / 医院乙 / 院区乙')).toBeInTheDocument()
   })
 
-  it('token 缺失时凭据不表达可信范围：三级均为「未知」且零反查', async () => {
-    authState.state.token = null
-    givenOrganizationName('ORG-7A', '组织七')
-    const { getHospitalById, getBranchById } = givenDirectory()
+  it('旧会话的迟到响应不覆盖新会话的范围名称', async () => {
+    sessionStore.set(authenticatedSession('v7'))
+    let resolveLate!: (value: unknown) => void
+    const late = new Promise<unknown>((resolve) => { resolveLate = resolve })
+    const query = givenCurrentScope(() => late)
+    renderBar()
+    await waitFor(() => expect(query).toHaveBeenCalledTimes(1))
+
+    // 身份切换：新会话查询立即返回新名称，随后旧查询才返回旧名称。
+    givenCurrentScope(async () => scopeModel('医共体新', '医院新', '院区新'))
+    await act(async () => {
+      sessionStore.set(authenticatedSession('v8'))
+    })
+    expect(await screen.findByText('医共体新 / 医院新 / 院区新')).toBeInTheDocument()
+
+    await act(async () => {
+      resolveLate(scopeModel('医共体旧', '医院旧', '院区旧'))
+    })
+    expect(screen.getByText('医共体新 / 医院新 / 院区新')).toBeInTheDocument()
+    expect(screen.queryByText('医共体旧 / 医院旧 / 院区旧')).not.toBeInTheDocument()
+  })
+
+  it('未登录时不发起范围查询，三级均为「未知」', async () => {
+    sessionStore.set(ANONYMOUS_SESSION)
+    const query = givenCurrentScope(async () => scopeModel('不应出现', '不应出现', '不应出现'))
     renderBar()
 
     expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
-    expect(getHospitalById).not.toHaveBeenCalled()
-    expect(getBranchById).not.toHaveBeenCalled()
-  })
-})
-
-describe('范围条随登录上下文（名称来自可信上下文与目录反查）', () => {
-  it('token 重新签发且三级编码换绑后，范围条重新求值并展示新范围名称', async () => {
-    authState.state.organizationCode = 'ORG-8A'
-    authState.state.hospitalCode = 'HOS-8A'
-    authState.state.branchCode = 'BRA-8A'
-    givenOrganizationName('ORG-8A', '组织八')
-    givenDirectory({
-      hospital: { id: 'HOS-8A', name: '医院八', orgId: 'ORG-8A' },
-      branch: { id: 'BRA-8A', name: '院区八', hosId: 'HOS-8A', orgId: 'ORG-8A' },
-    })
-    renderBar()
-    expect(await screen.findByText('组织八 / 医院八 / 院区八')).toBeInTheDocument()
-
-    // 宿主重新签发 token（三级编码全部换绑）：范围条按新编码重新反查。
-    givenOrganizationName('ORG-8B', '组织九')
-    givenDirectory({
-      hospital: { id: 'HOS-8B', name: '医院九', orgId: 'ORG-8B' },
-      branch: { id: 'BRA-8B', name: '院区九', hosId: 'HOS-8B', orgId: 'ORG-8B' },
-    })
-    await act(async () => {
-      authState.change({ token: 'token-2', organizationCode: 'ORG-8B', hospitalCode: 'HOS-8B', branchCode: 'BRA-8B' })
-    })
-
-    expect(await screen.findByText('组织九 / 医院九 / 院区九')).toBeInTheDocument()
-  })
-
-  it('编码变化后旧层级响应迟到也不得覆盖新状态', async () => {
-    authState.state.organizationCode = 'ORG-9A'
-    authState.state.hospitalCode = 'HOS-9A'
-    authState.state.branchCode = 'BRA-9A'
-    givenOrganizationName('ORG-9A', '组织十')
-    let resolveLateHospital!: (value: { id: string; name: string }) => void
-    const lateHospital = new Promise<{ id: string; name: string }>((resolve) => { resolveLateHospital = resolve })
-    const getHospitalById = vi.fn()
-      .mockImplementationOnce(async () => lateHospital)
-      .mockResolvedValue({ id: 'HOS-9B', name: '医院新' })
-    baseClientRef.current = {
-      api: {
-        organization: {
-          getHospitalById: { post: getHospitalById },
-          getBranchById: { post: vi.fn(async () => ({ id: 'BRA-9A', name: '院区十', hosId: 'HOS-9A', orgId: 'ORG-9A' })) },
-        },
-      },
-    }
-    renderBar()
-    await screen.findByText('组织十 / 未知 / 院区十')
-
-    // 换绑到新医院并等新名称落地，再让旧医院的迟到响应返回。
-    await act(async () => {
-      authState.change({ token: 'token-2', hospitalCode: 'HOS-9B' })
-    })
-    expect(await screen.findByText('组织十 / 医院新 / 院区十')).toBeInTheDocument()
-    await act(async () => {
-      resolveLateHospital({ id: 'HOS-9A', name: '医院旧' })
-    })
-
-    // 迟到的旧名称被丢弃：范围条仍指向新范围。
-    expect(await screen.findByText('组织十 / 医院新 / 院区十')).toBeInTheDocument()
+    expect(query).not.toHaveBeenCalled()
   })
 })

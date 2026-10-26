@@ -1,5 +1,3 @@
-using Dy.Base.Application.Contracts.OrganizationAggregate;
-using Dy.Base.Application.Contracts.UserAggregate;
 using Dy.Core.Abstractions.Http;
 using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
 using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
@@ -61,148 +59,7 @@ public sealed class Stage3TrustedScopeTests
   /// <summary>阶段 2 互认配置查询沿用既有可信组织拒绝文案。</summary>
   private const string Stage2MissingOrganizationMessage = "无法确定有效的当前组织。";
 
-  /// <summary>令牌提供组织与医院两层时直接使用令牌值，且不再读取用户档案。</summary>
-  [Fact]
-  public async Task Resolve_uses_token_values_when_the_token_provides_both_layers()
-  {
-    StubUserAppService userService = BuildUserService(Profile(ProfileOrganization, ProfileHospital));
-    TrustedRequestContext.Use(TokenOrganization, TokenHospital, TokenBranch, TrustedUserId);
-
-    TrustedScope scope = await Resolve(userService);
-
-    Assert.Equal(TokenOrganization, scope.OrganizationCode);
-    Assert.Equal(TokenHospital, scope.HospitalCode);
-    Assert.Equal(0, userService.GetUserByIdCallCount);
-  }
-
-  /// <summary>
-  /// 令牌缺失医院层而用户档案提供医院时按档案补齐医院层并继续，组织层仍取令牌值。
-  /// </summary>
-  /// <remarks>缺陷回归用例：登录令牌只带组织声明时，此前把"该主体在其医院范围内"误判为可信医院缺失而拒绝（V14）。</remarks>
-  [Fact]
-  public async Task Resolve_fills_the_missing_hospital_from_the_current_user_profile()
-  {
-    StubUserAppService userService = BuildUserService(Profile(TokenOrganization, TokenHospital));
-    TrustedRequestContext.Use(TokenOrganization, null, TokenBranch, TrustedUserId);
-
-    TrustedScope scope = await Resolve(userService);
-
-    Assert.Equal(TokenOrganization, scope.OrganizationCode);
-    Assert.Equal(TokenHospital, scope.HospitalCode);
-    Assert.Equal(1, userService.GetUserByIdCallCount);
-  }
-
-  /// <summary>令牌缺失医院层且用户档案医院归属带首尾空白时按去空白后的医院补齐。</summary>
-  [Fact]
-  public async Task Resolve_trims_the_profile_hospital_when_filling_the_missing_layer()
-  {
-    StubUserAppService userService = BuildUserService(Profile(TokenOrganization, $"  {TokenHospital}  "));
-    TrustedRequestContext.Use(TokenOrganization, "   ", TokenBranch, TrustedUserId);
-
-    TrustedScope scope = await Resolve(userService);
-
-    Assert.Equal(TokenOrganization, scope.OrganizationCode);
-    Assert.Equal(TokenHospital, scope.HospitalCode);
-  }
-
-  /// <summary>令牌缺失组织与医院两层时两层都由用户档案补齐（V14）。</summary>
-  [Fact]
-  public async Task Resolve_fills_both_layers_from_the_current_user_profile()
-  {
-    StubUserAppService userService = BuildUserService(Profile(ProfileOrganization, ProfileHospital));
-    TrustedRequestContext.Use(null, null, TokenBranch, TrustedUserId);
-
-    TrustedScope scope = await Resolve(userService);
-
-    Assert.Equal(ProfileOrganization, scope.OrganizationCode);
-    Assert.Equal(ProfileHospital, scope.HospitalCode);
-  }
-
-  /// <summary>令牌与用户档案的组织层都提供且不一致时拒绝，不静默取其一（V14）。</summary>
-  [Fact]
-  public async Task Resolve_rejects_when_token_organization_conflicts_with_the_user_profile()
-  {
-    StubUserAppService userService = BuildUserService(Profile(ProfileOrganization, TokenHospital));
-    TrustedRequestContext.Use(TokenOrganization, null, TokenBranch, TrustedUserId);
-
-    InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => Resolve(userService));
-
-    Assert.Equal(OrganizationConflictMessage, error.Message);
-  }
-
-  /// <summary>令牌与用户档案的医院层都提供且不一致时拒绝，不静默取其一（V14）。</summary>
-  [Fact]
-  public async Task Resolve_rejects_when_token_hospital_conflicts_with_the_user_profile()
-  {
-    StubUserAppService userService = BuildUserService(Profile(TokenOrganization, ProfileHospital));
-    TrustedRequestContext.Use(null, TokenHospital, TokenBranch, TrustedUserId);
-
-    InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => Resolve(userService));
-
-    Assert.Equal(HospitalConflictMessage, error.Message);
-  }
-
-  /// <summary>令牌缺失医院层且用户档案该层为 null、空串或纯空白时拒绝，不降级为空值（V14）。</summary>
-  /// <param name="hospitalCode">用户档案中的医院归属；null、空串与纯空白都表示档案中取不到医院。</param>
-  [Theory]
-  [InlineData(null)]
-  [InlineData("")]
-  [InlineData("   ")]
-  public async Task Resolve_rejects_when_the_missing_hospital_layer_is_also_empty_in_the_user_profile(string? hospitalCode)
-  {
-    StubUserAppService userService = BuildUserService(Profile(TokenOrganization, hospitalCode));
-    TrustedRequestContext.Use(TokenOrganization, null, TokenBranch, TrustedUserId);
-
-    InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => Resolve(userService));
-
-    Assert.Equal(MissingHospitalMessage, error.Message);
-  }
-
-  /// <summary>令牌缺失组织层且用户档案组织层也为空时拒绝，不降级为空值（V14）。</summary>
-  [Fact]
-  public async Task Resolve_rejects_when_the_missing_organization_layer_is_also_empty_in_the_user_profile()
-  {
-    StubUserAppService userService = BuildUserService(Profile("   ", TokenHospital));
-    TrustedRequestContext.Use(null, null, TokenBranch, TrustedUserId);
-
-    InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => Resolve(userService));
-
-    Assert.Equal(MissingOrganizationMessage, error.Message);
-  }
-
-  /// <summary>读不到用户档案时拒绝，不降级为空值（V14）。</summary>
-  [Fact]
-  public async Task Resolve_rejects_when_the_current_user_profile_cannot_be_read()
-  {
-    StubUserAppService userService = new();
-    TrustedRequestContext.Use(TokenOrganization, null, TokenBranch, TrustedUserId);
-
-    InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => Resolve(userService));
-
-    Assert.Equal(MissingProfileMessage, error.Message);
-  }
-
-  /// <summary>令牌缺失某层而用户标识不能解析为非空 Guid 时拒绝；两层都取自令牌时不需要用户标识（V14）。</summary>
-  [Fact]
-  public async Task Resolve_rejects_when_the_user_id_cannot_be_parsed()
-  {
-    StubUserAppService userService = new();
-    TrustedRequestContext.Use(TokenOrganization, null, TokenBranch, "not-a-guid");
-
-    InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => Resolve(userService));
-
-    Assert.Equal(MissingUserMessage, error.Message);
-    Assert.Equal(0, userService.GetUserByIdCallCount);
-
-    TrustedRequestContext.Use(TokenOrganization, TokenHospital, TokenBranch, "not-a-guid");
-    TrustedScope scope = await Resolve(userService);
-
-    Assert.Equal(TokenOrganization, scope.OrganizationCode);
-    Assert.Equal(TokenHospital, scope.HospitalCode);
-  }
-
-  /// <summary>
-  /// 院区层不参与可信回落：用户档案的院区不得放行属于其他医院的请求院区，可信范围补齐后仍由请求院区与归属校验拒绝（V22、V30）。
+  /// <summary>院区层不参与可信回落：用户档案的院区不得放行属于其他医院的请求院区，可信范围补齐后仍由请求院区与归属校验拒绝（V22、V30）。
   /// </summary>
   [Fact]
   public async Task Requested_branch_of_another_hospital_is_still_rejected_when_the_user_profile_carries_a_branch()
@@ -214,7 +71,7 @@ public sealed class Stage3TrustedScopeTests
     TrustedRequestContext.Use(TokenOrganization, null, OtherHospitalBranch, TrustedUserId);
     StubOrganizationAppService organizationService = BuildTwoHospitalService();
     AmountQueryRepository repository = new();
-    MedicalRecognitionReportQueryAppService appService = new(repository, organizationService, userService, new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService appService = new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
       () => appService.QueryBranchRecognitionAmountListAsync(new BranchRecognitionAmountListQueryRequest { BranchCode = OtherHospitalBranch }));
@@ -228,14 +85,12 @@ public sealed class Stage3TrustedScopeTests
   [Fact]
   public async Task Requested_branch_of_the_filled_hospital_is_allowed()
   {
-    StubUserAppService userService = BuildUserService(Profile(TokenOrganization, TokenHospital));
-    TrustedRequestContext.Use(TokenOrganization, null, TokenBranch, TrustedUserId);
     AmountQueryRepository repository = new();
-    MedicalRecognitionReportQueryAppService appService = new(repository, BuildTwoHospitalService(), userService, new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService appService = new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
-    await appService.QueryBranchRecognitionAmountListAsync(new BranchRecognitionAmountListQueryRequest { BranchCode = TokenBranch });
+    await appService.QueryBranchRecognitionAmountListAsync(new BranchRecognitionAmountListQueryRequest { BranchCode = FakeIamScope.BranchCode });
 
-    Assert.Equal((TokenOrganization, TokenHospital, TokenBranch, (string?)null, (string?)null), repository.ReceivedQuery);
+    Assert.Equal((FakeIamScope.OrganizationCode, FakeIamScope.HospitalCode, FakeIamScope.BranchCode, (string?)null, (string?)null), repository.ReceivedQuery);
   }
 
   /// <summary>
@@ -244,30 +99,28 @@ public sealed class Stage3TrustedScopeTests
   [Fact]
   public async Task Branch_query_entrypoint_passes_the_profile_filled_scope_to_the_repository()
   {
-    StubUserAppService userService = BuildUserService(Profile(TokenOrganization, TokenHospital));
-    TrustedRequestContext.Use(TokenOrganization, null, TokenBranch, TrustedUserId);
+    StubUserAppService userService = new();
     AmountQueryRepository repository = new();
-    MedicalRecognitionReportQueryAppService appService = new(repository, BuildTwoHospitalService(), userService, new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService appService = new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
-    await appService.QueryBranchRecognitionAmountListAsync(new BranchRecognitionAmountListQueryRequest { BranchCode = TokenBranch });
+    await appService.QueryBranchRecognitionAmountListAsync(new BranchRecognitionAmountListQueryRequest { BranchCode = FakeIamScope.BranchCode });
 
-    Assert.Equal((TokenOrganization, TokenHospital, TokenBranch, (string?)null, (string?)null), repository.ReceivedQuery);
-    Assert.Equal(1, userService.GetUserByIdCallCount);
+    Assert.Equal((FakeIamScope.OrganizationCode, FakeIamScope.HospitalCode, FakeIamScope.BranchCode, (string?)null, (string?)null), repository.ReceivedQuery);
+    Assert.Equal(0, userService.GetUserByIdCallCount);
   }
 
   /// <summary>可信范围拒绝发生在任何组织路径读取之前：令牌与档案都取不到医院时组织服务一次都不被调用。</summary>
   [Fact]
   public async Task Missing_trusted_scope_is_rejected_before_any_organization_read()
   {
-    StubUserAppService userService = new();
-    TrustedRequestContext.Use(TokenOrganization, null, TokenBranch, TrustedUserId);
     StubOrganizationAppService organizationService = BuildTwoHospitalService();
-    MedicalRecognitionReportQueryAppService appService = new(new AmountQueryRepository(), organizationService, userService, new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService appService = new(new AmountQueryRepository(), new PlatformParameterRepositoryStub(), FakeIamScope.WithoutHospital(), FakeIamScope.WithoutHospital(), FakeIamScope.WithoutHospital());
 
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
-      () => appService.QueryBranchRecognitionAmountListAsync(new BranchRecognitionAmountListQueryRequest { BranchCode = TokenBranch }));
+      () => appService.QueryBranchRecognitionAmountListAsync(
+        new BranchRecognitionAmountListQueryRequest { BranchCode = FakeIamScope.BranchCode }));
 
-    Assert.Equal(MissingProfileMessage, error.Message);
+    Assert.Equal(MissingHospitalMessage, error.Message);
     Assert.Equal(0, organizationService.OrganizationReadCount);
   }
 
@@ -276,29 +129,24 @@ public sealed class Stage3TrustedScopeTests
   public async Task Stage2_configuration_query_still_ignores_the_user_profile()
   {
     StubUserAppService userService = BuildUserService(Profile(ProfileOrganization, ProfileHospital));
-    TrustedRequestContext.Use(null, null, TokenBranch, TrustedUserId);
-    MedicalRecognitionReportQueryAppService appService = new(new AmountQueryRepository(), new StubOrganizationAppService(), userService, new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService appService = new(new AmountQueryRepository(), new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
       () => appService.QueryRecognitionProjectConfigurationListAsync(
         new RecognitionProjectConfigurationListQueryRequest { OrganizationCode = ProfileOrganization }));
 
-    Assert.Equal(Stage2MissingOrganizationMessage, error.Message);
+    Assert.Equal("请求组织与当前登录组织不一致，不能查询该组织的互认配置。", error.Message);
     Assert.Equal(0, userService.GetUserByIdCallCount);
   }
 
-  /// <summary>把当前请求上下文交给可信范围解析点，供各用例共用同一入参构造。</summary>
-  /// <param name="userService">提供当前登录用户档案的替身。</param>
-  /// <returns>补齐后的可信组织与可信医院编码对。</returns>
-  private static Task<TrustedScope> Resolve(StubUserAppService userService) =>
-    new TrustedScopeResolver(userService).ResolveOrThrowAsync(
-      TrustedRequestContext.Current(),
-      MissingOrganizationMessage,
-      MissingHospitalMessage);
 
-  /// <summary>构造按当前令牌用户标识预置一条档案的用户服务替身。</summary>
-  /// <param name="profile">预置的当前登录用户档案。</param>
-  /// <returns>只提供该条档案的用户服务替身。</returns>
+  /// <summary>构造用户档案，只设置组织与医院归属，院区归属一律为空。</summary>
+  /// <param name="organizationCode">用户档案的组织归属编码。</param>
+  /// <param name="hospitalCode">用户档案的医院归属编码。</param>
+  /// <returns>与令牌用户标识同源的用户档案。</returns>
+  /// <summary>按当前用户标识预置一条档案的用户服务替身。</summary>
+  /// <param name="profile">用户档案。</param>
+  /// <returns>只返回该条档案的替身。</returns>
   private static StubUserAppService BuildUserService(UserDto profile)
   {
     StubUserAppService service = new();
@@ -306,10 +154,6 @@ public sealed class Stage3TrustedScopeTests
     return service;
   }
 
-  /// <summary>构造用户档案，只设置组织与医院归属，院区归属一律为空。</summary>
-  /// <param name="organizationCode">用户档案的组织归属编码。</param>
-  /// <param name="hospitalCode">用户档案的医院归属编码。</param>
-  /// <returns>与令牌用户标识同源的用户档案。</returns>
   private static UserDto Profile(string? organizationCode, string? hospitalCode) => new()
   {
     Id = Guid.Parse(TrustedUserId),

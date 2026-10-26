@@ -1,10 +1,10 @@
 using System.ComponentModel.DataAnnotations;
-using Dy.Base.Application.Contracts.SystemParameterAggregate;
 using Dy.Core.Abstractions.Http;
 using Dy.Core.Extensions.Models;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
 using Dy.MedicalRecognition.Application.Contracts.ReadModels;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
+using Dy.MedicalRecognition.Application.OrganizationScope;
 using Dy.MedicalRecognition.Application.Validation;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
@@ -18,22 +18,12 @@ namespace Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate;
 /// 在线互认主流程的医院接入写入口：互认匹配请求。
 /// </summary>
 /// <remarks>
-/// 组织、医院与院区三层都取自可信上下文，操作人取自登录上下文；本院报告两个参数按平台级编码读取后在本类内联校验，
-/// 任一参数缺失、非法或参数服务读取失败都整次失败，不使用任何兜底默认值。
+/// 组织、医院与院区三层都取自可信上下文，操作人取自登录上下文；本院报告两个参数按平台参数编码经统一读取入口读取并校验，
+/// 任一参数缺失、停用、非法或参数存储读取失败都整次失败，不使用任何兜底默认值。
 /// 本入口是事务边界：匹配记录与匹配项共同成功或共同失败；没有任何报告命中时在任何写入之前返回成功空结果。
 /// </remarks>
 public partial class MedicalRecognitionReportAppService
 {
-  /// <summary>
-  /// 本院报告匹配开关的合法关闭取值。
-  /// </summary>
-  private const string OwnHospitalMatchSwitchOff = "0";
-
-  /// <summary>
-  /// 本院报告匹配开关的合法开启取值。
-  /// </summary>
-  private const string OwnHospitalMatchSwitchOn = "1";
-
   /// <summary>
   /// 按患者身份与本次来源就诊请求可用的互认匹配，并组装匹配响应。
   /// </summary>
@@ -48,26 +38,26 @@ public partial class MedicalRecognitionReportAppService
   /// <exception cref="ArgumentNullException">请求为 null 时抛出。</exception>
   /// <exception cref="ValidationException">请求字段不满足契约声明的必填或值域约束时抛出，此时不进入领域调用、不写入任何数据。</exception>
   /// <exception cref="InvalidOperationException">
-  /// 可信组织、医院或院区不可解析，操作人不可解析，本院报告匹配开关或排除时长取值缺失、非法或参数服务读取失败时抛出；
+  /// 可信组织、医院或院区不可解析，操作人不可解析，本院报告匹配开关或排除时长取值缺失、停用、非法或参数存储读取失败时抛出；
   /// 请求携带不可用项目编码、平台患者不可解析或匹配写入未影响恰好一行时同样抛出，此时不创建记录、不登记事件。
   /// </exception>
   [WorkUnit(UseTransaction = true)]
   public async Task<RecognitionMatchesResponseReadModel> RequestRecognitionMatchesAsync(RecognitionMatchQueryRequest request)
   {
     MedicalRecognitionRequestValidator.Validate(request);
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveWithBranchOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。", "无法确定当前可信院区。");
-    if (!Guid.TryParse(HttpRequestInfo?.UserId, out Guid userId) || userId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
+    (IamOrganizationScope trustedScope, DateTime _) = await ResolveReportScopeAsync();
+    Guid userId = ResolveOperatorId();
 
-    bool ownHospitalMatchEnabled = await ResolveOwnHospitalMatchEnabledAsync();
-    // 排除时长允许零，零表示不增加额外等待；小数、负数与非整数取值都在这里被拒绝，不使用任何兜底默认值。
-    int ownHospitalExcludeHours = await ResolveOwnHospitalExcludeHoursAsync();
+    bool ownHospitalMatchEnabled = await platformParameterReader.ReadOwnHospitalMatchSwitchAsync();
+    // 排除时长允许零，零表示不增加额外等待；小数、负数与非整数取值都由参数读取入口拒绝，不使用任何兜底默认值。
+    int ownHospitalExcludeHours = await platformParameterReader.ReadOwnHospitalExcludeHoursAsync();
 
     QueryRecognitionMatchesCommand command = new()
     {
-      ReceiverOrganizationCode = trustedScope.OrganizationCode,
-      ReceiverHospitalCode = trustedScope.HospitalCode,
-      ReceiverBranchCode = trustedScope.BranchCode,
+      // 使用方三层写业务编码：取自可信上下文的组织节点编码，未配置编码时为空串，不用实例标识替代。
+      ReceiverOrganizationCode = trustedScope.OrganizationCode ?? string.Empty,
+      ReceiverHospitalCode = trustedScope.HospitalCode ?? string.Empty,
+      ReceiverBranchCode = trustedScope.BranchCode ?? string.Empty,
       IdentityDocumentTypeCode = request.IdentityDocumentTypeCode,
       IdentityDocumentNo = request.IdentityDocumentNo,
       VisitType = request.VisitType,
@@ -98,57 +88,6 @@ public partial class MedicalRecognitionReportAppService
       MatchCreatedTime = result.MatchCreatedTime,
       Reports = await AssembleMatchReportsAsync(result.MatchItems, result.StandardProjectNames)
     };
-  }
-
-  /// <summary>
-  /// 读取并校验本院报告匹配开关。
-  /// </summary>
-  /// <remarks>只接受字符串 1 与 0；参数不存在、取值非法或参数服务读取失败一律整次失败，不使用兜底默认值。</remarks>
-  /// <returns>开关是否开启。</returns>
-  /// <exception cref="InvalidOperationException">参数不存在、返回值非法或参数服务读取失败时抛出。</exception>
-  private async Task<bool> ResolveOwnHospitalMatchEnabledAsync()
-  {
-    string? switchValue = await ReadSystemParameterValueAsync(OwnHospitalMatchSwitch);
-    if (switchValue is null) throw new InvalidOperationException("业务拒绝：未配置本院报告匹配开关。");
-    if (string.Equals(switchValue, OwnHospitalMatchSwitchOn, StringComparison.Ordinal)) return true;
-    if (string.Equals(switchValue, OwnHospitalMatchSwitchOff, StringComparison.Ordinal)) return false;
-
-    throw new InvalidOperationException("业务拒绝：本院报告匹配开关取值非法。");
-  }
-
-  /// <summary>
-  /// 读取并校验本院报告排除时长。
-  /// </summary>
-  /// <remarks>只接受非负整数小时并允许零；参数不存在、取值非法或参数服务读取失败一律整次失败，不使用兜底默认值。</remarks>
-  /// <returns>排除时长小时数。</returns>
-  /// <exception cref="InvalidOperationException">参数不存在、返回值非法或参数服务读取失败时抛出。</exception>
-  private async Task<int> ResolveOwnHospitalExcludeHoursAsync()
-  {
-    string? hoursValue = await ReadSystemParameterValueAsync(OwnHospitalExcludeHours);
-    if (hoursValue is null) throw new InvalidOperationException("业务拒绝：未配置本院报告排除时长。");
-    if (!int.TryParse(hoursValue, out int hours) || hours < 0) throw new InvalidOperationException("业务拒绝：本院报告排除时长取值非法。");
-
-    return hours;
-  }
-
-  /// <summary>
-  /// 按平台级参数编码读取系统参数值。
-  /// </summary>
-  /// <remarks>
-  /// 读取请求只携带参数编码：该请求类型不承载组织、医院与院区维度，平台级参数的取值不随调用归属变化；
-  /// 返回值为空表示参数不存在，读取失败原样向外传播、不降级为兜底值。
-  /// </remarks>
-  /// <param name="parameterCode">平台系统参数编码，取小写下划线形态。</param>
-  /// <returns>参数值；参数不存在时返回 <see langword="null"/>。</returns>
-  /// <exception cref="InvalidOperationException">参数服务不可用时由其调用链路抛出，本入口不捕获、不降级。</exception>
-  private async Task<string?> ReadSystemParameterValueAsync(string parameterCode)
-  {
-    SystemParameterDto? parameter = await systemParameterAppService.GetSystemParameterByCodeAsync(new GetSystemParameterByCodeRequest
-    {
-      Code = parameterCode
-    });
-
-    return parameter?.Value;
   }
 
   /// <summary>

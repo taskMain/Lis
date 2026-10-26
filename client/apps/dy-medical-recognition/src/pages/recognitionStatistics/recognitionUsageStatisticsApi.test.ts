@@ -62,8 +62,8 @@ function invalidQuery<T extends object>(query: T, overrides: Record<string, unkn
   return Object.assign({ ...query }, overrides)
 }
 
-/** 生成端反序列化后的十进制形态：`UntypedNode`（`value` + `getValue()`）。 */
-const node = (value: unknown) => ({ value, getValue: () => value })
+/** 生成端反序列化后的十进制形态：`number | null`。 */
+const amount = (value: number | null) => value
 
 /** 平台版汇总的合法条件：日期、维度必填，两组范围三级齐全；统一关键字随请求提交（输入原文去首尾空白）。 */
 const platformSummaryQuery = {
@@ -91,7 +91,7 @@ const summaryPageResponse = {
 }
 
 describe('C4 平台版汇总请求：接收组与来源组三级范围都随请求提交', () => {
-  it('请求体携带两组组织编码与统一关键字、日期按年月日原样提交、分页内嵌 page 对象', async () => {
+  it('请求体携带两组组织实例 Id与统一关键字、日期按年月日原样提交、分页内嵌 page 对象', async () => {
     const built = buildUsageSummaryQuery(platformSummaryQuery, pageInput)
     expect(built).not.toBeNull()
 
@@ -413,7 +413,7 @@ const platformExportQuery: PlatformUsageExportQuery = {
 }
 
 describe('C4 导出请求：平台/本院双版本映射，导出与匹配记录无分页对象', () => {
-  it('平台版导出提交两组组织编码、统一关键字与导出类型，请求体无分页', async () => {
+  it('平台版导出提交两组组织实例 Id、统一关键字与导出类型，请求体无分页', async () => {
     const built = buildUsageExportQuery(platformExportQuery)
     expect(built).not.toBeNull()
 
@@ -547,9 +547,9 @@ const hospitalDimensionRow = {
   nonAdoptionCount: 2,
   referenceCount: 4,
   samePeriodRecognitionRateCalculated: true,
-  samePeriodRecognitionRate: node(0.6),
-  estimatedSavingAmount: node(320.5),
-  nonAdoptionReasons: [{ reasonCode: 'R1', reasonName: '结果互认', count: 2, ratio: node(1) }],
+  samePeriodRecognitionRate: amount(0.6),
+  estimatedSavingAmount: amount(320.5),
+  nonAdoptionReasons: [{ reasonCode: 'R1', reasonName: '结果互认', count: 2, ratio: amount(1) }],
 } as unknown as RecognitionUsageSummaryReadModel
 
 describe('C6 汇总读模型映射：维度字段、枚举文本、十进制与原因集合', () => {
@@ -679,7 +679,7 @@ describe('C6 明细读模型映射：患者字段原样、未反馈行、处理�
           nonAdoptionReasonCode: 'R1',
           nonAdoptionReasonName: '结果互认',
           nonAdoptionSupplementDescription: '补充说明',
-          estimatedSavingAmount: node(0),
+          estimatedSavingAmount: amount(0),
         },
         reference: {
           isReferenced: true,

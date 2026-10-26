@@ -77,6 +77,7 @@ public sealed class Stage6StatisticsContractTests
     [
       ("RecognitionMatchRecordId", "Guid"), ("RecognitionMatchItemId", "Guid"), ("MatchCreatedTime", "DateTime"),
       ("VisitType", "VisitType"), ("VisitTypeText", "string"), ("VisitSerialNo", "string"),
+
       ("Source", "SourceOrganizationReadModel"), ("Receiver", "ReceiverOrganizationReadModel"),
       ("Item", "RecognitionStatisticsItemReadModel"), ("BusinessTime", "DateTime"), ("IsUnprocessed", "bool"),
       ("PatientName", "string"), ("IdentityDocumentNo", "string"),

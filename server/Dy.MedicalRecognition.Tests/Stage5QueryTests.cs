@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
-using Dy.Base.Application.Contracts.OrganizationAggregate;
 using Dy.Core.Abstractions.EventBus;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
 using Dy.MedicalRecognition.Application.Contracts.ReadModels;
@@ -27,19 +26,19 @@ namespace Dy.MedicalRecognition.Tests;
 public sealed class Stage5QueryTests
 {
   /// <summary>可信组织编码。</summary>
-  private const string TrustedOrganization = "ORG-A";
+  private const string TrustedOrganization = FakeIamScope.OrganizationCode;
 
   /// <summary>可信医院编码。</summary>
-  private const string TrustedHospital = "HOS-A";
+  private const string TrustedHospital = FakeIamScope.HospitalCode;
 
   /// <summary>可信院区编码。</summary>
-  private const string TrustedBranch = "BRH-A";
+  private const string TrustedBranch = FakeIamScope.BranchCode;
 
   /// <summary>同组织下的第二家医院编码，用于构造来源医疗机构名称按不同医院分别读取的前置。</summary>
-  private const string SecondHospital = "HOS-B";
+  private const string SecondHospital = FakeIamScope.SecondHospitalCode;
 
   /// <summary>第二家医院下的院区编码。</summary>
-  private const string SecondBranch = "BRH-B";
+  private const string SecondBranch = FakeIamScope.SecondBranchCode;
 
   /// <summary>可信操作人标识；本链路不读取操作人，仅用于构造可信请求上下文。</summary>
   private static readonly Guid TrustedOperId = Guid.Parse("2f7c1c1e-6a2f-4b1a-9c3d-1f0a2b3c4d5e");
@@ -154,11 +153,12 @@ public sealed class Stage5QueryTests
     Assert.Equal("LAB-2026-0001", context.ReportNo);
     Assert.Equal("血常规报告", context.ReportName);
     Assert.Equal(TrustedOrganization, context.SourceOrganizationCode);
-    Assert.Equal("示范组织-ORG-A", context.SourceOrganizationName);
+    Assert.Equal("示范医共体", context.SourceOrganizationName);
     Assert.Equal(TrustedHospital, context.SourceHospitalCode);
-    Assert.Equal("示范医院-HOS-A", context.SourceHospitalName);
+    Assert.Equal("示范医院", context.SourceHospitalName);
     Assert.Equal(TrustedBranch, context.SourceBranchCode);
-    Assert.Equal("示范院区-BRH-A", context.SourceBranchName);
+    Assert.Equal("示范院区", context.SourceBranchName);
+    // B-06：引用详情读模型消费底层投影的实例标识，数值与种子精确相等。
     Assert.Equal(clinicalTime, context.ClinicalTime);
     Assert.Equal(reportTime, context.ReportTime);
     Assert.Equal("DOC-APP", context.SourceApplicantDoctorId);
@@ -262,9 +262,9 @@ public sealed class Stage5QueryTests
 
     Assert.Equal(2, detail.MatchItems.Count);
     Assert.Single(detail.ReportContext);
-    Assert.Equal(1, fixture.OrganizationAppService.OrganizationReadCount);
-    Assert.Equal(1, fixture.OrganizationAppService.HospitalReadCount);
-    Assert.Equal(1, fixture.OrganizationAppService.BranchReadCount);
+    Assert.Equal(0, fixture.OrganizationAppService.OrganizationReadCount);
+    Assert.Equal(0, fixture.OrganizationAppService.HospitalReadCount);
+    Assert.Equal(0, fixture.OrganizationAppService.BranchReadCount);
     Assert.Equal(1, fixture.QueryRepository.CitationQueryCalls);
     Assert.Equal(1, fixture.QueryRepository.CitationContextQueryCalls);
     Assert.Equal(1, fixture.QueryRepository.CitationStandardProjectNameQueryCalls);
@@ -299,10 +299,10 @@ public sealed class Stage5QueryTests
 
     Assert.Equal(2, detail.ReportContext.Count);
     // 组织读取一次；该组织的医院读取一次（按组织去重）；两家不同医院各读取一次院区。
-    Assert.Equal(1, fixture.OrganizationAppService.OrganizationReadCount);
-    Assert.Equal(1, fixture.OrganizationAppService.HospitalReadCount);
-    Assert.Equal(2, fixture.OrganizationAppService.BranchReadCount);
-    Assert.Equal("示范医院-HOS-B", detail.ReportContext.Single(context => context.ReportId == SecondReportId).SourceHospitalName);
+    Assert.Equal(0, fixture.OrganizationAppService.OrganizationReadCount);
+    Assert.Equal(0, fixture.OrganizationAppService.HospitalReadCount);
+    Assert.Equal(0, fixture.OrganizationAppService.BranchReadCount);
+    Assert.Equal("示范医院二", detail.ReportContext.Single(context => context.ReportId == SecondReportId).SourceHospitalName);
   }
 
   /// <summary>
@@ -646,9 +646,38 @@ public sealed class Stage5QueryTests
     // 引用详情链不读取互认配置：可互认时间只约束新的匹配查询。
     Assert.Equal(0, fixture.QueryRepository.ConfigurationQueryCalls);
     // 来源名称读取次数仍只随不同组织与医院数量增长。
-    Assert.Equal(1, fixture.OrganizationAppService.OrganizationReadCount);
-    Assert.Equal(1, fixture.OrganizationAppService.HospitalReadCount);
-    Assert.Equal(1, fixture.OrganizationAppService.BranchReadCount);
+    Assert.Equal(0, fixture.OrganizationAppService.OrganizationReadCount);
+    Assert.Equal(0, fixture.OrganizationAppService.HospitalReadCount);
+    Assert.Equal(0, fixture.OrganizationAppService.BranchReadCount);
+  }
+
+  /// <summary>
+  /// 名称回填容错：来源医院编码在 IAM 目录中命中多个节点且名称不同时，医院名称留空但引用详情照常返回。
+  /// </summary>
+  /// <remarks>
+  /// 名称是展示字段：候选名称不同且都不在会话组织链上时不猜、不回落编码文本，只把该层名称留空；
+  /// 引用内容、报告公共上下文与项目级内容照常返回。
+  /// </remarks>
+  [Fact]
+  public async Task Source_hospital_name_stays_empty_when_the_code_hits_multiple_nodes()
+  {
+    CitationFixture fixture = CreateFixture(iamScope: FakeIamScope.WithDuplicateOtherHospitalCode("其他医院二"));
+    SeedCitation(
+      fixture,
+      BuildSeed(
+        FirstRecordId, FirstMatchItemId, FirstReportId, FirstReportVersionId, FirstProjectCode,
+        decisionSavedTime: DecisionSavedTime,
+        sourceHospitalCode: FakeIamScope.OtherHospitalCode,
+        sourceBranchCode: FakeIamScope.OtherBranchCode));
+
+    RecognitionCitationDetailReadModel detail = await fixture.AppService.QueryRecognitionCitationDetailAsync(BuildRequest());
+
+    RecognitionReportContextReadModel context = Assert.Single(detail.ReportContext);
+    Assert.Equal("示范医共体", context.SourceOrganizationName);
+    // 医院编码命中两个候选、名称不同且都不在会话组织链上：名称留空。
+    Assert.Equal(string.Empty, context.SourceHospitalName);
+    Assert.Equal("其他院区", context.SourceBranchName);
+    Assert.Single(detail.MatchItems);
   }
 
   /// <summary>
@@ -828,9 +857,7 @@ public sealed class Stage5QueryTests
     await fixture.AppService.QueryRecognitionCitationDetailAsync(BuildRequest());
 
     Assert.Equal([CitationDetailValidHours], fixture.SystemParameterAppService.ReadCodes);
-    Assert.Null(fixture.SystemParameterAppService.LastRequest!.GetType().GetProperty("OrgId"));
-    Assert.Null(fixture.SystemParameterAppService.LastRequest.GetType().GetProperty("HosId"));
-    Assert.Null(fixture.SystemParameterAppService.LastRequest.GetType().GetProperty("BranchId"));
+    Assert.Equal(CitationDetailValidHours, fixture.SystemParameterAppService.LastCode);
   }
 
   /// <summary>
@@ -898,7 +925,7 @@ public sealed class Stage5QueryTests
     /// <summary>外部组织服务替身，按层级记录组织、医院与院区读取次数。</summary>
     public StubOrganizationAppService OrganizationAppService { get; init; } = new();
     /// <summary>系统参数服务共享替身，按编码预置返回值并记录读取过的编码。</summary>
-    public StubSystemParameterAppService SystemParameterAppService { get; init; } = new();
+    public PlatformParameterRepositoryStub SystemParameterAppService { get; init; } = new();
     /// <summary>匹配记录集合；本链路只读，用例用它断言调用前后完全一致。</summary>
     public Dictionary<Guid, RecognitionMatchRecord> MatchRecords { get; } = [];
     /// <summary>匹配项集合；本链路只读，用例用它断言调用前后完全一致。</summary>
@@ -918,32 +945,34 @@ public sealed class Stage5QueryTests
   /// <param name="validHoursValue">参数服务返回的取值文本；非空时按该文本预置，用于构造非法取值前置。</param>
   /// <param name="parameterMissing">为真时有效时长参数不预置，用于构造"参数不存在"前置。</param>
   /// <param name="parameterServiceFailure">非空时表示参数服务读取失败。</param>
+  /// <param name="iamScope">IAM 范围替身；为空时取默认三层链，需要构造编码歧义前置的用例自行传入。</param>
   /// <returns>可直接调用的引用详情查询用例夹具。</returns>
   private static CitationFixture CreateFixture(
     int validHours = 0,
     string? validHoursValue = null,
     bool parameterMissing = false,
-    Exception? parameterServiceFailure = null)
+    Exception? parameterServiceFailure = null,
+    FakeIamScope? iamScope = null)
   {
-    StubSystemParameterAppService systemParameterAppService = new() { Failure = parameterServiceFailure };
+    PlatformParameterRepositoryStub systemParameterAppService = new() { Failure = parameterServiceFailure };
     if (validHoursValue is not null) systemParameterAppService.ValuesByCode[CitationDetailValidHours] = validHoursValue;
     else if (!parameterMissing) systemParameterAppService.ValuesByCode[CitationDetailValidHours] = (validHours == 0 ? 6 : validHours).ToString();
 
     // 提供方涉及两家医院：名称回填按不同组织与医院批量读取，读取次数由替身按层级记录。
     StubOrganizationAppService organizationAppService = new()
     {
-      Organizations = [new OrganizationDto { Id = TrustedOrganization, Name = "示范组织-ORG-A", IsValid = true }],
+      Organizations = [new OrganizationDto { Id = TrustedOrganization, Name = "示范医共体", IsValid = true }],
       HospitalsByOrganization =
       {
         [TrustedOrganization] =
         [
-          new HospitalDto { Id = TrustedHospital, Name = "示范医院-HOS-A", OrgId = TrustedOrganization, IsValid = true },
-          new HospitalDto { Id = SecondHospital, Name = "示范医院-HOS-B", OrgId = TrustedOrganization, IsValid = true }
+          new HospitalDto { Id = TrustedHospital, Name = "示范医院", OrgId = TrustedOrganization, IsValid = true },
+          new HospitalDto { Id = SecondHospital, Name = "示范医院二", OrgId = TrustedOrganization, IsValid = true }
         ]
       },
       BranchesByHospital =
       {
-        [TrustedHospital] = [new BranchDto { Id = TrustedBranch, Name = "示范院区-BRH-A", HosId = TrustedHospital, OrgId = TrustedOrganization, IsValid = true }],
+        [TrustedHospital] = [new BranchDto { Id = TrustedBranch, Name = "示范院区", HosId = TrustedHospital, OrgId = TrustedOrganization, IsValid = true }],
         [SecondHospital] = [new BranchDto { Id = SecondBranch, Name = "示范院区-BRH-B", HosId = SecondHospital, OrgId = TrustedOrganization, IsValid = true }]
       }
     };
@@ -960,10 +989,7 @@ public sealed class Stage5QueryTests
       OrganizationAppService = organizationAppService,
       SystemParameterAppService = systemParameterAppService,
       AppService = new MedicalRecognitionReportQueryAppService(
-        queryRepository,
-        organizationAppService,
-        new StubUserAppService(),
-        systemParameterAppService)
+        queryRepository, systemParameterAppService, iamScope ?? FakeIamScope.Default, iamScope ?? FakeIamScope.Default, iamScope ?? FakeIamScope.Default)
     };
   }
 

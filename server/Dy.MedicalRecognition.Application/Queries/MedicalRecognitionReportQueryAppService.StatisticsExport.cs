@@ -1,3 +1,4 @@
+using Dy.MedicalRecognition.Application.OrganizationScope;
 using ClosedXML.Excel;
 using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionStatistics;
 using Dy.MedicalRecognition.Application.Contracts.ReadModels;
@@ -88,12 +89,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       request.StartTime,
       request.EndTime,
       request.GroupDimension,
-      ScopeFilterCode(receiverScope?.OrganizationCode),
-      ScopeFilterCode(receiverScope?.HospitalCode),
-      ScopeFilterCode(receiverScope?.BranchCode),
-      ScopeFilterCode(sourceScope?.OrganizationCode),
-      ScopeFilterCode(sourceScope?.HospitalCode),
-      ScopeFilterCode(sourceScope?.BranchCode),
+      receiverScope?.OrganizationCode,
+      receiverScope?.HospitalCode,
+      receiverScope?.BranchCode,
+      sourceScope?.OrganizationCode,
+      sourceScope?.HospitalCode,
+      sourceScope?.BranchCode ?? (string.IsNullOrWhiteSpace(request.SourceBranchCode) ? null : request.SourceBranchCode),
       NullIfBlank(request.Keyword),
       ResolveExportNonAdoptionReason(request.ExportType, request.NonAdoptionReasonCode),
       request.ItemType,
@@ -118,8 +119,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   public async Task<StatisticsExportFileReadModel> GetBranchStatisticsExportAsync(BranchRecognitionStatisticsExportRequest request)
   {
     // 可信组织与医院的解析先于公共请求校验：可信范围不成立时不需要、也不得读取任何业务数据。
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
+    OrganizationPath trustedPath = await ResolveTrustedOrganizationHospitalPathAsync();
     MedicalRecognitionRequestValidator.Validate(request);
     EnsureSourceSideExportDimension(request.ExportType, request.GroupDimension);
 
@@ -127,17 +127,21 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     {
       // 提供方导出类型：提供方组织与提供方医院固定为可信上下文，本侧提供方院区可选；
       // 使用方组织恒为可信组织，接收组医院与院区取请求并校验属于可信组织。
-      OrganizationPath localSourceScope = await ResolveBranchLocalScopeAsync(trustedScope, request.SourceBranchCode);
-      OrganizationPath? receiverScope = await ResolveBranchReceiverScopeAsync(trustedScope, request.ReceiverHospitalCode, request.ReceiverBranchCode);
+      OrganizationPath localSourceScope = IsSourceSideExport(request.ExportType)
+        ? await ResolveBranchLocalScopeAsync(trustedPath, request.SourceBranchCode)
+        : string.IsNullOrWhiteSpace(request.SourceHospitalCode)
+          ? await ResolveBranchLocalScopeAsync(trustedPath, request.SourceBranchCode)
+          : await ResolveBranchSourceScopeAsync(trustedPath, request.SourceHospitalCode, request.SourceBranchCode);
+      OrganizationPath? receiverScope = await ResolveBranchReceiverScopeAsync(trustedPath, request.ReceiverHospitalCode, request.ReceiverBranchCode);
 
       return await GenerateStatisticsExportAsync(new StatisticsExportCommand(
         request.ExportType,
         request.StartTime,
         request.EndTime,
         request.GroupDimension,
-        ScopeFilterCode(receiverScope?.OrganizationCode),
-        ScopeFilterCode(receiverScope?.HospitalCode),
-        ScopeFilterCode(receiverScope?.BranchCode),
+        receiverScope?.OrganizationCode,
+        receiverScope?.HospitalCode,
+        receiverScope?.BranchCode,
         localSourceScope.OrganizationCode,
         localSourceScope.HospitalCode,
         request.SourceBranchCode is null ? null : localSourceScope.BranchCode,
@@ -152,8 +156,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
 
     // 使用方导出类型：使用方组织与使用方医院取可信上下文，本侧使用方院区可选；
     // 提供方组织恒为可信组织，来源组医院与院区取请求并校验属于可信组织。
-    OrganizationPath localScope = await ResolveBranchLocalScopeAsync(trustedScope, request.BranchCode);
-    OrganizationPath? sourceScope = await ResolveBranchSourceScopeAsync(trustedScope, request.SourceHospitalCode, request.SourceBranchCode);
+    OrganizationPath localScope = await ResolveBranchLocalScopeAsync(trustedPath, request.BranchCode);
+    OrganizationPath? sourceScope = string.IsNullOrWhiteSpace(request.SourceHospitalCode)
+      ? await ResolveBranchLocalScopeAsync(trustedPath, request.SourceBranchCode)
+      : await ResolveBranchSourceScopeAsync(trustedPath, request.SourceHospitalCode, request.SourceBranchCode);
 
     return await GenerateStatisticsExportAsync(new StatisticsExportCommand(
       request.ExportType,
@@ -163,9 +169,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       localScope.OrganizationCode,
       localScope.HospitalCode,
       request.BranchCode is null ? null : localScope.BranchCode,
-      trustedScope.OrganizationCode,
-      ScopeFilterCode(sourceScope?.HospitalCode),
-      ScopeFilterCode(sourceScope?.BranchCode),
+      trustedPath.OrganizationCode,
+      sourceScope?.HospitalCode,
+      sourceScope?.BranchCode ?? (string.IsNullOrWhiteSpace(request.SourceBranchCode) ? null : request.SourceBranchCode),
       NullIfBlank(request.Keyword),
       ResolveExportNonAdoptionReason(request.ExportType, request.NonAdoptionReasonCode),
       request.ItemType,

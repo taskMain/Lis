@@ -1,3 +1,4 @@
+using Dy.MedicalRecognition.Application.OrganizationScope;
 using System.Globalization;
 using Dy.Core.Extensions.Models;
 using Dy.MedicalRecognition.Application.Contracts.Queries;
@@ -56,12 +57,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       PeriodStart = request.StartTime.ToDateTime(TimeOnly.MinValue),
       PeriodEnd = request.EndTime.AddDays(1).ToDateTime(TimeOnly.MinValue),
       GroupDimension = request.GroupDimension,
-      OrganizationCode = ScopeFilterCode(receiver?.OrganizationCode),
-      HospitalCode = ScopeFilterCode(receiver?.HospitalCode),
-      BranchCode = ScopeFilterCode(receiver?.BranchCode),
-      SourceOrganizationCode = ScopeFilterCode(source?.OrganizationCode),
-      SourceHospitalCode = ScopeFilterCode(source?.HospitalCode),
-      SourceBranchCode = ScopeFilterCode(source?.BranchCode),
+      OrganizationCode = receiver?.OrganizationCode,
+      HospitalCode = receiver?.HospitalCode,
+      BranchCode = receiver?.BranchCode,
+      SourceOrganizationCode = source?.OrganizationCode,
+      SourceHospitalCode = source?.HospitalCode,
+      SourceBranchCode = source?.BranchCode,
       Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
@@ -105,12 +106,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     {
       PeriodStart = request.StartTime.ToDateTime(TimeOnly.MinValue),
       PeriodEnd = request.EndTime.AddDays(1).ToDateTime(TimeOnly.MinValue),
-      OrganizationCode = ScopeFilterCode(receiver?.OrganizationCode),
-      HospitalCode = ScopeFilterCode(receiver?.HospitalCode),
-      BranchCode = ScopeFilterCode(receiver?.BranchCode),
-      SourceOrganizationCode = ScopeFilterCode(source?.OrganizationCode),
-      SourceHospitalCode = ScopeFilterCode(source?.HospitalCode),
-      SourceBranchCode = ScopeFilterCode(source?.BranchCode),
+      OrganizationCode = receiver?.OrganizationCode,
+      HospitalCode = receiver?.HospitalCode,
+      BranchCode = receiver?.BranchCode,
+      SourceOrganizationCode = source?.OrganizationCode,
+      SourceHospitalCode = source?.HospitalCode,
+      SourceBranchCode = source?.BranchCode,
       Keyword = NullIfBlank(request.Keyword),
       // 不采纳原因代码仅作用于不采纳明细：其余三类明细类型不携带该条件，语句侧的 IsNotEmpty 片段保留为防御面。
       NonAdoptionReason = request.DetailType == RecognitionUsageDetailType.NotAdopted
@@ -166,12 +167,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       PeriodStart = request.StartTime.ToDateTime(TimeOnly.MinValue),
       PeriodEnd = request.EndTime.AddDays(1).ToDateTime(TimeOnly.MinValue),
       GroupDimension = request.GroupDimension,
-      SourceOrganizationCode = ScopeFilterCode(source?.OrganizationCode),
-      SourceHospitalCode = ScopeFilterCode(source?.HospitalCode),
-      SourceBranchCode = ScopeFilterCode(source?.BranchCode),
-      ReceiverOrganizationCode = ScopeFilterCode(receiver?.OrganizationCode),
-      ReceiverHospitalCode = ScopeFilterCode(receiver?.HospitalCode),
-      ReceiverBranchCode = ScopeFilterCode(receiver?.BranchCode),
+      SourceOrganizationCode = source?.OrganizationCode,
+      SourceHospitalCode = source?.HospitalCode,
+      SourceBranchCode = source?.BranchCode,
+      ReceiverOrganizationCode = receiver?.OrganizationCode,
+      ReceiverHospitalCode = receiver?.HospitalCode,
+      ReceiverBranchCode = receiver?.BranchCode,
       Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
@@ -215,12 +216,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     {
       PeriodStart = request.StartTime.ToDateTime(TimeOnly.MinValue),
       PeriodEnd = request.EndTime.AddDays(1).ToDateTime(TimeOnly.MinValue),
-      SourceOrganizationCode = ScopeFilterCode(source?.OrganizationCode),
-      SourceHospitalCode = ScopeFilterCode(source?.HospitalCode),
-      SourceBranchCode = ScopeFilterCode(source?.BranchCode),
-      ReceiverOrganizationCode = ScopeFilterCode(receiver?.OrganizationCode),
-      ReceiverHospitalCode = ScopeFilterCode(receiver?.HospitalCode),
-      ReceiverBranchCode = ScopeFilterCode(receiver?.BranchCode),
+      SourceOrganizationCode = source?.OrganizationCode,
+      SourceHospitalCode = source?.HospitalCode,
+      SourceBranchCode = source?.BranchCode,
+      ReceiverOrganizationCode = receiver?.OrganizationCode,
+      ReceiverHospitalCode = receiver?.HospitalCode,
+      ReceiverBranchCode = receiver?.BranchCode,
       Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
@@ -248,13 +249,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   public async Task<PageResultDto<RecognitionUsageSummaryReadModel>> QueryBranchRecognitionUsageSummaryAsync(BranchRecognitionUsageSummaryQueryRequest request)
   {
     // 可信组织与医院的解析先于公共请求校验：可信范围不成立时不需要、也不得读取任何业务数据。
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
+    OrganizationPath trustedPath = await ResolveTrustedOrganizationHospitalPathAsync();
     MedicalRecognitionRequestValidator.Validate(request);
     PageQueryWindow window = PageQueryWindow.Create(request.Page.PageIndex, request.Page.PageSize);
 
-    OrganizationPath localScope = await ResolveBranchLocalScopeAsync(trustedScope, request.BranchCode);
-    OrganizationPath? sourceScope = await ResolveBranchSourceScopeAsync(trustedScope, request.SourceHospitalCode, request.SourceBranchCode);
+    OrganizationPath localScope = await ResolveBranchLocalScopeAsync(trustedPath, request.BranchCode);
+    OrganizationPath? sourceScope = await ResolveBranchSourceScopeAsync(trustedPath, request.SourceHospitalCode, request.SourceBranchCode);
 
     RecognitionUsageSummaryFilter filter = new()
     {
@@ -264,9 +264,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       OrganizationCode = localScope.OrganizationCode,
       HospitalCode = localScope.HospitalCode,
       BranchCode = request.BranchCode is null ? null : localScope.BranchCode,
-      SourceOrganizationCode = trustedScope.OrganizationCode,
-      SourceHospitalCode = ScopeFilterCode(sourceScope?.HospitalCode),
-      SourceBranchCode = ScopeFilterCode(sourceScope?.BranchCode),
+      SourceOrganizationCode = trustedPath.OrganizationCode,
+      SourceHospitalCode = sourceScope?.HospitalCode,
+      SourceBranchCode = sourceScope?.BranchCode,
       Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
@@ -293,13 +293,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   public async Task<PageResultDto<RecognitionUsageDetailReadModel>> QueryBranchRecognitionUsageDetailsAsync(BranchRecognitionUsageDetailsQueryRequest request)
   {
     // 可信组织与医院的解析先于公共请求校验：可信范围不成立时不需要、也不得读取任何业务数据。
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
+    OrganizationPath trustedPath = await ResolveTrustedOrganizationHospitalPathAsync();
     MedicalRecognitionRequestValidator.Validate(request);
     PageQueryWindow window = PageQueryWindow.Create(request.Page.PageIndex, request.Page.PageSize);
 
-    OrganizationPath localScope = await ResolveBranchLocalScopeAsync(trustedScope, request.BranchCode);
-    OrganizationPath? sourceScope = await ResolveBranchSourceScopeAsync(trustedScope, request.SourceHospitalCode, request.SourceBranchCode);
+    OrganizationPath localScope = await ResolveBranchLocalScopeAsync(trustedPath, request.BranchCode);
+    OrganizationPath? sourceScope = await ResolveBranchSourceScopeAsync(trustedPath, request.SourceHospitalCode, request.SourceBranchCode);
 
     RecognitionUsageDetailFilter filter = new()
     {
@@ -308,9 +307,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       OrganizationCode = localScope.OrganizationCode,
       HospitalCode = localScope.HospitalCode,
       BranchCode = request.BranchCode is null ? null : localScope.BranchCode,
-      SourceOrganizationCode = trustedScope.OrganizationCode,
-      SourceHospitalCode = ScopeFilterCode(sourceScope?.HospitalCode),
-      SourceBranchCode = ScopeFilterCode(sourceScope?.BranchCode),
+      SourceOrganizationCode = trustedPath.OrganizationCode,
+      SourceHospitalCode = sourceScope?.HospitalCode,
+      SourceBranchCode = sourceScope?.BranchCode,
       Keyword = NullIfBlank(request.Keyword),
       // 不采纳原因代码仅作用于不采纳明细：其余三类明细类型不携带该条件，语句侧的 IsNotEmpty 片段保留为防御面。
       NonAdoptionReason = request.DetailType == RecognitionUsageDetailType.NotAdopted
@@ -346,14 +345,13 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   public async Task<PageResultDto<SourceRecognitionSummaryReadModel>> QueryBranchSourceRecognitionSummaryAsync(BranchSourceRecognitionSummaryQueryRequest request)
   {
     // 可信组织与医院的解析先于公共请求校验：可信范围不成立时不需要、也不得读取任何业务数据。
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
+    OrganizationPath trustedPath = await ResolveTrustedOrganizationHospitalPathAsync();
     MedicalRecognitionRequestValidator.Validate(request);
     PageQueryWindow window = PageQueryWindow.Create(request.Page.PageIndex, request.Page.PageSize);
     EnsureSourceGroupDimension(request.GroupDimension);
 
-    OrganizationPath localSourceScope = await ResolveBranchLocalScopeAsync(trustedScope, request.SourceBranchCode);
-    OrganizationPath? receiverScope = await ResolveBranchReceiverScopeAsync(trustedScope, request.ReceiverHospitalCode, request.ReceiverBranchCode);
+    OrganizationPath localSourceScope = await ResolveBranchLocalScopeAsync(trustedPath, request.SourceBranchCode);
+    OrganizationPath? receiverScope = await ResolveBranchReceiverScopeAsync(trustedPath, request.ReceiverHospitalCode, request.ReceiverBranchCode);
 
     SourceRecognitionSummaryFilter filter = new()
     {
@@ -363,9 +361,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       SourceOrganizationCode = localSourceScope.OrganizationCode,
       SourceHospitalCode = localSourceScope.HospitalCode,
       SourceBranchCode = request.SourceBranchCode is null ? null : localSourceScope.BranchCode,
-      ReceiverOrganizationCode = trustedScope.OrganizationCode,
-      ReceiverHospitalCode = ScopeFilterCode(receiverScope?.HospitalCode),
-      ReceiverBranchCode = ScopeFilterCode(receiverScope?.BranchCode),
+      ReceiverOrganizationCode = trustedPath.OrganizationCode,
+      ReceiverHospitalCode = receiverScope?.HospitalCode,
+      ReceiverBranchCode = receiverScope?.BranchCode,
       Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
@@ -394,13 +392,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   public async Task<PageResultDto<SourceRecognitionDetailReadModel>> QueryBranchSourceRecognitionDetailsAsync(BranchSourceRecognitionDetailsQueryRequest request)
   {
     // 可信组织与医院的解析先于公共请求校验：可信范围不成立时不需要、也不得读取任何业务数据。
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
+    OrganizationPath trustedPath = await ResolveTrustedOrganizationHospitalPathAsync();
     MedicalRecognitionRequestValidator.Validate(request);
     PageQueryWindow window = PageQueryWindow.Create(request.Page.PageIndex, request.Page.PageSize);
 
-    OrganizationPath localSourceScope = await ResolveBranchLocalScopeAsync(trustedScope, request.SourceBranchCode);
-    OrganizationPath? receiverScope = await ResolveBranchReceiverScopeAsync(trustedScope, request.ReceiverHospitalCode, request.ReceiverBranchCode);
+    OrganizationPath localSourceScope = await ResolveBranchLocalScopeAsync(trustedPath, request.SourceBranchCode);
+    OrganizationPath? receiverScope = await ResolveBranchReceiverScopeAsync(trustedPath, request.ReceiverHospitalCode, request.ReceiverBranchCode);
 
     SourceRecognitionDetailFilter filter = new()
     {
@@ -409,9 +406,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       SourceOrganizationCode = localSourceScope.OrganizationCode,
       SourceHospitalCode = localSourceScope.HospitalCode,
       SourceBranchCode = request.SourceBranchCode is null ? null : localSourceScope.BranchCode,
-      ReceiverOrganizationCode = trustedScope.OrganizationCode,
-      ReceiverHospitalCode = ScopeFilterCode(receiverScope?.HospitalCode),
-      ReceiverBranchCode = ScopeFilterCode(receiverScope?.BranchCode),
+      ReceiverOrganizationCode = trustedPath.OrganizationCode,
+      ReceiverHospitalCode = receiverScope?.HospitalCode,
+      ReceiverBranchCode = receiverScope?.BranchCode,
       Keyword = NullIfBlank(request.Keyword),
       ItemType = request.ItemType,
       CategoryName = request.CategoryName?.Trim(),
@@ -456,7 +453,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       "业务拒绝：匹配记录的使用方医院不存在、已停用或不属于该组织。",
       "业务拒绝：匹配记录的使用方院区不存在、已停用或不属于该医院。");
     Dictionary<(string, string, string), OrganizationPath> sourceNames = await ResolveStatisticsPageNamesAsync(
-      [.. items.Select(item => (item.SourceOrganizationCode, item.SourceHospitalCode, item.SourceBranchCode))],
+      [.. items.Select(item => (item.SourceOrganizationCode ?? string.Empty, item.SourceHospitalCode ?? string.Empty, item.SourceBranchCode ?? string.Empty))],
       "业务拒绝：匹配项的提供方组织不存在或已停用。",
       "业务拒绝：匹配项的提供方医院不存在、已停用或不属于该组织。",
       "业务拒绝：匹配项的提供方院区不存在、已停用或不属于该医院。");
@@ -560,27 +557,22 @@ public sealed partial class MedicalRecognitionReportQueryAppService
 
   /// <summary>
   /// 解析本院入口的本侧范围：组织与医院取可信上下文，院区取请求；
-  /// 院区为空时只解析组织与医院两层、不进入院区层，非空时三层整体校验。
+  /// 院区为空时直接沿用可信范围的组织与医院两层路径、不进入院区层，非空时三层整体按业务编码校验。
   /// </summary>
-  /// <param name="trustedScope">当前请求的可信组织与可信医院。</param>
-  /// <param name="branchCode">请求提交的本侧院区编码；可为空表示按可信医院全院范围。</param>
+  /// <param name="trustedPath">已解析的可信组织与医院两层路径，同时携带业务编码与实例标识。</param>
+  /// <param name="branchCode">请求提交的本侧院区业务编码；可为空表示按可信医院全院范围。</param>
   /// <returns>已校验的本侧组织路径；院区为空时路径院区编码为空串。</returns>
-  /// <exception cref="InvalidOperationException">可信组织或医院不存在、已停用，或请求院区不存在、已停用、不属于可信医院时抛出。</exception>
-  private async Task<OrganizationPath> ResolveBranchLocalScopeAsync(TrustedScope trustedScope, string? branchCode)
+  /// <exception cref="InvalidOperationException">请求院区不存在、已停用、不属于可信医院时抛出。</exception>
+  private async Task<OrganizationPath> ResolveBranchLocalScopeAsync(OrganizationPath trustedPath, string? branchCode)
   {
-    // 院区为空的分支按可信医院全院收敛：解析目标只构造组织与医院两层，不读取也不校验院区层。
-    if (string.IsNullOrWhiteSpace(branchCode))
-    {
-      return (await organizationPathResolver.ResolveOrganizationHospitalOrThrow(
-        [new OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, null)],
-        "业务拒绝：组织不存在或已停用。",
-        "业务拒绝：医院不存在、已停用或不属于所选组织。"))[0];
-    }
+    // 院区为空的分支按可信医院全院收敛：可信范围已在入口解析完成，不再重复读取目录，也不附加院区层过滤。
+    if (string.IsNullOrWhiteSpace(branchCode)) return trustedPath;
 
+    // 院区编码不是标识：存在性、启用与父子归属由组织路径解析点按编码判定，实例标识随路径回填。
     return (await organizationPathResolver.ResolveOrThrow(
-      [new OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, branchCode)],
-      "业务拒绝：组织不存在或已停用。",
-      "业务拒绝：医院不存在、已停用或不属于所选组织。",
+      [new OrganizationPathTarget(trustedPath.OrganizationCode, trustedPath.HospitalCode, branchCode)],
+      "无法确定当前可信组织。",
+      "无法确定当前可信医院。",
       "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
   }
 
@@ -588,27 +580,27 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 解析本院入口的来源组可选筛选：提供方组织恒为可信组织，医院与院区取请求；
   /// 提供方院区为空时不进入院区层、只校验提供方医院属于可信组织，两层取值都为空时不做解析、不附加来源过滤。
   /// </summary>
-  /// <param name="trustedScope">当前请求的可信组织与可信医院。</param>
-  /// <param name="sourceHospitalCode">请求提交的提供方医院编码；可为空。</param>
-  /// <param name="sourceBranchCode">请求提交的提供方院区编码；可为空。</param>
+  /// <param name="trustedPath">已解析的可信组织与医院两层路径，提供方组织取其中的组织业务编码。</param>
+  /// <param name="sourceHospitalCode">请求提交的提供方医院业务编码；可为空。</param>
+  /// <param name="sourceBranchCode">请求提交的提供方院区业务编码；可为空。</param>
   /// <returns>已校验的提供方组织路径；来源筛选全空时为 <see langword="null"/>，未提供层的编码与名称为空串。</returns>
   /// <exception cref="InvalidOperationException">提供方医院或提供方院区不存在、已停用或不属于可信组织、可信医院时抛出。</exception>
-  private async Task<OrganizationPath?> ResolveBranchSourceScopeAsync(TrustedScope trustedScope, string? sourceHospitalCode, string? sourceBranchCode)
+  private async Task<OrganizationPath?> ResolveBranchSourceScopeAsync(OrganizationPath trustedPath, string? sourceHospitalCode, string? sourceBranchCode)
   {
     if (sourceHospitalCode is null && sourceBranchCode is null) return null;
 
-    // 提供方院区为空时不进入院区层：解析目标只构造组织与医院两层，提供方医院经可信组织校验存在、启用与父子归属。
+    // 提供方院区为空时只解析组织与医院两层，不进入院区层。
     if (string.IsNullOrWhiteSpace(sourceBranchCode))
     {
       return (await organizationPathResolver.ResolveOrganizationHospitalOrThrow(
-        [new OrganizationPathTarget(trustedScope.OrganizationCode, sourceHospitalCode, null)],
-        "业务拒绝：组织不存在或已停用。",
+        [new OrganizationPathTarget(trustedPath.OrganizationCode, sourceHospitalCode, null)],
+        "无法确定当前可信组织。",
         "业务拒绝：提供方医院不存在、已停用或不属于可信组织。"))[0];
     }
 
     return (await organizationPathResolver.ResolveOrThrow(
-      [new OrganizationPathTarget(trustedScope.OrganizationCode, sourceHospitalCode, sourceBranchCode)],
-      "业务拒绝：组织不存在或已停用。",
+      [new OrganizationPathTarget(trustedPath.OrganizationCode, sourceHospitalCode, sourceBranchCode)],
+      "无法确定当前可信组织。",
       "业务拒绝：提供方医院不存在、已停用或不属于可信组织。",
       "业务拒绝：提供方院区不存在、已停用或不属于可信医院。"))[0];
   }
@@ -617,27 +609,27 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 解析本院入口提供方查询的接收组可选筛选：使用方组织恒为可信组织，医院与院区取请求；
   /// 使用方院区为空时不进入院区层、只校验使用方医院属于可信组织，两层取值都为空时不做解析、不附加接收过滤。
   /// </summary>
-  /// <param name="trustedScope">当前请求的可信组织与可信医院。</param>
-  /// <param name="receiverHospitalCode">请求提交的使用方医院编码；可为空。</param>
-  /// <param name="receiverBranchCode">请求提交的使用方院区编码；可为空。</param>
+  /// <param name="trustedPath">已解析的可信组织与医院两层路径，使用方组织取其中的组织业务编码。</param>
+  /// <param name="receiverHospitalCode">请求提交的使用方医院业务编码；可为空。</param>
+  /// <param name="receiverBranchCode">请求提交的使用方院区业务编码；可为空。</param>
   /// <returns>已校验的使用方组织路径；接收筛选全空时为 <see langword="null"/>，未提供层的编码与名称为空串。</returns>
   /// <exception cref="InvalidOperationException">使用方医院或使用方院区不存在、已停用或不属于可信组织、可信医院时抛出。</exception>
-  private async Task<OrganizationPath?> ResolveBranchReceiverScopeAsync(TrustedScope trustedScope, string? receiverHospitalCode, string? receiverBranchCode)
+  private async Task<OrganizationPath?> ResolveBranchReceiverScopeAsync(OrganizationPath trustedPath, string? receiverHospitalCode, string? receiverBranchCode)
   {
     if (receiverHospitalCode is null && receiverBranchCode is null) return null;
 
-    // 使用方院区为空时不进入院区层：解析目标只构造组织与医院两层，使用方医院经可信组织校验存在、启用与父子归属。
+    // 使用方院区为空时只解析组织与医院两层，不进入院区层。
     if (string.IsNullOrWhiteSpace(receiverBranchCode))
     {
       return (await organizationPathResolver.ResolveOrganizationHospitalOrThrow(
-        [new OrganizationPathTarget(trustedScope.OrganizationCode, receiverHospitalCode, null)],
-        "业务拒绝：组织不存在或已停用。",
+        [new OrganizationPathTarget(trustedPath.OrganizationCode, receiverHospitalCode, null)],
+        "无法确定当前可信组织。",
         "业务拒绝：使用方医院不存在、已停用或不属于可信组织。"))[0];
     }
 
     return (await organizationPathResolver.ResolveOrThrow(
-      [new OrganizationPathTarget(trustedScope.OrganizationCode, receiverHospitalCode, receiverBranchCode)],
-      "业务拒绝：组织不存在或已停用。",
+      [new OrganizationPathTarget(trustedPath.OrganizationCode, receiverHospitalCode, receiverBranchCode)],
+      "无法确定当前可信组织。",
       "业务拒绝：使用方医院不存在、已停用或不属于可信组织。",
       "业务拒绝：使用方院区不存在、已停用或不属于可信医院。"))[0];
   }
@@ -679,7 +671,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <param name="filter">已解析的筛选条件与必填的日期边界、汇总维度。</param>
   /// <param name="window">已校验的分页窗口。</param>
   /// <returns>当页汇总分组行与分页信息。</returns>
-  /// <exception cref="InvalidOperationException">外部组织服务不可用或当页分组行的接收归属不成立时抛出。</exception>
+  /// <exception cref="InvalidOperationException">外部组织服务不可用，或当页分组行（不含歧义编码）的接收归属不成立时抛出。</exception>
   private async Task<PageResultDto<RecognitionUsageSummaryReadModel>> ReadUsageSummaryPageAsync(RecognitionUsageSummaryFilter filter, PageQueryWindow window)
   {
     // 先取分组行总数，再取当页分组行：计数与取页共用同一套筛选条件，分页作用于聚合后的分组行。
@@ -764,14 +756,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       GroupDimension = filter.GroupDimension
     };
   }
-
-  /// <summary>
-  /// 把一条原因行映射为不采纳原因汇总项，占比以行内不采纳次数为分母在行内计算。
-  /// </summary>
-  /// <param name="reason">仓储返回的原因行投影，原因代码已确认非空。</param>
-  /// <param name="rowNonAdoptionCount">所属分组行内的不采纳总次数，占比分母。</param>
-  /// <returns>不采纳原因汇总项。</returns>
-  private static NonAdoptionReasonSummaryReadModel MapReasonSummary(RecognitionUsageReasonItem reason, long rowNonAdoptionCount) => new()
+private static NonAdoptionReasonSummaryReadModel MapReasonSummary(RecognitionUsageReasonItem reason, long rowNonAdoptionCount) => new()
   {
     ReasonCode = ((int)reason.NonAdoptionReason!.Value).ToString(CultureInfo.InvariantCulture),
     ReasonName = ResolveEnumDescription(reason.NonAdoptionReason, RecognitionNonAdoptionReasonDescriptorList.List) ?? string.Empty,
@@ -805,7 +790,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
           await ResolveUsageDetailNamesAsync(
             rows,
             item => (item.ReceiverOrganizationCode, item.ReceiverHospitalCode, item.ReceiverBranchCode),
-            item => (item.SourceOrganizationCode, item.SourceHospitalCode, item.SourceBranchCode));
+            item => (item.SourceOrganizationCode ?? string.Empty, item.SourceHospitalCode ?? string.Empty, item.SourceBranchCode ?? string.Empty));
         return BuildUsageDetailPage(rows, totalCount, window, item => MapReminderDetail(item, names.ReceiverNames, names.SourceNames));
       }
 
@@ -818,7 +803,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
           await ResolveUsageDetailNamesAsync(
             rows,
             item => (item.ReceiverOrganizationCode, item.ReceiverHospitalCode, item.ReceiverBranchCode),
-            item => (item.SourceOrganizationCode, item.SourceHospitalCode, item.SourceBranchCode));
+            item => (item.SourceOrganizationCode ?? string.Empty, item.SourceHospitalCode ?? string.Empty, item.SourceBranchCode ?? string.Empty));
         return BuildUsageDetailPage(rows, totalCount, window, item => MapAdoptionDetail(item, names.ReceiverNames, names.SourceNames));
       }
 
@@ -831,7 +816,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
           await ResolveUsageDetailNamesAsync(
             rows,
             item => (item.ReceiverOrganizationCode, item.ReceiverHospitalCode, item.ReceiverBranchCode),
-            item => (item.SourceOrganizationCode, item.SourceHospitalCode, item.SourceBranchCode));
+            item => (item.SourceOrganizationCode ?? string.Empty, item.SourceHospitalCode ?? string.Empty, item.SourceBranchCode ?? string.Empty));
         return BuildUsageDetailPage(rows, totalCount, window, item => MapNonAdoptionDetail(item, names.ReceiverNames, names.SourceNames));
       }
 
@@ -844,7 +829,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
           await ResolveUsageDetailNamesAsync(
             rows,
             item => (item.ReceiverOrganizationCode, item.ReceiverHospitalCode, item.ReceiverBranchCode),
-            item => (item.SourceOrganizationCode, item.SourceHospitalCode, item.SourceBranchCode));
+            item => (item.SourceOrganizationCode ?? string.Empty, item.SourceHospitalCode ?? string.Empty, item.SourceBranchCode ?? string.Empty));
         return BuildUsageDetailPage(rows, totalCount, window, item => MapReferenceDetail(item, names.ReceiverNames, names.SourceNames));
       }
 
@@ -865,7 +850,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <param name="receiverKeyOf">从行投影取使用方三层编码的取值器。</param>
   /// <param name="sourceKeyOf">从行投影取提供方三层编码的取值器。</param>
   /// <returns>使用方与提供方两个方向的名称字典，键为去空白后的三层编码。</returns>
-  /// <exception cref="InvalidOperationException">任一行的归属不成立或外部组织服务不可用时抛出。</exception>
+  /// <exception cref="InvalidOperationException">任一行（不含歧义编码）的归属不成立或外部组织服务不可用时抛出。</exception>
   private async Task<(
     Dictionary<(string, string, string), OrganizationPath> ReceiverNames,
     Dictionary<(string, string, string), OrganizationPath> SourceNames)> ResolveUsageDetailNamesAsync<TRow>(
@@ -892,13 +877,15 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <remarks>
   /// 编码为空的组织键表示该行缺失归属事实（如未绑定报告的提供方），跳过解析；
   /// 院区编码为空的目标按组织与医院两层解析，有院区编码的目标按三层解析，两批各自批量读取。
+  /// 名称是展示字段：同一编码在 IAM 目录中命中多个节点时按「宁可留空也不猜」取名，不因歧义把整页打成失败；
+  /// 不含歧义编码的目标仍按归属校验的严格规则拒绝，因此写错的编码不会静默降级为空名称。
   /// </remarks>
   /// <param name="keys">当页行的三层编码集合，允许为空值。</param>
   /// <param name="missingOrganizationMessage">组织不存在或已停用时的业务拒绝文案。</param>
   /// <param name="missingHospitalMessage">医院不存在、已停用或不属于该组织时的业务拒绝文案。</param>
   /// <param name="missingBranchMessage">院区不存在、已停用或不属于该医院时的业务拒绝文案。</param>
-  /// <returns>按去空白三层编码索引的已校验路径字典；无有效编码时为空字典。</returns>
-  /// <exception cref="InvalidOperationException">任一有效编码的归属不成立或外部组织服务不可用时抛出。</exception>
+  /// <returns>按去空白三层编码索引的名称路径字典；无有效编码时为空字典。</returns>
+  /// <exception cref="InvalidOperationException">不含歧义编码的目标归属不成立或外部组织服务不可用时抛出。</exception>
   private async Task<Dictionary<(string, string, string), OrganizationPath>> ResolveStatisticsPageNamesAsync(
     IReadOnlyList<(string? OrganizationCode, string? HospitalCode, string? BranchCode)> keys,
     string missingOrganizationMessage,
@@ -926,7 +913,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     Dictionary<(string, string, string), OrganizationPath> paths = [];
     if (withBranch.Count > 0)
     {
-      IReadOnlyList<OrganizationPath> resolved = await organizationPathResolver.ResolveOrThrow(
+      IReadOnlyList<OrganizationPath> resolved = await organizationPathResolver.ResolveNamesOrThrow(
         [.. withBranch.Select(target => new OrganizationPathTarget(target.OrganizationCode, target.HospitalCode, target.BranchCode))],
         missingOrganizationMessage,
         missingHospitalMessage,
@@ -939,7 +926,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
 
     if (withoutBranch.Count > 0)
     {
-      IReadOnlyList<OrganizationPath> resolved = await organizationPathResolver.ResolveOrganizationHospitalOrThrow(
+      IReadOnlyList<OrganizationPath> resolved = await organizationPathResolver.ResolveOrganizationHospitalNamesOrThrow(
         [.. withoutBranch.Select(target => new OrganizationPathTarget(target.OrganizationCode, target.HospitalCode, null))],
         missingOrganizationMessage,
         missingHospitalMessage);
@@ -978,7 +965,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <param name="filter">已解析的筛选条件与必填的日期边界、汇总维度。</param>
   /// <param name="window">已校验的分页窗口。</param>
   /// <returns>当页汇总分组行与分页信息。</returns>
-  /// <exception cref="InvalidOperationException">外部组织服务不可用或当页分组行的来源归属不成立时抛出。</exception>
+  /// <exception cref="InvalidOperationException">外部组织服务不可用，或当页分组行（不含歧义编码）的来源归属不成立时抛出。</exception>
   private async Task<PageResultDto<SourceRecognitionSummaryReadModel>> ReadSourceSummaryPageAsync(SourceRecognitionSummaryFilter filter, PageQueryWindow window)
   {
     // 先取分组行总数，再取当页分组行：计数与取页共用同一套筛选条件，分页作用于聚合后的分组行。
@@ -1046,7 +1033,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <param name="filter">已解析的筛选条件与必填的日期边界。</param>
   /// <param name="window">已校验的分页窗口。</param>
   /// <returns>当页明细行与分页信息。</returns>
-  /// <exception cref="InvalidOperationException">外部组织服务不可用或当页行的归属不成立时抛出。</exception>
+  /// <exception cref="InvalidOperationException">外部组织服务不可用，或当页行（不含歧义编码）的归属不成立时抛出。</exception>
   private async Task<PageResultDto<SourceRecognitionDetailReadModel>> ReadSourceDetailPageAsync(SourceRecognitionDetailFilter filter, PageQueryWindow window)
   {
     long totalCount = await repository.CountSourceRecognitionDetailsAsync(filter);
@@ -1057,7 +1044,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       await ResolveUsageDetailNamesAsync(
         rows,
         item => (item.ReceiverOrganizationCode, item.ReceiverHospitalCode, item.ReceiverBranchCode),
-        item => (item.SourceOrganizationCode, item.SourceHospitalCode, item.SourceBranchCode));
+        item => (item.SourceOrganizationCode ?? string.Empty, item.SourceHospitalCode ?? string.Empty, item.SourceBranchCode ?? string.Empty));
 
     return new PageResultDto<SourceRecognitionDetailReadModel>
     {

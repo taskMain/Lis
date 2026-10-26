@@ -1,8 +1,8 @@
 /**
  * 「本院区互认项目金额」医院管理员页（宿主路径 `/subApps/medical-recognition/branch-recognition-amounts`）。
  *
- * 组织与医院取可信上下文并固定展示；院区恒取 `LoginUserManager.getBranchID()` 的登录院区，
- * 不提供院区选择，也不做清单核对、首项回退等解析。查询与保存请求的院区参数恒为该登录院区，
+ * 组织与医院取可信上下文并固定展示；院区恒取可信范围的院区业务编码，
+ * 不提供院区选择，也不做清单核对、首项回退等解析。查询与保存请求的院区参数恒为该登录院区的业务编码，
  * 可信院区缺失属权限配置错误：页面不兜底、不本地补默认院区，适配层拒绝构造请求即零业务请求，
  * 页面以空态呈现，恢复正确的权限配置后按登录院区重读。
  * 查询只携带院区与可选关键字，保存载荷只含院区、标准项目编码与金额（组织与医院由服务端从可信上下文
@@ -16,13 +16,13 @@
  * 按既有写门控禁用。页面不实现角色判断、不做权限二次确认，也不下推枚举筛选。
  */
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { useAuth } from '@dy/auth-react'
-import { LoginUserManager } from '@dy/auth'
 import { CurrentScopeBar } from '../../components/CurrentScopeBar'
+import { useResolvedTrustedScope } from '../../components/currentOrganizationScope'
 import { ScopeUnavailablePanel } from '../../components/ScopeUnavailablePanel'
 import { useApiClientContext } from '../../contexts/ApiClientContext'
 import { saveExportWorkbook } from '../../shared/exportFileDownload'
-import { readTrustedHospitalCode } from '../reportManagement/reportsTrustedScope'
+import { useHostSessionSnapshot } from '../../session/hostSession'
+import { readTrustedBranchCode, readTrustedHospitalCode } from '../reportManagement/reportsTrustedScope'
 import { readTrustedOrganizationCode } from '../recognitionProjects/recognitionProjectsOrganizationScope'
 import {
   buildBranchAmountListQuery,
@@ -37,7 +37,7 @@ import {
 import { RecognitionAmountListView, RecognitionAmountsHeader, type RecognitionAmountsScope } from './RecognitionAmountListView'
 import './RecognitionAmounts.css'
 
-/** 可信编码判定：缺失或纯空白一律视为不可用，不伪造、不静默使用空串。 */
+/** 可信业务编码判定：缺失或纯空白一律视为不可用，不伪造、不静默使用空串、不回落实例标识。 */
 function readTrustedCode(value: string | null): string | null {
   const text = (value ?? '').trim()
   return text.length > 0 ? text : null
@@ -50,18 +50,19 @@ interface TrustedBranchScope {
 }
 
 /**
- * 「可信当前范围」的唯一接缝：组织、医院、院区都取自 `@dy/auth` 的 `LoginUserManager`，
- * token 变化即重新求值（与既有的可信组织接缝同一口径）。页面不持有可选组织集合、不提供自由输入，
- * 也不从 URL、Storage、表单或列表构造范围。
+ * 「可信当前范围」的唯一接缝：组织、医院、院区三层都取 IAM 组织业务编码，
+ * 会话变化即重新求值（与票 07 的可信范围接缝同一口径）。页面不持有可选组织集合、不提供自由输入，
+ * 也不从 URL、Storage、表单或列表构造范围；业务编码为空即该层不可用，不回落实例标识。
  */
 function useTrustedBranchScope(): TrustedBranchScope {
-  const { token } = useAuth()
-  // token 缺失时凭据不表达可信组织与医院，直接判为不可用。
-  if (!token) return { organizationCode: null, hospitalCode: null, branchCode: null }
+  const client = useApiClientContext()
+  const session = useHostSessionSnapshot()
+  const resolved = useResolvedTrustedScope(client, session)
+  if (resolved.status !== 'ready') return { organizationCode: null, hospitalCode: null, branchCode: null }
   return {
-    organizationCode: readTrustedCode(LoginUserManager.getOrgID()),
-    hospitalCode: readTrustedCode(LoginUserManager.getHosID()),
-    branchCode: readTrustedCode(LoginUserManager.getBranchID()),
+    organizationCode: readTrustedCode(resolved.organizationCode),
+    hospitalCode: readTrustedCode(resolved.hospitalCode),
+    branchCode: readTrustedCode(resolved.branchCode),
   }
 }
 
@@ -70,8 +71,8 @@ function useTrustedBranchScope(): TrustedBranchScope {
 const TRUSTED_SCOPE_UNREADABLE_REASON = '读取不到完整可信范围，本次不提交写入；请放弃未保存内容并切换到新可信范围。'
 
 /**
- * 医院管理员页：组织与医院固定来自可信上下文；院区恒取登录院区，不提供院区选择，
- * 查询与保存只携带登录院区与可选关键字。
+ * 医院管理员页：组织与医院固定来自可信上下文；院区恒取登录院区的业务编码，不提供院区选择，
+ * 查询与保存只携带登录院区业务编码与可选关键字。
  *
  * 院区不兜底、不本地补默认值：可信院区缺失属权限配置错误，适配层拒绝构造请求即零业务请求，
  * 页面以空态呈现，恢复正确的权限配置后按登录院区重读。可信组织或医院缺失时整页阻断，恢复后按
@@ -113,7 +114,7 @@ export function BranchRecognitionAmounts() {
 
   /**
    * 写前复核（C34）：在构造载荷之前现读——现读走命令式出口（组织、医院两层），不经渲染期闭包：
-   * 宿主重新签发 token 之后、页面重渲染之前回车提交，渲染期取值可能仍是旧可信范围，只有现读才
+   * 宿主切换工作身份之后、页面重渲染之前回车提交，渲染期取值可能仍是旧可信范围，只有现读才
    * 兜得住。有一层读不到即零写请求，原因经共用列表视图以 message.error 就近提示。
    */
   const preSubmitBlockReason = useCallback(() => {
@@ -141,7 +142,7 @@ export function BranchRecognitionAmounts() {
   /**
    * 发起本院区金额导出。请求体只有登录院区与已生效关键字（组织与医院由服务端从可信上下文解析，
    * 页面不提交；配置状态页签与金额状态档位不参与，导出与档位解耦）：点击时刻**现读**登录院区
-   * （命令式出口，不经渲染期闭包——与写前复核同一手法，兜住宿主重签 token 到页面重渲染之间的
+   * （命令式出口，不经渲染期闭包——与写前复核同一手法，兜住宿主切换工作身份到页面重渲染之间的
    * 窗口），并要求它与已应用（正在驱动列表读取）的登录院区一致，不一致即整段放弃、零请求。
    * 登录院区缺失不构造导出请求（共用组件的门控已随空态禁用按钮，这里兜住残余路径）。
    * 取得字节后经共享下载模块触发保存，下载名按**发起时刻**由前端给定（在请求发出之前构造）；
@@ -152,7 +153,7 @@ export function BranchRecognitionAmounts() {
     if (exportingRef.current) return
     const applied = appliedScope
     if (applied === null) return
-    if (readTrustedCode(LoginUserManager.getBranchID()) !== applied.query.branchCode) return
+    if (readTrustedBranchCode() !== applied.query.branchCode) return
     const payload = buildBranchRecognitionAmountExportPayload({ branchCode: applied.query.branchCode }, keywordApplied)
     if (payload === null) return
     exportingRef.current = true

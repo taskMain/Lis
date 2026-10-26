@@ -566,7 +566,8 @@ public sealed class Stage2EnumContractTests
   /// </summary>
   /// <remarks>
   /// 路径按**完整集合相等**断言（不是计数 + 几个 Contains），失败信息自带差异；
-  /// 下面的清单是**阶段 6 交付后**真实后端输出 + 归一的快照，**新增或删除端点时必须同步本清单与生成入口**。
+  /// 下面的清单是**T02 迁移到 IAM 认证后**真实后端输出 + 归一的快照（不含已排除的登录端点），
+  /// **新增或删除端点时必须同步本清单与生成入口**。
   /// </remarks>
   [Fact]
   public void Frozen_openapi_keeps_the_expected_path_set_and_no_unnormalized_shapes()
@@ -629,6 +630,11 @@ public sealed class Stage2EnumContractTests
       "/Api/MedicalRecognitionReportQuery/QuerySourceRecognitionDetails",
       "/Api/MedicalRecognitionReportQuery/QuerySourceRecognitionSummary",
       "/Api/MedicalRecognitionReportQuery/QueryTrustedOrganizationScope",
+      "/Api/OrganizationScopeQuery/QueryCurrentOrganizationScope",
+      "/Api/OrganizationScopeQuery/QueryOrganizationScopeOptions",
+      "/api/v1/current-session",
+      "/api/v1/platform-parameters",
+      "/api/v1/platform-parameters/{parameterCode}",
       "/api/v1/recognition-export/branch-recognition-amounts",
       "/api/v1/recognition-export/recognition-amounts",
       "/api/v1/recognition-export/recognition-projects",
@@ -636,8 +642,7 @@ public sealed class Stage2EnumContractTests
       "/api/v1/report-pdf/laboratory-report",
       "/api/v1/report-pdf/{reportId}/versions/{reportVersionId}/pdf",
       "/api/v1/statistics-export/branch",
-      "/api/v1/statistics-export/platform",
-      "/auth/login"
+      "/api/v1/statistics-export/platform"
     ];
     string[] paths = document["paths"]!.AsObject().Select(property => property.Key).Order(StringComparer.Ordinal).ToArray();
     Assert.Equal(expectedPaths, paths);

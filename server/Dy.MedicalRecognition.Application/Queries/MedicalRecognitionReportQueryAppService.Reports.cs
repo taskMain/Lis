@@ -1,3 +1,4 @@
+using Dy.MedicalRecognition.Application.OrganizationScope;
 using Dy.MedicalRecognition.Application.Contracts.Queries.Pagination;
 using Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
@@ -33,11 +34,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     OrganizationPath? requestedPath = null;
     if (HasAnyScope(request.OrganizationCode, request.HospitalCode, request.BranchCode))
     {
-      requestedPath = (await organizationPathResolver.ResolveOrThrow(
-        [new OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode)],
+      requestedPath = (await ResolveSubmittedPlatformPathAsync(new OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode),
         "业务拒绝：组织不存在或已停用。",
         "业务拒绝：医院不存在、已停用或不属于所选组织。",
-        "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
+        "业务拒绝：院区不存在、已停用或不属于所选医院。"));
     }
 
     PageQueryWindow window = PageQueryWindow.Create(request.Page.PageIndex, request.Page.PageSize);
@@ -54,7 +54,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     };
 
     PageSlice<MedicalReportListItem> slice = await ReadReportPageAsync(filter, window);
-    return await MapReportPageAsync(slice, window);
+    return await MapReportPageAsync(slice, window, requestedPath);
   }
 
   /// <summary>
@@ -68,15 +68,17 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   public async Task<PageResultDto<MedicalReportListReadModel>> QueryBranchMedicalReportListAsync(BranchReportListQueryRequest request)
   {
     // 可信组织与医院的解析先于公共请求校验：可信范围不成立时不需要、也不得读取任何业务数据。
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
+    IamOrganizationScope trustedScope = await reportScopeResolver.ReadRequiredOrganizationHospitalAsync(
+      "无法确定当前可信组织。", "无法确定当前可信医院。");
     MedicalRecognitionRequestValidator.Validate(request);
 
-    // 组织与医院取自可信上下文并覆盖同名请求字段；院区取请求且必须属于可信医院。
+    // 请求院区是业务编码：与本可信医院的两层编码一起交给组织路径解析点，按 IAM 目录校验存在、启用与归属。
+    string organizationCode = trustedScope.OrganizationCode ?? throw new InvalidOperationException("无法确定当前可信组织。");
+    string hospitalCode = trustedScope.HospitalCode ?? throw new InvalidOperationException("无法确定当前可信医院。");
     OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
-      [new OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, request.BranchCode)],
-      "业务拒绝：组织不存在或已停用。",
-      "业务拒绝：医院不存在、已停用或不属于所选组织。",
+      [new OrganizationPathTarget(organizationCode, hospitalCode, request.BranchCode)],
+      "无法确定当前可信组织。",
+      "无法确定当前可信医院。",
       "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
 
     PageQueryWindow window = PageQueryWindow.Create(request.Page.PageIndex, request.Page.PageSize);
@@ -107,7 +109,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   public async Task<IReadOnlyList<MedicalReportVersionListReadModel>> QueryMedicalReportVersionListAsync(MedicalReportVersionListQueryRequest request)
   {
     MedicalRecognitionRequestValidator.Validate(request);
-    await EnsureReportInTrustedScopeAsync(request.ReportId);
+    OrganizationPath trustedPath = await EnsureReportInTrustedScopeAsync(request.ReportId);
 
     List<MedicalReportVersionListReadModel> versions = [];
     foreach (MedicalReportVersionItem item in await repository.QueryMedicalReportVersionListAsync(request.ReportId))
@@ -120,6 +122,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       versions.Add(new MedicalReportVersionListReadModel
       {
         ReportVersionId = item.ReportVersionId,
+        OrganizationName = trustedPath.OrganizationName,
+        HospitalName = trustedPath.HospitalName,
+        BranchName = trustedPath.BranchName,
         VersionSequence = item.VersionSequence,
         SourceModifiedTime = item.SourceModifiedTime == default ? null : item.SourceModifiedTime,
         PlatformReceivedTime = item.PlatformReceivedTime,
@@ -150,7 +155,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   public async Task<MedicalReportVersionDetailQueryReadModel> QueryMedicalReportVersionDetailAsync(MedicalReportVersionDetailQueryRequest request)
   {
     MedicalRecognitionRequestValidator.Validate(request);
-    await EnsureReportInTrustedScopeAsync(request.ReportId);
+    OrganizationPath trustedPath = await EnsureReportInTrustedScopeAsync(request.ReportId);
 
     MedicalReportVersionDetailItem detail = await repository.GetMedicalReportVersionDetailAsync(request.ReportId, request.ReportVersionId)
       ?? throw new InvalidOperationException("业务拒绝：报告版本不存在或不属于该报告。");
@@ -172,6 +177,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ReportType = detail.ReportType,
       ReportNo = detail.ReportNo,
       ReportVersionId = detail.ReportVersionId,
+      OrganizationName = trustedPath.OrganizationName,
+      HospitalName = trustedPath.HospitalName,
+      BranchName = trustedPath.BranchName,
       VersionSequence = detail.VersionSequence,
       SourceModifiedTime = detail.SourceModifiedTime == default ? null : detail.SourceModifiedTime,
       PlatformReceivedTime = detail.PlatformReceivedTime,
@@ -182,7 +190,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       ExaminerName = detail.ReportType == MedicalReportType.Examination ? await ReadExaminationDoctorNameAsync(detail.ReportVersionId) : null,
       SourceReportRemark = NullIfBlank(detail.SourceReportRemark),
       Content = content,
-      File = new MedicalReportVersionFileReadModel { FileName = detail.PdfFileName }
+      File = new MedicalReportVersionFileReadModel { FileName = detail.PdfFileName, OrganizationName = trustedPath.OrganizationName, HospitalName = trustedPath.HospitalName, BranchName = trustedPath.BranchName }
     };
   }
 
@@ -195,9 +203,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 范围校验按报告来源归属独立读取一次，不依赖版本或文件信息。
   /// </remarks>
   /// <param name="reportId">报告标识。</param>
-  /// <returns>报告在可信范围内时完成的异步操作。</returns>
+  /// <returns>报告在可信范围内时返回本次已解析的可信组织路径。</returns>
   /// <exception cref="InvalidOperationException">可信归属不可解析，或报告不存在、越出可信范围时抛出。</exception>
-  private async Task EnsureReportInTrustedScopeAsync(Guid reportId)
+  private async Task<OrganizationPath> EnsureReportInTrustedScopeAsync(Guid reportId)
   {
     (OrganizationPath path, DateTime _) = await ResolveTrustedReportScopeAsync();
     MedicalReportScopeItem scope = await repository.GetMedicalReportScopeAsync(reportId)
@@ -207,27 +215,22 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       && string.Equals(scope.HospitalCode, path.HospitalCode, StringComparison.Ordinal)
       && string.Equals(scope.BranchCode, path.BranchCode, StringComparison.Ordinal);
     if (!inTrustedScope) throw new InvalidOperationException("业务拒绝：报告不在当前可信组织、医院与院区范围内。");
+
+    return path;
   }
 
   /// <summary>
   /// 解析报告管理端的可信三层归属。
   /// </summary>
   /// <remarks>
-  /// 组织、医院与院区三层都来自可信上下文：登录令牌该层非空白即取令牌值，令牌缺失该层时用当前登录用户档案的归属补齐，
-  /// 令牌与档案冲突或补齐后仍为空即拒绝；院区不从请求取值，因此调用方不能扩大可信范围。
+  /// 组织、医院与院区三层都来自可信上下文：组织层只取 IAM 上下文的组织标识，医院层与院区层由该组织沿组织祖先链
+  /// 按组织类型编码归类得到，该层缺失或同一类型出现多个祖先即拒绝；院区不从请求取值，因此调用方不能扩大可信范围。
   /// </remarks>
   /// <returns>三层可信归属与本次请求的接收时间。</returns>
   /// <exception cref="InvalidOperationException">可信组织、医院或院区不可解析时抛出。</exception>
   private async Task<(OrganizationPath Path, DateTime ReceivedTime)> ResolveTrustedReportScopeAsync()
   {
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveWithBranchOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。", "无法确定当前可信院区。");
-
-    OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
-      [new OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, trustedScope.BranchCode)],
-      "业务拒绝：组织不存在或已停用。",
-      "业务拒绝：医院不存在、已停用或不属于所选组织。",
-      "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
+    OrganizationPath path = await ResolveTrustedBranchPathAsync();
     return (path, DateTime.Now);
   }
 
@@ -250,11 +253,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <param name="slice">当页数据与总数。</param>
   /// <param name="window">已校验的分页窗口。</param>
   /// <returns>当页报告与分页信息。</returns>
-  /// <exception cref="InvalidOperationException">外部组织服务不可用或当页归属不成立时抛出；不降级为编码或空名称。</exception>
-  private async Task<PageResultDto<MedicalReportListReadModel>> MapReportPageAsync(PageSlice<MedicalReportListItem> slice, PageQueryWindow window)
+  /// <exception cref="InvalidOperationException">外部组织服务不可用，或当页不含歧义编码的行归属不成立时抛出；不降级为编码文本。</exception>
+  private async Task<PageResultDto<MedicalReportListReadModel>> MapReportPageAsync(PageSlice<MedicalReportListItem> slice, PageQueryWindow window, OrganizationPath? requestedPath = null)
   {
     Dictionary<(string OrganizationCode, string HospitalCode, string BranchCode), OrganizationPath> paths =
-      await ResolvePagePathsAsync(slice.Items);
+      await ResolvePagePathsAsync(slice.Items, requestedPath);
 
     return new PageResultDto<MedicalReportListReadModel>
     {
@@ -292,15 +295,27 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <remarks>
   /// 组织全量读取一次，每个不同组织读取一次医院，每家不同医院读取一次院区，
   /// 因此调用次数只随当页涉及的组织与医院数量增长，不随返回行数增长；当页为空时不读取外部服务。
+  /// 名称是展示字段：同一编码在 IAM 目录中命中多个节点时按「宁可留空也不猜」取名，不因歧义把整页打成失败；
+  /// 不含歧义编码的行仍按归属校验的严格规则拒绝，因此写错的编码不会静默降级为空名称。
   /// </remarks>
   /// <param name="items">当页报告行。</param>
-  /// <returns>按三层编码索引的已校验路径。</returns>
-  /// <exception cref="InvalidOperationException">任一行的归属不成立或外部组织服务不可用时抛出。</exception>
+  /// <returns>按三层编码索引的名称路径。</returns>
+  /// <exception cref="InvalidOperationException">不含歧义编码的行归属不成立或外部组织服务不可用时抛出。</exception>
   private async Task<Dictionary<(string OrganizationCode, string HospitalCode, string BranchCode), OrganizationPath>> ResolvePagePathsAsync(
-    IReadOnlyList<MedicalReportListItem> items)
+    IReadOnlyList<MedicalReportListItem> items, OrganizationPath? requestedPath = null)
   {
     Dictionary<(string, string, string), OrganizationPath> paths = [];
     if (items.Count == 0) return paths;
+
+    // 平台入口已按请求校验出唯一三层路径时，当页所有行都属于该路径，直接复用已解析名称，不再读外部组织服务。
+    if (requestedPath is not null)
+    {
+      foreach (MedicalReportListItem item in items)
+      {
+        paths[(item.OrganizationCode, item.HospitalCode, item.BranchCode)] = requestedPath;
+      }
+      return paths;
+    }
 
     IReadOnlyList<OrganizationPathTarget> targets =
     [
@@ -308,7 +323,16 @@ public sealed partial class MedicalRecognitionReportQueryAppService
         .Select(item => new OrganizationPathTarget(item.OrganizationCode, item.HospitalCode, item.BranchCode))
         .Distinct()
     ];
-    IReadOnlyList<OrganizationPath> resolved = await organizationPathResolver.ResolveOrThrow(
+    if (requestedPath is not null)
+    {
+      foreach (MedicalReportListItem item in items)
+      {
+        paths[(item.OrganizationCode, item.HospitalCode, item.BranchCode)] = requestedPath;
+      }
+      return paths;
+    }
+
+    IReadOnlyList<OrganizationPath> resolved = await organizationPathResolver.ResolveNamesOrThrow(
       targets,
       "业务拒绝：报告提供方组织不存在或已停用。",
       "业务拒绝：报告提供方医院不存在、已停用或不属于该组织。",

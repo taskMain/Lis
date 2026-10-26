@@ -43,24 +43,12 @@ importers:
       '@ant-design/icons':
         specifier: ^6.2.3
         version: 6.3.4(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@dy/api-client-base':
-        specifier: 0.1.39
-        version: 0.1.39(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
       '@dy/api-client-medical-recognition':
         specifier: workspace:*
         version: link:../../packages/api-client-medical-recognition
-      '@dy/auth':
-        specifier: ^0.1.39
-        version: 0.1.39(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
-      '@dy/auth-react':
-        specifier: ^0.1.39
-        version: 0.1.39(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-router-dom@7.18.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
-      '@dy/components-base':
-        specifier: 0.1.4
-        version: 0.1.4(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@dy/micro-sdk':
-        specifier: ^0.1.39
-        version: 0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^0.1.46
+        version: 0.1.46(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       antd:
         specifier: ^6.4.3
         version: 6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -113,9 +101,9 @@ importers:
 
   packages/api-client-medical-recognition:
     dependencies:
-      '@dy/auth':
-        specifier: ^0.1.39
-        version: 0.1.39(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
+      '@dy/micro-sdk':
+        specifier: ^0.1.46
+        version: 0.1.46(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@microsoft/kiota-abstractions':
         specifier: 1.0.0-preview.103
         version: 1.0.0-preview.103
@@ -304,34 +292,8 @@ packages:
     resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
     engines: {node: '>=20.19.0'}
 
-  '@dy/api-client-base@0.1.39':
-    resolution: {integrity: sha512-q1B1FFm6zuYTWDvkf5e0VgDfcaAa1ax2jodwsh+CNE9uRTwkgag7r+pxtldloW9B7Tp0n2561P6FL3rMkTQJ/A==}
-
-  '@dy/auth-react@0.1.39':
-    resolution: {integrity: sha512-0UthC+Me9nYAVoKGVeI3wq4imuZxjRBrwO9BxcU67xMUosvV9HpfB1+rsbjD2JedP1Ugluz+yy0CLdw3m6D9qg==}
-    peerDependencies:
-      '@dy/micro-sdk': ^0.1.39
-      react: ^19.0.0
-      react-router-dom: ^7.0.0
-
-  '@dy/auth@0.1.39':
-    resolution: {integrity: sha512-3H3lgusDji4lp/vvpfPWZPU/NniwtsxjDKa4XkJYmEAeUo+qNMod5scy5OLTy9pphHvBnsne/3BQyafO0afJXw==}
-
-  '@dy/components-base@0.1.4':
-    resolution: {integrity: sha512-oa1Vt/PtUyZKs6M9rMa6AZ2rxl4uCG40R21OKw+90VaSYmiZls3neLG7wwJ5SVmGoKWVeXjh0E2vX5utaapk9Q==}
-    peerDependencies:
-      '@dy/micro-sdk': ^0.1.11
-      antd: ^6.3.7
-      react: ^19.2.5
-      react-dom: ^19.2.5
-
-  '@dy/kiota-middleware@0.1.39':
-    resolution: {integrity: sha512-ue3Cv75L0SkWYu8SeHMgP8a9mLd454TMAPf0uHl1ELjXZsAG9/f4XquwNdA9tzEt1zxFTe4Ob5uTRwVkOX40Xg==}
-    peerDependencies:
-      '@dy/micro-sdk': 0.1.39
-
-  '@dy/micro-sdk@0.1.39':
-    resolution: {integrity: sha512-7o1LL28UbEI55gE2EW7GakXq0/V2PDi4sKGczPIgoUanA7LYq23aXFqpLHVWbrMpb9YKV5wLG0pGa6qJFY+oHw==}
+  '@dy/micro-sdk@0.1.46':
+    resolution: {integrity: sha512-rfPACxbBNB7xpGp16+9hJzYqgTIU8Pks/ntXiHpvzbQW/2ot+mNUcwHnZCVQABbYEM+rYe96rMHetM+c38U0rQ==}
     peerDependencies:
       '@micro-zoe/micro-app': '>=1.0.0-rc.0'
       antd: '>=6.0.0'
@@ -2564,48 +2526,7 @@ snapshots:
 
   '@csstools/css-tokenizer@4.0.0': {}
 
-  '@dy/api-client-base@0.1.39(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))':
-    dependencies:
-      '@dy/auth': 0.1.39(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
-      '@microsoft/kiota-abstractions': 1.0.0-preview.103
-      '@microsoft/kiota-http-fetchlibrary': 1.0.0-preview.103
-      '@microsoft/kiota-serialization-form': 1.0.0-preview.103
-      '@microsoft/kiota-serialization-json': 1.0.0-preview.103
-      '@microsoft/kiota-serialization-multipart': 1.0.0-preview.103
-      '@microsoft/kiota-serialization-text': 1.0.0-preview.103
-    transitivePeerDependencies:
-      - '@dy/micro-sdk'
-
-  '@dy/auth-react@0.1.39(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-router-dom@7.18.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)':
-    dependencies:
-      '@dy/auth': 0.1.39(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
-      '@dy/micro-sdk': 0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      react: 19.3.0
-      react-router-dom: 7.18.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-
-  '@dy/auth@0.1.39(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))':
-    dependencies:
-      '@dy/kiota-middleware': 0.1.39(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
-      '@microsoft/kiota-abstractions': 1.0.0-preview.103
-      '@microsoft/kiota-http-fetchlibrary': 1.0.0-preview.103
-    transitivePeerDependencies:
-      - '@dy/micro-sdk'
-
-  '@dy/components-base@0.1.4(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
-    dependencies:
-      '@dy/api-client-base': 0.1.39(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))
-      '@dy/micro-sdk': 0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      antd: 6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      react: 19.3.0
-      react-dom: 19.3.0(react@19.3.0)
-
-  '@dy/kiota-middleware@0.1.39(@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0))':
-    dependencies:
-      '@dy/micro-sdk': 0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@microsoft/kiota-abstractions': 1.0.0-preview.103
-      '@microsoft/kiota-http-fetchlibrary': 1.0.0-preview.103
-
-  '@dy/micro-sdk@0.1.39(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@dy/micro-sdk@0.1.46(@micro-zoe/micro-app@1.0.0-rc.32)(antd@6.6.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@micro-zoe/micro-app': 1.0.0-rc.32
       '@microsoft/kiota-abstractions': 1.0.0-preview.103

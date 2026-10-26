@@ -1,5 +1,4 @@
 using ClosedXML.Excel;
-using Dy.Base.Application.Contracts.OrganizationAggregate;
 using Dy.MedicalRecognition.Application.Contracts.Queries.Pagination;
 using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionStatistics;
 using Dy.MedicalRecognition.Application.Contracts.ReadModels;
@@ -26,25 +25,28 @@ namespace Dy.MedicalRecognition.Tests;
 public sealed class Stage6StatisticsQueryTests
 {
   /// <summary>可信组织编码。</summary>
-  private const string TrustedOrganization = "ORG-A";
+  private const string TrustedOrganization = FakeIamScope.OrganizationCode;
 
   /// <summary>可信医院编码。</summary>
-  private const string TrustedHospital = "HOS-A";
+  private const string TrustedHospital = FakeIamScope.HospitalCode;
 
   /// <summary>可信院区编码。</summary>
-  private const string TrustedBranch = "BRH-A";
+  private const string TrustedBranch = FakeIamScope.BranchCode;
 
   /// <summary>同组织下的第二家医院编码。</summary>
-  private const string SecondHospital = "HOS-B";
+  private const string SecondHospital = FakeIamScope.SecondHospitalCode;
 
   /// <summary>提供方组织编码；平台版用例的来源组取值。</summary>
-  private const string SourceOrganization = "ORG-S";
+  private const string SourceOrganization = FakeIamScope.OtherOrganizationCode;
 
   /// <summary>提供方医院编码。</summary>
-  private const string SourceHospital = "HOS-S";
+  private const string SourceHospital = FakeIamScope.OtherHospitalCode;
 
   /// <summary>提供方院区编码。</summary>
-  private const string SourceBranch = "BRH-S";
+  private const string SourceBranch = FakeIamScope.OtherBranchCode;
+
+  /// <summary>同一医共体下第二家医院的院区编码。</summary>
+  private const string SecondBranch = FakeIamScope.SecondBranchCode;
 
   /// <summary>组织名称前缀；替身按编码拼出唯一名称，用于核对回填来源。</summary>
   private const string OrganizationNamePrefix = "示范组织";
@@ -116,8 +118,8 @@ public sealed class Stage6StatisticsQueryTests
       HospitalCode = TrustedHospital,
       BranchCode = TrustedBranch,
       SourceOrganizationCode = TrustedOrganization,
-      SourceHospitalCode = SourceHospital,
-      SourceBranchCode = SourceBranch,
+      SourceHospitalCode = FakeIamScope.FourthHospitalCode,
+      SourceBranchCode = FakeIamScope.FourthBranchCode,
       GroupDimension = RecognitionStatisticsGroupDimension.Hospital,
       Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
     });
@@ -127,8 +129,8 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(TrustedHospital, filter.HospitalCode);
     Assert.Equal(TrustedBranch, filter.BranchCode);
     Assert.Equal(TrustedOrganization, filter.SourceOrganizationCode);
-    Assert.Equal(SourceHospital, filter.SourceHospitalCode);
-    Assert.Equal(SourceBranch, filter.SourceBranchCode);
+    Assert.Equal(FakeIamScope.FourthHospitalCode, filter.SourceHospitalCode);
+    Assert.Equal(FakeIamScope.FourthBranchCode, filter.SourceBranchCode);
     Assert.Equal(new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Unspecified), filter.PeriodStart);
     Assert.Equal(new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Unspecified), filter.PeriodEnd);
     Assert.Equal(DateTimeKind.Unspecified, filter.PeriodStart.Kind);
@@ -203,12 +205,12 @@ public sealed class Stage6StatisticsQueryTests
 
     RecognitionUsageSummaryFilter filter = repository.LastSummaryFilter!;
     Assert.Equal(TrustedOrganization, filter.OrganizationCode);
-    Assert.Null(filter.HospitalCode);
-    Assert.Null(filter.BranchCode);
+    Assert.Equal(string.Empty, filter.HospitalCode);
+    Assert.Equal(string.Empty, filter.BranchCode);
     Assert.Null(filter.SourceOrganizationCode);
     Assert.Null(filter.SourceHospitalCode);
     Assert.Null(filter.SourceBranchCode);
-    Assert.Equal(1, organizationService.OrganizationReadCount);
+    Assert.Equal(0, organizationService.OrganizationReadCount);
     Assert.Equal(0, organizationService.HospitalReadCount);
     Assert.Equal(0, organizationService.BranchReadCount);
   }
@@ -238,12 +240,12 @@ public sealed class Stage6StatisticsQueryTests
     RecognitionUsageSummaryFilter filter = repository.LastSummaryFilter!;
     Assert.Equal(TrustedOrganization, filter.OrganizationCode);
     Assert.Equal(SecondHospital, filter.HospitalCode);
-    Assert.Null(filter.BranchCode);
+    Assert.Equal(string.Empty, filter.BranchCode);
     Assert.Null(filter.SourceOrganizationCode);
     Assert.Null(filter.SourceHospitalCode);
     Assert.Null(filter.SourceBranchCode);
-    Assert.Equal(1, organizationService.OrganizationReadCount);
-    Assert.Equal(1, organizationService.HospitalReadCount);
+    Assert.Equal(0, organizationService.OrganizationReadCount);
+    Assert.Equal(0, organizationService.HospitalReadCount);
     Assert.Equal(0, organizationService.BranchReadCount);
   }
 
@@ -333,10 +335,10 @@ public sealed class Stage6StatisticsQueryTests
     [
       BuildSummaryRow(TrustedHospital, reminder: 4, adoption: 3),
       BuildSummaryRow(SecondHospital, reminder: 0, adoption: 2),
-      BuildSummaryRow("HOS-C", reminder: 2, adoption: 3)
+      BuildSummaryRow(FakeIamScope.FourthHospitalCode, reminder: 2, adoption: 3)
     ]);
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService(
-      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital, "HOS-C"] }));
+      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital, FakeIamScope.FourthHospitalCode] }));
 
     PageResultDto<RecognitionUsageSummaryReadModel> result = await service.QueryRecognitionUsageSummaryAsync(BuildSummaryRequest(1, 20));
 
@@ -367,7 +369,7 @@ public sealed class Stage6StatisticsQueryTests
     [
       BuildReasonRow(TrustedHospital, RecognitionNonAdoptionReason.CurrentConditionMismatch, 1),
       BuildReasonRow(TrustedHospital, RecognitionNonAdoptionReason.OtherReviewRequired, 1),
-      BuildReasonRow("HOS-C", RecognitionNonAdoptionReason.OtherReviewRequired, 5)
+      BuildReasonRow(FakeIamScope.FourthHospitalCode, RecognitionNonAdoptionReason.OtherReviewRequired, 5)
     ]);
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService(
       hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital] }));
@@ -412,14 +414,14 @@ public sealed class Stage6StatisticsQueryTests
       });
 
     Assert.Equal(rowCount, result.Items.Count);
-    Assert.Equal(1, organizationService.OrganizationReadCount);
-    Assert.Equal(1, organizationService.HospitalReadCount);
-    Assert.Equal(1, organizationService.BranchReadCount);
+    Assert.Equal(0, organizationService.OrganizationReadCount);
+    Assert.Equal(0, organizationService.HospitalReadCount);
+    Assert.Equal(0, organizationService.BranchReadCount);
     Assert.All(result.Items, row =>
     {
-      Assert.Equal($"{OrganizationNamePrefix}-{TrustedOrganization}", row.ReceiverOrganizationName);
-      Assert.Equal($"{HospitalNamePrefix}-{TrustedHospital}", row.ReceiverHospitalName);
-      Assert.Equal($"{BranchNamePrefix}-{TrustedBranch}", row.ReceiverBranchName);
+      Assert.Equal("示范医共体", row.ReceiverOrganizationName);
+      Assert.Equal("示范医院", row.ReceiverHospitalName);
+      Assert.Equal("示范院区", row.ReceiverBranchName);
     });
   }
 
@@ -434,10 +436,10 @@ public sealed class Stage6StatisticsQueryTests
     [
       BuildSummaryRow(TrustedHospital, reminder: 1),
       BuildSummaryRow(SecondHospital, reminder: 1),
-      BuildSummaryRow("HOS-C", reminder: 1)
+      BuildSummaryRow(FakeIamScope.FourthHospitalCode, reminder: 1)
     ]);
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService(
-      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital, "HOS-C"] }));
+      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital, FakeIamScope.FourthHospitalCode] }));
 
     PageResultDto<RecognitionUsageSummaryReadModel> lastPartialPage = await service.QueryRecognitionUsageSummaryAsync(BuildSummaryRequest(2, 2));
     Assert.Single(lastPartialPage.Items);
@@ -467,12 +469,12 @@ public sealed class Stage6StatisticsQueryTests
     [
       BuildSummaryRow(TrustedHospital, reminder: 8, adoption: 5),
       BuildSummaryRow(SecondHospital, reminder: 7, adoption: 5),
-      BuildSummaryRow("HOS-C", reminder: 9, adoption: 4),
-      BuildSummaryRow("HOS-D", reminder: 6, adoption: 3),
-      BuildSummaryRow("HOS-E", reminder: 1, adoption: 2)
+      BuildSummaryRow(FakeIamScope.FourthHospitalCode, reminder: 9, adoption: 4),
+      BuildSummaryRow(FakeIamScope.FifthHospitalCode, reminder: 6, adoption: 3),
+      BuildSummaryRow(FakeIamScope.SixthHospitalCode, reminder: 1, adoption: 2)
     ]);
     RecordingOrganizationAppService organizationService = CreateOrganizationService(
-      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital, "HOS-C", "HOS-D", "HOS-E"] });
+      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital, FakeIamScope.FourthHospitalCode, FakeIamScope.FifthHospitalCode, FakeIamScope.SixthHospitalCode] });
     MedicalRecognitionReportQueryAppService service = CreateService(repository, organizationService);
 
     PageResultDto<RecognitionUsageSummaryReadModel> firstPage = await service.QueryRecognitionUsageSummaryAsync(BuildSummaryRequest(1, 2));
@@ -485,7 +487,7 @@ public sealed class Stage6StatisticsQueryTests
       .. lastPage.Items.Select(row => row.ReceiverHospitalCode!)
     ];
 
-    Assert.Equal([TrustedHospital, SecondHospital, "HOS-C", "HOS-D", "HOS-E"], pageKeys);
+    Assert.Equal([TrustedHospital, SecondHospital, FakeIamScope.FourthHospitalCode, FakeIamScope.FifthHospitalCode, FakeIamScope.SixthHospitalCode], pageKeys);
     Assert.Equal(5, pageKeys.Distinct(StringComparer.Ordinal).Count());
     Assert.Equal(5, firstPage.Items[0].AdoptionCount);
     Assert.Equal(8, firstPage.Items[0].ReminderCount);
@@ -499,9 +501,9 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(6, worksheet.LastRowUsed()!.RowNumber());
     Assert.Equal(TrustedHospital, worksheet.Row(2).Cell(3).GetString());
     Assert.Equal(SecondHospital, worksheet.Row(3).Cell(3).GetString());
-    Assert.Equal("HOS-C", worksheet.Row(4).Cell(3).GetString());
-    Assert.Equal("HOS-D", worksheet.Row(5).Cell(3).GetString());
-    Assert.Equal("HOS-E", worksheet.Row(6).Cell(3).GetString());
+    Assert.Equal(FakeIamScope.FourthHospitalCode, worksheet.Row(4).Cell(3).GetString());
+    Assert.Equal(FakeIamScope.FifthHospitalCode, worksheet.Row(5).Cell(3).GetString());
+    Assert.Equal(FakeIamScope.SixthHospitalCode, worksheet.Row(6).Cell(3).GetString());
   }
 
   // ---------- 本院版汇总：V13 ----------
@@ -515,7 +517,8 @@ public sealed class Stage6StatisticsQueryTests
   {
     FakeStatisticsQueryRepository repository = new();
     RecordingOrganizationAppService organizationService = CreateOrganizationService();
-    MedicalRecognitionReportQueryAppService service = CreateService(repository, organizationService);
+    FakeIamScope scope = new();
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, organizationService, scope);
 
     await service.QueryBranchRecognitionUsageSummaryAsync(new BranchRecognitionUsageSummaryQueryRequest
     {
@@ -532,9 +535,10 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(TrustedOrganization, filter.SourceOrganizationCode);
 
     // 院区为空的分支不进入院区层解析：当页为空、无回填写入时，院区读取一次都没有发生。
-    Assert.Equal(0, organizationService.BranchReadCount);
-    Assert.Equal(1, organizationService.OrganizationReadCount);
-    Assert.Equal(1, organizationService.HospitalReadCount);
+    // 可信范围来自 IAM 目录：三层由一次批量读取归类，不再按层分别调用外部组织服务，
+    // 原先「组织 1 次 / 医院 1 次 / 院区 0 次」的分层计数判据随之退出；此处只断言目录确实被读取过，
+    // 局部性（读取次数不随条目数增长）由按报告版本的批量回填用例承接。
+    Assert.True(scope.BatchReadCount > 0, "可信范围应来自 IAM 目录读取。");
   }
 
   /// <summary>
@@ -577,7 +581,7 @@ public sealed class Stage6StatisticsQueryTests
     {
       StartTime = PeriodFrom,
       EndTime = PeriodTo,
-      SourceHospitalCode = SourceHospital,
+      SourceHospitalCode = FakeIamScope.FourthHospitalCode,
       GroupDimension = RecognitionStatisticsGroupDimension.Hospital,
       Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
     });
@@ -587,8 +591,8 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(TrustedHospital, filter.HospitalCode);
     Assert.Null(filter.BranchCode);
     Assert.Equal(TrustedOrganization, filter.SourceOrganizationCode);
-    Assert.Equal(SourceHospital, filter.SourceHospitalCode);
-    Assert.Null(filter.SourceBranchCode);
+    Assert.Equal(FakeIamScope.FourthHospitalCode, filter.SourceHospitalCode);
+    Assert.Equal(string.Empty, filter.SourceBranchCode);
     Assert.Equal(0, organizationService.BranchReadCount);
   }
 
@@ -658,8 +662,9 @@ public sealed class Stage6StatisticsQueryTests
   public async Task Branch_usage_summary_blocks_when_trusted_scope_is_unavailable()
   {
     FakeStatisticsQueryRepository repository = new();
-    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService());
-    TrustedRequestContext.Use(null, null, null, TrustedOperId.ToString());
+    // 当前工作身份所在组织在目录中不存在：可信范围解析不出任何层级，入口在仓储访问之前阻断。
+    MedicalRecognitionReportQueryAppService service = CreateService(
+      repository, CreateOrganizationService(), FakeIamScope.MissingOrganization());
 
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
       () => service.QueryBranchRecognitionUsageSummaryAsync(new BranchRecognitionUsageSummaryQueryRequest
@@ -670,7 +675,7 @@ public sealed class Stage6StatisticsQueryTests
         Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
       }));
 
-    Assert.Equal("无法读取当前登录用户信息。", error.Message);
+    Assert.Equal("无法确定当前可信组织。", error.Message);
     Assert.Equal(0, repository.TotalCalls);
   }
 
@@ -717,6 +722,58 @@ public sealed class Stage6StatisticsQueryTests
 
     Assert.Contains("不一致", error.Message, StringComparison.Ordinal);
     Assert.Equal(0, repository.TotalCalls);
+  }
+
+  /// <summary>
+  /// V12：明细入口的来源组按请求的提供方编码解析并与接收组并存；接收方与提供方落在同一组织的不同医院、院区时，
+  /// 下推的提供方医院与提供方院区取请求的提供方编码，不会退化成接收方的医院与院区编码。
+  /// </summary>
+  [Fact]
+  public async Task Usage_details_resolves_requested_source_scope_group_into_the_filter()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    // 可信组织下并列两条医院链：CSYY1 → CSYQ1-1 与 CSYY2 → CSYQ2-1，父子归属各自独立。
+    RecordingOrganizationAppService organizationService = CreateOrganizationService(
+      hospitals: new Dictionary<string, string[]>
+      {
+        [TrustedOrganization] = [TrustedHospital, SecondHospital]
+      },
+      branches: new Dictionary<string, string[]>
+      {
+        [TrustedHospital] = [TrustedBranch],
+        [SecondHospital] = [SecondBranch]
+      });
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, organizationService);
+
+    await service.QueryRecognitionUsageDetailsAsync(new RecognitionUsageDetailsQueryRequest
+    {
+      StartTime = PeriodFrom,
+      EndTime = PeriodTo,
+      // 接收组取同组织的第二家医院，来源组取可信医院：两侧医院与院区编码都不相同，只有组织编码相同。
+      OrganizationCode = TrustedOrganization,
+      HospitalCode = SecondHospital,
+      BranchCode = SecondBranch,
+      SourceOrganizationCode = TrustedOrganization,
+      SourceHospitalCode = TrustedHospital,
+      SourceBranchCode = TrustedBranch,
+      DetailType = RecognitionUsageDetailType.Reminder,
+      Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
+    });
+
+    Assert.NotNull(repository.LastDetailFilter);
+    RecognitionUsageDetailFilter filter = repository.LastDetailFilter!;
+    // 接收组三层按使用方编码下推。
+    Assert.Equal(TrustedOrganization, filter.OrganizationCode);
+    Assert.Equal(SecondHospital, filter.HospitalCode);
+    Assert.Equal(SecondBranch, filter.BranchCode);
+    // 来源组三层按提供方请求编码下推：与接收方的医院、院区互不相同。
+    Assert.Equal(TrustedOrganization, filter.SourceOrganizationCode);
+    Assert.Equal(TrustedHospital, filter.SourceHospitalCode);
+    Assert.Equal(TrustedBranch, filter.SourceBranchCode);
+    Assert.NotEqual(SecondHospital, filter.SourceHospitalCode);
+    Assert.NotEqual(SecondBranch, filter.SourceBranchCode);
+    Assert.NotEqual(filter.HospitalCode, filter.SourceHospitalCode);
+    Assert.NotEqual(filter.BranchCode, filter.SourceBranchCode);
   }
 
   /// <summary>
@@ -1043,18 +1100,18 @@ public sealed class Stage6StatisticsQueryTests
       BuildDetailsRequest(1, 20, RecognitionUsageDetailType.Reminder));
 
     Assert.Equal(20, result.Items.Count);
-    Assert.Equal(2, organizationService.OrganizationReadCount);
-    Assert.Equal(2, organizationService.HospitalReadCount);
-    Assert.Equal(2, organizationService.BranchReadCount);
+    Assert.Equal(0, organizationService.OrganizationReadCount);
+    Assert.Equal(0, organizationService.HospitalReadCount);
+    Assert.Equal(0, organizationService.BranchReadCount);
     Assert.All(result.Items, row =>
     {
       Assert.Equal(TrustedOrganization, row.Receiver.OrganizationCode);
-      Assert.Equal($"{OrganizationNamePrefix}-{TrustedOrganization}", row.Receiver.OrganizationName);
-      Assert.Equal($"{HospitalNamePrefix}-{TrustedHospital}", row.Receiver.HospitalName);
-      Assert.Equal($"{BranchNamePrefix}-{TrustedBranch}", row.Receiver.BranchName);
+      Assert.Equal("示范医共体", row.Receiver.OrganizationName);
+      Assert.Equal("示范医院", row.Receiver.HospitalName);
+      Assert.Equal("示范院区", row.Receiver.BranchName);
       Assert.Equal(SourceOrganization, row.Source.OrganizationCode);
-      Assert.Equal($"{OrganizationNamePrefix}-{SourceOrganization}", row.Source.OrganizationName);
-      Assert.Equal($"{HospitalNamePrefix}-{SourceHospital}", row.Source.HospitalName);
+      Assert.Equal("其他医共体", row.Source.OrganizationName);
+      Assert.Equal("其他医院", row.Source.HospitalName);
     });
   }
 
@@ -1176,8 +1233,8 @@ public sealed class Stage6StatisticsQueryTests
       StartTime = PeriodFrom,
       EndTime = PeriodTo,
       SourceOrganizationCode = $" {TrustedOrganization} ",
-      SourceHospitalCode = SourceHospital,
-      SourceBranchCode = SourceBranch,
+      SourceHospitalCode = FakeIamScope.FourthHospitalCode,
+      SourceBranchCode = FakeIamScope.FourthBranchCode,
       ReceiverOrganizationCode = TrustedOrganization,
       ReceiverHospitalCode = TrustedHospital,
       ReceiverBranchCode = TrustedBranch,
@@ -1187,8 +1244,8 @@ public sealed class Stage6StatisticsQueryTests
 
     SourceRecognitionSummaryFilter filter = repository.LastSourceSummaryFilter!;
     Assert.Equal(TrustedOrganization, filter.SourceOrganizationCode);
-    Assert.Equal(SourceHospital, filter.SourceHospitalCode);
-    Assert.Equal(SourceBranch, filter.SourceBranchCode);
+    Assert.Equal(FakeIamScope.FourthHospitalCode, filter.SourceHospitalCode);
+    Assert.Equal(FakeIamScope.FourthBranchCode, filter.SourceBranchCode);
     Assert.Equal(TrustedOrganization, filter.ReceiverOrganizationCode);
     Assert.Equal(TrustedHospital, filter.ReceiverHospitalCode);
     Assert.Equal(TrustedBranch, filter.ReceiverBranchCode);
@@ -1373,10 +1430,10 @@ public sealed class Stage6StatisticsQueryTests
     [
       BuildSourceSummaryRow(TrustedHospital, count: 1),
       BuildSourceSummaryRow(SecondHospital, count: 1),
-      BuildSourceSummaryRow("HOS-C", count: 1)
+      BuildSourceSummaryRow(FakeIamScope.FourthHospitalCode, count: 1)
     ]);
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService(
-      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital, "HOS-C"] }));
+      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital, FakeIamScope.FourthHospitalCode] }));
 
     PageResultDto<SourceRecognitionSummaryReadModel> lastPartialPage = await service.QuerySourceRecognitionSummaryAsync(BuildSourceSummaryRequest(2, 2));
     Assert.Single(lastPartialPage.Items);
@@ -1410,12 +1467,12 @@ public sealed class Stage6StatisticsQueryTests
     [
       BuildSourceSummaryRow(TrustedHospital, count: 9),
       BuildSourceSummaryRow(SecondHospital, count: 7),
-      BuildSourceSummaryRow("HOS-C", count: 5),
-      BuildSourceSummaryRow("HOS-D", count: 5),
-      BuildSourceSummaryRow("HOS-E", count: 3)
+      BuildSourceSummaryRow(FakeIamScope.FourthHospitalCode, count: 5),
+      BuildSourceSummaryRow(FakeIamScope.FifthHospitalCode, count: 5),
+      BuildSourceSummaryRow(FakeIamScope.SixthHospitalCode, count: 3)
     ]);
     RecordingOrganizationAppService organizationService = CreateOrganizationService(
-      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital, "HOS-C", "HOS-D", "HOS-E"] });
+      hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SecondHospital, FakeIamScope.FourthHospitalCode, FakeIamScope.FifthHospitalCode, FakeIamScope.SixthHospitalCode] });
     MedicalRecognitionReportQueryAppService service = CreateService(repository, organizationService);
 
     PageResultDto<SourceRecognitionSummaryReadModel> firstPage = await service.QuerySourceRecognitionSummaryAsync(BuildSourceSummaryRequest(1, 2));
@@ -1428,7 +1485,7 @@ public sealed class Stage6StatisticsQueryTests
       .. lastPage.Items.Select(row => row.SourceHospitalCode!)
     ];
 
-    Assert.Equal([TrustedHospital, SecondHospital, "HOS-C", "HOS-D", "HOS-E"], pageKeys);
+    Assert.Equal([TrustedHospital, SecondHospital, FakeIamScope.FourthHospitalCode, FakeIamScope.FifthHospitalCode, FakeIamScope.SixthHospitalCode], pageKeys);
     Assert.Equal(5, pageKeys.Distinct(StringComparer.Ordinal).Count());
     Assert.Equal(9, firstPage.Items[0].RecognitionCount);
     Assert.Equal(7, firstPage.Items[1].RecognitionCount);
@@ -1440,9 +1497,9 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(6, worksheet.LastRowUsed()!.RowNumber());
     Assert.Equal(TrustedHospital, worksheet.Row(2).Cell(3).GetString());
     Assert.Equal(SecondHospital, worksheet.Row(3).Cell(3).GetString());
-    Assert.Equal("HOS-C", worksheet.Row(4).Cell(3).GetString());
-    Assert.Equal("HOS-D", worksheet.Row(5).Cell(3).GetString());
-    Assert.Equal("HOS-E", worksheet.Row(6).Cell(3).GetString());
+    Assert.Equal(FakeIamScope.FourthHospitalCode, worksheet.Row(4).Cell(3).GetString());
+    Assert.Equal(FakeIamScope.FifthHospitalCode, worksheet.Row(5).Cell(3).GetString());
+    Assert.Equal(FakeIamScope.SixthHospitalCode, worksheet.Row(6).Cell(3).GetString());
   }
 
   /// <summary>
@@ -1470,15 +1527,143 @@ public sealed class Stage6StatisticsQueryTests
       });
 
     Assert.Equal(rowCount, result.Items.Count);
-    Assert.Equal(1, organizationService.OrganizationReadCount);
-    Assert.Equal(1, organizationService.HospitalReadCount);
-    Assert.Equal(1, organizationService.BranchReadCount);
+    Assert.Equal(0, organizationService.OrganizationReadCount);
+    Assert.Equal(0, organizationService.HospitalReadCount);
+    Assert.Equal(0, organizationService.BranchReadCount);
     Assert.All(result.Items, row =>
     {
-      Assert.Equal($"{OrganizationNamePrefix}-{TrustedOrganization}", row.SourceOrganizationName);
-      Assert.Equal($"{HospitalNamePrefix}-{TrustedHospital}", row.SourceHospitalName);
-      Assert.Equal($"{BranchNamePrefix}-{TrustedBranch}", row.SourceBranchName);
+      Assert.Equal("示范医共体", row.SourceOrganizationName);
+      Assert.Equal("示范医院", row.SourceHospitalName);
+      Assert.Equal("示范院区", row.SourceBranchName);
     });
+  }
+
+  // ---------- 名称回填容错：同一业务编码在 IAM 目录中命中多个节点 ----------
+
+  /// <summary>
+  /// 名称回填容错：某编码命中两个节点但两者名称一致时按该一致名称回填，整页不因歧义拒绝。
+  /// </summary>
+  /// <remarks>
+  /// 名称是展示字段：候选名称一致时名称本身可以确定，属于容错取舍的第一种可取值；
+  /// 该用例在名称回填切到容错入口之前按业务拒绝整页失败，因此构成 RED 证据。
+  /// </remarks>
+  [Fact]
+  public async Task Source_summary_backfills_the_shared_name_of_two_nodes_on_the_same_code()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    repository.SourceSummaryGroupItems.Add(BuildSourceSummaryRow(SourceHospital, count: 3, branchCode: SourceBranch));
+    MedicalRecognitionReportQueryAppService service = CreateService(
+      repository, CreateOrganizationService(), FakeIamScope.WithDuplicateOtherHospitalCode(name: "其他医院"));
+
+    PageResultDto<SourceRecognitionSummaryReadModel> result = await service.QuerySourceRecognitionSummaryAsync(
+      new SourceRecognitionSummaryQueryRequest
+      {
+        StartTime = PeriodFrom,
+        EndTime = PeriodTo,
+        GroupDimension = RecognitionStatisticsGroupDimension.Branch,
+        Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
+      });
+
+    SourceRecognitionSummaryReadModel row = Assert.Single(result.Items);
+    Assert.Equal("其他医共体", row.SourceOrganizationName);
+    Assert.Equal("其他医院", row.SourceHospitalName);
+    Assert.Equal("其他院区", row.SourceBranchName);
+  }
+
+  /// <summary>
+  /// 名称回填容错：某编码命中两个节点、名称不同且都不在会话组织链上时名称留空，整页仍返回成功。
+  /// </summary>
+  /// <remarks>
+  /// 名称留空是「宁可留空也不猜」的取舍：不抛异常、不在两个名称之间择一、也不回落编码文本；
+  /// 行本身、编码与总数都照常返回，只有该层名称缺失。
+  /// </remarks>
+  [Fact]
+  public async Task Source_summary_leaves_the_name_empty_when_a_code_hits_two_nodes_with_different_names()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    repository.SourceSummaryGroupItems.Add(BuildSourceSummaryRow(SourceHospital, count: 3, branchCode: SourceBranch));
+    MedicalRecognitionReportQueryAppService service = CreateService(
+      repository, CreateOrganizationService(), FakeIamScope.WithDuplicateOtherHospitalCode(name: "其他医院二"));
+
+    PageResultDto<SourceRecognitionSummaryReadModel> result = await service.QuerySourceRecognitionSummaryAsync(
+      new SourceRecognitionSummaryQueryRequest
+      {
+        StartTime = PeriodFrom,
+        EndTime = PeriodTo,
+        GroupDimension = RecognitionStatisticsGroupDimension.Branch,
+        Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
+      });
+
+    SourceRecognitionSummaryReadModel row = Assert.Single(result.Items);
+    Assert.Equal(1, result.Page.TotalCount);
+    Assert.Equal(SourceOrganization, row.SourceOrganizationCode);
+    Assert.Equal(SourceHospital, row.SourceHospitalCode);
+    Assert.Equal("其他医共体", row.SourceOrganizationName);
+    // 留空：既不用编码回填，也不在两个候选名称之间猜测。
+    Assert.Equal(string.Empty, row.SourceHospitalName);
+    Assert.Equal("其他院区", row.SourceBranchName);
+  }
+
+  /// <summary>
+  /// 名称回填容错：候选之一落在当前会话组织链上时，取链上那个节点的名称。
+  /// </summary>
+  /// <remarks>
+  /// 会话组织链是名称回填唯一可观察的可信依据：链上的候选说明该行就指向调用方实际工作的组织，
+  /// 因此优先于另一条链上同名编码的节点。严格入口本身已有同一收敛规则，本用例是它的行为契约。
+  /// </remarks>
+  [Fact]
+  public async Task Usage_summary_takes_the_name_of_the_candidate_on_the_current_organization_chain()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    repository.SummaryGroupItems.Add(BuildSummaryRow(TrustedHospital, reminder: 1, branchCode: TrustedBranch));
+    MedicalRecognitionReportQueryAppService service = CreateService(
+      repository, CreateOrganizationService(), FakeIamScope.WithDuplicateTrustedHospitalCode(name: "其他地方示范医院"));
+
+    PageResultDto<RecognitionUsageSummaryReadModel> result = await service.QueryRecognitionUsageSummaryAsync(
+      new RecognitionUsageSummaryQueryRequest
+      {
+        StartTime = PeriodFrom,
+        EndTime = PeriodTo,
+        GroupDimension = RecognitionStatisticsGroupDimension.Branch,
+        Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
+      });
+
+    RecognitionUsageSummaryReadModel row = Assert.Single(result.Items);
+    Assert.Equal("示范医共体", row.ReceiverOrganizationName);
+    Assert.Equal("示范医院", row.ReceiverHospitalName);
+    Assert.Equal("示范院区", row.ReceiverBranchName);
+  }
+
+  /// <summary>
+  /// 回归保护：提交的编码命中多个节点时归属校验照常通过，查询按编码文本下推筛选。
+  /// </summary>
+  /// <remarks>
+  /// 编码是业务键，组织节点标识不是：两个候选都符合组织类型，校验只判存在性与类型即通过；
+  /// 父子归属因组织层命中多个候选而无法定论，按规则跳过。筛选值取提交的编码文本，
+  /// 因此「编码不唯一」不再是整页失败的理由；旧实现把这种情况整次业务拒绝，本用例在旧实现下失败。
+  /// </remarks>
+  [Fact]
+  public async Task Ambiguous_business_code_passes_scope_validation_and_filters_by_the_code()
+  {
+    FakeStatisticsQueryRepository repository = new();
+    MedicalRecognitionReportQueryAppService service = CreateService(
+      repository, CreateOrganizationService(), FakeIamScope.WithDuplicateOtherOrganizationCode());
+
+    PageResultDto<RecognitionUsageSummaryReadModel> result = await service.QueryRecognitionUsageSummaryAsync(
+      new RecognitionUsageSummaryQueryRequest
+      {
+        StartTime = PeriodFrom,
+        EndTime = PeriodTo,
+        OrganizationCode = SourceOrganization,
+        GroupDimension = RecognitionStatisticsGroupDimension.Hospital,
+        Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
+      });
+
+    Assert.Empty(result.Items);
+    Assert.Equal(0, result.Page.TotalCount);
+    // 筛选按提交的编码文本下推：编码是业务键，实例标识不参与该层过滤。
+    Assert.Equal(SourceOrganization, repository.LastSummaryFilter!.OrganizationCode);
+    Assert.True(repository.TotalCalls > 0);
   }
 
   // ---------- 平台版提供方明细：V32、V33、V30、V24 ----------
@@ -1511,7 +1696,7 @@ public sealed class Stage6StatisticsQueryTests
   {
     FakeStatisticsQueryRepository repository = new();
     repository.SourceDetailItems.AddRange(
-      [BuildSourceDetailItem(1, TrustedOrganization), BuildSourceDetailItem(2, TrustedOrganization), BuildSourceDetailItem(3, TrustedOrganization)]);
+      [BuildSourceDetailItem(1, SourceOrganization), BuildSourceDetailItem(2, SourceOrganization), BuildSourceDetailItem(3, SourceOrganization)]);
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService(
       hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SourceHospital] },
       branches: new Dictionary<string, string[]>
@@ -1525,7 +1710,7 @@ public sealed class Stage6StatisticsQueryTests
       StartTime = PeriodFrom,
       EndTime = PeriodTo,
       SourceOrganizationCode = TrustedOrganization,
-      SourceHospitalCode = SourceHospital,
+      SourceHospitalCode = FakeIamScope.FourthHospitalCode,
       ReceiverOrganizationCode = TrustedOrganization,
       ReceiverHospitalCode = TrustedHospital,
       ItemType = MedicalItemType.Laboratory,
@@ -1537,7 +1722,7 @@ public sealed class Stage6StatisticsQueryTests
 
     SourceRecognitionDetailFilter filter = repository.LastSourceDetailFilter!;
     Assert.Equal(TrustedOrganization, filter.SourceOrganizationCode);
-    Assert.Equal(SourceHospital, filter.SourceHospitalCode);
+    Assert.Equal(FakeIamScope.FourthHospitalCode, filter.SourceHospitalCode);
     Assert.Equal(TrustedOrganization, filter.ReceiverOrganizationCode);
     Assert.Equal(TrustedHospital, filter.ReceiverHospitalCode);
     Assert.Equal(MedicalItemType.Laboratory, filter.ItemType);
@@ -1590,18 +1775,18 @@ public sealed class Stage6StatisticsQueryTests
       Assert.Equal("李医生", row.RecognitionDoctorName);
       Assert.Equal("110101199001011234", row.IdentityDocumentNo);
       Assert.Equal("STD-001", row.StandardProjectCode);
-      Assert.Equal($"{OrganizationNamePrefix}-{TrustedOrganization}", row.ReceiverOrganizationName);
-      Assert.Equal($"{HospitalNamePrefix}-{TrustedHospital}", row.ReceiverHospitalName);
-      Assert.Equal($"{BranchNamePrefix}-{TrustedBranch}", row.ReceiverBranchName);
-      Assert.Equal($"{OrganizationNamePrefix}-{SourceOrganization}", row.SourceOrganizationName);
-      Assert.Equal($"{HospitalNamePrefix}-{SourceHospital}", row.SourceHospitalName);
-      Assert.Equal($"{BranchNamePrefix}-{SourceBranch}", row.SourceBranchName);
+      Assert.Equal("示范医共体", row.ReceiverOrganizationName);
+      Assert.Equal("示范医院", row.ReceiverHospitalName);
+      Assert.Equal("示范院区", row.ReceiverBranchName);
+      Assert.Equal("其他医共体", row.SourceOrganizationName);
+      Assert.Equal("其他医院", row.SourceHospitalName);
+      Assert.Equal("其他院区", row.SourceBranchName);
     });
     Assert.Equal(BusinessDate.AddHours(2), result.Items[1].RecognitionTime);
     Assert.Equal("患者2", result.Items[1].PatientName);
-    Assert.Equal(2, organizationService.OrganizationReadCount);
-    Assert.Equal(2, organizationService.HospitalReadCount);
-    Assert.Equal(2, organizationService.BranchReadCount);
+    Assert.Equal(0, organizationService.OrganizationReadCount);
+    Assert.Equal(0, organizationService.HospitalReadCount);
+    Assert.Equal(0, organizationService.BranchReadCount);
   }
 
   /// <summary>
@@ -1649,7 +1834,8 @@ public sealed class Stage6StatisticsQueryTests
   {
     FakeStatisticsQueryRepository repository = new();
     RecordingOrganizationAppService organizationService = CreateOrganizationService();
-    MedicalRecognitionReportQueryAppService service = CreateService(repository, organizationService);
+    FakeIamScope scope = new();
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, organizationService, scope);
 
     await service.QueryBranchSourceRecognitionSummaryAsync(BuildBranchSourceSummaryRequest(1, 20));
 
@@ -1660,9 +1846,10 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(TrustedOrganization, filter.ReceiverOrganizationCode);
     Assert.Null(filter.ReceiverHospitalCode);
     Assert.Null(filter.ReceiverBranchCode);
-    Assert.Equal(0, organizationService.BranchReadCount);
-    Assert.Equal(1, organizationService.OrganizationReadCount);
-    Assert.Equal(1, organizationService.HospitalReadCount);
+    // 可信范围来自 IAM 目录：三层由一次批量读取归类，不再按层分别调用外部组织服务，
+    // 原先「组织 1 次 / 医院 1 次 / 院区 0 次」的分层计数判据随之退出；此处只断言目录确实被读取过，
+    // 局部性（读取次数不随条目数增长）由按报告版本的批量回填用例承接。
+    Assert.True(scope.BatchReadCount > 0, "可信范围应来自 IAM 目录读取。");
   }
 
   /// <summary>
@@ -1725,7 +1912,7 @@ public sealed class Stage6StatisticsQueryTests
       branches: new Dictionary<string, string[]>
       {
         [TrustedHospital] = [TrustedBranch],
-        [SecondHospital] = ["BRH-B"]
+        [SecondHospital] = [SecondBranch]
       }));
 
     await service.QueryBranchSourceRecognitionSummaryAsync(new BranchSourceRecognitionSummaryQueryRequest
@@ -1733,7 +1920,7 @@ public sealed class Stage6StatisticsQueryTests
       StartTime = PeriodFrom,
       EndTime = PeriodTo,
       ReceiverHospitalCode = SecondHospital,
-      ReceiverBranchCode = "BRH-B",
+      ReceiverBranchCode = SecondBranch,
       GroupDimension = RecognitionStatisticsGroupDimension.Hospital,
       Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
     });
@@ -1743,7 +1930,7 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(TrustedHospital, filter.SourceHospitalCode);
     Assert.Equal(TrustedOrganization, filter.ReceiverOrganizationCode);
     Assert.Equal(SecondHospital, filter.ReceiverHospitalCode);
-    Assert.Equal("BRH-B", filter.ReceiverBranchCode);
+    Assert.Equal(SecondBranch, filter.ReceiverBranchCode);
   }
 
   /// <summary>
@@ -1819,7 +2006,7 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Null(filter.SourceBranchCode);
     Assert.Equal(TrustedOrganization, filter.ReceiverOrganizationCode);
     Assert.Equal(SecondHospital, filter.ReceiverHospitalCode);
-    Assert.Null(filter.ReceiverBranchCode);
+    Assert.Equal(string.Empty, filter.ReceiverBranchCode);
     Assert.Equal(new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Unspecified), filter.PeriodStart);
     Assert.Equal(new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Unspecified), filter.PeriodEnd);
     Assert.Equal(2, repository.SourceDetailCalls);
@@ -1929,9 +2116,9 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(recordId, view.RecognitionMatchRecordId);
     Assert.Equal(BusinessDate.AddHours(-2), view.MatchCreatedTime);
     Assert.Equal(TrustedOrganization, view.Receiver.OrganizationCode);
-    Assert.Equal($"{OrganizationNamePrefix}-{TrustedOrganization}", view.Receiver.OrganizationName);
-    Assert.Equal($"{HospitalNamePrefix}-{TrustedHospital}", view.Receiver.HospitalName);
-    Assert.Equal($"{BranchNamePrefix}-{TrustedBranch}", view.Receiver.BranchName);
+    Assert.Equal("示范医共体", view.Receiver.OrganizationName);
+    Assert.Equal("示范医院", view.Receiver.HospitalName);
+    Assert.Equal("示范院区", view.Receiver.BranchName);
     Assert.Equal("患者1", view.PatientName);
     Assert.Equal("110101199001011234", view.IdentityDocumentNo);
     Assert.Equal(VisitType.Outpatient, view.VisitType);
@@ -1950,8 +2137,8 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal("血常规", adopted.Item.StandardProjectName);
     Assert.Equal("检验", adopted.Item.CategoryName);
     Assert.Equal(SourceOrganization, adopted.Source.OrganizationCode);
-    Assert.Equal($"{OrganizationNamePrefix}-{SourceOrganization}", adopted.Source.OrganizationName);
-    Assert.Equal($"{HospitalNamePrefix}-{SourceHospital}", adopted.Source.HospitalName);
+    Assert.Equal("其他医共体", adopted.Source.OrganizationName);
+    Assert.Equal("其他医院", adopted.Source.HospitalName);
     Assert.True(adopted.IsProcessed);
     Assert.Equal(RecognitionResult.Adopted, adopted.Decision);
     Assert.Equal("采纳", adopted.DecisionText);
@@ -2050,15 +2237,15 @@ public sealed class Stage6StatisticsQueryTests
       new RecognitionMatchRecordQueryRequest { RecognitionMatchRecordId = recordId });
 
     Assert.Equal(itemCount, view.MatchItems.Count);
-    Assert.Equal(2, organizationService.OrganizationReadCount);
-    Assert.Equal(2, organizationService.HospitalReadCount);
-    Assert.Equal(2, organizationService.BranchReadCount);
-    Assert.Equal($"{OrganizationNamePrefix}-{TrustedOrganization}", view.Receiver.OrganizationName);
+    Assert.Equal(0, organizationService.OrganizationReadCount);
+    Assert.Equal(0, organizationService.HospitalReadCount);
+    Assert.Equal(0, organizationService.BranchReadCount);
+    Assert.Equal("示范医共体", view.Receiver.OrganizationName);
     Assert.All(view.MatchItems, item =>
     {
-      Assert.Equal($"{OrganizationNamePrefix}-{SourceOrganization}", item.Source.OrganizationName);
-      Assert.Equal($"{HospitalNamePrefix}-{SourceHospital}", item.Source.HospitalName);
-      Assert.Equal($"{BranchNamePrefix}-{SourceBranch}", item.Source.BranchName);
+      Assert.Equal("其他医共体", item.Source.OrganizationName);
+      Assert.Equal("其他医院", item.Source.HospitalName);
+      Assert.Equal("其他院区", item.Source.BranchName);
     });
   }
 
@@ -2183,7 +2370,7 @@ public sealed class Stage6StatisticsQueryTests
   public async Task Export_resolves_requested_scope_groups_and_conditions_into_the_filter()
   {
     FakeStatisticsQueryRepository repository = new();
-    repository.NonAdoptionItems.Add(BuildNonAdoptionItem(0) with { SourceOrganizationCode = TrustedOrganization });
+    repository.NonAdoptionItems.Add(BuildNonAdoptionItem(0));
     RecordingOrganizationAppService organizationService = CreateOrganizationService(
       hospitals: new Dictionary<string, string[]> { [TrustedOrganization] = [TrustedHospital, SourceHospital] },
       branches: new Dictionary<string, string[]>
@@ -2202,8 +2389,8 @@ public sealed class Stage6StatisticsQueryTests
       ReceiverHospitalCode = TrustedHospital,
       ReceiverBranchCode = TrustedBranch,
       SourceOrganizationCode = TrustedOrganization,
-      SourceHospitalCode = SourceHospital,
-      SourceBranchCode = SourceBranch,
+      SourceHospitalCode = FakeIamScope.FifthHospitalCode,
+      SourceBranchCode = FakeIamScope.FifthBranchCode,
       Keyword = " DPT-9 ",
       NonAdoptionReasonCode = "2",
       ItemType = MedicalItemType.Laboratory,
@@ -2217,8 +2404,8 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(TrustedHospital, filter.HospitalCode);
     Assert.Equal(TrustedBranch, filter.BranchCode);
     Assert.Equal(TrustedOrganization, filter.SourceOrganizationCode);
-    Assert.Equal(SourceHospital, filter.SourceHospitalCode);
-    Assert.Equal(SourceBranch, filter.SourceBranchCode);
+    Assert.Equal(FakeIamScope.FifthHospitalCode, filter.SourceHospitalCode);
+    Assert.Equal(FakeIamScope.FifthBranchCode, filter.SourceBranchCode);
     Assert.Equal(new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Unspecified), filter.PeriodStart);
     Assert.Equal(new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Unspecified), filter.PeriodEnd);
     Assert.Equal("DPT-9", filter.Keyword);
@@ -2780,8 +2967,8 @@ public sealed class Stage6StatisticsQueryTests
       ExportType = RecognitionStatisticsExportType.RecognitionReminderDetails,
       StartTime = PeriodFrom,
       EndTime = PeriodTo,
-      SourceHospitalCode = SourceHospital,
-      SourceBranchCode = SourceBranch,
+      SourceHospitalCode = FakeIamScope.FifthHospitalCode,
+      SourceBranchCode = FakeIamScope.FifthBranchCode,
       GroupDimension = RecognitionStatisticsGroupDimension.Hospital
     });
 
@@ -2790,8 +2977,8 @@ public sealed class Stage6StatisticsQueryTests
     Assert.Equal(TrustedHospital, filter.HospitalCode);
     Assert.Null(filter.BranchCode);
     Assert.Equal(TrustedOrganization, filter.SourceOrganizationCode);
-    Assert.Equal(SourceHospital, filter.SourceHospitalCode);
-    Assert.Equal(SourceBranch, filter.SourceBranchCode);
+    Assert.Equal(FakeIamScope.FifthHospitalCode, filter.SourceHospitalCode);
+    Assert.Equal(FakeIamScope.FifthBranchCode, filter.SourceBranchCode);
   }
 
   /// <summary>
@@ -2881,10 +3068,10 @@ public sealed class Stage6StatisticsQueryTests
   /// <param name="organizationService">组织服务替身。</param>
   /// <returns>可直接调用的查询应用服务。</returns>
   private static MedicalRecognitionReportQueryAppService CreateService(
-    FakeStatisticsQueryRepository repository, RecordingOrganizationAppService organizationService)
+    FakeStatisticsQueryRepository repository, RecordingOrganizationAppService organizationService, FakeIamScope? iamScope = null)
   {
-    TrustedRequestContext.Use(TrustedOrganization, TrustedHospital, TrustedBranch, TrustedOperId.ToString());
-    return new MedicalRecognitionReportQueryAppService(repository, organizationService, new StubUserAppService(), new StubSystemParameterAppService());
+    FakeIamScope scope = iamScope ?? FakeIamScope.WithManyHospitals();
+    return new MedicalRecognitionReportQueryAppService(repository, new PlatformParameterRepositoryStub(), scope, scope, scope);
   }
 
   /// <summary>构建平台版汇总查询请求。</summary>
@@ -3002,6 +3189,13 @@ public sealed class Stage6StatisticsQueryTests
     Page = new PageRequestDto { PageIndex = pageIndex, PageSize = pageSize }
   };
 
+  /// <summary>按提供方医院业务编码取该医院所属组织的业务编码。</summary>
+  /// <remarks>同组织下的第二家及以后医院归属可信组织，另一条链的医院归属其自身组织，与 IAM 替身登记的父子关系一致。</remarks>
+  /// <param name="hospitalCode">提供方医院业务编码。</param>
+  /// <returns>该医院所属组织的业务编码。</returns>
+  private static string OrganizationOfHospital(string hospitalCode) =>
+    hospitalCode == FakeIamScope.OtherHospitalCode ? SourceOrganization : TrustedOrganization;
+
   /// <summary>构建一条提供方汇总分组行。</summary>
   /// <param name="hospitalCode">提供方医院编码（分组值）。</param>
   /// <param name="count">被互认次数。</param>
@@ -3010,13 +3204,17 @@ public sealed class Stage6StatisticsQueryTests
   private static SourceRecognitionSummaryGroupItem BuildSourceSummaryRow(
     string hospitalCode,
     long count = 0,
-    string? branchCode = null) => new()
+    string? branchCode = null)
+  {
+    string organizationCode = OrganizationOfHospital(hospitalCode);
+    return new()
     {
-      SourceOrganizationCode = TrustedOrganization,
+      SourceOrganizationCode = organizationCode,
       SourceHospitalCode = hospitalCode,
       SourceBranchCode = branchCode,
       RecognitionCount = count
     };
+  }
 
   /// <summary>构建一条标准项目维度的提供方汇总分组行。</summary>
   /// <param name="standardProjectCode">标准项目编码（分组值）。</param>
@@ -3145,6 +3343,26 @@ public sealed class Stage6StatisticsQueryTests
       NonAdoptionCount = nonAdoption,
       ReferenceCount = reference
     };
+
+  /// <summary>平台入口的接收组织与来源组织必须一致：不一致时按精确文案拒绝。</summary>
+  [Fact]
+  public async Task Usage_summary_rejects_source_organization_different_from_receiver()
+  {
+    MedicalRecognitionReportQueryAppService service = CreateService(new FakeStatisticsQueryRepository(), CreateOrganizationService());
+
+    InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+      service.QueryRecognitionUsageSummaryAsync(new RecognitionUsageSummaryQueryRequest
+      {
+        StartTime = PeriodFrom,
+        EndTime = PeriodTo,
+        OrganizationCode = TrustedOrganization,
+        SourceOrganizationCode = SourceOrganization,
+        GroupDimension = RecognitionStatisticsGroupDimension.Hospital,
+        Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
+      }));
+
+    Assert.Equal("业务拒绝：使用方组织与提供方组织不一致，不能同时按两个组织统计。", exception.Message);
+  }
 
   /// <summary>构建一条与指定医院分组键同套的原因行。</summary>
   /// <param name="hospitalCode">使用方医院编码（分组值）。</param>
@@ -3372,192 +3590,10 @@ public sealed class Stage6StatisticsQueryTests
           Id = code,
           Name = $"{BranchNamePrefix}-{code}",
           HosId = request.HosId,
-          OrgId = FindOrganizationCodeOfHospital(request.HosId),
+          OrgId = TrustedOrganization,
           IsValid = true
         })]
         : []);
     }
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<BranchDto>> QueryAllValidBranchByOrgIdAsync(QueryAllValidBranchByOrgIdRequest request) => Unsupported<IEnumerable<BranchDto>>();
-
-    /// <inheritdoc/>
-    public Task<OrganizationDto> GetOrganizationByIdAsync(GetOrganizationByIdRequest request) => Unsupported<OrganizationDto>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<HospitalDto>> QueryAllHospitalAsync() => Unsupported<IEnumerable<HospitalDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<HospitalDto>> QueryAllValidHospitalAsync() => Unsupported<IEnumerable<HospitalDto>>();
-
-    /// <inheritdoc/>
-    public Task<HospitalDto> GetHospitalByIdAsync(GetHospitalByIdRequest request) => Unsupported<HospitalDto>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<BranchDto>> QueryAllBranchAsync() => Unsupported<IEnumerable<BranchDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<BranchDto>> QueryAllValidBranchAsync() => Unsupported<IEnumerable<BranchDto>>();
-
-    /// <inheritdoc/>
-    public Task<BranchDto> GetBranchByIdAsync(GetBranchByIdRequest request) => Unsupported<BranchDto>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptDto>> QueryDeptBySubApplicationIdAsync(QueryDeptBySubApplicationIdRequest request) => Unsupported<IEnumerable<DeptDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptDto>> QueryDeptByOrgIdAsync(QueryDeptByOrgIdRequest request) => Unsupported<IEnumerable<DeptDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptDto>> QueryDeptByHosIdAsync(QueryDeptByHosIdRequest request) => Unsupported<IEnumerable<DeptDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptDto>> QueryDeptByBranchIdAsync(QueryDeptByBranchIdRequest request) => Unsupported<IEnumerable<DeptDto>>();
-
-    /// <inheritdoc/>
-    public Task<DeptDto> GetDeptByBranchIdAndCodeAsync(GetDeptByBranchIdAndCodeRequest request) => Unsupported<DeptDto>();
-
-    /// <inheritdoc/>
-    public Task<DeptDto> GetDeptByIdAsync(GetDeptByIdRequest request) => Unsupported<DeptDto>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptDto>> QueryAllDeptAsync() => Unsupported<IEnumerable<DeptDto>>();
-
-    /// <inheritdoc/>
-    public Task<DeptWardDto> GetDeptWardByIdAsync(GetDeptWardByIdRequest request) => Unsupported<DeptWardDto>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptWardDto>> QueryDeptWardByDeptAsync(QueryDeptWardByDeptRequest request) => Unsupported<IEnumerable<DeptWardDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptWardDto>> QueryDeptWardByWardAsync(QueryDeptWardByWardRequest request) => Unsupported<IEnumerable<DeptWardDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<WardDto>> QueryWardByBranchAsync(QueryWardByBranchRequest request) => Unsupported<IEnumerable<WardDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<WardDto>> QueryWardBySubApplicationIdAsync(QueryWardBySubApplicationIdRequest request) => Unsupported<IEnumerable<WardDto>>();
-
-    /// <inheritdoc/>
-    public Task<WardDto> GetWardByIdAsync(GetWardByIdRequest request) => Unsupported<WardDto>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<WardDto>> QueryAllWardAsync() => Unsupported<IEnumerable<WardDto>>();
-
-    /// <inheritdoc/>
-    public Task<string> CreateOrganizationAsync(CreateOrganizationRequest request) => Unsupported<string>();
-
-    /// <inheritdoc/>
-    public Task<int> UpdateOrganizationAsync(UpdateOrganizationRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DeleteOrganizationAsync(DeleteOrganizationRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> EnableOrganizationAsync(EnableOrganizationRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DisableOrganizationAsync(DisableOrganizationRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<string> CreateHospitalAsync(CreateHospitalRequest request) => Unsupported<string>();
-
-    /// <inheritdoc/>
-    public Task<int> UpdateHospitalAsync(UpdateHospitalRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DeleteHospitalAsync(DeleteHospitalRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> EnableHospitalAsync(EnableHospitalRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DisableHospitalAsync(DisableHospitalRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<string> CreateBranchAsync(CreateBranchRequest request) => Unsupported<string>();
-
-    /// <inheritdoc/>
-    public Task<int> UpdateBranchAsync(UpdateBranchRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DeleteBranchAsync(DeleteBranchRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> EnableBranchAsync(EnableBranchRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DisableBranchAsync(DisableBranchRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<Guid> CreateDeptAsync(CreateDeptRequest request) => Unsupported<Guid>();
-
-    /// <inheritdoc/>
-    public Task<int> UpdateDeptAsync(UpdateDeptRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DeleteDeptAsync(DeleteDeptRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> EnableDeptAsync(EnableDeptRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DisableDeptAsync(DisableDeptRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> MoveDeptUpAsync(MoveDeptUpRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> MoveDeptDownAsync(MoveDeptDownRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<Guid> CreateDeptWardAsync(CreateDeptWardRequest request) => Unsupported<Guid>();
-
-    /// <inheritdoc/>
-    public Task<int> UpdateDeptWardAsync(UpdateDeptWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DeleteDeptWardAsync(DeleteDeptWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> EnableDeptWardAsync(EnableDeptWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DisableDeptWardAsync(DisableDeptWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<Guid> CreateWardAsync(CreateWardRequest request) => Unsupported<Guid>();
-
-    /// <inheritdoc/>
-    public Task<int> UpdateWardAsync(UpdateWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DeleteWardAsync(DeleteWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> EnableWardAsync(EnableWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DisableWardAsync(DisableWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> MoveWardUpAsync(MoveWardUpRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> MoveWardDownAsync(MoveWardDownRequest request) => Unsupported<int>();
-
-    /// <summary>
-    /// 按医院编码反查其所属组织编码，使院区数据的父组织与医院数据一致。
-    /// </summary>
-    /// <param name="hospitalCode">医院编码。</param>
-    /// <returns>该医院所属的组织编码；找不到时返回可信组织编码。</returns>
-    private string FindOrganizationCodeOfHospital(string hospitalCode) =>
-      hospitals.FirstOrDefault(pair => pair.Value.Contains(hospitalCode, StringComparer.Ordinal)).Key ?? TrustedOrganization;
-
-    /// <summary>本替身未实现该外部组织服务成员。</summary>
-    /// <typeparam name="TResult">成员返回类型。</typeparam>
-    /// <returns>不会返回。</returns>
-    /// <exception cref="NotSupportedException">该成员被调用时抛出。</exception>
-    private static Task<TResult> Unsupported<TResult>() => throw new NotSupportedException("本替身只实现统计名称回填使用的组织、医院与院区读取。");
   }
 }

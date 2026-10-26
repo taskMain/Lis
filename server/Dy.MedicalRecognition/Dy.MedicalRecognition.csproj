@@ -14,10 +14,8 @@
   <ItemGroup>
     <PackageReference Include="Dy.Apron.Bridge" />
     <PackageReference Include="Dy.Apron.QuickStart" />
-    <PackageReference Include="Dy.Apron.Security" />
     <PackageReference Include="Dy.Earthrace" />
     <PackageReference Include="Npgsql" />
-    <PackageReference Include="Dy.Plugin.AspNet.Scalar" />
   </ItemGroup>
 
   <ItemGroup>

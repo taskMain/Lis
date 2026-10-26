@@ -1,4 +1,4 @@
-using Dy.Base.Application.Contracts.SystemParameterAggregate;
+using Dy.MedicalRecognition.Application.OrganizationScope;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
 using Dy.MedicalRecognition.Application.Contracts.ReadModels;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
@@ -14,7 +14,7 @@ namespace Dy.MedicalRecognition.Application.Queries;
 /// <remarks>
 /// 本链路是只读查询：不产生任何写入、事件或状态变化，不声明显式事务。
 /// 组织、医院与院区三层都取自可信上下文，请求只提供医院必然掌握的患者证件与本次来源就诊；
-/// 引用详情有效时长按平台级编码读取后在本分片内联校验，参数不存在、取值非法或参数服务读取失败都整次失败，不使用任何兜底默认值；
+/// 引用详情有效时长按平台参数编码经统一读取入口读取并校验，参数不存在、停用、取值非法或参数存储读取失败都整次失败，不使用任何兜底默认值；
 /// 有效期按各匹配记录的处理结果保存时间分别计算，每次请求读取当前参数值，不为采纳记录保存独立有效时长或截止时间；
 /// 自然超过可互认时间不影响已采纳项目获取详情：本链路不读取互认配置，可互认时间只约束新的匹配查询。
 /// </remarks>
@@ -38,7 +38,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <exception cref="ArgumentNullException">请求为 null 时抛出。</exception>
   /// <exception cref="System.ComponentModel.DataAnnotations.ValidationException">请求字段不满足契约声明的必填或值域约束时抛出，此时不读取参数与任何业务数据。</exception>
   /// <exception cref="InvalidOperationException">
-  /// 可信组织、医院或院区不可解析，引用详情有效时长参数不存在、取值非法或参数服务读取失败时抛出；
+  /// 可信组织、医院或院区不可解析，引用详情有效时长参数不存在、停用、取值非法或参数存储读取失败时抛出；
   /// 本次就诊在该医院、院区与证件下没有已采纳记录、已采纳项目全部超出有效时长、绑定报告版本全部失效，
   /// 以及超出有效时长与版本失效两类原因同时存在时同样抛出，
   /// 异常文案只说明平台能够确认的事实，不披露其他患者的记录是否存在。
@@ -48,8 +48,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     // 请求校验先于任何读取：请求不成立时既不解析可信范围，也不读取参数与业务数据。
     MedicalRecognitionRequestValidator.Validate(request);
     // 可信范围先于业务数据读取解析：可信上下文不成立时不需要、也不得读取任何业务数据。
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveWithBranchOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。", "无法确定当前可信院区。");
+    // 采纳记录的接收三值按业务编码保存，因此可信范围也按业务编码取用，与写入侧同口径。
+    OrganizationPath trustedScope = await ResolveTrustedBranchPathAsync();
 
     // 每次请求读取当前参数值：参数调整后立即按原起点影响既有采纳，因此不保存截止时间。
     int validHours = await ResolveCitationDetailValidHoursAsync();
@@ -93,24 +93,13 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 读取并校验引用详情有效时长。
   /// </summary>
   /// <remarks>
-  /// 读取请求只携带平台级参数编码：该请求类型不承载组织、医院与院区维度，取值不随调用归属变化；
+  /// 读取入口只按平台参数编码读取本应用参数表，取值不随组织、医院与院区归属变化；
   /// 只接受正整数小时，零、负数、非整数、空值与参数不存在一律整次失败，不使用兜底默认值。
   /// </remarks>
   /// <returns>引用详情有效时长的小时数。</returns>
-  /// <exception cref="InvalidOperationException">参数不存在、返回值非法或参数服务读取失败时抛出。</exception>
-  private async Task<int> ResolveCitationDetailValidHoursAsync()
-  {
-    SystemParameterDto? parameter = await systemParameterAppService.GetSystemParameterByCodeAsync(new GetSystemParameterByCodeRequest
-    {
-      Code = CitationDetailValidHours
-    });
-
-    string? hoursValue = parameter?.Value;
-    if (hoursValue is null) throw new InvalidOperationException("业务拒绝：未配置引用详情有效时长。");
-    if (!int.TryParse(hoursValue, out int hours) || hours <= 0) throw new InvalidOperationException("业务拒绝：引用详情有效时长取值非法。");
-
-    return hours;
-  }
+  /// <exception cref="InvalidOperationException">参数不存在、停用、取值非法或参数存储读取失败时抛出。</exception>
+  private async Task<int> ResolveCitationDetailValidHoursAsync() =>
+    await platformParameterReader.ReadCitationDetailValidHoursAsync();
 
   /// <summary>
   /// 判断一条采纳记录是否仍落在引用详情有效期内。
@@ -155,6 +144,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 报告公共上下文、普通检验结果、检查项目与检查部位都按本次选出的报告版本或检查项目集合各读一次，
   /// 读取次数只随本批不同的报告版本数量与检查项目数量增长，不随返回的匹配项数增长；
   /// 来源医疗机构名称按本批来源三值经组织路径解析点批量解析后回填，读取次数只随本批不同组织与医院数量增长；
+  /// 名称是展示字段：同一编码在 IAM 目录中命中多个节点时按「宁可留空也不猜」取名，不因歧义导致整次查询失败；
   /// 报告公共上下文按报告归并，同一报告命中多个互认项目时只返回一次。
   /// </remarks>
   /// <param name="candidates">已通过有效期与版本有效性校验的采纳记录。</param>
@@ -176,7 +166,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     Dictionary<Guid, RecognitionCitationReportContextItem> contextsByVersion =
       (await repository.QueryRecognitionCitationReportContextsAsync(reportVersionIds)).ToDictionary(context => context.ReportVersionId);
 
-    IReadOnlyList<OrganizationPath> resolvedPaths = await organizationPathResolver.ResolveOrThrow(
+    IReadOnlyList<OrganizationPath> resolvedPaths = await organizationPathResolver.ResolveNamesOrThrow(
       [.. reportRepresentatives.Select(candidate =>
       {
         RecognitionCitationReportContextItem context = ResolveContext(contextsByVersion, candidate);

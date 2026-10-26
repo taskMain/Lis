@@ -135,6 +135,12 @@ public sealed class Stage1SqlMapProbeTests
     Assert.Contains("MedicalStandardItem.GetMedicalStandardItemByCode", registeredKeys);
     Assert.Contains("MedicalRecognitionReportQuery.QueryRecognitionProjectConfigurationList", registeredKeys);
 
+    // 票 10 追加核对：平台参数映射的按编码读取、全量读取、新增与更新语句必须注册在实体作用域下。
+    Assert.Contains("PlatformParameter.GetPlatformParameterByCode", registeredKeys);
+    Assert.Contains("PlatformParameter.QueryAllPlatformParameter", registeredKeys);
+    Assert.Contains("PlatformParameter.CreatePlatformParameter", registeredKeys);
+    Assert.Contains("PlatformParameter.UpdatePlatformParameter", registeredKeys);
+
     // 批量新增配置不新增写入键：整批按提交顺序逐条调用单条创建语句，仍走 MutualRecognitionItem.CreateMutualRecognitionItem。
     // 出现独立批量写入键（例如 MutualRecognitionItem.CreateMutualRecognitionItems）说明新增了重复语句或改了写入口径。
     Assert.DoesNotContain("MutualRecognitionItem.CreateMutualRecognitionItems", registeredKeys);
@@ -247,7 +253,7 @@ public sealed class Stage1SqlMapProbeTests
         .OrderBy(name => name, StringComparer.Ordinal)
     ];
 
-    Assert.Equal(20, sqlMapResources.Length);
+    Assert.Equal(21, sqlMapResources.Length);
     foreach (string resource in sqlMapResources)
     {
       Assert.StartsWith($"{assemblyName}.", resource, StringComparison.Ordinal);
@@ -468,6 +474,14 @@ public sealed class Stage1SqlMapProbeTests
       .Where(line => line.Length > 0 && !line.StartsWith("primary key", StringComparison.OrdinalIgnoreCase))
       .Select(line => line.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0])];
     Assert.Equal(expectedColumns, columns);
+
+    // 查询语句引用 m.<列> 时，列必须存在于互认项目配置建表脚本；防止把金额表列名套到配置表后被替身掩盖成真实运行 42703。
+    var queryDocument = XDocument.Load(FindRepositoryFile("MedicalRecognitionReportQuery.xml"));
+    var configurationQuery = queryDocument.Descendants((XNamespace)"http://dysoft.vip/schemas/EarthraceSqlMap.xsd" + "Statement")
+      .Single(element => (string?)element.Attribute("Id") == "QueryRecognitionProjectConfigurationList").Value;
+    string[] referencedColumns = [.. System.Text.RegularExpressions.Regex.Matches(configurationQuery, @"\bm\.([a-z_]+)\b")
+      .Select(match => match.Groups[1].Value).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+    Assert.All(referencedColumns, column => Assert.Contains(column, columns));
 
     // 列类型口径：文本列不使用带长度上限的 varchar，避免编码长度被物理截断。
     Assert.DoesNotContain("varchar", script, StringComparison.OrdinalIgnoreCase);

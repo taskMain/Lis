@@ -464,8 +464,8 @@ describe('C64 可信身份未就绪与失效（Component 层可覆盖部分）',
   })
 
   it.skip('身份有效切换会清理选择/缓存/表单/弹窗 —— 页面无身份消费点，待负责人裁定归属', () => {
-    // `StandardCatalog` 不消费可信身份：身份由 main.tsx 的 `AuthProvider` 与
-    // contexts/ApiClientContext.tsx 的 `createAuthenticatedAdapter` 承担，页面内没有任何
+    // `StandardCatalog` 不消费可信身份：身份由 main.tsx 的 `HostSessionProvider` 与
+    // contexts/ApiClientProvider.tsx 的宿主请求适配器承担，页面内没有任何
     // 身份变更订阅。因此「切换即清理」在本组件内**不存在可测对象**；该期望实际由
     // 「宿主切换时卸载并重进子应用」满足，属 C64 的 Host 层。
   })

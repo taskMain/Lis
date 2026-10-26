@@ -6,12 +6,10 @@
  * 1. `./recognitionAmountsApi` 只替换 4 个 I/O 出口，其余纯函数使用真实实现；行夹具由真实
  *    `toRecognitionAmountRows` 从读模型形态构造，表格行序由真实 `toRecognitionAmountColumnView` 决定；
  * 2. `../../contexts/ApiClientContext` 只提供占位 client；
- * 3. 可信范围沿用既有包：`@dy/auth` 的 `LoginUserManager.getOrgID()`/`getHosID()`/`getBranchID()`
- *    与 `@dy/auth-react` 的 `useAuth()` token。这里替换这两个包以构造多份身份上下文：
- *    组织+医院+院区齐全、可信组织或医院缺失（另含 token 缺失）。替身的 `useAuth` 订阅本文件的
- *    登录态并在通知后重新求值（与真实包同形），因此**挂载之后**的可信范围变化可观察：token 后到、
- *    可信医院换绑、登录态失效都按真实路径触发页面重新求值。页面不再渲染范围选择器
- *    （`@dy/components-base` 未被页面消费，无需替身），院区恒取登录院区，无三档解析与显式改选。
+ * 3. 可信范围只来自宿主会话：这里用外部会话 store 替身构造多份身份上下文——组织+医院+院区齐全、
+ *    可信组织或医院缺失（另含未认证）。会话通知后页面重新求值，因此**挂载之后**的可信范围变化可观察：
+ *    身份后到、可信医院换绑、登录态失效都按真实路径触发页面重新求值。页面不再渲染范围选择器
+ *    页面不渲染范围选择器，院区恒取会话院区，无三档解析与显式改选。
  *
  * 列表字段集合、未配置与零元的呈现差异、层级列视图、排序、空态、状态筛选本地裁剪、地址栏参数同步、
  * 页脚计数与读取在途写门控都与平台管理员页同一形态（S3-D29 起由两个金额页共用的列表视图组件承载）：
@@ -29,8 +27,8 @@ import { toRecognitionAmountColumnView, toRecognitionAmountRows, type Recognitio
 import { BranchRecognitionAmounts } from './BranchRecognitionAmounts'
 
 /**
- * 可信登录态（组织、医院、院区、token）；每条用例按需改成缺失上下文，或在挂载后变更。
- * `version` 是订阅快照：登录态任何一次通知都推进它，让订阅方按新的可信范围重新求值。
+ * 宿主会话状态（组织、医院、院区与认证标记）；每条用例按需改成缺失上下文，或在挂载后变更。
+ * `version` 是订阅快照：会话任何一次通知都推进它，让订阅方按新的可信范围重新求值。
  */
 const authState = vi.hoisted(() => {
   const listeners = new Set<() => void>()
@@ -72,38 +70,47 @@ const exportDownload = vi.hoisted(() => ({ saveExportWorkbook: vi.fn() }))
 
 vi.mock('../../shared/exportFileDownload', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../shared/exportFileDownload')>()), saveExportWorkbook: exportDownload.saveExportWorkbook }))
 
-/** 基础目录替身注入点：范围条按编码反查医院、院区名称（编码到名称的固定映射，避开行夹具名称）。 */
-const baseDirectoryRef = vi.hoisted(() => ({ current: null as unknown }))
-
-vi.mock('@dy/api-client-base', () => ({
-  createBaseApiClient: () => baseDirectoryRef.current,
-}))
-
 vi.mock('../../runtimeConfig', () => ({
-  loadRuntimeConfig: async () => ({ apiBaseUrl: 'http://api.test', baseApiBaseUrl: 'http://base.test' }),
+  loadRuntimeConfig: async () => ({ apiBaseUrl: 'http://api.test' }),
 }))
 
-/** 基础目录替身：与生成契约同形（含 id、name、hosId、orgId），查无编码返回 undefined。 */
-function createBaseDirectory() {
+/**
+ * 当前范围接缝替身：可信范围的业务编码与实例标识取同一组替身值
+ * （本文件不区分两者，区分由 currentOrganizationScope 与 reportsTrustedScope 的接缝用例承担）。
+ */
+vi.mock('../../components/currentOrganizationScope', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../components/currentOrganizationScope')>()
+  const scope = () => {
+    const authenticated = authState.token !== null
+    return {
+      organizationId: authenticated ? authState.organizationCode : null,
+      organizationName: null,
+      organizationCode: authenticated ? authState.organizationCode : null,
+      hospitalId: authenticated ? authState.hospitalCode : null,
+      hospitalName: null,
+      hospitalCode: authenticated ? authState.hospitalCode : null,
+      branchId: authenticated ? authState.branchCode : null,
+      branchName: null,
+      branchCode: authenticated ? authState.branchCode : null,
+    }
+  }
   return {
-    api: {
-      organization: {
-        getHospitalById: {
-          post: vi.fn(async ({ id }: { id: string }) =>
-            ({ 'HOS-1': { id: 'HOS-1', name: '医院甲', orgId: 'ORG-A' }, 'HOS-2': { id: 'HOS-2', name: '医院乙', orgId: 'ORG-A' } })[id]),
-        },
-        getBranchById: {
-          post: vi.fn(async ({ id }: { id: string }) =>
-            ({
-              'BRA-1': { id: 'BRA-1', name: '院区甲', hosId: 'HOS-1', orgId: 'ORG-A' },
-              'BRA-2': { id: 'BRA-2', name: '院区乙', hosId: 'HOS-1', orgId: 'ORG-A' },
-              'BRA-9': { id: 'BRA-9', name: '院区丙', hosId: 'HOS-2', orgId: 'ORG-A' },
-            })[id]),
-        },
-      },
+    ...actual,
+    readCurrentOrganizationScope: () => scope(),
+    useResolvedTrustedScope: () => {
+      const value = scope()
+      return {
+        status: value.organizationCode === null ? 'unavailable' as const : 'ready' as const,
+        organizationId: value.organizationId,
+        hospitalId: value.hospitalId,
+        branchId: value.branchId,
+        organizationCode: value.organizationCode,
+        hospitalCode: value.hospitalCode,
+        branchCode: value.branchCode,
+      }
     },
   }
-}
+})
 
 vi.mock('./recognitionAmountsApi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./recognitionAmountsApi')>()
@@ -112,36 +119,55 @@ vi.mock('./recognitionAmountsApi', async (importOriginal) => {
 
 const clientRef = vi.hoisted(() => ({ current: {} as unknown }))
 
+/** 页头范围条只读宿主会话：本文件不覆盖宿主链路，按匿名会话渲染「未知」且零业务请求。 */
+vi.mock('../../session/HostSessionContext', () => ({
+  useHostSession: () => ({
+    status: 'anonymous',
+    sessionVersion: '',
+    userId: null,
+    account: null,
+    displayName: null,
+    organizationId: null,
+    hospitalId: null,
+    campusId: null,
+  }),
+}))
+
 vi.mock('../../contexts/ApiClientContext', () => ({
   ApiClientProvider: ({ children }: { children: unknown }) => children,
   useApiClientContext: () => clientRef.current,
 }))
 
-vi.mock('@dy/auth', () => ({
-  LoginUserManager: {
-    getOrgID: () => authState.organizationCode,
-    getHosID: () => authState.hospitalCode,
-    getBranchID: () => authState.branchCode,
-  },
-}))
-
-vi.mock('@dy/auth-react', async () => {
-  const { useSyncExternalStore } = await import('react')
+/** 由当前替身状态构造宿主会话快照；未认证时三个范围字段都为 null。 */
+function buildSession() {
+  const authenticated = authState.token !== null
   return {
-    /** 与真实包同形：订阅登录态，通知后重新求值；token 仍是页面判定可信范围是否可用的依据。 */
-    useAuth: () => {
-      useSyncExternalStore(authState.subscribe, () => authState.version)
-      return {
-        isAuthenticated: authState.token !== null,
-        token: authState.token,
-        login: () => {},
-        logout: () => {},
-      }
+    status: authenticated ? 'authenticated' as const : 'anonymous' as const,
+    sessionVersion: `v${authState.version}`,
+    userId: authenticated ? 'user-1' : null,
+    account: authenticated ? '191617' : null,
+    displayName: authenticated ? '杨康健' : null,
+    organizationId: authenticated ? authState.organizationCode : null,
+    hospitalId: authenticated ? authState.hospitalCode : null,
+    campusId: authenticated ? authState.branchCode : null,
+  }
+}
+
+vi.mock('../../session/hostSession', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../session/hostSession')>()
+  const { useEffect, useReducer } = await import('react')
+  return {
+    ...actual,
+    readCurrentHostSession: () => buildSession(),
+    useHostSessionSnapshot: () => {
+      const [, forceRender] = useReducer((value: number) => value + 1, 0)
+      useEffect(() => authState.subscribe(forceRender), [])
+      return buildSession()
     },
   }
 })
 
-const node = (value: unknown) => ({ value, getValue: () => value })
+const amount = (value: number | null) => value
 
 function amountRow(overrides: Partial<RecognitionAmountReadModelLike> = {}): RecognitionAmountRow {
   return toRecognitionAmountRows([{
@@ -155,7 +181,7 @@ function amountRow(overrides: Partial<RecognitionAmountReadModelLike> = {}): Rec
     branchName: '院区一',
     configurationStatus: 1,
     unavailableReason: null,
-    currentAmount: node(12.5),
+    currentAmount: amount(12.5),
     isAmountConfigured: true,
     ...overrides,
   }])[0]
@@ -316,8 +342,6 @@ beforeEach(() => {
   query().mockRejectedValue(new Error('用例未排队列表读取：先调用 armQuery'))
   exportDownload.saveExportWorkbook.mockReset()
   clientRef.current = {}
-  // restoreMocks 会让上一用例的 vi.fn() 实现失效：目录替身每用例重建。
-  baseDirectoryRef.current = createBaseDirectory()
   // 地址栏回到缺省状态：上一个用例的已生效条件不得泄漏进本用例。
   window.history.replaceState(null, '', '/')
 })
@@ -401,7 +425,7 @@ describe('C3 可信范围与院区固定（院区恒取登录院区）', () => {
     expect(api.saveOrganizationHospitalBranchRecognitionAmount).not.toHaveBeenCalled()
 
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    await settle(reload, [amountRow({ currentAmount: node(20), isAmountConfigured: true })])
+    await settle(reload, [amountRow({ currentAmount: amount(20), isAmountConfigured: true })])
     await waitFor(() => expect(queryInlineAmountInput()).toBeNull())
     await screen.findByText('20.00')
   })
@@ -561,7 +585,7 @@ describe('C5 医院管理员页的列表字段集合', () => {
 describe('C6 / C7 未配置与零元的呈现差异', () => {
   it('未配置行显示「未配置」且无数值，零元按已配置金额呈现 0.00', async () => {
     await renderLoaded([
-      amountRow({ standardProjectCode: 'A01', standardProjectName: '零元项目', currentAmount: node(0), isAmountConfigured: true }),
+      amountRow({ standardProjectCode: 'A01', standardProjectName: '零元项目', currentAmount: amount(0), isAmountConfigured: true }),
       amountRow({ standardProjectCode: 'A02', standardProjectName: '未配置项目', currentAmount: null, isAmountConfigured: false }),
     ])
 
@@ -617,7 +641,7 @@ describe('C8 金额输入校验', () => {
 
 describe('C9 / C12 金额保存成功', () => {
   it('回填当前值后不改直接提交仍发出写请求，成功后收起编辑态并整表重载', async () => {
-    await renderLoaded([amountRow({ currentAmount: node(12.5), isAmountConfigured: true })])
+    await renderLoaded([amountRow({ currentAmount: amount(12.5), isAmountConfigured: true })])
 
     editAmount('血常规')
     expect(inlineAmountInput().value).toBe('12.50')
@@ -638,7 +662,7 @@ describe('C9 / C12 金额保存成功', () => {
 
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-1' })
-    await settle(reload, [amountRow({ currentAmount: node(20), isAmountConfigured: true })])
+    await settle(reload, [amountRow({ currentAmount: amount(20), isAmountConfigured: true })])
 
     await waitFor(() => expect(queryInlineAmountInput()).toBeNull())
     await screen.findByText('20.00')
@@ -699,7 +723,7 @@ describe('C10 金额保存被拒绝', () => {
 
 describe('C13 写成功但随后的刷新失败', () => {
   it('按写成功呈现并提示「写入已成功，数据待刷新」，提供重试且不按保存失败呈现', async () => {
-    await renderLoaded([amountRow({ currentAmount: node(12.5), isAmountConfigured: true })])
+    await renderLoaded([amountRow({ currentAmount: amount(12.5), isAmountConfigured: true })])
 
     editAmount('血常规')
     await change(inlineAmountInput(), '20.00')
@@ -723,7 +747,7 @@ describe('C13 写成功但随后的刷新失败', () => {
     const retry = armQuery()
     click(screen.getByRole('button', { name: /重\s*试/ }))
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
-    await settle(retry, [amountRow({ currentAmount: node(20), isAmountConfigured: true })])
+    await settle(retry, [amountRow({ currentAmount: amount(20), isAmountConfigured: true })])
 
     await screen.findByText('20.00')
     expect(screen.queryByText('写入已成功，数据待刷新')).not.toBeInTheDocument()
@@ -811,14 +835,67 @@ describe('C17 空态', () => {
   it('有条件但可见行未命中时显示未命中空态文案，且不追加读取', async () => {
     // 两行都是已配置：按「未配置」档裁剪后可见行为空，服务端结果本身非空。
     await renderLoaded([
-      amountRow({ standardProjectCode: 'A01', isAmountConfigured: true, currentAmount: node(12.5) }),
-      amountRow({ standardProjectCode: 'A02', isAmountConfigured: true, currentAmount: node(20) }),
+      amountRow({ standardProjectCode: 'A01', isAmountConfigured: true, currentAmount: amount(12.5) }),
+      amountRow({ standardProjectCode: 'A02', isAmountConfigured: true, currentAmount: amount(20) }),
     ])
 
     await pickSelectOption(amountStatusFilter(), '未配置')
 
     expect(screen.getByText('没有符合当前筛选条件的互认项目金额')).toBeInTheDocument()
     expect(dataRows()).toHaveLength(0)
+    expect(query()).toHaveBeenCalledTimes(1)
+  })
+})
+
+/**
+ * 读取失败与零配置空态必须可区分：读取失败（例如令牌获取阶段就失败、请求根本没发出）不是
+ * 「当前范围没有配置」，把失败渲染成零配置空态会让用户以为配置真的不存在。
+ *
+ * 失败态的重试沿用既有入口（框内查询图标按钮），不新增交互；本组用例锁定三件事：
+ * a 失败且无数据 → 失败文案、无「没有…配置」、页脚不报共 0 项；b 成功零行 → 原零配置空态；
+ * c 成功有行 → 页脚计数正确。
+ */
+describe('读取失败不得渲染成零配置空态', () => {
+  it('读取失败且无数据：显示失败文案，不出现「没有…配置」，页脚不报共 0 项', async () => {
+    const failing = armQuery()
+    renderPage()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
+    await failQuery(failing)
+
+    await screen.findByText('读取失败，请重试')
+    // 失败不得伪装成零配置空态：两种事实的文案互斥。
+    expect(screen.queryByText('当前范围没有互认项目金额配置')).toBeNull()
+    expect(screen.queryByText('没有符合当前筛选条件的互认项目金额')).toBeNull()
+    expect(screen.queryByText(/没有.*配置/)).toBeNull()
+    // 页脚在失败态不报 0：失败数据不可信，「共 0 项」会被读成零配置。
+    expect(screen.queryByText(/共 0 项/)).toBeNull()
+    expect(screen.getByText('共 — 项')).toBeInTheDocument()
+    expect(dataRows()).toHaveLength(0)
+    // 失败态仍可重试：既有入口（框内查询图标按钮）保持可用，且不新增失败横幅。
+    expect(searchButton()).toBeEnabled()
+    expect(screen.queryByText(/待刷新|写入已成功/)).toBeNull()
+  })
+
+  it('读取成功但确实零行：仍渲染原零配置空态文案与共 0 项', async () => {
+    await renderLoaded([])
+
+    expect(screen.getByText('当前范围没有互认项目金额配置')).toBeInTheDocument()
+    expect(screen.queryByText('读取失败，请重试')).toBeNull()
+    expect(screen.getByText('共 0 项')).toBeInTheDocument()
+    expect(dataRows()).toHaveLength(0)
+    expect(query()).toHaveBeenCalledTimes(1)
+  })
+
+  it('读取成功有行：页脚按可见行数计数，不出现失败文案', async () => {
+    await renderLoaded([
+      amountRow({ standardProjectCode: 'A01', standardProjectName: '血常规', isAmountConfigured: true, currentAmount: amount(12.5) }),
+      amountRow({ standardProjectCode: 'A02', standardProjectName: '尿常规', isAmountConfigured: true, currentAmount: amount(20) }),
+    ])
+
+    expect(screen.getByText('共 2 项')).toBeInTheDocument()
+    expect(screen.queryByText('读取失败，请重试')).toBeNull()
+    expect(screen.queryByText(/共 — 项/)).toBeNull()
+    expect(dataRows()).toHaveLength(2)
     expect(query()).toHaveBeenCalledTimes(1)
   })
 })
@@ -931,9 +1008,9 @@ describe('C27 关键字搜索', () => {
 describe('C28 状态筛选本地裁剪', () => {
   it('金额状态下拉与配置状态页签都只在服务端结果上本地裁剪：切换即生效、不追加读取、不下推请求', async () => {
     await renderLoaded([
-      amountRow({ standardProjectCode: 'A01', standardProjectName: '项目一', isAmountConfigured: true, currentAmount: node(12.5), configurationStatus: 1 }),
+      amountRow({ standardProjectCode: 'A01', standardProjectName: '项目一', isAmountConfigured: true, currentAmount: amount(12.5), configurationStatus: 1 }),
       amountRow({ standardProjectCode: 'A02', standardProjectName: '项目二', isAmountConfigured: false, currentAmount: null, configurationStatus: 1 }),
-      amountRow({ standardProjectCode: 'A03', standardProjectName: '项目三', isAmountConfigured: true, currentAmount: node(3), configurationStatus: 2 }),
+      amountRow({ standardProjectCode: 'A03', standardProjectName: '项目三', isAmountConfigured: true, currentAmount: amount(3), configurationStatus: 2 }),
     ])
     expect(renderedCodes()).toEqual(['A01', 'A02', 'A03'])
     expect(query()).toHaveBeenCalledTimes(1)
@@ -1047,12 +1124,12 @@ describe('C30 院区恒取登录院区', () => {
 })
 
 describe('C31 页头范围条', () => {
-  it('页头由共用范围条承载：医院与院区显名称、组织显「未知」，全程无编码文本', async () => {
+  it('页头由共用范围条承载：名称缺失显示「未知」，全程无编码文本', async () => {
     await renderLoaded([amountRow()])
 
-    // 组织名经本项目客户端可信范围查询反查（本文件的占位 client 不含该端点 → 「未知」）；
-    // 医院与院区经基础目录按编码反查（医院甲 / 院区甲），编码一律不出现在页头。
-    expect(await screen.findByText('未知 / 医院甲 / 院区甲')).toBeInTheDocument()
+    // 本文件按匿名会话替换宿主会话、占位 client 不含当前范围查询端点：三级名称都按缺失处理，
+    // 页头只显示「未知」，不读取登录管理器、不回退显示编码。
+    expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
     const header = document.querySelector('.recognition-amounts-header') as HTMLElement
     for (const code of ['ORG-A', 'HOS-1', 'BRA-1']) {
       expect(header.textContent).not.toContain(code)
@@ -1064,7 +1141,7 @@ describe('C31 页头范围条', () => {
 describe('C32 行内编辑金额', () => {
   it('点击当前金额值与未配置标记进入编辑，Esc 取消后编辑态收起且金额不变', async () => {
     await renderLoaded([
-      amountRow({ standardProjectCode: 'A01', standardProjectName: '血常规', currentAmount: node(12.5), isAmountConfigured: true }),
+      amountRow({ standardProjectCode: 'A01', standardProjectName: '血常规', currentAmount: amount(12.5), isAmountConfigured: true }),
       amountRow({ standardProjectCode: 'A02', standardProjectName: '未配置项目', currentAmount: null, isAmountConfigured: false }),
     ])
 
@@ -1086,7 +1163,7 @@ describe('C32 行内编辑金额', () => {
   })
 
   it('回车提交当前值（同值不改）仍发出写请求并收起编辑态', async () => {
-    await renderLoaded([amountRow({ currentAmount: node(12.5), isAmountConfigured: true })])
+    await renderLoaded([amountRow({ currentAmount: amount(12.5), isAmountConfigured: true })])
 
     editAmount('血常规')
     expect(inlineAmountInput().value).toBe('12.50')
@@ -1101,13 +1178,13 @@ describe('C32 行内编辑金额', () => {
       currentAmount: 12.5,
     })
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    await settle(reload, [amountRow({ currentAmount: node(12.5), isAmountConfigured: true })])
+    await settle(reload, [amountRow({ currentAmount: amount(12.5), isAmountConfigured: true })])
     await waitFor(() => expect(queryInlineAmountInput()).toBeNull())
     expect(screen.getByText('12.50')).toBeInTheDocument()
   })
 
   it('保存与取消为图标按钮，悬停提示与可访问名称同一文案，保存按钮与回车同一条提交路径', async () => {
-    await renderLoaded([amountRow({ currentAmount: node(12.5), isAmountConfigured: true })])
+    await renderLoaded([amountRow({ currentAmount: amount(12.5), isAmountConfigured: true })])
 
     // 取消按钮：收起编辑态、丢弃输入，与 Esc 同路径（S3-D27 2026-10-13 修订（第三轮））。
     editAmount('血常规')
@@ -1152,13 +1229,13 @@ describe('C32 行内编辑金额', () => {
       currentAmount: 15,
     })
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    await settle(reload, [amountRow({ currentAmount: node(15), isAmountConfigured: true })])
+    await settle(reload, [amountRow({ currentAmount: amount(15), isAmountConfigured: true })])
     await waitFor(() => expect(queryInlineAmountInput()).toBeNull())
     await screen.findByText('15.00')
   })
 
   it('后台刷新改变同一行金额后编辑器以当前金额值为键重挂并回填新值', async () => {
-    await renderLoaded([amountRow({ currentAmount: node(12.5), isAmountConfigured: true })])
+    await renderLoaded([amountRow({ currentAmount: amount(12.5), isAmountConfigured: true })])
 
     editAmount('血常规')
     await change(inlineAmountInput(), '999')
@@ -1166,7 +1243,7 @@ describe('C32 行内编辑金额', () => {
     const reload = armQuery()
     click(searchButton())
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
-    await settle(reload, [amountRow({ currentAmount: node(20), isAmountConfigured: true })])
+    await settle(reload, [amountRow({ currentAmount: amount(20), isAmountConfigured: true })])
 
     // 目标行仍在当前行集：编辑态保留，但以新金额值重挂，回填值随当前行数据更新。
     await waitFor(() => expect(inlineAmountInput().value).toBe('20.00'))
@@ -1175,7 +1252,7 @@ describe('C32 行内编辑金额', () => {
 
   it('状态档把目标行裁出当前行集后不渲染编辑态', async () => {
     await renderLoaded([
-      amountRow({ standardProjectCode: 'A01', standardProjectName: '血常规', currentAmount: node(12.5), isAmountConfigured: true }),
+      amountRow({ standardProjectCode: 'A01', standardProjectName: '血常规', currentAmount: amount(12.5), isAmountConfigured: true }),
       amountRow({ standardProjectCode: 'A02', standardProjectName: '未配置项目', currentAmount: null, isAmountConfigured: false }),
     ])
 
@@ -1290,7 +1367,7 @@ describe('C34 提交前现值复核（只保留可信组织或医院现读不到
     })
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-1' })
-    await settle(reload, [amountRow({ currentAmount: node(20), isAmountConfigured: true })])
+    await settle(reload, [amountRow({ currentAmount: amount(20), isAmountConfigured: true })])
     await waitFor(() => expect(queryInlineAmountInput()).toBeNull())
     await screen.findByText('20.00')
     expect(screen.queryByText(/本次不提交写入/)).not.toBeInTheDocument()
@@ -1325,7 +1402,7 @@ describe('C34 提交前现值复核（只保留可信组织或医院现读不到
     expect(query().mock.calls[1][1]).toEqual({ branchCode: 'BRA-1' })
     expect(query().mock.calls[2][1]).toEqual({ branchCode: 'BRA-3' })
     // BRA-1 的写后重读因范围键已切换被丢弃，行集以 BRA-3 的重读为准。
-    await settle(writeReload, [amountRow({ currentAmount: node(20), isAmountConfigured: true })])
+    await settle(writeReload, [amountRow({ currentAmount: amount(20), isAmountConfigured: true })])
     await settle(switchReload, [amountRow({ standardProjectCode: 'C01', standardProjectName: '新院区项目' })])
     await screen.findByText('新院区项目')
     expect(screen.queryByText('血常规')).not.toBeInTheDocument()
@@ -1342,8 +1419,8 @@ describe('C35 页脚计数', () => {
   })
   it('页脚按生效筛选后的可见行数显示共 N 项', async () => {
     await renderLoaded([
-      amountRow({ standardProjectCode: 'A01', isAmountConfigured: true, currentAmount: node(12.5) }),
-      amountRow({ standardProjectCode: 'A02', isAmountConfigured: true, currentAmount: node(20) }),
+      amountRow({ standardProjectCode: 'A01', isAmountConfigured: true, currentAmount: amount(12.5) }),
+      amountRow({ standardProjectCode: 'A02', isAmountConfigured: true, currentAmount: amount(20) }),
       amountRow({ standardProjectCode: 'A03', isAmountConfigured: false, currentAmount: null }),
     ])
 

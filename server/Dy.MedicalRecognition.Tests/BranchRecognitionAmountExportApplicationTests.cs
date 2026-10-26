@@ -1,7 +1,5 @@
 using System.Text.RegularExpressions;
 using ClosedXML.Excel;
-using Dy.Base.Application.Contracts.OrganizationAggregate;
-using Dy.Base.Application.Contracts.UserAggregate;
 using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
 using Dy.MedicalRecognition.Application.Contracts.ReadModels;
 using Dy.MedicalRecognition.Application.Queries;
@@ -13,33 +11,30 @@ using Xunit;
 namespace Dy.MedicalRecognition.Tests;
 
 /// <summary>
-/// 本院区金额页导出的应用层行为：组织与医院由可信上下文两段解析（令牌优先、档案补齐、冲突拒绝、补齐后仍空拒绝）、
-/// 请求院区经组织路径校验存在启用且属于可信医院、关键字空白视为未提供与非空原样下传、行序保持、
-/// 零记录与十万行上限的业务拒绝、十列列集与金额取值、工作簿组装与文件名。
+/// 本院区金额页导出的应用层行为：组织与医院由当前 IAM 工作身份范围解析、请求院区经组织路径校验存在启用且属于可信医院、
+/// 关键字空白视为未提供与非空原样下传、行序保持、零记录与十万行上限的业务拒绝、十列列集与金额取值、工作簿组装与文件名。
 /// </summary>
 /// <remarks>
 /// 查询端口、外部组织服务与外部用户服务使用手写替身，不连接数据库；行集与排序的真实 SQL 行为与宿主下载链路分别由真实库批次与宿主批次取证。
-/// 解析先后与职责和本院区金额列表查询完全一致：可信范围解析先于公共请求校验，可信范围不成立时不读取任何业务数据。
+/// 解析先后与职责和本院区金额列表查询完全一致：可信范围解析先于公共请求校验，可信范围不成立时不读取任何业务数据；
+/// 可信范围只来自 <see cref="FakeIamScope"/>，不再安装旧的 TrustedRequestContext。
 /// </remarks>
 public sealed class BranchRecognitionAmountExportApplicationTests
 {
-  /// <summary>可信上下文中的组织编码；导出组织层只取该值，请求不提交组织。</summary>
-  private const string TrustedOrganizationCode = "ORG-A";
+  /// <summary>FakeIamScope 默认链的医共体业务编码；导出组织层只取该值。</summary>
+  private const string TrustedOrganizationCode = FakeIamScope.OrganizationCode;
 
-  /// <summary>可信上下文中的医院编码；导出医院层只取该值，请求不提交医院。</summary>
-  private const string TrustedHospitalCode = "HOS-A";
+  /// <summary>FakeIamScope 默认链的医院业务编码；导出医院层只取该值。</summary>
+  private const string TrustedHospitalCode = FakeIamScope.HospitalCode;
 
-  /// <summary>请求导出的目标院区编码；属于可信医院。</summary>
-  private const string RequestBranchCode = "BRH-A";
+  /// <summary>FakeIamScope 默认链的院区业务编码；请求导出的目标院区。</summary>
+  private const string RequestBranchCode = FakeIamScope.BranchCode;
 
-  /// <summary>可信组织下另一家医院的编码；其院区不属于可信医院，用于构造越权院区。</summary>
-  private const string OtherHospitalCode = "HOS-B";
+  /// <summary>另一个医共体下医院的实例标识文本；其院区不属于可信医院，用于构造越权院区。</summary>
+  private const string OtherHospitalCode = FakeIamScope.OtherHospitalCode;
 
-  /// <summary>另一家医院下的院区编码；请求该值时按越权拒绝。</summary>
-  private const string OtherHospitalBranchCode = "BRH-B";
-
-  /// <summary>用例注入的令牌用户标识；导出不读取操作人，只用于可信范围补齐与构造完整的认证上下文。</summary>
-  private const string TrustedOperId = "2f7c1c1e-6a2f-4b1a-9c3d-1f0a2b3c4d5e";
+  /// <summary>另一家医院下的院区实例标识文本；请求该值时按越权拒绝。</summary>
+  private const string OtherHospitalBranchCode = FakeIamScope.OtherBranchCode;
 
   /// <summary>导出文件的统一内容类型，与应用层写入读模型的文件格式一致。</summary>
   private const string ExcelFileFormat = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -71,135 +66,66 @@ public sealed class BranchRecognitionAmountExportApplicationTests
   // ---------- 可信范围解析：两段解析的第一段 ----------
 
   /// <summary>
-  /// 可信范围解析先于公共请求校验：请求院区空白且可信上下文不可解析时，按可信范围拒绝而不是请求校验拒绝，
+  /// 可信范围解析先于公共请求校验：请求院区空白且当前身份缺少医院层时，按可信范围拒绝而不是请求校验拒绝，
   /// 与本院区金额列表查询的先后一致；此时不读取任何业务数据。
   /// </summary>
   [Fact]
   public async Task Export_resolves_the_trusted_scope_before_request_validation()
   {
-    TrustedRequestContext.Use(TrustedOrganizationCode, "", "", TrustedOperId);
     FakeRecognitionAmountRepository repository = new([BuildItem("PROBE-001")]);
-    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateTrustedOrganizationService(), new StubUserAppService());
+    MedicalRecognitionReportQueryAppService service = CreateService(
+      repository, CreateTrustedOrganizationService(), new StubUserAppService(), FakeIamScope.WithoutHospital());
 
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
       () => service.GetBranchRecognitionAmountExportAsync(ExportRequest(branchCode: "   ")));
 
-    Assert.Equal("无法读取当前登录用户信息。", error.Message);
+    Assert.Equal("无法确定当前可信医院。", error.Message);
     Assert.Equal(0, repository.CallCount);
   }
 
-  /// <summary>可信上下文不可解析时按可信范围拒绝：读不到用户档案，或档案可读但缺失层补齐后仍为空；不进入组织路径解析与查询端口。</summary>
+  /// <summary>
+  /// 当前身份的组织或医院范围缺失、或组织已停用时按对应层文案拒绝；不进入组织路径解析与查询端口。
+  /// </summary>
   [Fact]
-  public async Task Export_rejects_when_the_trusted_scope_stays_missing_after_filling()
+  public async Task Export_rejects_when_the_trusted_scope_is_missing_or_disabled()
   {
     FakeRecognitionAmountRepository repository = new([BuildItem("PROBE-001")]);
     StubOrganizationAppService organizationService = CreateTrustedOrganizationService();
 
-    foreach ((string? organizationCode, string? hospitalCode, string expectedMessage) in new[]
+    foreach ((FakeIamScope scope, string expectedMessage) in new[]
     {
-      (null, TrustedHospitalCode, "组织"),
-      ("   ", TrustedHospitalCode, "组织"),
-      (TrustedOrganizationCode, null, "医院"),
-      (TrustedOrganizationCode, "   ", "医院")
+      (FakeIamScope.MissingOrganization(), "无法确定当前可信组织。"),
+      (FakeIamScope.DisabledOrganization(), "无法确定当前可信组织。"),
+      (FakeIamScope.WithoutHospital(), "无法确定当前可信医院。")
     })
     {
-      TrustedRequestContext.Use(organizationCode, hospitalCode, "", TrustedOperId);
+      MedicalRecognitionReportQueryAppService service = CreateService(repository, new StubOrganizationAppService(), scope);
+      InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+        () => service.GetBranchRecognitionAmountExportAsync(ExportRequest()));
 
-      // 情形一：读不到用户档案，令牌缺失层无从补齐。
-      MedicalRecognitionReportQueryAppService missingProfileService = CreateService(repository, organizationService, new StubUserAppService());
-      InvalidOperationException missingProfileError = await Assert.ThrowsAsync<InvalidOperationException>(
-        () => missingProfileService.GetBranchRecognitionAmountExportAsync(ExportRequest()));
-      Assert.Equal("无法读取当前登录用户信息。", missingProfileError.Message);
+      Assert.Equal(expectedMessage, error.Message);
       Assert.Equal(0, repository.CallCount);
-
-      // 情形二：档案可读但缺失层仍取不到值，补齐后该层为空即拒绝。
-      StubUserAppService emptyProfileUserService = new();
-      emptyProfileUserService.UserById[Guid.Parse(TrustedOperId)] =
-        new UserDto { Id = Guid.Parse(TrustedOperId), OrgId = "", HosId = "", BranchId = null };
-      MedicalRecognitionReportQueryAppService emptyProfileService = CreateService(repository, organizationService, emptyProfileUserService);
-      InvalidOperationException emptyProfileError = await Assert.ThrowsAsync<InvalidOperationException>(
-        () => emptyProfileService.GetBranchRecognitionAmountExportAsync(ExportRequest()));
-      Assert.Contains(expectedMessage, emptyProfileError.Message, StringComparison.Ordinal);
-      Assert.Equal(0, repository.CallCount);
-
-      // 可信范围不成立时任何组织主数据都不被读取。
       Assert.Equal(0, organizationService.OrganizationReadCount);
     }
   }
 
-  /// <summary>令牌与用户档案在同层都提供且不一致时拒绝，不静默取其一：组织层与医院层各自取证。</summary>
-  /// <remarks>令牌两层齐全时可信上下文已完整、不读档案，因此冲突面只在令牌缺失另一层、走档案补齐路径时触发。</remarks>
-  [Fact]
-  public async Task Export_rejects_when_the_token_and_the_user_profile_disagree()
-  {
-    FakeRecognitionAmountRepository repository = new([BuildItem("PROBE-001")]);
-    StubOrganizationAppService organizationService = CreateTrustedOrganizationService();
-
-    // 组织层冲突：令牌缺医院层、档案补齐组织层时与令牌组织不一致。
-    TrustedRequestContext.Use("ORG-OTHER", "", "", TrustedOperId);
-    StubUserAppService organizationConflictUserService = new();
-    organizationConflictUserService.UserById[Guid.Parse(TrustedOperId)] =
-      new UserDto { Id = Guid.Parse(TrustedOperId), OrgId = TrustedOrganizationCode, HosId = TrustedHospitalCode };
-    MedicalRecognitionReportQueryAppService organizationConflictService = CreateService(repository, organizationService, organizationConflictUserService);
-    InvalidOperationException organizationConflictError = await Assert.ThrowsAsync<InvalidOperationException>(
-      () => organizationConflictService.GetBranchRecognitionAmountExportAsync(ExportRequest()));
-    Assert.Equal("当前登录组织与用户归属组织不一致，不能访问该组织数据。", organizationConflictError.Message);
-
-    // 医院层冲突：令牌缺组织层、档案补齐组织层时与令牌医院不一致。
-    TrustedRequestContext.Use("", "HOS-OTHER", "", TrustedOperId);
-    StubUserAppService hospitalConflictUserService = new();
-    hospitalConflictUserService.UserById[Guid.Parse(TrustedOperId)] =
-      new UserDto { Id = Guid.Parse(TrustedOperId), OrgId = TrustedOrganizationCode, HosId = TrustedHospitalCode };
-    MedicalRecognitionReportQueryAppService hospitalConflictService = CreateService(repository, organizationService, hospitalConflictUserService);
-    InvalidOperationException hospitalConflictError = await Assert.ThrowsAsync<InvalidOperationException>(
-      () => hospitalConflictService.GetBranchRecognitionAmountExportAsync(ExportRequest()));
-    Assert.Equal("当前登录医院与用户归属医院不一致，不能访问该医院数据。", hospitalConflictError.Message);
-
-    Assert.Equal(0, repository.CallCount);
-    Assert.Equal(0, organizationService.OrganizationReadCount);
-  }
-
-  // ---------- 两段解析：下传业务键 ----------
-
   /// <summary>
-  /// 令牌已提供组织与医院两层时直接取令牌值：可信范围完整即不读取用户档案，也不引入新的外部调用；
-  /// 下传仓储的组织、医院取可信值，院区取请求值，标准项目编码参数恒为空。
+  /// 导出直接使用当前 IAM 工作身份的组织与医院实例标识，不读取用户档案补齐旧令牌层。
   /// </summary>
   [Fact]
-  public async Task Export_prefers_the_token_and_skips_the_user_profile_when_both_layers_present()
+  public async Task Export_uses_the_iam_scope_without_reading_the_user_profile()
   {
-    UseTrustedContext();
-    StubUserAppService userService = new();
     FakeRecognitionAmountRepository repository = new([BuildItem("PROBE-001")]);
+    StubUserAppService userService = new();
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateTrustedOrganizationService(), userService);
 
     await service.GetBranchRecognitionAmountExportAsync(ExportRequest());
 
     Assert.Equal(1, repository.CallCount);
     Assert.Equal(
-      (TrustedOrganizationCode, TrustedHospitalCode, RequestBranchCode, (string?)null, (string?)null),
+      (FakeIamScope.OrganizationCode, FakeIamScope.HospitalCode, FakeIamScope.BranchCode, (string?)null, (string?)null),
       repository.ReceivedQuery);
     Assert.Equal(0, userService.GetUserByIdCallCount);
-  }
-
-  /// <summary>令牌缺失医院层时由当前登录用户档案补齐：下传仓储的医院取补齐后的值（V14 口径在本链的同构复现）。</summary>
-  [Fact]
-  public async Task Export_fills_missing_token_layers_from_the_user_profile()
-  {
-    TrustedRequestContext.Use(TrustedOrganizationCode, "", "", TrustedOperId);
-    StubUserAppService userService = new();
-    userService.UserById[Guid.Parse(TrustedOperId)] =
-      new UserDto { Id = Guid.Parse(TrustedOperId), OrgId = TrustedOrganizationCode, HosId = TrustedHospitalCode };
-    FakeRecognitionAmountRepository repository = new([BuildItem("PROBE-001")]);
-    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateTrustedOrganizationService(), userService);
-
-    await service.GetBranchRecognitionAmountExportAsync(ExportRequest());
-
-    Assert.Equal(1, repository.CallCount);
-    Assert.Equal(
-      (TrustedOrganizationCode, TrustedHospitalCode, RequestBranchCode, (string?)null, (string?)null),
-      repository.ReceivedQuery);
-    Assert.Equal(1, userService.GetUserByIdCallCount);
   }
 
   // ---------- 组织路径校验：两段解析的第二段 ----------
@@ -208,7 +134,6 @@ public sealed class BranchRecognitionAmountExportApplicationTests
   [Fact]
   public async Task Export_rejects_a_branch_outside_the_trusted_hospital_before_repository_access()
   {
-    UseTrustedContext();
     StubOrganizationAppService organizationService = CreateTrustedOrganizationService();
     // 可信医院下登记一个停用院区；再登记可信组织下另一家医院及其院区，父子归属不成立时同样拒绝。
     organizationService.BranchesByHospital[TrustedHospitalCode].Add(
@@ -222,15 +147,15 @@ public sealed class BranchRecognitionAmountExportApplicationTests
 
     InvalidOperationException missingError = await Assert.ThrowsAsync<InvalidOperationException>(
       () => service.GetBranchRecognitionAmountExportAsync(ExportRequest(branchCode: "BRH-NOTSEEDED")));
-    Assert.Contains("院区不存在、已停用或不属于所选医院", missingError.Message, StringComparison.Ordinal);
+    Assert.Equal("业务拒绝：院区不存在、已停用或不属于所选医院。", missingError.Message);
 
     InvalidOperationException disabledError = await Assert.ThrowsAsync<InvalidOperationException>(
       () => service.GetBranchRecognitionAmountExportAsync(ExportRequest(branchCode: "BRH-DISABLED")));
-    Assert.Contains("院区不存在、已停用或不属于所选医院", disabledError.Message, StringComparison.Ordinal);
+    Assert.Equal("业务拒绝：院区不存在、已停用或不属于所选医院。", disabledError.Message);
 
     InvalidOperationException elsewhereError = await Assert.ThrowsAsync<InvalidOperationException>(
       () => service.GetBranchRecognitionAmountExportAsync(ExportRequest(branchCode: OtherHospitalBranchCode)));
-    Assert.Contains("院区不存在、已停用或不属于所选医院", elsewhereError.Message, StringComparison.Ordinal);
+    Assert.Equal("业务拒绝：院区不存在、已停用或不属于所选医院。", elsewhereError.Message);
 
     Assert.Equal(0, repository.CallCount);
   }
@@ -241,7 +166,6 @@ public sealed class BranchRecognitionAmountExportApplicationTests
   [Fact]
   public async Task Export_treats_missing_or_blank_keyword_as_not_provided()
   {
-    UseTrustedContext();
     FakeRecognitionAmountRepository repository = new([BuildItem("PROBE-001")]);
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateTrustedOrganizationService());
 
@@ -258,7 +182,6 @@ public sealed class BranchRecognitionAmountExportApplicationTests
   [Fact]
   public async Task Export_passes_normalized_non_blank_keyword_as_is()
   {
-    UseTrustedContext();
     FakeRecognitionAmountRepository repository = new([BuildItem("PROBE-001")]);
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateTrustedOrganizationService());
 
@@ -271,7 +194,6 @@ public sealed class BranchRecognitionAmountExportApplicationTests
   [Fact]
   public async Task Export_preserves_the_row_order_given_by_the_query_port()
   {
-    UseTrustedContext();
     FakeRecognitionAmountRepository repository = new(
     [
       BuildItem("PROBE-003", standardItemName: "第三项"),
@@ -295,7 +217,6 @@ public sealed class BranchRecognitionAmountExportApplicationTests
   [Fact]
   public async Task Export_rejects_zero_records_without_generating_a_file()
   {
-    UseTrustedContext();
     FakeRecognitionAmountRepository repository = new([]);
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateTrustedOrganizationService());
 
@@ -310,7 +231,6 @@ public sealed class BranchRecognitionAmountExportApplicationTests
   [Fact]
   public async Task Export_rejects_rows_beyond_the_limit_with_narrowing_prompt()
   {
-    UseTrustedContext();
     FakeRecognitionAmountRepository repository = new(
       Enumerable.Range(0, 100_001).Select(index => BuildItem($"PROBE-{index:D6}")));
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateTrustedOrganizationService());
@@ -326,7 +246,6 @@ public sealed class BranchRecognitionAmountExportApplicationTests
   [Fact]
   public async Task Export_allows_rows_at_the_limit_boundary()
   {
-    UseTrustedContext();
     FakeRecognitionAmountRepository repository = new(
       Enumerable.Range(0, 100_000).Select(index => BuildItem($"PROBE-{index:D6}")));
     MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateTrustedOrganizationService());
@@ -348,7 +267,6 @@ public sealed class BranchRecognitionAmountExportApplicationTests
   [Fact]
   public async Task Export_writes_the_ten_frozen_columns_with_amount_semantics()
   {
-    UseTrustedContext();
     FakeRecognitionAmountRepository repository = new(
     [
       BuildItem("PROBE-001"),
@@ -397,7 +315,6 @@ public sealed class BranchRecognitionAmountExportApplicationTests
   [Fact]
   public async Task Export_assembles_a_single_bold_frozen_sheet_with_adapted_columns_and_timestamped_name()
   {
-    UseTrustedContext();
     FakeRecognitionAmountRepository repository = new(
     [
       BuildItem("PROBE-001", standardItemName: "血常规"),
@@ -426,26 +343,68 @@ public sealed class BranchRecognitionAmountExportApplicationTests
     Assert.All(Enumerable.Range(1, 10), column => Assert.True(worksheet.Column(column).Width > 0));
   }
 
+  /// <summary>判据 4：请求提供院区业务编码时，导出过滤按可信组织、可信医院与解析出的院区编码下传。</summary>
+  [Fact]
+  public async Task Export_uses_request_branch_code_when_provided()
+  {
+    FakeRecognitionAmountRepository repository = new([BuildItem("PROBE-001")]);
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateTrustedOrganizationService());
+
+    await service.GetBranchRecognitionAmountExportAsync(new BranchRecognitionAmountExportRequest
+    {
+      BranchCode = RequestBranchCode,
+    });
+
+    Assert.Equal(1, repository.CallCount);
+    Assert.Equal(
+      (FakeIamScope.OrganizationCode, FakeIamScope.HospitalCode, FakeIamScope.BranchCode, (string?)null, (string?)null),
+      repository.ReceivedQuery);
+  }
+
+  /// <summary>判据 4 归一口径：请求院区编码带首尾空白时按去空白后的业务编码校验归属，下传的是归一后的编码。</summary>
+  [Fact]
+  public async Task Export_normalizes_request_branch_code_before_matching_the_trusted_hospital()
+  {
+    FakeRecognitionAmountRepository repository = new([BuildItem("PROBE-001")]);
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateTrustedOrganizationService());
+
+    await service.GetBranchRecognitionAmountExportAsync(new BranchRecognitionAmountExportRequest
+    {
+      BranchCode = $"  {RequestBranchCode}  ",
+    });
+
+    Assert.Equal(1, repository.CallCount);
+    Assert.Equal(
+      (FakeIamScope.OrganizationCode, FakeIamScope.HospitalCode, FakeIamScope.BranchCode, (string?)null, (string?)null),
+      repository.ReceivedQuery);
+  }
+
   // ---------- 夹具 ----------
 
-  /// <summary>把当前请求的可信上下文设置为令牌携带组织与医院两层，院区层留空（金额链的院区来自请求）。</summary>
-  private static void UseTrustedContext() => TrustedRequestContext.Use(TrustedOrganizationCode, TrustedHospitalCode, "", TrustedOperId);
-
-  /// <summary>构造被测查询应用服务：注入查询端口替身、外部组织服务替身、外部用户服务替身与系统参数替身。</summary>
+  /// <summary>构造被测查询应用服务：注入查询端口替身、外部组织服务替身、外部用户服务替身与平台参数替身。</summary>
   /// <param name="repository">查询端口替身。</param>
   /// <param name="organizationService">外部组织服务替身。</param>
-  /// <returns>可直接调用的查询应用服务。</returns>
-  private static MedicalRecognitionReportQueryAppService CreateService(FakeRecognitionAmountRepository repository, StubOrganizationAppService organizationService) =>
-    new(repository, organizationService, new StubUserAppService(), new StubSystemParameterAppService());
-
-  /// <summary>构造被测查询应用服务，并指定补齐令牌缺失层所用的外部用户服务替身。</summary>
-  /// <param name="repository">查询端口替身。</param>
-  /// <param name="organizationService">外部组织服务替身。</param>
-  /// <param name="userService">提供当前登录用户档案的外部用户服务替身。</param>
+  /// <param name="iamScope">当前 IAM 工作身份范围；为空时使用默认三层链。</param>
   /// <returns>可直接调用的查询应用服务。</returns>
   private static MedicalRecognitionReportQueryAppService CreateService(
-    FakeRecognitionAmountRepository repository, StubOrganizationAppService organizationService, StubUserAppService userService) =>
-    new(repository, organizationService, userService, new StubSystemParameterAppService());
+    FakeRecognitionAmountRepository repository, StubOrganizationAppService organizationService, FakeIamScope? iamScope = null)
+  {
+    FakeIamScope scope = iamScope ?? FakeIamScope.Default;
+    return new(repository, new PlatformParameterRepositoryStub(), scope, scope, scope);
+  }
+
+  /// <summary>构造被测查询应用服务，并指定外部用户服务替身与当前 IAM 工作身份范围。</summary>
+  /// <param name="repository">查询端口替身。</param>
+  /// <param name="organizationService">外部组织服务替身。</param>
+  /// <param name="userService">外部用户服务替身；当前导出链不读取用户档案，保留以验证未被调用。</param>
+  /// <param name="iamScope">当前 IAM 工作身份范围；为空时使用默认三层链。</param>
+  /// <returns>可直接调用的查询应用服务。</returns>
+  private static MedicalRecognitionReportQueryAppService CreateService(
+    FakeRecognitionAmountRepository repository, StubOrganizationAppService organizationService, StubUserAppService userService, FakeIamScope? iamScope = null)
+  {
+    FakeIamScope scope = iamScope ?? FakeIamScope.Default;
+    return new(repository, new PlatformParameterRepositoryStub(), scope, scope, scope);
+  }
 
   /// <summary>构造本院区金额页的导出条件；该请求不含组织与医院字段。</summary>
   /// <param name="branchCode">请求院区编码。</param>

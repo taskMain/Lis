@@ -3,7 +3,7 @@
  * （阶段 6 前端测试矩阵 C15、C21、C22 的页面接线面）。
  *
  * 装配边界与使用方页面用例一致（遵循 Frontend Testing 第 2 节）：提供方适配层只替换 I/O 出口，
- * 请求构造等纯函数使用真实实现；占位 client 原样透传；范围选择器替换整个包；
+ * 请求构造等纯函数使用真实实现；占位 client 原样透传；范围选择器只替换组件本身；
  * 可信组织与可信医院接缝替换为可控值；枚举元数据钩子返回兜底选项。
  *
  * 主体行为（提供方口径展示、下钻、分页）由 statisticsBoard.test.tsx 覆盖，本文件不重复。
@@ -12,7 +12,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BaseScopeSelectorProps } from '@dy/components-base'
+import type { OrganizationScopeSelectorProps } from '../../components/OrganizationScopeSelector'
 import type {
   SourceDetailRow,
   SourceSummaryRow,
@@ -35,14 +35,25 @@ const trustedScopeRef = vi.hoisted(() => ({
   hospitalReady: true,
 }))
 
-vi.mock('@dy/auth-react', () => ({
-  /** 与真实包同形的最小替身：token 在值（范围条据此读取三级编码）；本文件无 token 变化场景。 */
-  useAuth: () => ({ isAuthenticated: true, token: 'token-1', login: () => {}, logout: () => {} }),
+/**
+ * 页头范围条只读宿主会话：本文件不覆盖宿主链路，按匿名会话渲染「未知」且零业务请求。
+ */
+vi.mock('../../session/HostSessionContext', () => ({
+  useHostSession: () => ({
+    status: 'anonymous',
+    sessionVersion: '',
+    userId: null,
+    account: null,
+    displayName: null,
+    organizationId: null,
+    hospitalId: null,
+    campusId: null,
+  }),
 }))
 
 vi.mock('../recognitionProjects/recognitionProjectsOrganizationScope', () => ({
   useTrustedOrganizationScope: () => (trustedScopeRef.organizationReady
-    ? { kind: 'ready', organizationCode: 'ORG-A' }
+    ? { kind: 'ready', organizationCode: 'ORG-A', organizationId: 'ORG-A' }
     : { kind: 'unavailable' }),
 }))
 
@@ -54,11 +65,16 @@ vi.mock('../reportManagement/reportsTrustedScope', () => ({
   readTrustedBranchCode: () => null,
 }))
 
-vi.mock('@dy/components-base', async () => {
+vi.mock('../../components/OrganizationScopeSelector', async () => {
   const { createElement } = await import('react')
 
-  /** 范围选择器替身：固定 `orgId`/`hosId` 的对应级不渲染下拉，变化回传完整范围值。 */
-  function StubScopeSelector({ value = {}, orgId, hosId, className, onChange }: BaseScopeSelectorProps) {
+  /**
+   * 范围选择器替身：固定 `orgId`/`hosId` 的对应级不渲染下拉，变化回传完整范围值。
+   * 本文件的选项标识与业务编码同值（页面只关心筛选字段取到了选择值），
+   * 标识与编码的区分由选择器组件用例与统计主体用例承担。
+   */
+  const CODE_KEY = { orgId: 'orgCode', hosId: 'hosCode', branchId: 'branchCode' } as const
+  function StubScopeSelector({ value = {}, orgId, hosId, className, onChange }: OrganizationScopeSelectorProps) {
     const levels: Array<{ key: 'orgId' | 'hosId' | 'branchId'; label: string; options: string[] }> = []
     if (orgId === undefined) levels.push({ key: 'orgId', label: '组织', options: ['ORG-A', 'ORG-B'] })
     if (hosId === undefined) levels.push({ key: 'hosId', label: '医院', options: ['HOS-1', 'HOS-2'] })
@@ -72,8 +88,12 @@ vi.mock('@dy/components-base', async () => {
           onChange: (event: { target: { value: string } }) => {
             const next = event.target.value
             onChange?.(
-              { ...value, [level.key]: next.length > 0 ? next : undefined },
-              { organizations: [], hospitals: [], branches: [], depts: [], users: [] },
+              {
+                ...value,
+                [level.key]: next.length > 0 ? next : undefined,
+                [CODE_KEY[level.key]]: next.length > 0 ? next : undefined,
+              },
+              { organizations: [], hospitals: [], branches: [], unconfiguredOrganizationCount: 0 },
             )
           },
         },
@@ -83,16 +103,11 @@ vi.mock('@dy/components-base', async () => {
     )
   }
 
-  return { configureBaseComponents: () => {}, BaseScopeSelector: StubScopeSelector }
+  return { OrganizationScopeSelector: StubScopeSelector }
 })
 
 vi.mock('../../hooks/useEnumMetadata', () => ({
   useEnumMetadata: (_enumName: string, fallback: readonly unknown[]) => fallback,
-}))
-
-vi.mock('../../components/scopeNameLookup', () => ({
-  /** 范围名称反查替身：页面用例不覆盖名称反查，三级按缺失处理（展示层显示「未知」）。 */
-  useScopeNames: () => ({ organization: null, hospital: null, branch: null }),
 }))
 
 const clientRef = vi.hoisted(() => ({ current: { marker: 'source-page-client' } }))
@@ -298,8 +313,8 @@ describe('本院被互认统计（本院页）', () => {
   it('本院页无院区选择器：请求来源院区恒为登录院区，built 查询不含来源组织、来源医院与接收组织（范围随登录上下文取数）', async () => {
     renderPage(<BranchSourceRecognitionStatistics />)
 
-    // 页头范围区由共用范围条承载：本用例环境的真实 LoginUserManager 无登录编码，三级按「未知」占位，
-    // 直拼编码的旧只读副文案不再出现（页头范围条名称渲染口径）。
+    // 页头范围区由共用范围条承载：本用例按匿名宿主会话渲染，三级按「未知」占位；
+    // 页头只显示名称，不出现组织实例 Id。
     expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
     expect(screen.queryByText(/可信范围（只读）/)).not.toBeInTheDocument()
     // 院区恒取登录院区：本院页不再渲染本院院区选择。

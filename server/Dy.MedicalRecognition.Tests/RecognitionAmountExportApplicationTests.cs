@@ -1,6 +1,5 @@
 using System.Text.RegularExpressions;
 using ClosedXML.Excel;
-using Dy.Base.Application.Contracts.OrganizationAggregate;
 using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
 using Dy.MedicalRecognition.Application.Contracts.ReadModels;
 using Dy.MedicalRecognition.Application.Queries;
@@ -25,14 +24,14 @@ public sealed class RecognitionAmountExportApplicationTests
   /// <summary>可信请求上下文中的组织编码；与请求范围不同，用于证明导出不读取可信组织。</summary>
   private const string TrustedOrganizationCode = "ORG-A";
 
-  /// <summary>请求导出的目标组织编码；外部组织服务替身中已登记其完整路径。</summary>
-  private const string ExportOrganizationCode = "ORG-X";
+  /// <summary>请求导出的目标组织业务编码；IAM 替身中已登记其完整路径。</summary>
+  private const string ExportOrganizationCode = FakeIamScope.OrganizationCode;
 
-  /// <summary>请求导出的目标医院编码；属于导出目标组织。</summary>
-  private const string ExportHospitalCode = "HOS-X";
+  /// <summary>请求导出的目标医院业务编码；属于导出目标组织。</summary>
+  private const string ExportHospitalCode = FakeIamScope.HospitalCode;
 
-  /// <summary>请求导出的目标院区编码；属于目标组织与目标医院。</summary>
-  private const string ExportBranchCode = "BRH-X";
+  /// <summary>请求导出的目标院区业务编码；属于目标组织与目标医院。</summary>
+  private const string ExportBranchCode = FakeIamScope.BranchCode;
 
   /// <summary>用例注入的令牌用户标识；导出不读取操作人，只用于构造完整的认证上下文。</summary>
   private const string TrustedOperId = "2f7c1c1e-6a2f-4b1a-9c3d-1f0a2b3c4d5e";
@@ -81,7 +80,7 @@ public sealed class RecognitionAmountExportApplicationTests
     MedicalRecognitionReportQueryAppService service = CreateService(repository, new StubOrganizationAppService());
 
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
-      () => service.GetRecognitionAmountExportAsync(ExportRequest()));
+      () => service.GetRecognitionAmountExportAsync(ExportRequest(organizationCode: "a1000000-0000-0000-0000-000000000099")));
 
     Assert.Contains("组织不存在或已停用", error.Message, StringComparison.Ordinal);
     Assert.Equal(0, repository.CallCount);
@@ -156,7 +155,7 @@ public sealed class RecognitionAmountExportApplicationTests
 
     Assert.Equal(1, repository.CallCount);
     Assert.Equal(
-      (ExportOrganizationCode, ExportHospitalCode, ExportBranchCode, (string?)null, (string?)null),
+      (FakeIamScope.OrganizationCode, FakeIamScope.HospitalCode, FakeIamScope.BranchCode, (string?)null, (string?)null),
       repository.ReceivedQuery);
   }
 
@@ -349,6 +348,46 @@ public sealed class RecognitionAmountExportApplicationTests
     Assert.All(Enumerable.Range(1, 10), column => Assert.True(worksheet.Column(column).Width > 0));
   }
 
+  /// <summary>判据 4：请求提供三层业务编码时，导出过滤按解析出的三层业务编码下传，等于请求值。</summary>
+  [Fact]
+  public async Task Export_uses_request_scope_codes_when_all_three_are_provided()
+  {
+    FakeRecognitionAmountRepository repository = new([BuildItem("PROBE-001")]);
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, new StubOrganizationAppService());
+
+    await service.GetRecognitionAmountExportAsync(new RecognitionAmountExportRequest
+    {
+      OrganizationCode = ExportOrganizationCode,
+      HospitalCode = ExportHospitalCode,
+      BranchCode = ExportBranchCode,
+    });
+
+    Assert.Equal(1, repository.CallCount);
+    Assert.Equal(
+      (FakeIamScope.OrganizationCode, FakeIamScope.HospitalCode, FakeIamScope.BranchCode, (string?)null, (string?)null),
+      repository.ReceivedQuery);
+  }
+
+  /// <summary>判据 4 负例：请求医院业务编码不属于请求组织时按医院层文案拒绝，且不查询。</summary>
+  [Fact]
+  public async Task Export_rejects_request_hospital_code_outside_organization()
+  {
+    FakeRecognitionAmountRepository repository = new([BuildItem("PROBE-001")]);
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, new StubOrganizationAppService());
+
+    // 请求组织取可信组织，请求医院取另一个医共体下的医院：父子归属不成立，必须在进入查询端口前拒绝。
+    InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+      () => service.GetRecognitionAmountExportAsync(new RecognitionAmountExportRequest
+      {
+        OrganizationCode = ExportOrganizationCode,
+        HospitalCode = FakeIamScope.OtherHospitalCode,
+        BranchCode = FakeIamScope.OtherBranchCode,
+      }));
+
+    Assert.Equal("业务拒绝：医院不存在、已停用或不属于所选组织。", error.Message);
+    Assert.Equal(0, repository.CallCount);
+  }
+
   // ---------- 夹具 ----------
 
   /// <summary>把当前请求的可信上下文设置为一个与请求范围不同的组织，证明导出链不读取该值。</summary>
@@ -359,7 +398,7 @@ public sealed class RecognitionAmountExportApplicationTests
   /// <param name="organizationService">外部组织服务替身。</param>
   /// <returns>可直接调用的查询应用服务。</returns>
   private static MedicalRecognitionReportQueryAppService CreateService(FakeRecognitionAmountRepository repository, StubOrganizationAppService organizationService) =>
-    new(repository, organizationService, new StubUserAppService(), new StubSystemParameterAppService());
+    new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
   /// <summary>构造平台金额页的导出条件。</summary>
   /// <param name="organizationCode">请求组织编码。</param>

@@ -273,7 +273,7 @@ export function RecognitionProjects() {
    * `RequestConfiguration<T>` 只有 `headers` / `options` / `queryParameters`，没有 `AbortSignal`
    * （`RecognitionProjectConfigurationListQueryRequestBuilder.post`、`EnumMetadata` 等同形），
    * `kiota-abstractions` 与 `kiota-http-fetchlibrary` 的类型与实现里都不存在 `AbortSignal`/`signal`，
-   * 适配层（`@dy/auth` 的 `createAuthenticatedAdapter`）也没有暴露取消能力。
+   * 适配层（宿主 MicroSDK 生成的请求适配器）也没有暴露取消能力。
    * 页面只能把生成方法原样调用，因此**无法把取消信号透传到查询或写请求**；按 Frontend API Client
    * 第 2、5 节，页面不得为此自建底层 HTTP 调用或新增拦截器。
    *

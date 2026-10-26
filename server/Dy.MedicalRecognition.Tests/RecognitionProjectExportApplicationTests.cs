@@ -21,7 +21,7 @@ namespace Dy.MedicalRecognition.Tests;
 public sealed class RecognitionProjectExportApplicationTests
 {
   /// <summary>可信当前组织编码；用例通过框架请求上下文注入该值。</summary>
-  private const string TrustedOrganizationCode = "ORG-A";
+  private const string TrustedOrganizationCode = FakeIamScope.OrganizationCode;
 
   /// <summary>与可信当前组织不同的组织编码，用于越权导出用例。</summary>
   private const string OtherOrganizationCode = "ORG-B";
@@ -80,15 +80,14 @@ public sealed class RecognitionProjectExportApplicationTests
   [Fact]
   public async Task Export_rejects_when_trusted_organization_is_missing()
   {
-    TrustedRequestContext.Use("   ", TrustedOperId);
     FakeRecognitionProjectRepository repository = new([BuildItem("PROBE-001")]);
-    MedicalRecognitionReportQueryAppService service = CreateService(repository);
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, FakeIamScope.MissingOrganization());
 
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
       () => service.GetRecognitionProjectConfigurationExportAsync(
         new RecognitionProjectConfigurationExportRequest { OrganizationCode = TrustedOrganizationCode }));
 
-    Assert.Contains("无法确定有效的当前组织", error.Message, StringComparison.Ordinal);
+    Assert.Equal("无法确定有效的当前组织。", error.Message);
     Assert.Equal(0, repository.CallCount);
   }
 
@@ -123,6 +122,22 @@ public sealed class RecognitionProjectExportApplicationTests
 
     Assert.Equal(1, repository.CallCount);
     Assert.Equal((TrustedOrganizationCode, (string?)" PROBE-0 ", (Domain.Share.Enums.ConfigurationStatus?)null), repository.ReceivedQuery);
+  }
+
+  /// <summary>判据 4：请求组织与可信组织比对前各自去首尾空白，相等即接受，且下传的是可信组织的业务编码。</summary>
+  [Fact]
+  public async Task Export_accepts_request_organization_with_surrounding_whitespace_and_passes_the_trusted_code()
+  {
+    FakeRecognitionProjectRepository repository = new([BuildItem("PROBE-001")]);
+
+    await CreateService(repository).GetRecognitionProjectConfigurationExportAsync(
+      new RecognitionProjectConfigurationExportRequest
+      {
+        OrganizationCode = $"  {FakeIamScope.OrganizationCode}  ",
+      });
+
+    Assert.Equal(1, repository.CallCount);
+    Assert.Equal((FakeIamScope.OrganizationCode, (string?)null, (Domain.Share.Enums.ConfigurationStatus?)null), repository.ReceivedQuery);
   }
 
   /// <summary>导出行集与行序由查询端口给出，应用层原样保持：不重新排序、不丢弃、不截断。</summary>
@@ -286,10 +301,16 @@ public sealed class RecognitionProjectExportApplicationTests
   /// <summary>构造被测查询应用服务：导出链不读取外部组织服务与系统参数，替身按缺省构造。</summary>
   /// <param name="repository">互认配置查询端口替身。</param>
   /// <returns>被测查询应用服务。</returns>
-  private static MedicalRecognitionReportQueryAppService CreateService(FakeRecognitionProjectRepository repository)
+  private static MedicalRecognitionReportQueryAppService CreateService(FakeRecognitionProjectRepository repository) =>
+    CreateService(repository, FakeIamScope.Default);
+
+  /// <summary>构造被测查询应用服务，并指定 IAM 范围替身。</summary>
+  /// <param name="repository">互认配置查询端口替身。</param>
+  /// <param name="scope">IAM 目录与当前身份替身。</param>
+  /// <returns>被测查询应用服务。</returns>
+  private static MedicalRecognitionReportQueryAppService CreateService(FakeRecognitionProjectRepository repository, FakeIamScope scope)
   {
-    return new MedicalRecognitionReportQueryAppService(
-      repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    return new MedicalRecognitionReportQueryAppService(repository, new PlatformParameterRepositoryStub(), scope, scope, scope);
   }
 
   /// <summary>构造一条互认配置查询投影，只把用例关心的字段参数化，其余字段取固定值。</summary>

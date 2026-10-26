@@ -2,7 +2,7 @@
 !include ddd_lib.puml
 ' 当前互认平台调用的外部依赖；标准项目目录已内置，不再作为外部系统。
 Person('OrganizationService','可信组织服务')
-Person('PlatformSystemParameterSystem','平台系统参数系统')
+Component('PlatformParameterStore','本应用平台参数表 mrec_platform_parameter')
 Person('MedicalRecognitionPlatform','互认平台')
 ReadModel('OrganizationHierarchyReadModel')[
     组织医院院区层级
@@ -42,16 +42,16 @@ MedicalRecognitionPlatform --> GetOrganizationHierarchy
 MedicalRecognitionPlatform --> QueryCitationDetailValidityDurationParameter
 MedicalRecognitionPlatform --> QueryOwnHospitalMatchParameters
 OrganizationService --> GetOrganizationHierarchy
-PlatformSystemParameterSystem --> QueryCitationDetailValidityDurationParameter
-PlatformSystemParameterSystem --> QueryOwnHospitalMatchParameters
+PlatformParameterStore --> QueryCitationDetailValidityDurationParameter
+PlatformParameterStore --> QueryOwnHospitalMatchParameters
 GetOrganizationHierarchy .. OrganizationHierarchyReadModel
 QueryCitationDetailValidityDurationParameter .. CitationDetailValidityParameterReadModel
 QueryOwnHospitalMatchParameters .. OwnHospitalMatchParameterReadModel
 note right of OrganizationService
   互认平台通过 GetOrganizationHierarchy 查询可信组织服务。
 end note
-note right of PlatformSystemParameterSystem
-  互认平台通过两个参数查询读取系统参数；外部系统不调用互认平台查询。
+note right of PlatformParameterStore
+  互认平台通过本应用平台参数表按编码读取三项平台参数，不再调用外部系统参数服务。
   本院报告匹配开关取值为字符串 1 或 0，1 表示开启、0 表示关闭；本院报告匹配参数不设默认值，参数缺失、非法或无法取得时匹配查询失败。
 end note
 @enduml

@@ -10,17 +10,166 @@
     }
   ],
   "paths": {
-    "/auth/login": {
-      "post": {
+    "/api/v1/current-session": {
+      "get": {
         "tags": [
-          "Authentication"
+          "CurrentSession"
         ],
-        "operationId": "Login",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentSessionReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentSessionReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentSessionReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentSessionReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentSessionReadModel"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/platform-parameters": {
+      "get": {
+        "tags": [
+          "PlatformParameter"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformParameterReadModel"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformParameterReadModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformParameterReadModel"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformParameterReadModel"
+                  }
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformParameterReadModel"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/platform-parameters/{parameterCode}": {
+      "put": {
+        "tags": [
+          "PlatformParameter"
+        ],
+        "parameters": [
+          {
+            "name": "parameterCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
+                "$ref": "#/components/schemas/SavePlatformParameterRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePlatformParameterRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePlatformParameterRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePlatformParameterRequest"
+              }
+            },
+            "text/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePlatformParameterRequest"
+              }
+            },
+            "application/*+xml": {
+              "schema": {
+                "$ref": "#/components/schemas/SavePlatformParameterRequest"
               }
             }
           },
@@ -30,16 +179,44 @@
           "200": {
             "description": "OK",
             "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TokenInfo"
+                  "type": "boolean"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "type": "boolean"
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -86,10 +263,18 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -136,10 +321,18 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -186,10 +379,18 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -236,10 +437,18 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -286,10 +495,18 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -346,10 +563,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -406,10 +631,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -441,10 +674,18 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -518,10 +759,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -610,10 +859,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -702,10 +959,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -794,10 +1059,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -871,10 +1144,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -963,10 +1244,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1040,10 +1329,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1082,10 +1379,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1174,10 +1479,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1266,10 +1579,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1343,10 +1664,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1420,10 +1749,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1512,10 +1849,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1589,10 +1934,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1666,10 +2019,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1743,10 +2104,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1820,10 +2189,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1897,10 +2274,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -1974,10 +2359,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2051,10 +2444,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2128,10 +2529,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2205,10 +2614,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2282,10 +2699,118 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/Api/OrganizationScopeQuery/QueryCurrentOrganizationScope": {
+      "post": {
+        "tags": [
+          "OrganizationScopeQueryAppService"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentOrganizationScopeReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentOrganizationScopeReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentOrganizationScopeReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentOrganizationScopeReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentOrganizationScopeReadModel"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/Api/OrganizationScopeQuery/QueryOrganizationScopeOptions": {
+      "post": {
+        "tags": [
+          "OrganizationScopeQueryAppService"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationScopeOptionsReadModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationScopeOptionsReadModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationScopeOptionsReadModel"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationScopeOptionsReadModel"
+                }
+              },
+              "text/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationScopeOptionsReadModel"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2374,10 +2899,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2451,10 +2984,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2528,10 +3069,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2605,10 +3154,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2682,10 +3239,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2759,10 +3324,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2836,10 +3409,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2913,10 +3494,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -2990,10 +3579,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3067,10 +3664,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3144,10 +3749,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3221,10 +3834,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3298,10 +3919,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3375,10 +4004,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3452,10 +4089,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3529,10 +4174,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3606,10 +4259,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3683,10 +4344,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3760,10 +4429,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3837,10 +4514,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3914,10 +4599,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -3991,10 +4684,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -4068,10 +4769,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -4145,10 +4854,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -4222,10 +4939,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -4299,10 +5024,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -4376,10 +5109,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     },
@@ -4453,10 +5194,18 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "IAM application token required or invalid."
+          },
+          "403": {
+            "description": "Authenticated but access is forbidden."
           }
         },
         "security": [
-          {}
+          {
+            "Bearer": []
+          }
         ]
       }
     }
@@ -5110,6 +5859,102 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "CurrentOrganizationScopeReadModel": {
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "organizationName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "organizationCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hospitalId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "hospitalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hospitalCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "branchId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "branchName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "branchCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CurrentSessionReadModel": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sessionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workIdentityId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "organizationId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -5965,37 +6810,6 @@
           "文本型"
         ]
       },
-      "LoginRequest": {
-        "required": [
-          "subApplication",
-          "orgId",
-          "hosId",
-          "branchId",
-          "deptId",
-          "userId"
-        ],
-        "type": "object",
-        "properties": {
-          "subApplication": {
-            "type": "string"
-          },
-          "orgId": {
-            "type": "string"
-          },
-          "hosId": {
-            "type": "string"
-          },
-          "branchId": {
-            "type": "string"
-          },
-          "deptId": {
-            "type": "string"
-          },
-          "userId": {
-            "type": "string"
-          }
-        }
-      },
       "MedicalItemType": {
         "enum": [
           0,
@@ -6121,6 +6935,24 @@
       "MedicalReportVersionDetailQueryReadModel": {
         "type": "object",
         "properties": {
+          "organizationName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hospitalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "branchName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "reportType": {
             "$ref": "#/components/schemas/MedicalReportType"
           },
@@ -6215,6 +7047,24 @@
         "properties": {
           "fileName": {
             "type": "string"
+          },
+          "organizationName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hospitalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "branchName": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -6230,6 +7080,24 @@
       "MedicalReportVersionListReadModel": {
         "type": "object",
         "properties": {
+          "organizationName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hospitalName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "branchName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "reportVersionId": {
             "type": "string",
             "format": "uuid"
@@ -6540,11 +7408,81 @@
           },
           "ratio": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": "number",
             "format": "double"
+          }
+        }
+      },
+      "OrganizationScopeBranchReadModel": {
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "organizationCode": {
+            "type": "string"
+          }
+        }
+      },
+      "OrganizationScopeHospitalReadModel": {
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "organizationCode": {
+            "type": "string"
+          },
+          "branches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrganizationScopeBranchReadModel"
+            }
+          }
+        }
+      },
+      "OrganizationScopeOptionsReadModel": {
+        "type": "object",
+        "properties": {
+          "organizations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrganizationScopeOrganizationReadModel"
+            }
+          },
+          "unconfiguredOrganizationCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "OrganizationScopeOrganizationReadModel": {
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "organizationName": {
+            "type": "string"
+          },
+          "organizationCode": {
+            "type": "string"
+          },
+          "hospitals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrganizationScopeHospitalReadModel"
+            }
           }
         }
       },
@@ -6695,6 +7633,34 @@
           }
         }
       },
+      "PlatformParameterReadModel": {
+        "type": "object",
+        "properties": {
+          "parameterCode": {
+            "type": "string"
+          },
+          "parameterValue": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isValid": {
+            "type": "boolean"
+          },
+          "operId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "operTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "QueryEnumMetadataRequest": {
         "required": [
           "enumName"
@@ -6837,8 +7803,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -7378,10 +8343,7 @@
           },
           "estimatedSavingAmount": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": "number",
             "format": "double"
           }
         }
@@ -8294,10 +9256,7 @@
           },
           "samePeriodRecognitionRate": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": "number",
             "format": "double"
           },
           "samePeriodRecognitionRateCalculated": {
@@ -8311,10 +9270,7 @@
           },
           "estimatedSavingAmount": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
-            "type": [
-              "number",
-              "string"
-            ],
+            "type": "number",
             "format": "double"
           },
           "groupDimension": {
@@ -8532,8 +9488,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -8574,8 +9529,7 @@
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
               "null",
-              "number",
-              "string"
+              "number"
             ],
             "format": "double"
           },
@@ -8587,6 +9541,30 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "SavePlatformParameterRequest": {
+        "required": [
+          "parameterValue",
+          "isValid"
+        ],
+        "type": "object",
+        "properties": {
+          "parameterValue": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "isValid": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -9004,27 +9982,6 @@
         "type": "string",
         "format": "binary"
       },
-      "TokenInfo": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string"
-          },
-          "tokenType": {
-            "type": "string"
-          },
-          "refreshToken": {
-            "type": "string"
-          },
-          "expiry": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "isValid": {
-            "type": "boolean"
-          }
-        }
-      },
       "TrustedOrganizationScopeReadModel": {
         "type": "object",
         "properties": {
@@ -9160,14 +10117,18 @@
     "securitySchemes": {
       "Bearer": {
         "type": "http",
-        "description": "输入JWT Token（无需Bearer前缀）",
-        "scheme": "Bearer"
+        "description": "IAM access token shared across services; no audience claim.",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
       }
     }
   },
   "tags": [
     {
-      "name": "Authentication"
+      "name": "CurrentSession"
+    },
+    {
+      "name": "PlatformParameter"
     },
     {
       "name": "RecognitionExport"
@@ -9180,6 +10141,9 @@
     },
     {
       "name": "MedicalRecognitionReportQueryAppService"
+    },
+    {
+      "name": "OrganizationScopeQueryAppService"
     },
     {
       "name": "EnumMetadataAppService"

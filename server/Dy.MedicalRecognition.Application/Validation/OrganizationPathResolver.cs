@@ -1,345 +1,443 @@
-using Dy.Base.Application.Contracts.OrganizationAggregate;
+using Dy.IAM.Sdk;
+using Dy.MedicalRecognition.Application.OrganizationScope;
 
 namespace Dy.MedicalRecognition.Application.Validation;
 
 /// <summary>
-/// 一次性批量读取外部组织服务的组织、医院与院区，在内存中校验三层存在、启用与父子归属，并返回三层名称三元组。
+/// 组织路径解析点：按业务编码批量读取 IAM 目录，校验三层编码的存在、启用与类型，
+/// 并在每层都能唯一确定时校验父子归属，返回携带提交编码与展示名称的组织路径。
 /// </summary>
 /// <remarks>
-/// 保存与查询入口共用同一解析点，因此两层入口对同一批目标路径给出一致的归属结论与名称。
-/// 读取次数只随目标涉及的组织与医院数量增长，不随目标条数增长：组织全量只读一次，每个不同组织读取一次医院，每家不同医院读取一次院区。
-/// 解析过程只读外部组织服务，不写库、不发事件、不做角色授权判断，也不按行查询。
-/// 归属不成立时的拒绝文案由调用方传入，各入口因此保留各自的对外错误消息。
+/// <para>
+/// 编码是业务键，组织节点标识不是业务键。同一业务编码在 IAM 目录中对应多个组织节点时，提交值本身没有歧义：
+/// 业务表与查询过滤用的是编码文本，查询链路除会话来源外不再消费组织实例标识。
+/// 因此本解析点只为校验服务，不为数据用途挑节点：返回路径的实例标识一律为空，避免被误当成已定论。
+/// </para>
+/// <para>
+/// 校验只判定三件事：该层编码是否存在启用节点、是否存在符合该层组织类型的节点、以及能否定论的父子归属。
+/// 父子归属按边校验：一条父子边只在它两端的编码都恰好命中一个候选时执行；参与该边的任一层命中多个候选时跳过这条边。
+/// 编码命中多个节点时编码本身无法说明提交方指向哪一个，父子关系也无从定论，
+/// 而父子校验本身是为写入归属服务的，不唯一时不应据此拒绝。
+/// </para>
+/// <para>
+/// 编码不表达层级：父子归属只取 IAM 目录的父组织标识，不按编码前缀或形态推导；节点未配置编码时该层按空值处理，由各层文案拒绝。
+/// </para>
+/// <para>
+/// 名称是展示字段，按容错口径取值：会话组织链上唯一候选取该候选的名称，否则全部候选名称一致时取该名称，都不成立时留空。
+/// </para>
+/// <para>整批目标共用一次编码整树读取与一次目录批量读取，读取次数只随租户与候选节点数量增长，不随目标条数增长。</para>
+/// <para>解析只读 IAM 目录，不写库、不发事件、不做角色授权判断。</para>
 /// </remarks>
 internal sealed class OrganizationPathResolver
 {
-  /// <summary>
-  /// 读取组织、医院与院区的外部组织服务，经框架 HTTP 服务代理注入。
-  /// </summary>
-  private readonly IOrganizationAppService organizationAppService;
+  /// <summary>IAM 目录批量读取点：提供候选节点的当前组织类型与启停状态。</summary>
+  private readonly IamOrganizationDirectoryReader iamDirectoryReader;
+
+  /// <summary>组织业务编码读取点：按租户一次读取组织树，并按业务编码归集候选节点。</summary>
+  private readonly IamOrganizationBusinessCodeReader iamBusinessCodeReader;
+
+  /// <summary>已验证的 IAM 当前上下文，提供组织树所属租户与当前工作身份所在组织。</summary>
+  private readonly ICurrentIamContext currentIamContext;
 
   /// <summary>
-  /// 接收外部组织服务作为组织路径的数据来源。
+  /// 以 IAM 目录与组织业务编码为唯一数据来源初始化组织路径解析点。
   /// </summary>
-  /// <param name="organizationAppService">提供组织、医院与院区主数据的外部组织服务。</param>
-  public OrganizationPathResolver(IOrganizationAppService organizationAppService) => this.organizationAppService = organizationAppService;
+  /// <param name="iamDirectoryReader">IAM 目录批量读取点。</param>
+  /// <param name="iamBusinessCodeReader">组织业务编码读取点。</param>
+  /// <param name="currentIamContext">已验证的 IAM 当前上下文。</param>
+  public OrganizationPathResolver(
+    IamOrganizationDirectoryReader iamDirectoryReader,
+    IamOrganizationBusinessCodeReader iamBusinessCodeReader,
+    ICurrentIamContext currentIamContext)
+  {
+    this.iamDirectoryReader = iamDirectoryReader;
+    this.iamBusinessCodeReader = iamBusinessCodeReader;
+    this.currentIamContext = currentIamContext;
+  }
 
-  /// <summary>
-  /// 解析一批目标组织路径，校验每一条的组织、医院与院区存在、启用与父子归属，并按输入顺序返回三层业务编码与名称。
-  /// </summary>
-  /// <remarks>
-  /// 三层业务编码与名称都取自外部组织服务：编码取业务编码属性 <c>Id</c> 去空白后的值（与匹配所用值同源），
-  /// 名称取名称属性 <c>Name</c> 的原值；启用状态由启用属性 <c>IsValid</c> 承载。
-  /// 校验按组织、医院、院区自外向内进行，任一层不成立即拒绝该条路径，不返回部分结果。
-  /// 外部读取按目标路径去重后进行：组织全量读取一次，每个不同组织读取一次医院，每家不同医院读取一次院区，
-  /// 因此同一批路径的读取次数只随目标涉及的组织与医院数量增长，不随目标条数增长。
-  /// </remarks>
-  /// <param name="targets">本批待校验的目标路径，至少一条；同一路径重复出现时按同一结果返回。</param>
-  /// <param name="missingOrganizationMessage">组织不存在或已停用时对外抛出的业务拒绝文案。</param>
-  /// <param name="missingHospitalMessage">医院不存在或已停用，或不属于该组织时对外抛出的业务拒绝文案。</param>
-  /// <param name="missingBranchMessage">院区不存在或已停用，或不属于该医院时对外抛出的业务拒绝文案。</param>
-  /// <returns>与 <paramref name="targets"/> 等长且同序的已校验路径集合。</returns>
-  /// <exception cref="ArgumentNullException"><paramref name="targets"/> 为 null 时抛出，此时无法确定校验范围。</exception>
-  /// <exception cref="ArgumentException"><paramref name="targets"/> 为空集合时抛出，空批次不代表“无需校验”。</exception>
-  /// <exception cref="InvalidOperationException">任一条目标路径的组织、医院或院区不存在、已停用或父子归属不匹配时抛出。</exception>
-  public async Task<IReadOnlyList<OrganizationPath>> ResolveOrThrow(
+  /// <summary>解析一批三层目标路径，校验组织、医院、院区三层编码的存在、启用、类型与能定论的父子归属。</summary>
+  /// <param name="targets">待校验目标路径，至少一条。</param>
+  /// <param name="missingOrganizationMessage">组织层不成立时的业务拒绝文案。</param>
+  /// <param name="missingHospitalMessage">医院层不成立时的业务拒绝文案。</param>
+  /// <param name="missingBranchMessage">院区层不成立时的业务拒绝文案。</param>
+  /// <returns>与输入等长且同序的已校验路径集合。</returns>
+  /// <exception cref="InvalidOperationException">任一条目标的任一层校验不成立时抛出。</exception>
+  public Task<IReadOnlyList<OrganizationPath>> ResolveOrThrow(
     IReadOnlyList<OrganizationPathTarget> targets,
     string missingOrganizationMessage,
     string missingHospitalMessage,
-    string missingBranchMessage)
-  {
-    ArgumentNullException.ThrowIfNull(targets);
-    if (targets.Count == 0) throw new ArgumentException("至少需要一条待校验的组织路径。", nameof(targets));
+    string missingBranchMessage) =>
+    ValidateAsync(targets, missingOrganizationMessage, missingHospitalMessage, missingBranchMessage);
 
-    // 去重后的目标组织：本批所有目标路径共用同一份组织全量快照。
-    List<TargetOrganization> targetOrganizations = BuildTargetOrganizations(targets);
-
-    // 组织全量只读一次，供本批全部目标路径共用。
-    IEnumerable<OrganizationDto> organizations = await organizationAppService.QueryAllOrganizationAsync();
-
-    Dictionary<(string OrganizationCode, string HospitalCode, string BranchCode), OrganizationPath> resolvedPaths = [];
-    foreach (TargetOrganization targetOrganization in targetOrganizations)
-    {
-      OrganizationDto organization = FindOrganization(organizations, targetOrganization.OrganizationCode)
-        ?? throw new InvalidOperationException(missingOrganizationMessage);
-
-      // 同一目标组织的医院只读一次，供该组织下的全部目标路径共用。
-      IEnumerable<HospitalDto> hospitals = await organizationAppService.QueryAllValidHospitalByOrgIdAsync(new QueryAllValidHospitalByOrgIdRequest { OrgId = targetOrganization.OrganizationCode });
-      foreach (string hospitalCode in targetOrganization.HospitalCodes)
-      {
-        HospitalDto hospital = FindHospital(hospitals, targetOrganization.OrganizationCode, hospitalCode)
-          ?? throw new InvalidOperationException(missingHospitalMessage);
-
-        // 同一目标医院的院区只读一次，供该医院下的全部目标路径共用。
-        IEnumerable<BranchDto> branches = await organizationAppService.QueryAllValidBranchByHosIdAsync(new QueryAllValidBranchByHosIdRequest { HosId = hospitalCode });
-        foreach (string branchCode in targetOrganization.BranchCodesByHospital[hospitalCode])
-        {
-          BranchDto branch = FindBranch(branches, targetOrganization.OrganizationCode, hospitalCode, branchCode)
-            ?? throw new InvalidOperationException(missingBranchMessage);
-
-          resolvedPaths[(targetOrganization.OrganizationCode, hospitalCode, branchCode)] =
-            // 返回值必须与匹配口径同源：查找命中的是外部服务 Id 去空白后的值，因此返回的编码也一律去空白，
-            // 否则外部主数据带首尾空白时，写入与查询会拿到与互认配置表不同源的编码，表现为误报未建立配置或查出空表。
-            new OrganizationPath(
-              TrimCode(organization.Id), organization.Name,
-              TrimCode(hospital.Id), hospital.Name,
-              TrimCode(branch.Id), branch.Name);
-        }
-      }
-    }
-
-    // 结果按输入顺序返回，同一路径重复出现时复用同一份已校验结果。
-    // 查找键必须与登记键同源：登记用的是去空白后的值，因此这里也复用同一套 TrimCode 结果，
-    // 否则带首尾空白的目标编码在查找时会抛 KeyNotFoundException，把业务拒绝变成未处理异常。
-    return
-    [
-      .. targets.Select(target =>
-      {
-        string organizationCode = TrimCode(target.OrganizationCode);
-        string hospitalCode = TrimCode(target.HospitalCode);
-        string branchCode = TrimCode(target.BranchCode);
-
-        return resolvedPaths[(organizationCode, hospitalCode, branchCode)];
-      })
-    ];
-  }
-
-  /// <summary>
-  /// 解析一批只到组织与医院两层的目标路径，校验组织与医院存在、启用与父子归属，并按输入顺序返回两层业务编码与名称。
-  /// </summary>
-  /// <remarks>
-  /// 供"院区可选、为空按可信医院全院范围"的统计入口使用：院区层不参与解析，也不读取院区数据，
-  /// 返回路径的院区编码与名称为空串。三层目标路径的校验仍走 <see cref="ResolveOrThrow"/>。
-  /// 外部读取按目标路径去重后进行：组织全量读取一次，每个不同组织读取一次医院，
-  /// 读取次数只随目标涉及的组织与医院数量增长，不随目标条数增长。
-  /// </remarks>
-  /// <param name="targets">本批待校验的两层目标路径，至少一条；同一路径重复出现时按同一结果返回。</param>
-  /// <param name="missingOrganizationMessage">组织不存在或已停用时对外抛出的业务拒绝文案。</param>
-  /// <param name="missingHospitalMessage">医院不存在或已停用，或不属于该组织时对外抛出的业务拒绝文案。</param>
-  /// <returns>与 <paramref name="targets"/> 等长且同序的已校验路径集合，路径院区编码与名称为空串。</returns>
-  /// <exception cref="ArgumentNullException"><paramref name="targets"/> 为 null 时抛出，此时无法确定校验范围。</exception>
-  /// <exception cref="ArgumentException"><paramref name="targets"/> 为空集合时抛出，空批次不代表“无需校验”。</exception>
-  /// <exception cref="InvalidOperationException">任一条目标路径的组织或医院不存在、已停用或父子归属不匹配时抛出。</exception>
-  public async Task<IReadOnlyList<OrganizationPath>> ResolveOrganizationHospitalOrThrow(
+  /// <summary>解析一批组织与医院两层目标路径，院区层留空。</summary>
+  /// <remarks>整批目标经一次编码整树读取与一次目录批量读取完成，读取次数不随目标条数增长。</remarks>
+  /// <param name="targets">待校验目标路径，至少一条。</param>
+  /// <param name="missingOrganizationMessage">组织层不成立时的业务拒绝文案。</param>
+  /// <param name="missingHospitalMessage">医院层不成立时的业务拒绝文案。</param>
+  /// <returns>与输入等长且同序的已校验路径集合，院区为空。</returns>
+  /// <exception cref="InvalidOperationException">任一条目标的任一层校验不成立时抛出。</exception>
+  public Task<IReadOnlyList<OrganizationPath>> ResolveOrganizationHospitalOrThrow(
     IReadOnlyList<OrganizationPathTarget> targets,
     string missingOrganizationMessage,
-    string missingHospitalMessage)
-  {
-    ArgumentNullException.ThrowIfNull(targets);
-    if (targets.Count == 0) throw new ArgumentException("至少需要一条待校验的组织路径。", nameof(targets));
+    string missingHospitalMessage) =>
+    ValidateAsync(targets, missingOrganizationMessage, missingHospitalMessage, null);
 
-    // 去重后的目标组织：本批所有目标路径共用同一份组织全量快照。
-    List<TargetOrganization> targetOrganizations = BuildTargetOrganizations(targets);
+  /// <summary>解析一批只到组织一层的目标路径，医院与院区层留空。</summary>
+  /// <param name="targets">待校验目标路径，至少一条。</param>
+  /// <param name="missingOrganizationMessage">组织层不成立时的业务拒绝文案。</param>
+  /// <returns>与输入等长且同序的已校验路径集合，医院与院区为空。</returns>
+  /// <exception cref="InvalidOperationException">任一条目标的组织层校验不成立时抛出。</exception>
+  public Task<IReadOnlyList<OrganizationPath>> ResolveOrganizationOrThrow(
+    IReadOnlyList<OrganizationPathTarget> targets,
+    string missingOrganizationMessage) =>
+    ValidateAsync(targets, missingOrganizationMessage, null, null);
 
-    // 组织全量只读一次，供本批全部目标路径共用。
-    IEnumerable<OrganizationDto> organizations = await organizationAppService.QueryAllOrganizationAsync();
+  /// <summary>为名称回填解析一批三层目标路径的展示名称。</summary>
+  /// <remarks>
+  /// 取名口径与校验入口是同一套：编码命中多个节点时按容错规则取名称，实例标识一律留空。
+  /// 本入口与 <see cref="ResolveOrThrow"/> 行为一致，保留它是为了按页取名的调用点能各自表达意图。
+  /// </remarks>
+  /// <param name="targets">待取名的目标路径，至少一条。</param>
+  /// <param name="missingOrganizationMessage">组织层不成立时的业务拒绝文案。</param>
+  /// <param name="missingHospitalMessage">医院层不成立时的业务拒绝文案。</param>
+  /// <param name="missingBranchMessage">院区层不成立时的业务拒绝文案。</param>
+  /// <returns>与输入等长且同序的路径集合。</returns>
+  /// <exception cref="InvalidOperationException">任一条目标的任一层校验不成立时抛出。</exception>
+  public Task<IReadOnlyList<OrganizationPath>> ResolveNamesOrThrow(
+    IReadOnlyList<OrganizationPathTarget> targets,
+    string missingOrganizationMessage,
+    string missingHospitalMessage,
+    string missingBranchMessage) =>
+    ValidateAsync(targets, missingOrganizationMessage, missingHospitalMessage, missingBranchMessage);
 
-    Dictionary<(string OrganizationCode, string HospitalCode), OrganizationPath> resolvedPaths = [];
-    foreach (TargetOrganization targetOrganization in targetOrganizations)
-    {
-      OrganizationDto organization = FindOrganization(organizations, targetOrganization.OrganizationCode)
-        ?? throw new InvalidOperationException(missingOrganizationMessage);
-
-      // 同一目标组织的医院只读一次，供该组织下的全部目标路径共用；院区层不在本方法职责内。
-      IEnumerable<HospitalDto> hospitals = await organizationAppService.QueryAllValidHospitalByOrgIdAsync(new QueryAllValidHospitalByOrgIdRequest { OrgId = targetOrganization.OrganizationCode });
-      foreach (string hospitalCode in targetOrganization.HospitalCodes)
-      {
-        HospitalDto hospital = FindHospital(hospitals, targetOrganization.OrganizationCode, hospitalCode)
-          ?? throw new InvalidOperationException(missingHospitalMessage);
-
-        resolvedPaths[(targetOrganization.OrganizationCode, hospitalCode)] =
-          new OrganizationPath(
-            TrimCode(organization.Id), organization.Name,
-            TrimCode(hospital.Id), hospital.Name,
-            string.Empty, string.Empty);
-      }
-    }
-
-    // 结果按输入顺序返回，同一路径重复出现时复用同一份已校验结果；查找键与登记键同用去空白后的值。
-    return
-    [
-      .. targets.Select(target => resolvedPaths[(
-        TrimCode(target.OrganizationCode),
-        TrimCode(target.HospitalCode))])
-    ];
-  }
+  /// <summary>为名称回填解析一批组织与医院两层目标路径的展示名称，院区层留空。</summary>
+  /// <remarks>取名与校验口径与 <see cref="ResolveNamesOrThrow"/> 相同；院区层不参与本入口，返回时为空。</remarks>
+  /// <param name="targets">待取名的目标路径，至少一条。</param>
+  /// <param name="missingOrganizationMessage">组织层不成立时的业务拒绝文案。</param>
+  /// <param name="missingHospitalMessage">医院层不成立时的业务拒绝文案。</param>
+  /// <returns>与输入等长且同序的路径集合，院区为空。</returns>
+  /// <exception cref="InvalidOperationException">任一条目标的任一层校验不成立时抛出。</exception>
+  public Task<IReadOnlyList<OrganizationPath>> ResolveOrganizationHospitalNamesOrThrow(
+    IReadOnlyList<OrganizationPathTarget> targets,
+    string missingOrganizationMessage,
+    string missingHospitalMessage) =>
+    ValidateAsync(targets, missingOrganizationMessage, missingHospitalMessage, null);
 
   /// <summary>
-  /// 解析一批只到组织一层的目标路径，校验组织存在与启用，并按输入顺序返回组织业务编码与名称。
+  /// 校验一批目标路径并装配返回路径；提供医院文案时校验医院层，提供院区文案时校验院区层。
   /// </summary>
   /// <remarks>
-  /// 供"任一范围条件为空不附加该层过滤"的统计范围入口使用：医院与院区层未提供取值时只有组织层需要校验，
-  /// 医院与院区层不读取也不校验，返回路径的医院、院区编码与名称为空串。
-  /// 只提交医院或院区取值的目标路径分别走 <see cref="ResolveOrganizationHospitalOrThrow"/> 与 <see cref="ResolveOrThrow"/>，
-  /// 由上级链路逐层完成存在、启用与父子归属校验。
-  /// 组织全量只读取一次，读取次数不随目标条数增长。
+  /// 整批目标共用一次编码整树读取与一次目录批量读取；候选节点的类型与启停状态以 IAM 目录为准。
+  /// 校验只判定存在性、类型与能定论的父子归属，不为数据用途挑选候选节点。
   /// </remarks>
-  /// <param name="targets">本批待校验的组织目标路径，至少一条；同一路径重复出现时按同一结果返回。</param>
-  /// <param name="missingOrganizationMessage">组织不存在或已停用时对外抛出的业务拒绝文案。</param>
-  /// <returns>与 <paramref name="targets"/> 等长且同序的已校验路径集合，路径医院与院区编码、名称为空串。</returns>
-  /// <exception cref="ArgumentNullException"><paramref name="targets"/> 为 null 时抛出，此时无法确定校验范围。</exception>
-  /// <exception cref="ArgumentException"><paramref name="targets"/> 为空集合时抛出，空批次不代表“无需校验”。</exception>
-  /// <exception cref="InvalidOperationException">任一条目标路径的组织不存在或已停用时抛出。</exception>
-  public async Task<IReadOnlyList<OrganizationPath>> ResolveOrganizationOrThrow(
+  /// <param name="targets">待校验目标路径，至少一条。</param>
+  /// <param name="missingOrganizationMessage">组织层不成立时的业务拒绝文案。</param>
+  /// <param name="missingHospitalMessage">医院层不成立时的业务拒绝文案；为 <see langword="null"/> 时不校验医院层。</param>
+  /// <param name="missingBranchMessage">院区层不成立时的业务拒绝文案；为 <see langword="null"/> 时不校验院区层。</param>
+  /// <returns>与输入等长且同序的已校验路径集合。</returns>
+  /// <exception cref="ArgumentNullException">目标集合为 null 时抛出。</exception>
+  /// <exception cref="ArgumentException">目标集合为空时抛出。</exception>
+  /// <exception cref="InvalidOperationException">任一条目标的任一层校验不成立时抛出。</exception>
+  private async Task<IReadOnlyList<OrganizationPath>> ValidateAsync(
     IReadOnlyList<OrganizationPathTarget> targets,
-    string missingOrganizationMessage)
+    string missingOrganizationMessage,
+    string? missingHospitalMessage,
+    string? missingBranchMessage)
   {
     ArgumentNullException.ThrowIfNull(targets);
     if (targets.Count == 0) throw new ArgumentException("至少需要一条待校验的组织路径。", nameof(targets));
 
-    // 组织全量只读一次，供本批全部目标路径共用。
-    IEnumerable<OrganizationDto> organizations = await organizationAppService.QueryAllOrganizationAsync();
-
-    Dictionary<string, OrganizationPath> resolvedPaths = [];
-    foreach (string organizationCode in targets.Select(target => TrimCode(target.OrganizationCode)).Distinct())
-    {
-      OrganizationDto organization = FindOrganization(organizations, organizationCode)
-        ?? throw new InvalidOperationException(missingOrganizationMessage);
-
-      resolvedPaths[organizationCode] = new OrganizationPath(
-        TrimCode(organization.Id), organization.Name,
-        string.Empty, string.Empty,
-        string.Empty, string.Empty);
-    }
-
-    // 结果按输入顺序返回，同一路径重复出现时复用同一份已校验结果；查找键与登记键同用去空白后的值。
-    return [.. targets.Select(target => resolvedPaths[TrimCode(target.OrganizationCode)])];
-  }
-
-  /// <summary>
-  /// 一个目标组织及其下已去重的医院、院区，用于把本批目标路径折叠成最少的对外读取次数。
-  /// </summary>
-  private sealed class TargetOrganization
-  {
-    /// <summary>
-    /// 按医院分组的院区编码，医院按首次出现顺序排列。
-    /// </summary>
-    private readonly Dictionary<string, List<string>> branchCodesByHospital = [];
-
-    /// <summary>
-    /// 建立该组织的目标分组。
-    /// </summary>
-    /// <param name="organizationCode">已去除两端空白的目标组织业务编码。</param>
-    public TargetOrganization(string organizationCode) => OrganizationCode = organizationCode;
-
-    /// <summary>已去除两端空白的目标组织业务编码。</summary>
-    public string OrganizationCode { get; }
-
-    /// <summary>该组织下按首次出现顺序排列的医院编码，同一医院只出现一次。</summary>
-    public IReadOnlyCollection<string> HospitalCodes => branchCodesByHospital.Keys;
-
-    /// <summary>按医院分组的院区编码，组内已去重。</summary>
-    public IReadOnlyDictionary<string, List<string>> BranchCodesByHospital => branchCodesByHospital;
-
-    /// <summary>
-    /// 把一条目标医院、院区加入该组织分组，重复出现的组合只保留一次。
-    /// </summary>
-    /// <param name="hospitalCode">已去除两端空白的目标医院业务编码。</param>
-    /// <param name="branchCode">已去除两端空白的目标院区业务编码。</param>
-    public void AddTarget(string hospitalCode, string branchCode)
-    {
-      if (!branchCodesByHospital.TryGetValue(hospitalCode, out List<string>? branchCodes))
-      {
-        branchCodes = [];
-        branchCodesByHospital[hospitalCode] = branchCodes;
-      }
-
-      if (!branchCodes.Contains(branchCode)) branchCodes.Add(branchCode);
-    }
-  }
-
-  /// <summary>
-  /// 按组织去重并把同一组织下的医院、同一医院下的院区去重，形成外部读取分组。
-  /// </summary>
-  /// <param name="targets">本批待校验的目标路径。</param>
-  /// <returns>按目标出现顺序排列的组织分组；每个组织下的医院与院区都已去重。</returns>
-  private static List<TargetOrganization> BuildTargetOrganizations(IReadOnlyList<OrganizationPathTarget> targets)
-  {
-    List<TargetOrganization> targetOrganizations = [];
-    Dictionary<string, TargetOrganization> organizationsByCode = [];
+    CandidateNodes candidates = await ReadCandidatesAsync(CollectCodes(targets));
+    List<OrganizationPath> paths = [];
     foreach (OrganizationPathTarget target in targets)
     {
-      // 三层编码一律去除首尾空白：外部配置、可信上下文与请求提交值都可能带空白。
-      string organizationCode = TrimCode(target.OrganizationCode);
-      string hospitalCode = TrimCode(target.HospitalCode);
-      string branchCode = TrimCode(target.BranchCode);
+      paths.Add(ValidateTarget(target, candidates, missingOrganizationMessage, missingHospitalMessage, missingBranchMessage));
+    }
 
-      if (!organizationsByCode.TryGetValue(organizationCode, out TargetOrganization? targetOrganization))
+    return paths;
+  }
+
+  /// <summary>
+  /// 校验一条目标路径并装配返回路径：编码取提交值，名称取容错取名结果，实例标识留空。
+  /// </summary>
+  /// <remarks>
+  /// 父子归属按边校验，且每条边只在两端编码都唯一命中时执行：编码命中多个节点时无法确定提交方指向哪一个，
+  /// 父子关系也就无从定论；父子校验服务于写入归属，定不下来时不能据此拒绝，因此这些边按存在性与类型放行。
+  /// 实例标识不因类型判定收敛到唯一候选而回填：本解析点不为数据用途挑节点。
+  /// </remarks>
+  /// <param name="target">待校验的目标路径。</param>
+  /// <param name="candidates">本批编码的候选节点。</param>
+  /// <param name="missingOrganizationMessage">组织层不成立时的业务拒绝文案。</param>
+  /// <param name="missingHospitalMessage">医院层不成立时的业务拒绝文案；为 <see langword="null"/> 时不校验医院层。</param>
+  /// <param name="missingBranchMessage">院区层不成立时的业务拒绝文案；为 <see langword="null"/> 时不校验院区层。</param>
+  /// <returns>已校验的路径。</returns>
+  /// <exception cref="InvalidOperationException">任一层校验不成立时抛出。</exception>
+  private static OrganizationPath ValidateTarget(
+    OrganizationPathTarget target,
+    CandidateNodes candidates,
+    string missingOrganizationMessage,
+    string? missingHospitalMessage,
+    string? missingBranchMessage)
+  {
+    // 判定顺序固定为组织、医院、院区：上层不成立时按上层文案拒绝，与既有拒绝口径一致。
+    LayerMatch organization = RequireLayer(
+      target.OrganizationCode, IamOrganizationTypeCodes.CountyMedicalCommunity, missingOrganizationMessage, candidates);
+
+    LayerMatch? hospital = null;
+    if (missingHospitalMessage is not null)
+    {
+      hospital = RequireLayer(target.HospitalCode, IamOrganizationTypeCodes.Hospital, missingHospitalMessage, candidates);
+
+      // 父子校验按边执行：一条父子边只取决于它两端的编码。组织层或医院层命中多个节点时，
+      // 这条边无法定论，跳过它并按存在性与类型放行——父子校验服务于写入归属，定不下来时不应据此拒绝。
+      if (organization.IsSoleCandidate
+        && hospital.Value.IsSoleCandidate
+        && hospital.Value.Node!.ParentOrganizationId != organization.Node!.Id)
       {
-        targetOrganization = new TargetOrganization(organizationCode);
-        organizationsByCode[organizationCode] = targetOrganization;
-        targetOrganizations.Add(targetOrganization);
+        throw new InvalidOperationException(missingHospitalMessage);
+      }
+    }
+
+    LayerMatch? branch = null;
+    if (missingBranchMessage is not null)
+    {
+      branch = RequireLayer(target.BranchCode, IamOrganizationTypeCodes.Branch, missingBranchMessage, candidates);
+      if (hospital is { IsSoleCandidate: true } validatedHospital
+        && branch.Value.IsSoleCandidate
+        && branch.Value.Node!.ParentOrganizationId != validatedHospital.Node!.Id)
+      {
+        throw new InvalidOperationException(missingBranchMessage);
+      }
+    }
+
+    return new OrganizationPath(
+      Guid.Empty, organization.Name, organization.Code,
+      Guid.Empty, hospital?.Name ?? string.Empty, hospital?.Code ?? string.Empty,
+      Guid.Empty, branch?.Name ?? string.Empty, branch?.Code ?? string.Empty);
+  }
+
+  /// <summary>
+  /// 校验一层编码：必须命中启用节点，且其中至少一个节点的类型符合该层，否则按该层文案业务拒绝。
+  /// </summary>
+  /// <remarks>
+  /// 命中多个节点不是失败：只要有一个候选的类型符合该层，本层校验即成立。
+  /// 类型与启停状态以 IAM 目录为准，编码树只负责把编码映射到候选节点标识。
+  /// </remarks>
+  /// <param name="code">该层提交的业务编码。</param>
+  /// <param name="typeCode">该层要求的组织类型编码。</param>
+  /// <param name="missingMessage">该层不成立时的业务拒绝文案。</param>
+  /// <param name="candidates">本批编码的候选节点。</param>
+  /// <returns>该层的校验结果。</returns>
+  /// <exception cref="InvalidOperationException">编码为空、未命中任何节点，或没有候选符合该层类型时抛出。</exception>
+  private static LayerMatch RequireLayer(string? code, string typeCode, string missingMessage, CandidateNodes candidates)
+  {
+    string? normalized = NormalizeCode(code);
+    if (normalized is null || !candidates.NodesByCode.TryGetValue(normalized, out IReadOnlyList<CodeCandidate> hits))
+    {
+      throw new InvalidOperationException(missingMessage);
+    }
+
+    IamDirectoryOrganization[] typed =
+    [
+      .. hits
+        .Select(hit => hit.Detail)
+        .OfType<IamDirectoryOrganization>()
+        .Where(node => node.IsEnabled
+          && string.Equals(node.OrganizationType?.Code, typeCode, StringComparison.Ordinal))
+    ];
+    if (typed.Length == 0) throw new InvalidOperationException(missingMessage);
+
+    // 唯一命中时记录该节点，供能定论时的父子归属校验使用；多候选时不留节点，避免被当成已定论的归属。
+    bool soleCandidate = hits.Count == 1;
+    return new LayerMatch(normalized, NameOf(candidates, normalized), soleCandidate ? typed[0] : null, soleCandidate);
+  }
+
+  /// <summary>
+  /// 按本批业务编码读取候选节点：编码树给出候选标识，IAM 目录一次读回这些节点的当前名称、类型与启停状态。
+  /// </summary>
+  /// <param name="codes">本批需要的业务编码。</param>
+  /// <returns>业务编码到候选节点与展示名称的映射。</returns>
+  private async Task<CandidateNodes> ReadCandidatesAsync(IReadOnlyList<string> codes)
+  {
+    Dictionary<string, List<OrganizationBusinessCodeTreeNode>> hitsByCode = await ReadNodesByCodeAsync(codes);
+
+    // 名称、类型与启停状态都取目录详情：候选节点标识一次批量读回，读取次数不随目标条数增长。
+    Guid[] candidateIds = [.. hitsByCode.Values.SelectMany(hits => hits).Select(node => node.Id)];
+    IReadOnlyDictionary<Guid, IamDirectoryOrganization> details = candidateIds.Length == 0
+      ? new Dictionary<Guid, IamDirectoryOrganization>()
+      : await iamDirectoryReader.ReadAsync(candidateIds);
+
+    Dictionary<string, IReadOnlyList<CodeCandidate>> nodesByCode = new(StringComparer.Ordinal);
+    foreach ((string code, List<OrganizationBusinessCodeTreeNode> hits) in hitsByCode)
+    {
+      nodesByCode[code] =
+      [
+        .. hits.Select(node => new CodeCandidate(node.Id, details.TryGetValue(node.Id, out IamDirectoryOrganization? detail) ? detail : null))
+      ];
+    }
+
+    return new CandidateNodes(nodesByCode, await ResolveNamesAsync(nodesByCode));
+  }
+
+  /// <summary>
+  /// 按当前租户一次读取组织树，并按业务编码归集候选节点。
+  /// </summary>
+  /// <remarks>
+  /// 读取次数只随租户增长，不随编码或目标条数增长；未配置业务编码的节点不进入任何编码的候选；
+  /// 同一编码命中多个节点时全部候选都保留，由校验与取名按各自口径使用。
+  /// </remarks>
+  /// <param name="codes">本批需要的业务编码。</param>
+  /// <returns>业务编码到候选节点的映射；未命中的编码不在映射中，租户不可用时为空映射。</returns>
+  private async Task<Dictionary<string, List<OrganizationBusinessCodeTreeNode>>> ReadNodesByCodeAsync(IReadOnlyList<string> codes)
+  {
+    Guid? tenantId = currentIamContext.Current?.TenantId;
+    if (codes.Count == 0 || tenantId is not { } selectedTenantId || selectedTenantId == Guid.Empty)
+    {
+      return new Dictionary<string, List<OrganizationBusinessCodeTreeNode>>(StringComparer.Ordinal);
+    }
+
+    HashSet<string> wanted = [.. codes];
+    IReadOnlyDictionary<Guid, OrganizationBusinessCodeTreeNode> nodes = await iamBusinessCodeReader.ReadAsync(selectedTenantId);
+
+    Dictionary<string, List<OrganizationBusinessCodeTreeNode>> candidatesByCode = new(StringComparer.Ordinal);
+    foreach (OrganizationBusinessCodeTreeNode node in nodes.Values)
+    {
+      string? code = NormalizeCode(node.Code);
+      if (code is null || !wanted.Contains(code)) continue;
+      if (!candidatesByCode.TryGetValue(code, out List<OrganizationBusinessCodeTreeNode>? candidates))
+      {
+        candidates = [];
+        candidatesByCode[code] = candidates;
       }
 
-      targetOrganization.AddTarget(hospitalCode, branchCode);
+      candidates.Add(node);
     }
 
-    return targetOrganizations;
+    return candidatesByCode;
   }
 
   /// <summary>
-  /// 去除业务编码两端空白，使带空白的输入与配置文件、可信上下文中的原始值按同一口径比较。
+  /// 按容错口径为每个命中的编码取展示名称：唯一候选取其名称，多候选按会话组织链与会名一致性取舍。
   /// </summary>
-  /// <param name="code">待处理的业务编码；可能为 null。</param>
-  /// <returns>去除两端空白后的编码；输入为 null 时返回空串。</returns>
-  private static string TrimCode(string? code) => code?.Trim() ?? string.Empty;
-
-  /// <summary>
-  /// 在组织全量读取结果中查找业务编码匹配且处于启用状态的组织。
-  /// </summary>
-  /// <param name="organizations">一次组织全量读取返回的组织集合。</param>
-  /// <param name="organizationCode">已去除两端空白的目标组织业务编码。</param>
-  /// <returns>匹配到的启用组织；不存在或已停用时返回 null。</returns>
-  private static OrganizationDto? FindOrganization(IEnumerable<OrganizationDto> organizations, string organizationCode)
+  /// <remarks>
+  /// 名称是展示字段，宁可留空也不猜：既不在多个名称之间择一，也不把业务编码当名称回填。
+  /// 会话组织链只在出现多候选时读取，正常路径不增加目录读取次数。
+  /// </remarks>
+  /// <param name="hitsByCode">业务编码到候选节点的映射。</param>
+  /// <returns>业务编码到展示名称的映射；无法确定可信名称时为空串。</returns>
+  private async Task<Dictionary<string, string>> ResolveNamesAsync(
+    IReadOnlyDictionary<string, IReadOnlyList<CodeCandidate>> nodesByCode)
   {
-    foreach (OrganizationDto organization in organizations)
+    Dictionary<string, string> namesByCode = new(StringComparer.Ordinal);
+    HashSet<Guid>? currentChain = null;
+    foreach ((string code, IReadOnlyList<CodeCandidate> hits) in nodesByCode)
     {
-      // 业务编码与启用状态必须同时成立：编码命中但已停用的组织按不可用处理。
-      if (string.Equals(organization.Id?.Trim(), organizationCode, StringComparison.Ordinal) && organization.IsValid) return organization;
+      if (hits.Count == 1)
+      {
+        namesByCode[code] = TrimName(hits[0].Detail?.Name);
+        continue;
+      }
+
+      // 会话组织链只在出现多候选时读取：单候选不需要取舍，正常路径不增加目录读取次数。
+      currentChain ??= await ReadCurrentOrganizationChainAsync();
+      namesByCode[code] = ConvergeName(hits, currentChain);
     }
 
-    return null;
+    return namesByCode;
   }
 
   /// <summary>
-  /// 在该组织的启用医院中查找业务编码匹配、启用且父组织归属正确的医院。
+  /// 在候选节点中取展示名称：会话组织链上恰好一个候选时取它的名称，否则全部候选名称一致时取该名称，其余留空。
   /// </summary>
-  /// <param name="hospitals">该组织的启用医院读取结果。</param>
-  /// <param name="organizationCode">已去除两端空白的目标组织业务编码，作为医院的父归属。</param>
-  /// <param name="hospitalCode">已去除两端空白的目标医院业务编码。</param>
-  /// <returns>匹配到的医院；不存在、已停用或不属于该组织时返回 null。</returns>
-  private static HospitalDto? FindHospital(IEnumerable<HospitalDto> hospitals, string organizationCode, string hospitalCode)
+  /// <param name="hits">同一业务编码命中的候选节点，至少两个。</param>
+  /// <param name="currentChain">当前会话组织链上的组织标识集合；取不到时为空集合。</param>
+  /// <returns>展示名称；无法确定时为空串。</returns>
+  private static string ConvergeName(IReadOnlyList<CodeCandidate> hits, HashSet<Guid> currentChain)
   {
-    foreach (HospitalDto hospital in hospitals)
-    {
-      // 编码、启用状态与父组织三者必须同时成立：外部服务返回了同一编码但父级不同的医院时按越界归属拒绝。
-      if (string.Equals(hospital.Id?.Trim(), hospitalCode, StringComparison.Ordinal)
-        && hospital.IsValid
-        && string.Equals(hospital.OrgId?.Trim(), organizationCode, StringComparison.Ordinal)) return hospital;
-    }
+    CodeCandidate[] onChain = [.. hits.Where(hit => currentChain.Contains(hit.Id))];
+    if (onChain.Length == 1) return TrimName(onChain[0].Detail?.Name);
 
-    return null;
+    string[] names = [.. hits.Select(hit => TrimName(hit.Detail?.Name))];
+    return names.All(name => string.Equals(name, names[0], StringComparison.Ordinal)) ? names[0] : string.Empty;
   }
 
   /// <summary>
-  /// 在该医院的启用院区中查找业务编码匹配、启用且父医院、父组织归属都正确的院区。
+  /// 读取当前工作身份所在节点的组织链：该节点在目录中的路径（祖先标识含自身）。
   /// </summary>
-  /// <param name="branches">该医院的启用院区读取结果。</param>
-  /// <param name="organizationCode">已去除两端空白的目标组织业务编码，作为院区的父组织归属。</param>
-  /// <param name="hospitalCode">已去除两端空白的目标医院业务编码，作为院区的父医院归属。</param>
-  /// <param name="branchCode">已去除两端空白的目标院区业务编码。</param>
-  /// <returns>匹配到的院区；不存在、已停用或不属于该医院、该组织时返回 null。</returns>
-  private static BranchDto? FindBranch(IEnumerable<BranchDto> branches, string organizationCode, string hospitalCode, string branchCode)
+  /// <remarks>
+  /// 会话组织链只用于取名：它由登录上下文给出，可以说明候选节点是否落在调用方实际工作的组织上。
+  /// 取不到当前组织标识或目录中没有该节点时只返回当前标识本身，取名因此只剩「名称是否一致」一条依据。
+  /// </remarks>
+  /// <returns>当前会话组织链上的组织标识集合。</returns>
+  private async Task<HashSet<Guid>> ReadCurrentOrganizationChainAsync()
   {
-    foreach (BranchDto branch in branches)
+    Guid? organizationId = currentIamContext.Current?.OrganizationId;
+    if (organizationId is not { } selectedOrganizationId || selectedOrganizationId == Guid.Empty) return [];
+
+    IReadOnlyDictionary<Guid, IamDirectoryOrganization> current =
+      await iamDirectoryReader.ReadAsync([selectedOrganizationId]);
+    HashSet<Guid> chain = [selectedOrganizationId];
+    if (current.TryGetValue(selectedOrganizationId, out IamDirectoryOrganization? node))
     {
-      // 父医院、父组织与启用状态必须同时成立：院区编码在不同医院之间不保证唯一，只比对编码会放进越权院区。
-      if (string.Equals(branch.Id?.Trim(), branchCode, StringComparison.Ordinal)
-        && branch.IsValid
-        && string.Equals(branch.HosId?.Trim(), hospitalCode, StringComparison.Ordinal)
-        && string.Equals(branch.OrgId?.Trim(), organizationCode, StringComparison.Ordinal)) return branch;
+      chain.UnionWith(node.Path.Select(item => item.Id));
     }
 
-    return null;
+    return chain;
   }
+
+  /// <summary>取一层编码的展示名称；编码没有候选时为空串。</summary>
+  /// <param name="candidates">本批编码的候选节点。</param>
+  /// <param name="code">该层已规范化的业务编码。</param>
+  /// <returns>该层展示名称；无法确定时为空串。</returns>
+  private static string NameOf(CandidateNodes candidates, string code) =>
+    candidates.NamesByCode.TryGetValue(code, out string? name) ? name : string.Empty;
+
+  /// <summary>
+  /// 收集一批目标路径上的业务编码：三层一起去空白、去空值、去重。
+  /// </summary>
+  /// <param name="targets">目标路径集合。</param>
+  /// <returns>本批需要的业务编码。</returns>
+  private static string[] CollectCodes(IReadOnlyList<OrganizationPathTarget> targets) =>
+  [
+    .. targets
+      .SelectMany(target => new[] { target.OrganizationCode, target.HospitalCode, target.BranchCode })
+      .Select(NormalizeCode)
+      .OfType<string>()
+      .Distinct(StringComparer.Ordinal)
+  ];
+
+  /// <summary>把节点名称规范为展示口径：去首尾空白，未配置名称时为空串。</summary>
+  /// <param name="name">节点名称。</param>
+  /// <returns>去空白后的名称；空或纯空白时为空串。</returns>
+  private static string TrimName(string? name) => name?.Trim() ?? string.Empty;
+
+  /// <summary>
+  /// 把提交的编码规范为比较口径：去首尾空白，空白编码视为未提交。
+  /// </summary>
+  /// <param name="code">提交的编码。</param>
+  /// <returns>去空白后的编码；空或纯空白时为 <see langword="null"/>。</returns>
+  private static string? NormalizeCode(string? code)
+  {
+    string normalized = code?.Trim() ?? string.Empty;
+    return normalized.Length == 0 ? null : normalized;
+  }
+
+  /// <summary>一层编码的校验结果：提交的编码、容错取到的名称、唯一命中时的节点与是否唯一命中。</summary>
+  /// <param name="Code">去空白后的提交编码。</param>
+  /// <param name="Name">该层展示名称；无法确定时为空串。</param>
+  /// <param name="Node">该层唯一命中且类型相符的节点；多候选时为空。</param>
+  /// <param name="IsSoleCandidate">该层编码是否恰好命中一个候选节点。</param>
+  private readonly record struct LayerMatch(string Code, string Name, IamDirectoryOrganization? Node, bool IsSoleCandidate);
+
+  /// <summary>一个候选节点：编码树给出的节点标识与目录读回的当前详情（目录缺失时为空）。</summary>
+  /// <param name="Id">组织实例标识。</param>
+  /// <param name="Detail">IAM 目录中的节点详情；目录没有该节点时为空。</param>
+  private readonly record struct CodeCandidate(Guid Id, IamDirectoryOrganization? Detail);
+
+  /// <summary>本批编码的候选节点与展示名称。</summary>
+  /// <param name="NodesByCode">业务编码到候选节点。</param>
+  /// <param name="NamesByCode">业务编码到展示名称；无法确定可信名称时为空串。</param>
+  private sealed record CandidateNodes(
+    IReadOnlyDictionary<string, IReadOnlyList<CodeCandidate>> NodesByCode,
+    IReadOnlyDictionary<string, string> NamesByCode);
 }

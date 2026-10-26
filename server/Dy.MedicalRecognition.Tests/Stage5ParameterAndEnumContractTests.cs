@@ -1,10 +1,9 @@
 using System.ComponentModel;
 using System.Reflection;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Dtos;
-using Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate;
-using Dy.MedicalRecognition.Application.Queries;
 using Dy.MedicalRecognition.Application.Queries.EnumMetadata;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
+using Dy.MedicalRecognition.Domain.PlatformParameterAggregate;
 using Dy.MedicalRecognition.Domain.Share.Enums;
 using Xunit;
 
@@ -12,7 +11,7 @@ namespace Dy.MedicalRecognition.Tests;
 
 /// <summary>
 /// 阶段 5 的契约与静态面：处理结果与引用事实的项目编码列已删除（项目编码由互认匹配项标识反查匹配项取得）、
-/// 三个系统参数的编码常量声明在各自读取入口、互认结果与不采纳原因两个枚举已补中文说明与描述器特性并登记。
+/// 三个系统参数的编码常量在 `PlatformParameterDefinition` 统一声明、互认结果与不采纳原因两个枚举已补中文说明与描述器特性并登记。
 /// </summary>
 /// <remarks>
 /// 全部判据按反射读取公开成员、特性与私有静态常量，不解析源码文本、不做正则匹配：
@@ -110,8 +109,7 @@ public sealed class Stage5ParameterAndEnumContractTests
   }
 
   /// <summary>
-  /// 本院报告匹配开关与本院报告排除时长两个参数由写侧应用服务在匹配查询入口读取，
-  /// 编码以私有常量声明在该入口类内、取值为小写下划线形态。
+  /// 本院报告匹配开关与本院报告排除时长两个参数由统一参数定义声明，取值为小写下划线形态。
   /// </summary>
   /// <param name="fieldName">常量字段名。</param>
   /// <param name="expectedValue">期望的常量取值。</param>
@@ -119,14 +117,14 @@ public sealed class Stage5ParameterAndEnumContractTests
   [InlineData("OwnHospitalMatchSwitch", OwnHospitalMatchSwitchCode)]
   [InlineData("OwnHospitalExcludeHours", OwnHospitalExcludeHoursCode)]
   public void Match_query_entry_declares_the_two_own_hospital_parameter_codes(string fieldName, string expectedValue) =>
-    AssertPrivateConstantString(typeof(MedicalRecognitionReportAppService), fieldName, expectedValue);
+    AssertConstantString(typeof(PlatformParameterDefinition), fieldName, expectedValue);
 
   /// <summary>
-  /// 引用详情有效时长参数由查询应用服务在引用详情查询入口读取，编码以私有常量声明在该入口类内。
+  /// 引用详情有效时长参数由统一参数定义声明。
   /// </summary>
   [Fact]
   public void Citation_detail_entry_declares_the_valid_hours_parameter_code() =>
-    AssertPrivateConstantString(typeof(MedicalRecognitionReportQueryAppService), "CitationDetailValidHours", CitationDetailValidHoursCode);
+    AssertConstantString(typeof(PlatformParameterDefinition), "CitationDetailValidHours", CitationDetailValidHoursCode);
 
   /// <summary>
   /// 两个枚举类型的用例数据。
@@ -140,9 +138,9 @@ public sealed class Stage5ParameterAndEnumContractTests
   /// <param name="declaringType">常量应声明在其中的类型；必须是声明处本身，不含继承成员。</param>
   /// <param name="fieldName">常量字段名。</param>
   /// <param name="expectedValue">期望的常量取值。</param>
-  private static void AssertPrivateConstantString(Type declaringType, string fieldName, string expectedValue)
+  private static void AssertConstantString(Type declaringType, string fieldName, string expectedValue)
   {
-    FieldInfo? field = declaringType.GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static);
+    FieldInfo? field = declaringType.GetField(fieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
 
     Assert.True(field is not null, $"{declaringType.Name} 内不存在静态字段 {fieldName}。");
     Assert.True(field!.IsLiteral, $"{declaringType.Name}.{fieldName} 不是编译期常量。");

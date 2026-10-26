@@ -1,5 +1,4 @@
 using System.Reflection;
-using Dy.Base.Application.Contracts.OrganizationAggregate;
 using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
 using Dy.MedicalRecognition.Application.Contracts.Queries.StandardCatalog;
 using Dy.MedicalRecognition.Application.Contracts.Queries.TrustedScope;
@@ -24,9 +23,9 @@ namespace Dy.MedicalRecognition.Tests;
 public sealed class Stage2QueryTests
 {
   /// <summary>可信当前组织编码；用例通过框架请求上下文注入该值。</summary>
-  private const string TrustedOrganizationCode = "ORG-A";
+  private const string TrustedOrganizationCode = FakeIamScope.OrganizationCode;
   /// <summary>外部组织服务为该可信组织返回的名称；只出现在范围查询用例，不参与其他查询的判定。</summary>
-  private const string TrustedOrganizationName = "示例组织";
+  private const string TrustedOrganizationName = "示范医共体";
   /// <summary>与可信当前组织不同的组织编码，用于越权查询用例。</summary>
   private const string OtherOrganizationCode = "ORG-B";
   /// <summary>用例注入的令牌用户标识；查询不读取操作人，只用于构造完整的认证上下文。</summary>
@@ -36,8 +35,7 @@ public sealed class Stage2QueryTests
   [Fact]
   public async Task Configuration_list_has_no_unavailable_reason_when_catalog_layers_are_enabled()
   {
-    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
-    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([BuildItem(configurationIsValid: false)]), new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([BuildItem(configurationIsValid: false)]), new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     RecognitionProjectConfigurationReadModel item = Assert.Single(await service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode)));
 
@@ -56,8 +54,7 @@ public sealed class Stage2QueryTests
   [InlineData(true, true, false, "标准项目已停用")]
   public async Task Unavailable_reason_reports_the_single_disabled_catalog_layer(bool categoryIsValid, bool groupIsValid, bool itemIsValid, string expectedReason)
   {
-    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
-    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([BuildItem(categoryIsValid, groupIsValid, itemIsValid)]), new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([BuildItem(categoryIsValid, groupIsValid, itemIsValid)]), new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     RecognitionProjectConfigurationReadModel item = Assert.Single(await service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode)));
 
@@ -78,8 +75,7 @@ public sealed class Stage2QueryTests
   [InlineData(true, true, false, "标准项目已停用")]
   public async Task Unavailable_reason_follows_category_group_item_priority(bool categoryIsValid, bool groupIsValid, bool itemIsValid, string expectedReason)
   {
-    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
-    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([BuildItem(categoryIsValid, groupIsValid, itemIsValid)]), new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([BuildItem(categoryIsValid, groupIsValid, itemIsValid)]), new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     RecognitionProjectConfigurationReadModel item = Assert.Single(await service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode)));
 
@@ -90,9 +86,8 @@ public sealed class Stage2QueryTests
   [Fact]
   public async Task Unavailable_reason_reveals_the_next_layer_after_the_upper_layer_is_restored()
   {
-    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
     FakeQueryRepository repository = new([BuildItem(false, false, false)]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     Assert.Equal("所属分类已停用", await QueryOnlyReasonAsync(service));
 
@@ -110,9 +105,8 @@ public sealed class Stage2QueryTests
   [Fact]
   public async Task Query_rejects_request_organization_that_differs_from_trusted_context()
   {
-    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
     FakeQueryRepository repository = new([BuildItem()]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     await Assert.ThrowsAsync<InvalidOperationException>(
       () => service.QueryRecognitionProjectConfigurationListAsync(Query(OtherOrganizationCode)));
@@ -124,11 +118,14 @@ public sealed class Stage2QueryTests
   [Fact]
   public async Task Query_rejects_request_when_trusted_organization_is_missing()
   {
-    TrustedRequestContext.Use(string.Empty, TrustedOperId);
     FakeQueryRepository repository = new([BuildItem()]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    FakeIamScope anonymous = new()
+    {
+      Identity = new Dy.IAM.Sdk.IamIdentityContext(Guid.NewGuid(), null, null, null, null, "medical-recognition", Guid.NewGuid(), 1, 1, 1)
+    };
+    MedicalRecognitionReportQueryAppService service = new(repository, new PlatformParameterRepositoryStub(), anonymous, anonymous, anonymous);
 
-    await Assert.ThrowsAsync<InvalidOperationException>(
+    await Assert.ThrowsAsync<Dy.IAM.Sdk.IamWorkIdentityRequiredException>(
       () => service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode)));
 
     Assert.Equal(0, repository.CallCount);
@@ -141,9 +138,8 @@ public sealed class Stage2QueryTests
   [Fact]
   public async Task Query_compares_request_organization_with_trimmed_trusted_organization()
   {
-    TrustedRequestContext.Use($"  {TrustedOrganizationCode}  ", TrustedOperId);
     FakeQueryRepository repository = new([BuildItem()]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     RecognitionProjectConfigurationReadModel item = Assert.Single(
       await service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode)));
@@ -160,9 +156,8 @@ public sealed class Stage2QueryTests
   [Fact]
   public async Task Query_accepts_request_organization_that_trims_to_the_trusted_organization()
   {
-    TrustedRequestContext.Use($"  {TrustedOrganizationCode}  ", TrustedOperId);
     FakeQueryRepository repository = new([BuildItem()]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     RecognitionProjectConfigurationReadModel item = Assert.Single(
       await service.QueryRecognitionProjectConfigurationListAsync(Query($"  {TrustedOrganizationCode}  ")));
@@ -176,13 +171,12 @@ public sealed class Stage2QueryTests
   [Fact]
   public async Task Query_passes_filters_to_the_query_port_and_maps_every_field()
   {
-    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
     FakeQueryRepository repository = new(
     [
       BuildItem(configurationId: Guid.Parse("11111111-1111-1111-1111-111111111111"), standardProjectCode: "PROBE-001", standardItemName: "血常规", categoryName: "临床检验", groupName: "血液学", recognitionDurationDays: 30, itemType: MedicalItemType.Laboratory),
       BuildItem(configurationId: Guid.Parse("22222222-2222-2222-2222-222222222222"), standardProjectCode: "PROBE-002", standardItemName: "胸部CT", categoryName: "医学影像", groupName: "CT", recognitionDurationDays: 90, itemType: MedicalItemType.Examination, configurationIsValid: false)
     ]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     IEnumerable<RecognitionProjectConfigurationReadModel> result = await service.QueryRecognitionProjectConfigurationListAsync(
       new RecognitionProjectConfigurationListQueryRequest
@@ -227,14 +221,13 @@ public sealed class Stage2QueryTests
   [Fact]
   public async Task Query_preserves_the_order_given_by_the_query_port()
   {
-    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
     FakeQueryRepository repository = new(
     [
       BuildItem(configurationId: Guid.Parse("33333333-3333-3333-3333-333333333333"), standardProjectCode: "PROBE-003", standardItemName: "第三项"),
       BuildItem(configurationId: Guid.Parse("11111111-1111-1111-1111-111111111111"), standardProjectCode: "PROBE-001", standardItemName: "第一项"),
       BuildItem(configurationId: Guid.Parse("22222222-2222-2222-2222-222222222222"), standardProjectCode: "PROBE-002", standardItemName: "第二项")
     ]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     RecognitionProjectConfigurationReadModel[] items =
       [.. await service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode))];
@@ -247,9 +240,8 @@ public sealed class Stage2QueryTests
   [Fact]
   public async Task Query_returns_empty_collection_when_no_configuration_matches()
   {
-    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
     FakeQueryRepository repository = new([]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     IEnumerable<RecognitionProjectConfigurationReadModel> items =
       await service.QueryRecognitionProjectConfigurationListAsync(Query(TrustedOrganizationCode));
@@ -283,23 +275,44 @@ public sealed class Stage2QueryTests
 
   /// <summary>
   /// 可信范围查询返回可信组织的编码与名称：组织只取自可信上下文并按去首尾空白判定，
-  /// 名称来自组织路径解析点的组织一层（V34）。
+  /// 名称来自组织路径解析点的组织一层（V34）；编码承载 IAM 组织节点的组织业务编码。
   /// </summary>
+  /// <remarks>
+  /// 旧断言相等的是实例标识文本（<c>a1000000-0000-0000-0000-000000000001</c>），那是编码列此前装实例标识
+  /// 的口径，与「编码列承载组织业务编码」冲突；改造后编码取组织业务编码，因此改为断言业务编码，并反向排除实例标识文本。
+  /// </remarks>
   [Fact]
   public async Task Trusted_organization_scope_returns_the_code_and_name_of_the_trusted_organization()
   {
-    TrustedRequestContext.Use($"  {TrustedOrganizationCode}  ", TrustedOperId);
     StubOrganizationAppService organizationAppService = new()
     {
       Organizations = [new OrganizationDto { Id = TrustedOrganizationCode, Name = TrustedOrganizationName, IsValid = true }]
     };
-    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([]), organizationAppService, new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([]), new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     TrustedOrganizationScopeReadModel scope = await service.QueryTrustedOrganizationScopeAsync();
 
-    Assert.Equal(TrustedOrganizationCode, scope.OrganizationCode);
+    Assert.Equal(FakeIamScope.OrganizationCode, scope.OrganizationCode);
+    Assert.NotEqual(FakeIamScope.OrganizationId.ToString(), scope.OrganizationCode);
     Assert.Equal(TrustedOrganizationName, scope.OrganizationName);
-    Assert.Equal(1, organizationAppService.OrganizationReadCount);
+    Assert.Equal(0, organizationAppService.OrganizationReadCount);
+  }
+
+  /// <summary>
+  /// 可信组织未配置组织业务编码时按空串返回，不拒绝：空编码不是拒绝条件，
+  /// 只用实例标识或名称替代才是必须避免的降级。
+  /// </summary>
+  [Fact]
+  public async Task Trusted_organization_scope_returns_an_empty_code_when_the_organization_has_no_business_code()
+  {
+    FakeIamScope iamScope = new();
+    iamScope.Codes.Remove(FakeIamScope.OrganizationId);
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([]), new PlatformParameterRepositoryStub(), iamScope, iamScope, iamScope);
+
+    TrustedOrganizationScopeReadModel scope = await service.QueryTrustedOrganizationScopeAsync();
+
+    Assert.Equal(string.Empty, scope.OrganizationCode);
+    Assert.Equal(TrustedOrganizationName, scope.OrganizationName);
   }
 
   /// <summary>
@@ -309,7 +322,6 @@ public sealed class Stage2QueryTests
   [Fact]
   public async Task Selectable_standard_items_are_queried_for_the_trusted_organization_and_grouped_by_levels()
   {
-    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
     FakeQueryRepository repository = new([])
     {
       SelectableItems =
@@ -330,7 +342,7 @@ public sealed class Stage2QueryTests
         }
       ]
     };
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     EffectiveMedicalStandardCatalogReadModel catalog = await service.QuerySelectableStandardItemListAsync(
       new SelectableStandardItemListQueryRequest { Keyword = "血" });
@@ -350,9 +362,8 @@ public sealed class Stage2QueryTests
   [Fact]
   public async Task Selectable_standard_items_return_no_levels_when_nothing_is_selectable_and_reject_blank_keyword()
   {
-    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
     FakeQueryRepository repository = new([]);
-    MedicalRecognitionReportQueryAppService service = new(repository, new StubOrganizationAppService(), new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(repository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
 
     EffectiveMedicalStandardCatalogReadModel catalog = await service.QuerySelectableStandardItemListAsync(new SelectableStandardItemListQueryRequest());
     Assert.Empty(catalog.ItemTypes);
@@ -366,38 +377,34 @@ public sealed class Stage2QueryTests
   /// <summary>可信请求上下文中取不到组织时拒绝，且不读取外部组织服务；不返回空值、也不降级为只回编码（V34）。</summary>
   [Fact]
   public async Task Trusted_organization_scope_rejects_when_trusted_organization_is_missing()
-  {    TrustedRequestContext.Use("   ", TrustedOperId);
-    StubOrganizationAppService organizationAppService = new()
+  {
+    StubOrganizationAppService organizationAppService = new();
+    FakeIamScope anonymous = new()
     {
-      Organizations = [new OrganizationDto { Id = TrustedOrganizationCode, Name = TrustedOrganizationName, IsValid = true }]
+      Identity = new Dy.IAM.Sdk.IamIdentityContext(Guid.NewGuid(), null, null, null, null, "medical-recognition", Guid.NewGuid(), 1, 1, 1)
     };
-    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([]), organizationAppService, new StubUserAppService(), new StubSystemParameterAppService());
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([]), new PlatformParameterRepositoryStub(), anonymous, anonymous, anonymous);
 
-    await Assert.ThrowsAsync<InvalidOperationException>(() => service.QueryTrustedOrganizationScopeAsync());
+    await Assert.ThrowsAsync<Dy.IAM.Sdk.IamWorkIdentityRequiredException>(() => service.QueryTrustedOrganizationScopeAsync());
 
     Assert.Equal(0, organizationAppService.OrganizationReadCount);
   }
 
-  /// <summary>可信组织在外部组织服务里不存在或已停用时拒绝，不返回空名称、也不降级为只回编码（V34）。</summary>
-  /// <param name="organizationExists">外部组织服务的组织全量中是否存在该可信组织。</param>
-  /// <param name="organizationIsValid">存在时该组织是否启用。</param>
+  /// <summary>可信当前组织在目录中缺失或已停用时拒绝，不返回空值、也不降级为只回编码（V34）。</summary>
+  /// <param name="organizationExists">目录中是否存在当前身份指向的组织节点。</param>
   [Theory]
-  [InlineData(false, false)]
-  [InlineData(true, false)]
-  public async Task Trusted_organization_scope_rejects_when_the_organization_is_missing_or_disabled(bool organizationExists, bool organizationIsValid)
+  [InlineData(false)]
+  [InlineData(true)]
+  public async Task Trusted_organization_scope_rejects_when_the_organization_is_missing_or_disabled(bool organizationExists)
   {
-    TrustedRequestContext.Use(TrustedOrganizationCode, TrustedOperId);
-    StubOrganizationAppService organizationAppService = new()
-    {
-      Organizations = organizationExists
-        ? [new OrganizationDto { Id = TrustedOrganizationCode, Name = TrustedOrganizationName, IsValid = organizationIsValid }]
-        : []
-    };
-    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([]), organizationAppService, new StubUserAppService(), new StubSystemParameterAppService());
+    StubOrganizationAppService organizationAppService = new();
+    FakeIamScope scope = organizationExists ? FakeIamScope.DisabledOrganization() : FakeIamScope.MissingOrganization();
+    MedicalRecognitionReportQueryAppService service = new(new FakeQueryRepository([]), new PlatformParameterRepositoryStub(), scope, scope, scope);
 
-    InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.QueryTrustedOrganizationScopeAsync());
+    InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => service.QueryTrustedOrganizationScopeAsync());
 
-    Assert.Equal("业务拒绝：组织不存在或已停用。", exception.Message);
+    Assert.Equal("无法确定有效的当前组织。", error.Message);
+    Assert.Equal(0, organizationAppService.OrganizationReadCount);
   }
 
   /// <summary>

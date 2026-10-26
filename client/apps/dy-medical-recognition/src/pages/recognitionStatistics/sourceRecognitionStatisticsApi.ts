@@ -183,7 +183,7 @@ export interface BranchSourceDetailsQuery {
 
 export type SourceDetailsQuery = PlatformSourceDetailsQuery | BranchSourceDetailsQuery
 
-/** 平台管理员入口的提供方导出条件：两组组织编码同时提交，供服务端做一致性校验。 */
+/** 平台管理员入口的提供方导出条件：两组组织实例 Id同时提交，供服务端做一致性校验。 */
 export interface PlatformSourceExportQuery {
   version: 'platform'
   exportType: SourceExportTypeValue
@@ -355,7 +355,7 @@ function toBranchSourceDetailsBody(query: BranchSourceDetailsQuery & StatisticsP
   return body
 }
 
-/** 平台版提供方导出请求体：两组组织编码同时提交，供服务端做一致性校验；无分页对象。 */
+/** 平台版提供方导出请求体：两组组织实例 Id同时提交，供服务端做一致性校验；无分页对象。 */
 function toPlatformSourceExportBody(query: PlatformSourceExportQuery): RecognitionStatisticsExportRequest {
   const body: RecognitionStatisticsExportRequest = {
     exportType: query.exportType,

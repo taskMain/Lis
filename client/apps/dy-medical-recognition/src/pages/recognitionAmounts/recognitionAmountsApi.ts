@@ -57,12 +57,10 @@ export type {
  *       在 OpenAPI 里声明 `enum` / `x-enumNames` / `x-enumDescriptions`，生成端据此把这两个属性映射为
  *       `number | null` 并用 `writeNumberValue` 写出数值。本层只保留最小数值映射：只接受已确认取值，
  *       未知一律映射为 `null`（安全展示），不让页面出现第二套枚举判定。
- *    c) `currentAmount` 在后端是 `decimal?`，OpenAPI 生成 `type: ["null","number","string"]` + `format: double`，
- *       生成端不支持该格式、把它生成为 `UntypedNode | null`（`{ value, getValue() }`，反序列化时按 JSON 实际
- *       类型包成数值节点或字符串节点），写入时经 `writeObjectValue` 取节点值。因此本层：
- *       - 读取时按结构化取值（`getValue()`），只接受有限数值，字符串节点与其它形态一律按「无金额」处理；
- *       - 提交时把金额包成同一节点形态，零元照常提交，**不得**提交裸数字（生成端会把它写成对象）。
- *       契约侧修复（把该属性生成为数值类型）属于生成管线的范围，本层不猜测兼容。
+ *    c) `currentAmount` 在后端是 `decimal?`，OpenAPI 按 `type: number` + `nullable: true` 声明，
+ *       生成端据此把该属性生成为 `number | null` 并用 `writeNumberValue` 写出数值。因此本层：
+ *       - 读取时只接受有限数值，缺失与其它形态一律按「无金额」处理，不用 `Number()` 伪造成金额；
+ *       - 提交时直接写数值，零元照常提交。
  */
 
 /** 项目类型的取值域判定与兜底文案已上移到跨页面共享模块（阶段 1/2 使用同一份事实）。 */
@@ -79,10 +77,9 @@ export {
 export type { ConfigurationStatusValue }
 
 /**
- * 生成端交付的金额读取形态：`decimal?` 被生成为未定型节点（见文件头第 4c 条）。
+ * 生成端交付的金额读取形态：`decimal?` 被生成为 `number | null`（见文件头第 4c 条）。
  *
- * 本层只声明读取需要的结构，不从生成包深层路径导入 `UntypedNode`：该类型由生成包的传递依赖
- * `@microsoft/kiota-abstractions` 提供，不是本子应用的直接依赖，而生成包的公开入口只转出契约类型。
+ * 本层只声明读取需要的结构，生成包的公开入口只转出契约类型。
  */
 export interface RecognitionAmountReadModelLike {
   standardProjectCode?: string | null
@@ -99,14 +96,8 @@ export interface RecognitionAmountReadModelLike {
   /** 配置状态中文；由服务端按枚举声明返回。 */
   configurationStatusText?: string | null
   unavailableReason?: string | null
-  currentAmount?: unknown
+  currentAmount?: number | null
   isAmountConfigured?: boolean | null
-}
-
-/** 生成端写入金额要求的节点形态；`writeObjectValue` 只在该形态下把金额写成数值。 */
-export interface UntypedNumberNode {
-  value: unknown
-  getValue(): unknown
 }
 
 /** 金额行视图模型；只承载查询契约交付的字段，且各列都已完成可空归一与枚举安全映射。 */
@@ -300,15 +291,11 @@ function toConfigurationStatus(value: number | null | undefined): ConfigurationS
 }
 
 /**
- * 生成端交付的金额节点 → 数值。节点经 `getValue()` 取原始 JSON 值，只接受有限数值：
- * 字符串节点、缺失与其它形态一律按「无金额」处理，不用 `Number(value)` 把非数值伪造成金额。
+ * 金额数值 → 视图数值。只接受有限数值，缺失与其它形态一律按「无金额」处理，
+ * 不用 `Number(value)` 把非数值伪造成金额。
  */
-function toAmountNumber(value: unknown): number | null {
-  if (typeof value !== 'object' || value === null) return null
-  const getValue = (value as { getValue?: unknown }).getValue
-  if (typeof getValue !== 'function') return null
-  const raw = (getValue as () => unknown).call(value)
-  return typeof raw === 'number' && Number.isFinite(raw) ? raw : null
+function toAmountNumber(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 /**
@@ -450,6 +437,16 @@ export const EMPTY_FILTERED_RECOGNITION_AMOUNT_TEXT = '没有符合当前筛选�
 
 /** 空态文案：无生效条件、当前范围零配置时展示（两个页面共用，中文逐字一致）。 */
 export const EMPTY_UNFILTERED_RECOGNITION_AMOUNT_TEXT = '当前范围没有互认项目金额配置'
+
+/**
+ * 空态文案：读取失败且没有任何数据时展示（两个页面共用，中文逐字一致）。
+ * 读取失败与「当前范围零配置」是两件不同的事实：失败不得渲染成「没有…配置」，
+ * 否则用户会把读取不到当成配置确实不存在。重试沿用页面既有入口，文案不承载新交互。
+ */
+export const EMPTY_LOAD_FAILED_RECOGNITION_AMOUNT_TEXT = '读取失败，请重试'
+
+/** 页脚计数在读取失败态显示的占位（失败数据不可信，不展示 0 以免被读成零配置）。 */
+export const RECOGNITION_AMOUNT_COUNT_PLACEHOLDER = '—'
 
 /** 金额校验文案：行内提示与「零写请求」共用同一取值依据（本层 `parseRecognitionAmount`，两个页面共用）。 */
 export const AMOUNT_VALIDATION_MESSAGE = '金额必须是不小于 0 且最多两位小数的数字'
@@ -759,7 +756,7 @@ export async function saveOrganizationHospitalBranchRecognitionAmount(
     hospitalCode: payload.hospitalCode,
     branchCode: payload.branchCode,
     standardProjectCode: payload.standardProjectCode,
-    currentAmount: { value: payload.currentAmount, getValue: () => payload.currentAmount },
+    currentAmount: payload.currentAmount,
   }
   await client.api.medicalRecognitionReport.saveOrganizationHospitalBranchRecognitionAmount.post(body)
 }
@@ -772,7 +769,7 @@ export async function saveBranchRecognitionAmount(
   const body: SaveBranchRecognitionAmountRequest = {
     branchCode: payload.branchCode,
     standardProjectCode: payload.standardProjectCode,
-    currentAmount: { value: payload.currentAmount, getValue: () => payload.currentAmount },
+    currentAmount: payload.currentAmount,
   }
   await client.api.medicalRecognitionReport.saveBranchRecognitionAmount.post(body)
 }

@@ -411,3 +411,9 @@ test_server\run_natapp.bat
 
 # 本机运行期数据目录（报告 PDF 等本地文件存储，不入版本控制）
 var/
+
+# Project-only development credentials
+/.local/
+
+# 技能脚本自动解压的本地 Python（不入版本控制）
+/Python/

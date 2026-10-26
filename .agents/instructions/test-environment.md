@@ -12,8 +12,9 @@
 | 本地后端端口及 OpenAPI / Scalar 地址 | 已确认：`15014`（2026-09-18 调整）；使用前核实是否已被占用 | 三处启动配置已一致指向 15014：`appsettings.json`、`appsettings.Development.json`、`Properties/launchSettings.json`（后者以 `ASPNETCORE_URLS` 形式生效，改端口时三者必须同步）；`appsettings.Development.json` 的 `HttpConfig.HttpServiceConfigs.Default.Host` 与前端 `config.development.json`、`src/runtimeConfig.ts` 回落地址同步为同一端口。OpenAPI `http://localhost:15014/openapi/v1.json`，Scalar `http://localhost:15014/scalar`。该端口位于 Windows 动态端口范围（1024 至 15000）之外，避免被 WSL 与 Hyper-V 的动态端口预留占用 |
 | 前端开发端口、basename 与拦截命中键 | 已确认：端口 `3008`、basename `/subApps/medical-recognition`、宿主拦截命中键 `medical-recognition` | 端口来源 `apps/dy-medical-recognition/vite.config.ts` 的 `server.port`；`base` 与 `redirectBasePlugin` 均为 `/subApps/medical-recognition/`；拦截配置流程见第 4 节。**宿主菜单结构与各阶段子项/路由属于阶段信息，登记在对应阶段文档，不在本规范维护** |
 | 测试辅助服务端口和公网接收地址（需要时） | 待配置 | 阶段明确用途，负责人确认目标 |
-| 测试账号、角色、组织、医院与院区范围 | 账号已确认：`yangkj`（宿主显示名 杨康健，组织 `01` / 医院 `0101` / 院区 `0101001`）与 `lisadmin`（检验协同平台管理员，组织 `01` / 医院 `CSYY2` / 院区 `CSYQ2-1`）；两者使用同一登录入口与同一测试密码（见下行唯一登记处），均持有「检验检查结果互认管理员」角色；组织/医院/院区范围以实际登录返回为准（不属"待配置"项） | 从宿主登录页进入，入口选「检验检查结果互认平台」；不使用其他系统身份。两个账号分属两个不同医院，用于构造两个可信医院范围；各阶段菜单可达性由阶段文档与阶段报告记录，不在本规范维护 |
-| 测试密码 | 已确认并登记：账号 `yangkj` 与 `lisadmin` 共用，密码 `123456` | 负责人 2026-09-15 明确要求直接登记在本规范，供各阶段测试复用，避免每次测试重新索取；**本行是项目唯一登记处**，其他文档与测试报告只引用本行，不另行复制凭据。密码变更时由负责人更新本行 |
+| 测试账号、角色、组织、医院与院区范围 | 账号已确认：`191617`（宿主显示名 杨康健；IAM 账号，userId `568f0fb4-3b7b-4f55-afb3-d069943ea1a8`）、`lisadmin`（IAM 账号，已加入院区1）与 `mrecAdmin`（IAM 账号，userId `1153a4e9-aba7-436e-9bb4-dc17dfa09c28`，显示名「互认平台管理员」，已加入测试院区1-1 与测试院区2-1）；三者使用同一登录入口，均持有 IAM 开发角色 `medical-recognition-dev`；IAM 工作身份：`191617` 具测试院区1-1（organizationUserId `0efdeaf9-a5e9-4820-ab3b-e5b7b84858da`，县医共体/测试医院一）与测试院区2-1（organizationUserId `99955c3b-2df7-404b-86b9-c1c83462eb0d`，县医共体/测试医院二）两个身份；`mrecAdmin` 具测试院区1-1（organizationUserId `8826eb0d-8cd3-4404-87c2-239b15f76d10`）与测试院区2-1（organizationUserId `94bc58ba-6821-4d5c-96a0-eaac5097100e`）两个身份；旧工作身份 `c762b817-19ec-4b87-a37c-5626cbb56d7c` 与 `4a79e80f-bc11-4797-a5f0-841e2de71914` 已被 IAM 数据回滚删除，不可用，不能作为测试入口；组织/医院/院区范围以实际登录返回为准（不属"待配置"项） | 从宿主登录页进入，入口选「检验检查结果互认平台」；不使用其他系统身份。`191617` 与 `mrecAdmin` 的两个工作身份分属测试医院一与测试医院二，用于构造两个可信医院范围；`mrecAdmin` 登录口令只存放于 Git 忽略的 `.local/dev-credentials.json`，不在本规范或其他文档登记；各阶段菜单可达性由阶段文档与阶段报告记录，不在本规范维护 |
+| 测试密码 | 已确认并登记：账号 `191617` 密码 `1776422987ykj`；账号 `lisadmin` 密码 `123456` | 负责人 2026-09-15 明确要求直接登记在本规范，供各阶段测试复用，避免每次测试重新索取；**本行是项目唯一登记处**，其他文档与测试报告只引用本行，不另行复制凭据。密码变更时由负责人更新本行 |
+| IAM 组织类型编码 | 已核实：医共体 `CountyMedicalCommunity`、医院 `Hospital`、院区 `Branch` | 组织详情按 `OrganizationType.Code` 给出类型；科室 `Dept` 与病区 `Ward` 不参与本项目三层归类。类型判定不按名称或层级深度推断 |
 | 数据库 Provider、版本与测试连接 | 已确认：PostgreSQL，`183.224.180.166:15432` / 用户 `postgres` / 库 `DysoftHIS` | 与 `Dy.LisCenter` 的配置指向同一实例与库，不代表共用表；TCP 15432 为历史连通证据。连接配置保持不变，实际初始化另须确认目标数据库与 schema。数据库只读取证可使用负责人确认的 dbx MCP（按阶段用例取证时引用对应阶段矩阵编号，本规范不携带具体用例号）；不得通过 dbx 或其他通道写入、迁移或修改数据库。连接串落在 `server/Dy.MedicalRecognition/EarthraceConfig.json`，属被仓库根 `.gitignore` 覆盖的 `appsettings.Development.json` 之外的**受版本控制**文件 |
 | 平台表初始化 | 目标库与 schema 已确认：`DysoftHIS` 的 `public`；平台自有业务表统一使用 `mrec_` 前缀 | 各阶段按所属范围交付最终 DDL，由负责人确认并执行，不提前创建后续阶段的表；**已完成建表的对象与状态属于阶段信息，登记在对应阶段文档与阶段 `testReport.md`，不在本规范维护** |
 | 外部系统地址 | 已确认并已配置 | 用户信息 / 组织信息 / 系统参数 / 字典 → `http://183.224.180.166:35001`；推送 → `http://183.224.180.166:35005`；文件服务 → `localhost:9333`。35001 与 35005 已验证 TCP 连通 |
@@ -46,6 +47,7 @@
 3. 子系统业务编码与登录返回的运行时 ID 分开；医院业务科室/人员 ID 与权限系统登录主体分开，遵循本项目业务契约。
 4. 本地接口测试 token 入口只有在后端明确实现并经设计确认后才能使用；接口直测不替代宿主登录，不复制旧系统 token 请求或固定 ID。
 5. 不把本地 token 写入宿主认证存储，不复制宿主 token 到本地链路，不以修改认证信息绕过权限。
+6. 直连业务接口必须使用**应用令牌**：IAM 用户 `access_token` 的 claims 不含 `tenant_id` 与 `organization_id`，直接作为 Bearer 调用业务接口会被判定为未选择工作身份（409 `work_identity_required`）。先选定工作身份，再经 IAM 应用上下文令牌签发接口（`applicationCode` 取本项目登记值）换取应用令牌，该令牌携带租户与组织上下文；宿主内由 MicroSDK 的应用令牌能力完成同一步骤。
 
 ## 3. 浏览器与 Profile
 

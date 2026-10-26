@@ -1,6 +1,7 @@
 using Dy.Core.Abstractions.Http;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
+using Dy.MedicalRecognition.Application.OrganizationScope;
 using Dy.MedicalRecognition.Application.Validation;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
 
@@ -38,9 +39,8 @@ public partial class MedicalRecognitionReportAppService
   public async Task<bool> SubmitRecognitionReferencesAsync(RecognitionReferenceSubmissionRequest request)
   {
     MedicalRecognitionRequestValidator.Validate(request);
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveWithBranchOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。", "无法确定当前可信院区。");
-    if (!Guid.TryParse(HttpRequestInfo?.UserId, out Guid userId) || userId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
+    (IamOrganizationScope trustedScope, DateTime _) = await ResolveReportScopeAsync();
+    Guid userId = ResolveOperatorId();
 
     // 两个时间用途不同、口径也不同，因此分别取值：
     // 操作字段取协调世界时，由项目约定统一用于行的操作时间；实际引用时间是无时区业务时间，
@@ -50,9 +50,10 @@ public partial class MedicalRecognitionReportAppService
 
     SubmitRecognitionReferencesCommand command = new()
     {
-      OrganizationCode = trustedScope.OrganizationCode,
-      HospitalCode = trustedScope.HospitalCode,
-      BranchCode = trustedScope.BranchCode,
+      // 编码列写业务编码：取自可信上下文组织节点的编码，未配置编码时为空串，不用实例标识替代。
+      OrganizationCode = trustedScope.OrganizationCode ?? string.Empty,
+      HospitalCode = trustedScope.HospitalCode ?? string.Empty,
+      BranchCode = trustedScope.BranchCode ?? string.Empty,
       // 实际引用时间、引用科室与引用医生都是项目级事实：按请求逐项原样写入，不以调用账号替代。
       ReferenceItems =
       [

@@ -9,10 +9,11 @@
 
   <ItemGroup>
     <PackageReference Include="Dy.Apron.Abstractions" />
-    <PackageReference Include="Dy.Base.Application.Contracts" />
     <PackageReference Include="ClosedXML" />
     <PackageReference Include="Dy.Core.Abstractions" />
     <PackageReference Include="Dy.Core.SourceGen" />
+    <PackageReference Include="Dy.IAM.Apron.OpenApi" />
+    <PackageReference Include="Dy.IAM.Application.Contracts" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
   </ItemGroup>
 

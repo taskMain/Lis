@@ -5,9 +5,8 @@
  * 装配边界（遵循 Frontend Testing 第 2 节「mock 位于 Client/适配层边界，并保持真实契约形态」）：
  * 1. 主体的数据源是四个页面注入的查询与导出入口，用例以内存替身直接实现这些出口，
  *    交付**适配层视图模型**形态的行数据——主体不接触生成契约，替身即真实契约形态；
- * 2. `@dy/components-base` 只替换整个包（该包 ESM 产物无法被 vitest 加载，理由同报告管理页用例），
- *    替身只复现主体依赖的组件契约：受控 `value`、固定 `orgId`/`hosId` 对应级不渲染、
- *    变化经 `onChange` 回传完整范围值；
+ * 2. `OrganizationScopeSelector` 只替换组件本身，替身复现主体依赖的属性：
+ *    受控 `value`、固定 `orgId`/`hosId` 对应级不渲染、变化经 `onChange` 回传范围值与选项名称；
  * 3. 枚举元数据钩子替换为直接返回兜底选项（元数据请求属 Client 边界 I/O，不属于主体行为面）。
  *
  * 仍属 Host 层、不在本文件覆盖：真实宿主菜单进入、真实范围选择器交互、宿主统一错误提示（C23-C30）。
@@ -19,7 +18,7 @@ import dayjs from 'dayjs'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BaseScopeSelectorProps } from '@dy/components-base'
+import type { OrganizationScopeSelectorProps } from '../../components/OrganizationScopeSelector'
 import type {
   MatchRecordView,
   UsageDetailRow,
@@ -32,36 +31,72 @@ import type {
 import { StatisticsBoard, type StatisticsBoardProps, type StatisticsFilters } from './statisticsBoard'
 import type { StatisticsPage, StatisticsPageInput } from './recognitionStatisticsValues'
 
-vi.mock('@dy/components-base', async () => {
+vi.mock('../../components/OrganizationScopeSelector', async () => {
   const { createElement } = await import('react')
 
-  /** 范围选择器替身：固定 `orgId`/`hosId` 的对应级不渲染下拉，变化回传完整范围值。选项文案避开夹具名称。 */
-  function StubScopeSelector({ value = {}, orgId, hosId, className, onChange }: BaseScopeSelectorProps) {
-    const levels: Array<{ key: 'orgId' | 'hosId' | 'branchId'; label: string; options: [string, string][] }> = []
-    if (orgId === undefined) levels.push({ key: 'orgId', label: '组织', options: [['ORG1', '组织甲'], ['ORG2', '组织乙']] })
-    if (hosId === undefined) levels.push({ key: 'hosId', label: '医院', options: [['HOS1', '医院甲'], ['HOS2', '医院乙']] })
-    levels.push({ key: 'branchId', label: '院区', options: [['BRA1', '院区甲'], ['BRA2', '院区乙']] })
+  /**
+   * 范围选择器替身：固定 `orgId`/`hosId` 的对应级不渲染下拉，变化回传完整范围值。
+   *
+   * 选项的实例标识带 `-ID` 后缀、业务编码不带：下拉按实例标识取值，回调交付的业务编码才是
+   * 页面写进筛选条件并随请求提交的值，两者不同名即可区分页面取错了哪一层。
+   */
+  function StubScopeSelector({ value = {}, orgId, hosId, className, onChange }: OrganizationScopeSelectorProps) {
+    const option = (code: string, name: string) => ({ id: `${code}-ID`, code, name })
+    const organizations = [option('ORG1', '组织甲'), option('ORG2', '组织乙')]
+    const hospitals = [option('HOS1', '医院甲'), option('HOS2', '医院乙')]
+    const branches = [option('BRA1', '院区甲'), option('BRA2', '院区乙')]
+    /** 与真实组件同形：实例标识优先、缺标识时按业务编码定位选项。 */
+    const pick = <T extends { id: string; code: string }>(
+      options: T[],
+      id: string | undefined,
+      code: string | undefined,
+    ): T | undefined => (id !== undefined
+      ? options.find((item) => item.id === id)
+      : code !== undefined ? options.find((item) => item.code === code) : undefined)
+    const organization = pick(organizations, orgId ?? value.orgId, value.orgCode)
+    const hospital = pick(hospitals, hosId ?? value.hosId, value.hosCode)
+    const branch = pick(branches, value.branchId, value.branchCode)
+    const emit = (
+      nextOrganization: typeof organization,
+      nextHospital: typeof hospital,
+      nextBranch: typeof branch,
+    ) => onChange?.({
+      orgId: nextOrganization?.id,
+      hosId: nextHospital?.id,
+      branchId: nextBranch?.id,
+      orgCode: nextOrganization?.code,
+      hosCode: nextHospital?.code,
+      branchCode: nextBranch?.code,
+    }, { organizations, hospitals, branches, unconfiguredOrganizationCount: 0 })
+    const levels: Array<{ key: 'org' | 'hospital' | 'branch'; label: string; options: { id: string; name: string }[]; selected?: string }> = []
+    if (orgId === undefined) levels.push({ key: 'org', label: '组织', options: organizations, selected: organization?.id })
+    if (hosId === undefined) levels.push({ key: 'hospital', label: '医院', options: hospitals, selected: hospital?.id })
+    levels.push({ key: 'branch', label: '院区', options: branches, selected: branch?.id })
     return createElement('div', { className, 'data-org-id': value.orgId ?? '' },
       levels.map((level) => createElement('select',
         {
           key: level.key,
           'aria-label': level.label,
-          value: value[level.key] ?? '',
+          value: level.selected ?? '',
           onChange: (event: { target: { value: string } }) => {
             const next = event.target.value
-            onChange?.(
-              { ...value, [level.key]: next.length > 0 ? next : undefined },
-              { organizations: [], hospitals: [], branches: [], depts: [], users: [] },
-            )
+            const nextOrganization = level.key === 'org' ? pick(organizations, next, undefined) : organization
+            const nextHospital = level.key === 'org'
+              ? hospitals[0]
+              : level.key === 'hospital' ? pick(hospitals, next, undefined) : hospital
+            const nextBranch = level.key === 'branch'
+              ? pick(branches, next, undefined)
+              : (branch ?? branches[0])
+            emit(nextOrganization, nextHospital, nextBranch)
           },
         },
         createElement('option', { value: '' }, '不限'),
-        level.options.map(([id, name]) => createElement('option', { key: id, value: id }, name)),
+        level.options.map((item) => createElement('option', { key: item.id, value: item.id }, item.name)),
       )),
     )
   }
 
-  return { configureBaseComponents: () => {}, BaseScopeSelector: StubScopeSelector }
+  return { OrganizationScopeSelector: StubScopeSelector }
 })
 
 vi.mock('../../contexts/ApiClientContext', () => ({
@@ -70,31 +105,24 @@ vi.mock('../../contexts/ApiClientContext', () => ({
   useApiClientContext: () => ({}),
 }))
 
-vi.mock('@dy/auth-react', () => ({
-  /** 与真实包同形的最小替身：token 在值（范围条据此读取三级编码）。 */
-  useAuth: () => ({ isAuthenticated: true, token: 'token-1', login: () => {}, logout: () => {} }),
+/**
+ * 页头范围条只读宿主会话：本文件不覆盖宿主链路，按匿名会话渲染「未知」且零业务请求。
+ */
+vi.mock('../../session/HostSessionContext', () => ({
+  useHostSession: () => ({
+    status: 'anonymous',
+    sessionVersion: '',
+    userId: null,
+    account: null,
+    displayName: null,
+    organizationId: null,
+    hospitalId: null,
+    campusId: null,
+  }),
 }))
 
 vi.mock('../../hooks/useEnumMetadata', () => ({
   useEnumMetadata: (_enumName: string, fallback: readonly { value: number; label: string; name: string }[]) => fallback,
-}))
-
-const scopeNameByCode = vi.hoisted(() => ({
-  'ORG-A': '组织甲',
-  'ORG-B': '组织乙',
-  'HOS-1': '医院甲',
-  'HOS-2': '医院乙',
-  BRA1: '院区一',
-  BRA2: '院区二',
-} as Record<string, string>))
-
-vi.mock('../../components/scopeNameLookup', () => ({
-  /** 范围名称反查替身：按编码映射可读名称，未登记编码返回 null（展示层据此显示「未知」）。 */
-  useScopeNames: (_client: unknown, codes: { organizationCode: string; hospitalCode: string; branchCode: string }) => ({
-    organization: scopeNameByCode[codes.organizationCode] ?? null,
-    hospital: scopeNameByCode[codes.hospitalCode] ?? null,
-    branch: scopeNameByCode[codes.branchCode] ?? null,
-  }),
 }))
 
 // ========== 数据源替身 ==========
@@ -652,7 +680,9 @@ describe('票据 04：自动选中与右卡指标摘要', () => {
         startTime: '2026-02-01',
         endTime: '2026-02-28',
         sourceOrganizationCode: 'ORG-B',
+        sourceOrganizationName: '组织乙',
         sourceHospitalCode: 'HOS-2',
+        sourceHospitalName: '医院乙',
       },
     }))
 
@@ -706,8 +736,11 @@ describe('票据 04：自动选中与右卡指标摘要', () => {
         startTime: '2026-02-01',
         endTime: '2026-02-28',
         sourceOrganizationCode: 'ORG-B',
+        sourceOrganizationName: '组织乙',
         sourceHospitalCode: 'HOS-2',
+        sourceHospitalName: '医院乙',
         sourceBranchCode: 'BRA2',
+        sourceBranchName: '院区二',
       },
     }))
     await waitSummaryText('医院二')
@@ -1414,9 +1447,9 @@ describe('票据 04：查询区、范围区与提交式筛选', () => {
     await waitSummaryText('医院一')
 
     const receiverGroup = within(screen.getByRole('region', { name: '使用方范围' }))
-    fireEvent.change(receiverGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS2' } })
+    fireEvent.change(receiverGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS2-ID' } })
     const sourceGroup = within(screen.getByRole('region', { name: '提供方范围' }))
-    fireEvent.change(sourceGroup.getByRole('combobox', { name: '组织' }), { target: { value: 'ORG2' } })
+    fireEvent.change(sourceGroup.getByRole('combobox', { name: '组织' }), { target: { value: 'ORG2-ID' } })
     fireEvent.change(screen.getByLabelText('关键字筛选'), { target: { value: 'DEPT9' } })
     openAntdSelect(screen.getByLabelText('项目类型筛选'))
     fireEvent.click(portalOption('检查'))
@@ -1429,7 +1462,9 @@ describe('票据 04：查询区、范围区与提交式筛选', () => {
     await waitFor(() => expect(summaryQuery).toHaveBeenLastCalledWith(
       expect.objectContaining({
         receiverHospitalCode: 'HOS2',
+        receiverHospitalName: '医院乙',
         sourceOrganizationCode: 'ORG2',
+        sourceOrganizationName: '组织乙',
         keyword: 'DEPT9',
         itemType: 1,
       }), 1, expect.anything()))
@@ -1587,13 +1622,21 @@ describe('票据 04：查询区、范围区与提交式筛选', () => {
   it('本院页页头左右结构：范围条在页头右侧，范围区只保留提供方筛选（C20、C39）', () => {
     renderBoard(boardProps({
       scopeKey: 'ORG-A|HOS-1|BRA1',
-      scopeSpec: { kind: 'branch', organizationCode: 'ORG-A', hospitalCode: 'HOS-1' },
+      scopeSpec: {
+        kind: 'branch',
+        organizationCode: 'ORG-A',
+        organizationId: 'ORG-A',
+        hospitalCode: 'HOS-1',
+        organizationName: '组织甲',
+        hospitalName: '医院甲',
+        branchName: '院区一',
+      },
       initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28', ownBranchCode: 'BRA1' },
     }))
 
     const header = document.querySelector('.statistics-board-header')
     expect(header).not.toBeNull()
-    // 范围条（本用例环境无登录编码，三级按「未知」占位）渲染在页头容器内。
+    // 范围条（本用例按匿名宿主会话渲染，三级按「未知」占位）在页头容器内。
     expect(within(header as HTMLElement).getByText('未知 / 未知 / 未知')).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: '使用方范围' })).toBeNull()
     expect(screen.queryByRole('region', { name: '提供方范围' })).toBeNull()
@@ -1800,12 +1843,20 @@ describe('票据 04：读取竞态、失败恢复与越界自愈', () => {
   it('本院使用方形态：仅提供方筛选，请求院区恒为登录院区；使用方医院、院区条件经草稿提交', async () => {
     renderBoard(boardProps({
       scopeKey: 'ORG-A|HOS-1|BRA1',
-      scopeSpec: { kind: 'branch', organizationCode: 'ORG-A', hospitalCode: 'HOS-1' },
+      scopeSpec: {
+        kind: 'branch',
+        organizationCode: 'ORG-A',
+        organizationId: 'ORG-A',
+        hospitalCode: 'HOS-1',
+        organizationName: '组织甲',
+        hospitalName: '医院甲',
+        branchName: '院区一',
+      },
       initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28', ownBranchCode: 'BRA1' },
     }))
     await waitSummaryText('医院一')
 
-    // 本院页范围区的只读编码副文案由共用范围条取代：本用例环境无登录编码，三级按「未知」占位。
+    // 本院页范围区由共用范围条承载：本用例按匿名宿主会话渲染，三级按「未知」占位。
     expect(await screen.findByText('未知 / 未知 / 未知')).toBeInTheDocument()
     expect(screen.queryByText(/可信范围（只读）/)).not.toBeInTheDocument()
     // 院区恒取登录院区：本院页不渲染本院院区选择，请求院区参数恒为登录院区。
@@ -1822,14 +1873,20 @@ describe('票据 04：读取竞态、失败恢复与越界自愈', () => {
     expect(oppositeFilter.querySelector('[data-org-id]')).toHaveAttribute('data-org-id', 'ORG-A')
     expect(oppositeGroup.getAllByRole('combobox')).toHaveLength(2)
     expect(oppositeGroup.queryByRole('combobox', { name: '组织' })).toBeNull()
-    fireEvent.change(oppositeGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS2' } })
-    fireEvent.change(oppositeGroup.getByRole('combobox', { name: '院区' }), { target: { value: 'BRA2' } })
+    fireEvent.change(oppositeGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS2-ID' } })
+    fireEvent.change(oppositeGroup.getByRole('combobox', { name: '院区' }), { target: { value: 'BRA2-ID' } })
     // 草稿改动零请求（提交式筛选口径）。
     expect(summaryQuery.mock.calls.length).toBe(callCountAfterInitial)
 
     fireEvent.click(screen.getByRole('button', { name: '查询' }))
     await waitFor(() => expect(summaryQuery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ ownBranchCode: 'BRA1', sourceHospitalCode: 'HOS2', sourceBranchCode: 'BRA2' }),
+      expect.objectContaining({
+        ownBranchCode: 'BRA1',
+        sourceHospitalCode: 'HOS2',
+        sourceHospitalName: '医院乙',
+        sourceBranchCode: 'BRA2',
+        sourceBranchName: '院区乙',
+      }),
       1, expect.anything()))
     await waitFor(() => expect(detailsQuery).toHaveBeenLastCalledWith(
       expect.objectContaining({ ownBranchCode: 'BRA1', sourceHospitalCode: 'HOS2', sourceBranchCode: 'BRA2' }),
@@ -1845,7 +1902,15 @@ describe('票据 04：读取竞态、失败恢复与越界自愈', () => {
       title: '本院被互认统计',
       side: 'source',
       scopeKey: 'ORG-A|HOS-1|BRA1',
-      scopeSpec: { kind: 'branch', organizationCode: 'ORG-A', hospitalCode: 'HOS-1' },
+      scopeSpec: {
+        kind: 'branch',
+        organizationCode: 'ORG-A',
+        organizationId: 'ORG-A',
+        hospitalCode: 'HOS-1',
+        organizationName: '组织甲',
+        hospitalName: '医院甲',
+        branchName: '院区一',
+      },
       initialFilters: { startTime: '2026-02-01', endTime: '2026-02-28', ownBranchCode: 'BRA1' },
     }))
     await waitSummaryText('医院二')
@@ -1872,8 +1937,8 @@ describe('票据 04：读取竞态、失败恢复与越界自愈', () => {
     expect(oppositeFilter.querySelector('[data-org-id]')).toHaveAttribute('data-org-id', 'ORG-A')
     expect(oppositeGroup.getAllByRole('combobox')).toHaveLength(2)
     expect(oppositeGroup.queryByRole('combobox', { name: '组织' })).toBeNull()
-    fireEvent.change(oppositeGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS1' } })
-    fireEvent.change(oppositeGroup.getByRole('combobox', { name: '院区' }), { target: { value: 'BRA1' } })
+    fireEvent.change(oppositeGroup.getByRole('combobox', { name: '医院' }), { target: { value: 'HOS1-ID' } })
+    fireEvent.change(oppositeGroup.getByRole('combobox', { name: '院区' }), { target: { value: 'BRA1-ID' } })
     // 草稿改动零请求（提交式筛选口径）。
     expect(summaryQuery.mock.calls.length).toBe(callCountAfterInitial)
 
@@ -2409,7 +2474,9 @@ describe('票 03：提供方承接方核查版式（C60、C61）', () => {
         startTime: '2026-02-01',
         endTime: '2026-02-28',
         sourceOrganizationCode: 'ORG-B',
+        sourceOrganizationName: '组织乙',
         sourceHospitalCode: 'HOS-2',
+        sourceHospitalName: '医院乙',
       },
     }))
     await waitSummaryText('医院二')

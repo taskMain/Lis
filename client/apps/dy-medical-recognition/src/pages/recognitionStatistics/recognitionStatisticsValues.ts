@@ -9,7 +9,7 @@ import { DateOnly, type PageInfoDto, type RecognitionStatisticsItemReadModel } f
 import { isMedicalItemTypeValue, medicalItemTypeText, type MedicalItemTypeValue } from '../../shared/medicalItemType'
 import { MAX_SELECTABLE_PAGE_SIZE } from '../../shared/tablePagination'
 
-/** 组织归属（编码与名称）：提供方与使用方读模型同构，两个适配层共用一个视图结构。 */
+/** 组织归属（IAM 组织业务编码与名称）：提供方与使用方读模型同构，两个适配层共用一个视图结构。 */
 export interface StatisticsOrganizationScopeView {
   organizationCode: string
   organizationName: string
@@ -228,15 +228,11 @@ export function toStatisticsRequestDate(value: string | undefined): DateOnly | n
 }
 
 /**
- * 生成端交付的十进制节点 → 数值（`decimal` 字段被生成为 `UntypedNode`，见生成契约的 format double 警告）。
- * 只接受有限数值；字符串节点、缺失与其它形态一律返回 `null`，不用 `Number()` 把非数值伪造成数字。
+ * 十进制字段 → 数值：`decimal` 字段在生成契约中按 `number | null` 声明。
+ * 只接受有限数值；缺失与其它形态一律返回 `null`，不用 `Number()` 把非数值伪造成数字。
  */
-export function toNodeNumber(value: unknown): number | null {
-  if (typeof value !== 'object' || value === null) return null
-  const getValue = (value as { getValue?: unknown }).getValue
-  if (typeof getValue !== 'function') return null
-  const raw = (getValue as () => unknown).call(value)
-  return typeof raw === 'number' && Number.isFinite(raw) ? raw : null
+export function toDecimalNumber(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 /** 服务端随行文本字段：只接受非空白文本，空白视为未交付，交由兜底出口处理。 */

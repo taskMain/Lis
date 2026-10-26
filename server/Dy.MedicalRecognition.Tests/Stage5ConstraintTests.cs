@@ -100,7 +100,7 @@ public sealed class Stage5ConstraintTests
     "server/Dy.MedicalRecognition.Tests/Stage5RequestAndReadModelContractTests.cs",
     "server/Dy.MedicalRecognition.Tests/Stage5SqlMapTests.cs",
     "server/Dy.MedicalRecognition.Tests/Stage5WritePathTests.cs",
-    "server/Dy.MedicalRecognition.Tests/StubSystemParameterAppService.cs"
+    "server/Dy.MedicalRecognition.Tests/PlatformParameterRepositoryStub.cs"
   ];
 
   /// <summary>
@@ -623,11 +623,11 @@ public sealed class Stage5ConstraintTests
   }
 
   /// <summary>
-  /// 实现约束核对：宿主工程的手写控制器集合与已交付清单一致，统计导出与互认项目页导出两个导出控制器随各自批次登记。
+  /// 实现约束核对：宿主工程的手写控制器集合与已交付清单一致，统计导出、互认项目页导出、IAM 会话只读入口与平台参数维护入口随各自批次登记。
   /// </summary>
   /// <remarks>
   /// 阶段 6 的统计导出与互认项目页导出各自为文件流响应新增手写导出控制器（设计「静态守卫同批」节登记的允许位置）；
-  /// 手写控制器集合按目录清单逐文件冻结，新增清单之外的第 5 个控制器文件即失败。
+  /// 手写控制器集合按目录清单逐文件冻结，新增清单之外的第 7 个控制器文件即失败。
   /// </remarks>
   [Fact]
   public void Host_keeps_the_frozen_handwritten_controller_set()
@@ -642,10 +642,10 @@ public sealed class Stage5ConstraintTests
         .OrderBy(name => name, StringComparer.Ordinal)
     ];
     Assert.Equal(
-      ["RecognitionExportController.cs", "RecognitionStatisticsExportController.cs", "ReportPdfFileController.cs", "ReportSubmissionForm.cs"],
+      ["CurrentSessionController.cs", "PlatformParameterController.cs", "RecognitionExportController.cs", "RecognitionStatisticsExportController.cs", "ReportPdfFileController.cs", "ReportSubmissionForm.cs"],
       controllerFiles);
 
-    // 四个文件声明的全部类型都是已交付的类型：两个导出控制器、一个 PDF 控制器与一个提交表单。
+    // 六个文件声明的全部类型都是已交付的类型：会话只读控制器、平台参数维护控制器、两个导出控制器、一个 PDF 控制器与一个提交表单。
     string[] declaredTypes =
     [
       .. controllerFiles.SelectMany(name => SourceSyntaxGuard
@@ -654,7 +654,7 @@ public sealed class Stage5ConstraintTests
         .Select(declaration => declaration.Identifier.ValueText))
     ];
     Assert.Equal(
-      ["RecognitionExportController", "RecognitionStatisticsExportController", "ReportPdfFileController", "ReportSubmissionForm"],
+      ["CurrentSessionController", "PlatformParameterController", "RecognitionExportController", "RecognitionStatisticsExportController", "ReportPdfFileController", "ReportSubmissionForm"],
       declaredTypes.OrderBy(name => name, StringComparer.Ordinal));
 
     // 变异证据：加入一个不存在的控制器文件名后，同一清单等值判定必须不相等。
@@ -758,11 +758,11 @@ public sealed class Stage5ConstraintTests
     string[] sampleViolations = [.. FindProtectedPathViolations(
       """
        M server/Dy.MedicalRecognition.Application/Queries/MedicalRecognitionReportQueryAppService.Citation.cs
-      MM server/Dy.MedicalRecognition/appsettings.json
+      MM server/global.json
       ?? server/Dy.MedicalRecognition.Repository/Queries/MedicalRecognitionReportQueryRepository.Citation.cs
       """)];
     Assert.Equal(
-      ["受保护路径出现在工作区差异中：server/Dy.MedicalRecognition/appsettings.json"],
+      ["受保护路径出现在工作区差异中：server/global.json"],
       [.. sampleViolations.Order(StringComparer.Ordinal)]);
 
     // 变异证据的另一侧：样本里去掉受保护路径后同一判定必须不报，证明判定不是对所有差异文本都成立；
@@ -872,6 +872,9 @@ public sealed class Stage5ConstraintTests
 
   /// <summary>
   /// 再生成保护清单：这些路径出现在工作区差异中即说明生成器覆盖了人工维护的内容。
+  /// appsettings.json 不在此列：它承载 IAM 配置节与宿主接入参数，内容由
+  /// <see cref="T02IamAuthenticationTests.Application_settings_declare_the_iam_section_without_shared_secret"/> 按配置内容冻结；
+  /// 开发环境配置文件不入库，不在内容判据内，也不进本清单。
   /// </summary>
   /// <remarks>
   /// 集中包管理文件承载设计内依赖增项，改由内容判据保护，见
@@ -882,8 +885,6 @@ public sealed class Stage5ConstraintTests
   private static readonly string[] ProtectedDiffPaths =
   [
     "server/global.json",
-    "server/Dy.MedicalRecognition/appsettings.json",
-    "server/Dy.MedicalRecognition/appsettings.Development.json",
     "server/Dy.MedicalRecognition/EarthraceConfig.json",
     "server/Dy.MedicalRecognition/Properties/launchSettings.json"
   ];
@@ -894,7 +895,6 @@ public sealed class Stage5ConstraintTests
   /// </summary>
   private static readonly string[] HumanMaintainedPackageNames =
   [
-    "Dy.Base.Application.Contracts",
     "Dy.Core.Abstractions",
     "Dy.Core.Extensions",
     "Dy.Core.SourceGen",
@@ -902,11 +902,10 @@ public sealed class Stage5ConstraintTests
     "Dy.Apron.Abstractions",
     "Dy.Apron.Bridge",
     "Dy.Apron.QuickStart",
-    "Dy.Apron.Security",
+    "Dy.IAM.Apron.OpenApi",
     "Dy.Earthrace.Abstractions",
     "Dy.Earthrace",
     "Npgsql",
-    "Dy.Plugin.AspNet.Scalar",
     "Microsoft.AspNetCore.OpenApi",
     "Microsoft.CodeAnalysis.CSharp",
     "Microsoft.NET.Test.Sdk",

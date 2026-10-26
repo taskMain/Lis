@@ -52,7 +52,13 @@ public sealed class SourceGuardReuseTests
     // 阶段 7 的排除项守卫按语法节点核对端点、路由与关键字扫描，登记为共享语法工具的消费方。
     "Stage7ExclusionGuardTests.cs",
     // 互认项目页导出的契约守卫按语法节点核对导出请求、读模型、契约分片与导出控制器，登记为共享语法工具的消费方。
-    "RecognitionProjectExportContractTests.cs"
+    "RecognitionProjectExportContractTests.cs",
+    // T02 迁移的认证与当前会话守卫按语法节点核对宿主模块、配置节、旧依赖归零与会话入口，登记为共享语法工具的消费方。
+    "T02IamAuthenticationTests.cs",
+    // T02 票 10 的平台参数守卫在仓储目录内定位建表脚本与映射文件，登记为共享语法工具的消费方。
+    "T02PlatformParameterTests.cs",
+    // T02 票 09 的统计投影守卫在仓储目录内定位映射文件并逐条核对实例标识列，登记为共享语法工具的消费方。
+    "T02StatisticsInstanceIdTests.cs"
   ];
 
   /// <summary>测试工程内不得重复声明的方法名：这两份私有实现历史上各复制过一次。</summary>

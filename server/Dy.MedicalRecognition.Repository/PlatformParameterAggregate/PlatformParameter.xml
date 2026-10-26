@@ -1,0 +1,71 @@
+<SqlMap Scope="PlatformParameter" xmlns="http://dysoft.vip/schemas/EarthraceSqlMap.xsd">
+  <ParameterMaps>
+    <!--
+      功能：为平台参数的写入侧布尔列提供框架公共参数绑定。
+      结果：启用状态按 CLR bool 交由当前数据库 Provider 适配，使 PostgreSQL 的 boolean 列可接收参数写入。
+      原因：框架默认把布尔参数按整数绑定，布尔列与整数赋值在 PostgreSQL 上没有对应转换。
+    -->
+    <ParameterMap Id="PlatformParameterWriteParameters">
+      <!-- 字段：是否启用；写入维护入口提交的启用状态。 -->
+      <Parameter Property="IsValid" TypeHandler="MedicalRecognitionBoolean" />
+    </ParameterMap>
+  </ParameterMaps>
+  <Statements>
+    <!--
+      功能：定义平台参数的通用查询字段清单，供按编码读取与全量查询语句复用。
+      结果：输出参数标识、编码、值、说明、启用状态和操作审计字段，各字段业务含义见行内注释。
+    -->
+    <Statement Id="PlatformParameterColumns">
+      id,               <!-- 参数标识（主键） -->
+      parameter_code,   <!-- 参数编码，全平台唯一 -->
+      parameter_value,  <!-- 参数值 -->
+      description,      <!-- 参数说明 -->
+      is_valid,         <!-- 是否启用 -->
+      oper_id,          <!-- 操作人标识 -->
+      oper_time         <!-- 操作时间 -->
+    </Statement>
+    <!--
+      功能：按参数编码读取单条平台参数，不筛选启用状态。
+      结果：命中时返回一行参数字段清单，未命中时返回空结果；编码唯一索引保证至多命中一行。
+    -->
+    <Statement Id="GetPlatformParameterByCode">
+      select <Include RefId="PlatformParameterColumns" /> from mrec_platform_parameter where parameter_code = $ParameterCode
+    </Statement>
+    <!--
+      功能：读取全部平台参数，供维护入口展示参数列表。
+      结果：返回全部参数的完整字段清单，按参数编码升序排列，返回顺序稳定；不筛选启用状态。
+    -->
+    <Statement Id="QueryAllPlatformParameter">
+      select <Include RefId="PlatformParameterColumns" /> from mrec_platform_parameter
+      order by parameter_code asc  <!-- 排序：按参数编码升序，保证维护列表顺序稳定 -->
+    </Statement>
+    <!--
+      功能：新增一条平台参数，保存维护入口提交的参数值、说明、启用状态和操作字段。
+      结果：写入参数标识、编码、值、说明、启用状态与操作人或操作时间；参数编码唯一性由数据库唯一索引兜底。
+    -->
+    <Statement Id="CreatePlatformParameter" ParameterMap="PlatformParameterWriteParameters">
+      insert into mrec_platform_parameter (
+        id,               <!-- 参数标识（主键），由仓储在插入前生成 -->
+        parameter_code,   <!-- 参数编码，全平台唯一 -->
+        parameter_value,  <!-- 参数值 -->
+        description,      <!-- 参数说明 -->
+        is_valid,         <!-- 是否启用 -->
+        oper_id,          <!-- 操作人标识 -->
+        oper_time         <!-- 操作时间，取本次保存的服务端当前时间 -->
+      ) values ($Id, $ParameterCode, $ParameterValue, $Description, $IsValid, $OperId, $OperTime)
+    </Statement>
+    <!--
+      功能：按参数主键修改参数值、说明、启用状态和操作字段。
+      结果：只影响主键命中的一行；参数编码与主键不变化。
+    -->
+    <Statement Id="UpdatePlatformParameter" ParameterMap="PlatformParameterWriteParameters">
+      update mrec_platform_parameter set
+        parameter_value = $ParameterValue,  <!-- 参数值，本次修改后的值 -->
+        description = $Description,         <!-- 参数说明，本次修改后的值 -->
+        is_valid = $IsValid,                <!-- 是否启用，本次修改后的状态 -->
+        oper_id = $OperId,                  <!-- 操作人标识 -->
+        oper_time = $OperTime               <!-- 操作时间，取本次保存的服务端当前时间 -->
+      where id = $Id
+    </Statement>
+  </Statements>
+</SqlMap>

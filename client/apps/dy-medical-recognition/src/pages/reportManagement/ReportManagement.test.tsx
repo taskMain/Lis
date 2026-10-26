@@ -10,11 +10,10 @@
  *    不是把页面最终状态直接喂给页面；本文件当前接线的出口为列表读取、版本列表读取与版本详情读取三类，
  *    版本详情读取已随详情路由页承接版本切换接线并消费；PDF 下载出口已接线（下载互斥与失败覆盖见工单 06）；
  * 2. `../../contexts/ApiClientContext` 只提供占位 client——页面把 client 原样透传给适配层出口；
- * 3. `@dy/components-base` 只替换**整个包**：该包 ESM 产物内部使用无扩展名相对导入，
- *    vitest 默认把 node_modules 依赖交给 Node 解析，组件层无法加载真实实现
- *    （真实实现需把该包加入 `test.server.deps.inline`，而 `vite.config.ts` 不属于本票所有权）。
- *    替身只复现页面接线依赖的组件契约：受控 `value`、上游变化按可选项级联回填下游首项、
- *    变化经 `onChange` 回传完整范围值。真实选择器的行为属宿主层验收面（C27–C29 的宿主层级）。
+ * 3. `OrganizationScopeSelector` 整组件替换为范围选择器替身：替身只复现页面接线依赖的组件契约——
+ *    受控 `value`、上游变化按可选项级联回填下游首项、变化经 `onChange` 回传完整范围值；
+ *    替身的数据源是本文件的三级选项常量，不依赖任何 Base 包。真实选择器的行为属宿主层验收面
+ *    （C27–C29 的宿主层级）。
  *
  * 仍属 Host 层、不在本文件覆盖：真实宿主菜单进入、真实范围选择器交互、宿主统一错误提示
  * （接口失败时的业务拒绝文案由宿主展示）与真实后端链路（C27–C31）。
@@ -28,13 +27,12 @@ import zhCN from 'antd/locale/zh_CN'
 import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from 'react-router-dom'
 import { useEffect } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { BaseScopeSelectorChangeMeta, BaseScopeSelectorProps } from '@dy/components-base'
-import { configureBaseComponents, type BaseComponentsConfig } from '@dy/components-base'
+import type { OrganizationScopeChangeMeta, OrganizationScopeSelectorProps } from '../../components/OrganizationScopeSelector'
 import { toReportPage, toReportRows, toReportVersionDetail, toReportVersionRows, type ReportVersionRow } from './reportsApi'
 import { clearRowSummaries, setRowSummary } from './reportRowSummaryCache'
 import { ReportManagement } from './ReportManagement'
 
-/** 伪 Base API Client 的注入点：与真实包 `configureBaseComponents` 同形（替身见文件头第 3 条）。 */
+/** 范围选择器替身的数据源：本文件构造的三级选项读写桩（见文件头第 3 条）。 */
 const baseClientRef = vi.hoisted(() => ({ current: null as unknown }))
 
 const api = vi.hoisted(() => ({
@@ -45,15 +43,15 @@ const api = vi.hoisted(() => ({
   downloadReportVersionPdf: vi.fn(),
 }))
 
-vi.mock('@dy/components-base', async () => {
+vi.mock('../../components/OrganizationScopeSelector', async () => {
   const { createElement, useEffect, useRef, useState } = await import('react')
 
   // 范围选项直接采用 ChangeMeta 各层的元素类型：替身回传的 meta 不再需要双重断言。
-  type ScopeOrganization = BaseScopeSelectorChangeMeta['organizations'][number]
-  type ScopeHospital = BaseScopeSelectorChangeMeta['hospitals'][number]
-  type ScopeBranch = BaseScopeSelectorChangeMeta['branches'][number]
+  type ScopeOrganization = OrganizationScopeChangeMeta['organizations'][number]
+  type ScopeHospital = OrganizationScopeChangeMeta['hospitals'][number]
+  type ScopeBranch = OrganizationScopeChangeMeta['branches'][number] & { hosId?: string | null }
   /** 范围选项的展示面（id + 名称）：三层 DTO 的公共子形，供下拉渲染。 */
-  type ScopeOption = Pick<ScopeOrganization, 'id' | 'name'>
+  type ScopeOption = Pick<ScopeOrganization, 'id' | 'name'> & { hosId?: string | null }
   interface ScopeClient {
     api: {
       organization: {
@@ -64,8 +62,12 @@ vi.mock('@dy/components-base', async () => {
     }
   }
 
+  /** 按实例标识取该层业务编码：与真实组件的选项清单同形（标识 + 编码 + 名称）。 */
+  const codeOf = (options: Array<{ id: string; code?: string }>, id: string | undefined): string | undefined =>
+    id === undefined ? undefined : options.find((item) => item.id === id)?.code
+
   /** 范围选择器替身：受控值、级联回填与 `onChange` 回传完整范围值（与真实组件同形）。 */
-  function StubScopeSelector({ value = {}, orgId, hosId, disabled, className, selectFirstOption, onChange }: BaseScopeSelectorProps) {
+  function StubScopeSelector({ value = {}, orgId, hosId, disabled, className, selectFirstOption, onChange }: OrganizationScopeSelectorProps) {
     const [organizations, setOrganizations] = useState<ScopeOrganization[]>([])
     const [hospitals, setHospitals] = useState<ScopeHospital[]>([])
     const [branches, setBranches] = useState<ScopeBranch[]>([])
@@ -91,13 +93,19 @@ vi.mock('@dy/components-base', async () => {
         const nextBranch = value.branchId && branches.some((item) => item.id === value.branchId) ? value.branchId : branches[0]?.id
         if (!nextOrg || !nextHos || !nextBranch) return
         onChange?.(
-          { orgId: nextOrg, hosId: nextHos, branchId: nextBranch },
+          {
+            orgId: nextOrg,
+            hosId: nextHos,
+            branchId: nextBranch,
+            orgCode: codeOf(organizations, nextOrg),
+            hosCode: codeOf(hospitals, nextHos),
+            branchCode: codeOf(branches, nextBranch),
+          },
           {
             organizations,
             hospitals,
             branches,
-            depts: [],
-            users: [],
+            unconfiguredOrganizationCount: 0,
           },
         )
       }
@@ -130,6 +138,15 @@ vi.mock('@dy/components-base', async () => {
     const handleChange = async (changed: 'org' | 'hospital' | 'branch', next: string) => {
       const client = baseClientRef.current as ScopeClient
       const merged = { ...value }
+      /** 与真实组件同形：实例标识驱动联动，业务编码随值一并交付（页面提交的是编码）。 */
+      const emit = (organizations: ScopeOrganization[], hospitals: ScopeHospital[], branches: ScopeBranch[]) => {
+        onChange?.({
+          ...merged,
+          orgCode: codeOf(organizations, merged.orgId),
+          hosCode: codeOf(hospitals, merged.hosId),
+          branchCode: codeOf(branches, merged.branchId),
+        }, { organizations, hospitals, branches, unconfiguredOrganizationCount: 0 })
+      }
       if (changed === 'org') {
         merged.orgId = next.length > 0 ? next : undefined
         const nextHospitals = merged.orgId
@@ -143,6 +160,8 @@ vi.mock('@dy/components-base', async () => {
         const nextBranches = allBranches.filter((branch) => branch.hosId === merged.hosId)
         setBranches(nextBranches)
         merged.branchId = nextBranches[0]?.id ?? undefined
+        emit(ORGANIZATIONS, nextHospitals, nextBranches)
+        return
       } else if (changed === 'hospital') {
         merged.hosId = next.length > 0 ? next : undefined
         const allBranches = merged.orgId
@@ -151,10 +170,12 @@ vi.mock('@dy/components-base', async () => {
         const nextBranches = allBranches.filter((branch) => branch.hosId === merged.hosId)
         setBranches(nextBranches)
         merged.branchId = nextBranches[0]?.id ?? undefined
+        emit(ORGANIZATIONS, hospitals, nextBranches)
+        return
       } else {
         merged.branchId = next.length > 0 ? next : undefined
       }
-      onChange?.(merged, { organizations: [], hospitals: [], branches: [], depts: [], users: [] })
+      emit(ORGANIZATIONS, HOSPITALS, BRANCHES)
     }
 
     const levelSelect = (
@@ -186,12 +207,7 @@ vi.mock('@dy/components-base', async () => {
     )
   }
 
-  return {
-    configureBaseComponents: (config: { client?: unknown }) => {
-      baseClientRef.current = config.client ?? null
-    },
-    BaseScopeSelector: StubScopeSelector,
-  }
+  return { OrganizationScopeSelector: StubScopeSelector }
 })
 
 vi.mock('./reportsApi', async (importOriginal) => {
@@ -200,22 +216,75 @@ vi.mock('./reportsApi', async (importOriginal) => {
 })
 
 /**
- * 可信范围接缝（`@dy/auth` 的 `LoginUserManager`）：平台页初始解析按可信优先读取三层，
+ * 可信范围接缝（宿主会话）：平台页初始解析按可信优先读取三层，
  * 用例可改写本引用模拟「可信范围缺失」与「可信医院/院区不属于首项组合」两类分支。
  */
+/**
+ * 可信范围替身：三段取值都是 **IAM 组织业务编码**（请求提交的就是它），
+ * 组织实例标识按编码派生，只用于选择器受控值与宿主会话映射。
+ */
 const trustedRef = vi.hoisted(() => ({
-  orgId: 'ORG-A' as string | null,
-  hosId: 'HOS-1' as string | null,
-  branchId: 'BRA-1' as string | null,
+  organizationCode: 'ORG-A' as string | null,
+  hospitalCode: 'HOS-1' as string | null,
+  branchCode: 'BRA-1' as string | null,
 }))
 
-vi.mock('@dy/auth', () => ({
-  LoginUserManager: {
-    getOrgID: () => trustedRef.orgId,
-    getHosID: () => trustedRef.hosId,
-    getBranchID: () => trustedRef.branchId,
-  },
-}))
+/** 业务编码 → 该层组织实例标识。 */
+function instanceIdOf(code: string | null): string | null {
+  return code === null ? null : `${code}-ID`
+}
+
+vi.mock('../../session/hostSession', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../session/hostSession')>()
+  return {
+    ...actual,
+    readCurrentHostSession: () => ({
+      status: 'authenticated',
+      sessionVersion: 'v1',
+      userId: 'user-1',
+      account: '191617',
+      displayName: '杨康健',
+      organizationId: instanceIdOf(trustedRef.organizationCode),
+      hospitalId: instanceIdOf(trustedRef.hospitalCode),
+      campusId: instanceIdOf(trustedRef.branchCode),
+    }),
+  }
+})
+
+/**
+ * 当前范围接缝替身：宿主会话只给实例标识，业务编码由当前范围接口交付；
+ * 本文件按「接口已交付编码」的形态提供，命令式与渲染期读取同源（接缝本身的判定见 reportsTrustedScope 用例）。
+ */
+vi.mock('../../components/currentOrganizationScope', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../components/currentOrganizationScope')>()
+  const currentScope = () => ({
+    organizationId: instanceIdOf(trustedRef.organizationCode),
+    organizationName: '组织一',
+    organizationCode: trustedRef.organizationCode,
+    hospitalId: instanceIdOf(trustedRef.hospitalCode),
+    hospitalName: '医院一',
+    hospitalCode: trustedRef.hospitalCode,
+    branchId: instanceIdOf(trustedRef.branchCode),
+    branchName: '院区一',
+    branchCode: trustedRef.branchCode,
+  })
+  return {
+    ...actual,
+    readCurrentOrganizationScope: () => currentScope(),
+    useResolvedTrustedScope: () => {
+      const scope = currentScope()
+      return {
+        status: 'ready' as const,
+        organizationId: scope.organizationId,
+        hospitalId: scope.hospitalId,
+        branchId: scope.branchId,
+        organizationCode: scope.organizationCode,
+        hospitalCode: scope.hospitalCode,
+        branchCode: scope.branchCode,
+      }
+    },
+  }
+})
 
 /** 占位 client：页面把 API Client 原样交给适配层出口，自身不访问任何端点。 */
 const clientRef = vi.hoisted(() => ({ current: {} as unknown }))
@@ -225,12 +294,16 @@ vi.mock('../../contexts/ApiClientContext', () => ({
   useApiClientContext: () => clientRef.current,
 }))
 
-const ORGANIZATIONS = [{ id: 'ORG-A', name: '组织一' }]
-const HOSPITALS = [{ id: 'HOS-1', name: '医院一' }, { id: 'HOS-2', name: '医院二' }]
+// 范围选项夹具：实例标识带 `-ID` 后缀、业务编码不带——页面请求携带的必须是业务编码。
+const ORGANIZATIONS = [{ id: 'ORG-A-ID', code: 'ORG-A', name: '组织一' }]
+const HOSPITALS = [
+  { id: 'HOS-1-ID', code: 'HOS-1', name: '医院一' },
+  { id: 'HOS-2-ID', code: 'HOS-2', name: '医院二' },
+]
 const BRANCHES = [
-  { id: 'BRA-1', name: '院区一', hosId: 'HOS-1' },
-  { id: 'BRA-2', name: '院区二', hosId: 'HOS-1' },
-  { id: 'BRA-3', name: '院区三', hosId: 'HOS-2' },
+  { id: 'BRA-1-ID', code: 'BRA-1', name: '院区一', hosId: 'HOS-1-ID' },
+  { id: 'BRA-2-ID', code: 'BRA-2', name: '院区二', hosId: 'HOS-1-ID' },
+  { id: 'BRA-3-ID', code: 'BRA-3', name: '院区三', hosId: 'HOS-2-ID' },
 ]
 
 function createBaseClient() {
@@ -474,11 +547,11 @@ beforeEach(() => {
   // 版本详情出口随详情路由页承接版本切换后恢复接线：替身保持适配层出口的真实形状（经真实适配层归一）。
   api.queryReportVersionDetail.mockResolvedValue(versionDetailRow())
   clientRef.current = {}
-  trustedRef.orgId = 'ORG-A'
-  trustedRef.hosId = 'HOS-1'
-  trustedRef.branchId = 'BRA-1'
+  trustedRef.organizationCode = 'ORG-A'
+  trustedRef.hospitalCode = 'HOS-1'
+  trustedRef.branchCode = 'BRA-1'
   baseClient = createBaseClient()
-  configureBaseComponents({ client: baseClient as unknown as BaseComponentsConfig['client'] })
+  baseClientRef.current = baseClient
   locationRef.current = ''
   navigationTypeRef.current = 'POP'
   // 来源行概要缓存是模块级状态：每个用例从空缓存开始，避免跨用例残留（深链口径依赖缓存未命中）。
@@ -506,9 +579,9 @@ describe('C11 首次进入自动加载第一页与筛选区形态', () => {
     await renderLoaded([generatedRow()])
 
     // 可信范围三层都在清单内：初始解析结果即可信范围，无需用户操作。
-    expect(scopeSelect('组织')).toHaveValue('ORG-A')
-    expect(scopeSelect('医院')).toHaveValue('HOS-1')
-    expect(scopeSelect('院区')).toHaveValue('BRA-1')
+    expect(scopeSelect('组织')).toHaveValue('ORG-A-ID')
+    expect(scopeSelect('医院')).toHaveValue('HOS-1-ID')
+    expect(scopeSelect('院区')).toHaveValue('BRA-1-ID')
     // 初始请求：默认近 30 天时间窗、分页为第 1 页与默认页容量 10；三级范围由范围键携带。
     expect(query()).toHaveBeenCalledTimes(1)
     expectPageFilters(0, {
@@ -537,13 +610,13 @@ describe('C11 首次进入自动加载第一页与筛选区形态', () => {
 
 describe('默认范围解析与默认时间窗（2026-10-15 修订）', () => {
   it('可信医院与院区不属于首项组合时按受控值重载清单完成解析（第二轮）', async () => {
-    trustedRef.hosId = 'HOS-2'
-    trustedRef.branchId = 'BRA-3'
+    trustedRef.hospitalCode = 'HOS-2'
+    trustedRef.branchCode = 'BRA-3'
     await renderLoaded([generatedRow()])
 
-    expect(scopeSelect('组织')).toHaveValue('ORG-A')
-    expect(scopeSelect('医院')).toHaveValue('HOS-2')
-    expect(scopeSelect('院区')).toHaveValue('BRA-3')
+    expect(scopeSelect('组织')).toHaveValue('ORG-A-ID')
+    expect(scopeSelect('医院')).toHaveValue('HOS-2-ID')
+    expect(scopeSelect('院区')).toHaveValue('BRA-3-ID')
     expectPageFilters(0, {
       organizationCode: 'ORG-A',
       hospitalCode: 'HOS-2',
@@ -553,14 +626,14 @@ describe('默认范围解析与默认时间窗（2026-10-15 修订）', () => {
   })
 
   it('可信范围缺失时初始解析取各层第一项', async () => {
-    trustedRef.orgId = null
-    trustedRef.hosId = null
-    trustedRef.branchId = null
+    trustedRef.organizationCode = null
+    trustedRef.hospitalCode = null
+    trustedRef.branchCode = null
     await renderLoaded([generatedRow()])
 
-    expect(scopeSelect('组织')).toHaveValue('ORG-A')
-    expect(scopeSelect('医院')).toHaveValue('HOS-1')
-    expect(scopeSelect('院区')).toHaveValue('BRA-1')
+    expect(scopeSelect('组织')).toHaveValue('ORG-A-ID')
+    expect(scopeSelect('医院')).toHaveValue('HOS-1-ID')
+    expect(scopeSelect('院区')).toHaveValue('BRA-1-ID')
     expectPageFilters(0, { ...defaultDateWindow() }, { pageIndex: 1, pageSize: 10 })
   })
 
@@ -572,7 +645,7 @@ describe('默认范围解析与默认时间窗（2026-10-15 修订）', () => {
     // 缺项回调被拒绝：受控组织保持原值、原数据保留、不发新请求（不退化为不完整范围）。
     // 医院/院区控件在本替身里随组织清空而失去选项清单（原生 select 的渲染局限），不在此断言显示值；
     // 其受控值未变由「不发新请求 + 原数据保留」间接冻结。
-    expect(scopeSelect('组织')).toHaveValue('ORG-A')
+    expect(scopeSelect('组织')).toHaveValue('ORG-A-ID')
     expect(query()).toHaveBeenCalledTimes(1)
     expect(screen.getByText('R-1')).toBeInTheDocument()
   })
@@ -1112,7 +1185,7 @@ describe('T02 返回还原与来源行焦点（C11）', () => {
     // 切换院区：范围切换复位分支清除来源行标识，重读后同标识行不再高亮。
     const switched = deferred<unknown>()
     query().mockReturnValueOnce(switched.promise)
-    await pickScopeOption('院区', 'BRA-2')
+    await pickScopeOption('院区', 'BRA-2-ID')
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
     await act(async () => { switched.resolve(listResponse([generatedRow()], 1, 10, 1)) })
 
@@ -1142,9 +1215,9 @@ describe('T02 返回还原与来源行焦点（C11）', () => {
 
     // 分页位置保持第 2 页（还原清单第 4 项）；查询范围（组织、医院、院区）取值保持（还原清单第 1 项）。
     expect(screen.getByText(/第 2 页，每页 10 条/)).toBeInTheDocument()
-    expect(scopeSelect('组织')).toHaveValue('ORG-A')
-    expect(scopeSelect('医院')).toHaveValue('HOS-1')
-    expect(scopeSelect('院区')).toHaveValue('BRA-1')
+    expect(scopeSelect('组织')).toHaveValue('ORG-A-ID')
+    expect(scopeSelect('医院')).toHaveValue('HOS-1-ID')
+    expect(scopeSelect('院区')).toHaveValue('BRA-1-ID')
   })
 
   it('来源行高亮样式由配套 CSS 提供：colorPrimaryBg 底、悬停同色、左 2px colorPrimary 竖条（静态证据）', () => {
@@ -1291,7 +1364,7 @@ describe('C9 范围切换重置', () => {
     // 切换院区：旧数据与旧筛选一并复位，请求回到第 1 页；时间窗复位为新的默认窗口。
     const switched = deferred<unknown>()
     query().mockReturnValueOnce(switched.promise)
-    await pickScopeOption('院区', 'BRA-2')
+    await pickScopeOption('院区', 'BRA-2-ID')
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(2))
 
     expectPageFilters(1, { branchCode: 'BRA-2', ...defaultDateWindow() }, { pageIndex: 1, pageSize: 10 })
@@ -1338,7 +1411,7 @@ describe('C10 过期响应丢弃与提交在途门禁', () => {
     // 查询按钮在途已禁用，交叠改为经范围切换构造（范围切换不受按钮门禁）：
     const second = deferred<unknown>()
     query().mockReturnValueOnce(second.promise)
-    await pickScopeOption('院区', 'BRA-2')
+    await pickScopeOption('院区', 'BRA-2-ID')
     await waitFor(() => expect(query()).toHaveBeenCalledTimes(3))
 
     // 先让最新结果到达，再让过期结果到达：过期结果不得覆盖页面数据。

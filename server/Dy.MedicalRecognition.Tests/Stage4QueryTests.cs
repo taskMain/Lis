@@ -1,5 +1,4 @@
 using System.Reflection;
-using Dy.Base.Application.Contracts.OrganizationAggregate;
 using Dy.MedicalRecognition.Application.Contracts.Queries.Pagination;
 using Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
 using Dy.MedicalRecognition.Application.Queries;
@@ -20,26 +19,26 @@ namespace Dy.MedicalRecognition.Tests;
 /// </remarks>
 public sealed class Stage4QueryTests
 {
-  /// <summary>可信组织编码。</summary>
-  private const string TrustedOrganization = "ORG-A";
+  /// <summary>可信组织业务编码。</summary>
+  private const string TrustedOrganization = FakeIamScope.OrganizationCode;
 
-  /// <summary>可信医院编码。</summary>
-  private const string TrustedHospital = "HOS-A";
+  /// <summary>可信医院业务编码。</summary>
+  private const string TrustedHospital = FakeIamScope.HospitalCode;
 
-  /// <summary>可信院区编码。</summary>
-  private const string TrustedBranch = "BRH-A";
+  /// <summary>可信院区业务编码。</summary>
+  private const string TrustedBranch = FakeIamScope.BranchCode;
 
-  /// <summary>同组织下的第二家医院编码。</summary>
-  private const string SecondHospital = "HOS-B";
+  /// <summary>同组织下的第二家医院业务编码。</summary>
+  private const string SecondHospital = FakeIamScope.OtherHospitalCode;
 
-  /// <summary>第二家医院下的院区编码。</summary>
-  private const string SecondBranch = "BRH-B";
+  /// <summary>第二家医院下的院区业务编码。</summary>
+  private const string SecondBranch = FakeIamScope.OtherBranchCode;
 
-  /// <summary>另一院区编码；用于验证院区必须属于可信医院。</summary>
-  private const string OtherBranch = "BRH-C";
+  /// <summary>另一院区业务编码；用于验证院区必须属于可信医院。</summary>
+  private const string OtherBranch = FakeIamScope.SecondBranchCode;
 
   /// <summary>可信操作人标识。</summary>
-  private static readonly Guid TrustedOperId = Guid.Parse("2f7c1c1e-6a2f-4b1a-9c3d-1f0a2b3c4d5e");
+  private static readonly Guid TrustedOperId = FakeIamScope.UserId;
 
   /// <summary>
   /// V90：分页窗口校验在第一次仓储访问之前完成，非法窗口按业务拒绝且零仓储调用。
@@ -224,14 +223,14 @@ public sealed class Stage4QueryTests
     await service.QueryMedicalReportListAsync(new ReportListQueryRequest
     {
       Page = new PageRequestDto { PageIndex = 1, PageSize = 20 },
-      OrganizationCode = TrustedOrganization,
-      HospitalCode = SecondHospital,
-      BranchCode = SecondBranch
+      OrganizationCode = FakeIamScope.OrganizationCode,
+      HospitalCode = FakeIamScope.HospitalCode,
+      BranchCode = FakeIamScope.BranchCode
     });
 
     Assert.Equal(TrustedOrganization, repository.LastFilter!.OrganizationCode);
-    Assert.Equal(SecondHospital, repository.LastFilter.HospitalCode);
-    Assert.Equal(SecondBranch, repository.LastFilter.BranchCode);
+    Assert.Equal(TrustedHospital, repository.LastFilter.HospitalCode);
+    Assert.Equal(TrustedBranch, repository.LastFilter.BranchCode);
   }
 
   /// <summary>
@@ -255,15 +254,15 @@ public sealed class Stage4QueryTests
       new ReportListQueryRequest { Page = new PageRequestDto { PageIndex = 1, PageSize = 200 } });
 
     Assert.Equal(rowCount, result.Items.Count);
-    Assert.Equal(1, organizationService.OrganizationReadCount);
-    Assert.Equal(1, organizationService.HospitalReadCount);
-    Assert.Equal(1, organizationService.BranchReadCount);
-    // 名称由服务端按外部组织服务的当前值回填：读模型返回的名称必须与外部服务返回的名称逐字一致。
+    Assert.Equal(0, organizationService.OrganizationReadCount);
+    Assert.Equal(0, organizationService.HospitalReadCount);
+    Assert.Equal(0, organizationService.BranchReadCount);
+    // 名称由 IAM 目录按当前值回填：读模型返回的名称必须与外部服务返回的名称逐字一致。
     Assert.All(result.Items, item =>
     {
-      Assert.Equal($"{OrganizationName}-{item.OrganizationCode}", item.OrganizationName);
-      Assert.Equal($"{HospitalName}-{item.HospitalCode}", item.HospitalName);
-      Assert.Equal($"{BranchName}-{item.BranchCode}", item.BranchName);
+      Assert.Equal("示范医共体", item.OrganizationName);
+      Assert.Equal("示范医院", item.HospitalName);
+      Assert.Equal("示范院区", item.BranchName);
     });
   }
 
@@ -277,8 +276,8 @@ public sealed class Stage4QueryTests
     repository.ReportItems.AddRange(
     [
       BuildReportItem(1),
-      BuildReportItem(2, hospitalCode: SecondHospital, branchCode: SecondBranch),
-      BuildReportItem(3, hospitalCode: SecondHospital, branchCode: SecondBranch)
+      BuildReportItem(2, hospitalCode: FakeIamScope.SecondHospitalCode, branchCode: FakeIamScope.SecondBranchCode),
+      BuildReportItem(3, hospitalCode: FakeIamScope.SecondHospitalCode, branchCode: FakeIamScope.SecondBranchCode)
     ]);
     RecordingOrganizationAppService organizationService = CreateOrganizationService(
       organizations: [TrustedOrganization],
@@ -293,9 +292,9 @@ public sealed class Stage4QueryTests
     await service.QueryMedicalReportListAsync(new ReportListQueryRequest { Page = new PageRequestDto { PageIndex = 1, PageSize = 20 } });
 
     // 组织一次；该组织的医院一次（按组织去重）；两家不同医院各一次院区读取。
-    Assert.Equal(1, organizationService.OrganizationReadCount);
-    Assert.Equal(1, organizationService.HospitalReadCount);
-    Assert.Equal(2, organizationService.BranchReadCount);
+    Assert.Equal(0, organizationService.OrganizationReadCount);
+    Assert.Equal(0, organizationService.HospitalReadCount);
+    Assert.Equal(0, organizationService.BranchReadCount);
   }
 
   /// <summary>
@@ -305,7 +304,7 @@ public sealed class Stage4QueryTests
   public async Task Name_backfill_failure_fails_the_whole_query()
   {
     FakeQueryRepository repository = new();
-    repository.ReportItems.Add(BuildReportItem(1));
+    repository.ReportItems.Add(BuildReportItem(1, hospitalCode: "CSYY-UNKNOWN", branchCode: "CSYQ-UNKNOWN"));
     RecordingOrganizationAppService organizationService = CreateOrganizationService(
       organizations: [TrustedOrganization],
       hospitals: new Dictionary<string, string[]>());
@@ -315,6 +314,34 @@ public sealed class Stage4QueryTests
       () => service.QueryMedicalReportListAsync(new ReportListQueryRequest { Page = new PageRequestDto { PageIndex = 1, PageSize = 20 } }));
 
     Assert.Equal("业务拒绝：报告提供方医院不存在、已停用或不属于该组织。", error.Message);
+  }
+
+  /// <summary>
+  /// 名称回填容错：当页医院业务编码在 IAM 目录中命中多个节点且名称不同时，该层名称留空、整页请求成功。
+  /// </summary>
+  /// <remarks>
+  /// 名称是展示字段：候选名称不同且都不在会话组织链上时不猜、不回落编码文本，只把该层名称留空；
+  /// 报告行、三层编码与分页信息照常返回。归属校验的严格拒绝不受影响（见上一条用例）。
+  /// </remarks>
+  [Fact]
+  public async Task Name_backfill_leaves_the_name_empty_when_the_code_hits_multiple_nodes()
+  {
+    FakeQueryRepository repository = new();
+    repository.ReportItems.Add(BuildReportItem(1, hospitalCode: SecondHospital, branchCode: SecondBranch));
+    MedicalRecognitionReportQueryAppService service = CreateService(
+      repository, CreateOrganizationService(), FakeIamScope.WithDuplicateOtherHospitalCode(name: "其他医院二"));
+
+    PageResultDto<MedicalReportListReadModel> result = await service.QueryMedicalReportListAsync(
+      new ReportListQueryRequest { Page = new PageRequestDto { PageIndex = 1, PageSize = 20 } });
+
+    MedicalReportListReadModel item = Assert.Single(result.Items);
+    Assert.Equal(TrustedOrganization, item.OrganizationCode);
+    Assert.Equal("示范医共体", item.OrganizationName);
+    Assert.Equal(SecondHospital, item.HospitalCode);
+    // 医院编码命中两个候选、名称不同且都不在会话组织链上：名称留空。
+    Assert.Equal(string.Empty, item.HospitalName);
+    Assert.Equal(SecondBranch, item.BranchCode);
+    Assert.Equal("其他院区", item.BranchName);
   }
 
   /// <summary>
@@ -371,10 +398,9 @@ public sealed class Stage4QueryTests
   public async Task Branch_entry_blocks_when_trusted_scope_is_unavailable()
   {
     FakeQueryRepository repository = new();
-    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService());
+    MedicalRecognitionReportQueryAppService service = CreateService(repository, CreateOrganizationService(), FakeIamScope.MissingOrganization());
 
-    // 把可信上下文置为组织与医院都缺失，页面与入口都应阻断在可信范围解析处。
-    TrustedRequestContext.Use(null, null, null, TrustedOperId.ToString());
+    // 当前工作身份所在组织在目录中不存在：可信范围解析不出任何层级，入口在仓储访问之前阻断。
     InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
       () => service.QueryBranchMedicalReportListAsync(new BranchReportListQueryRequest
       {
@@ -382,7 +408,7 @@ public sealed class Stage4QueryTests
         Page = new PageRequestDto { PageIndex = 1, PageSize = 20 }
       }));
 
-    Assert.Equal("无法读取当前登录用户信息。", error.Message);
+    Assert.Equal("无法确定当前可信组织。", error.Message);
     Assert.Equal(0, repository.CountCalls);
   }
 
@@ -434,6 +460,10 @@ public sealed class Stage4QueryTests
       new MedicalReportVersionListQueryRequest { ReportId = reportId });
 
     Assert.Equal(2, versions.Count);
+    // 版本列表返回三层实例标识与本次解析的可信范围名称。
+    Assert.Equal("示范医共体", versions[0].OrganizationName);
+    Assert.Equal("示范医院", versions[0].HospitalName);
+    Assert.Equal("示范院区", versions[0].BranchName);
     Assert.Equal([1, 2], versions.Select(version => version.VersionSequence).ToArray());
     Assert.False(versions[0].IsCurrentVersion);
     Assert.True(versions[0].IsSuperseded);
@@ -505,6 +535,13 @@ public sealed class Stage4QueryTests
       reportType == MedicalReportType.Laboratory ? "检验报告" : "检查报告",
       detail.ReportTypeText);
     Assert.Equal("R-1", detail.ReportNo);
+    // 版本详情返回三层实例标识、可信范围名称与文件名称。
+    Assert.Equal("示范医共体", detail.OrganizationName);
+    Assert.Equal("示范医院", detail.HospitalName);
+    Assert.Equal("示范院区", detail.BranchName);
+    Assert.Equal("示范医共体", detail.File.OrganizationName);
+    Assert.Equal("示范医院", detail.File.HospitalName);
+    Assert.Equal("示范院区", detail.File.BranchName);
     Assert.Equal(1, detail.VersionSequence);
     Assert.Equal("张医生", detail.ReportDoctorName);
     Assert.Equal("孙医生", detail.ReviewDoctorName);
@@ -585,10 +622,10 @@ public sealed class Stage4QueryTests
   /// <param name="organizationService">组织服务替身。</param>
   /// <returns>可直接调用的查询应用服务。</returns>
   private static MedicalRecognitionReportQueryAppService CreateService(
-    FakeQueryRepository repository, RecordingOrganizationAppService organizationService)
+    FakeQueryRepository repository, RecordingOrganizationAppService organizationService, FakeIamScope? iamScope = null)
   {
-    TrustedRequestContext.Use(TrustedOrganization, TrustedHospital, TrustedBranch, TrustedOperId.ToString());
-    return new MedicalRecognitionReportQueryAppService(repository, organizationService, new StubUserAppService(), new StubSystemParameterAppService());
+    FakeIamScope scope = iamScope ?? FakeIamScope.Default;
+    return new MedicalRecognitionReportQueryAppService(repository, new PlatformParameterRepositoryStub(), scope, scope, scope);
   }
 
   /// <summary>构建带组织、医院与院区数据的组织服务替身。</summary>
@@ -816,177 +853,6 @@ public sealed class Stage4QueryTests
         : []);
     }
 
-    /// <inheritdoc/>
-    public Task<IEnumerable<BranchDto>> QueryAllValidBranchByOrgIdAsync(QueryAllValidBranchByOrgIdRequest request) => Unsupported<IEnumerable<BranchDto>>();
-
-    /// <inheritdoc/>
-    public Task<OrganizationDto> GetOrganizationByIdAsync(GetOrganizationByIdRequest request) => Unsupported<OrganizationDto>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<HospitalDto>> QueryAllHospitalAsync() => Unsupported<IEnumerable<HospitalDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<HospitalDto>> QueryAllValidHospitalAsync() => Unsupported<IEnumerable<HospitalDto>>();
-
-    /// <inheritdoc/>
-    public Task<HospitalDto> GetHospitalByIdAsync(GetHospitalByIdRequest request) => Unsupported<HospitalDto>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<BranchDto>> QueryAllBranchAsync() => Unsupported<IEnumerable<BranchDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<BranchDto>> QueryAllValidBranchAsync() => Unsupported<IEnumerable<BranchDto>>();
-
-    /// <inheritdoc/>
-    public Task<BranchDto> GetBranchByIdAsync(GetBranchByIdRequest request) => Unsupported<BranchDto>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptDto>> QueryDeptBySubApplicationIdAsync(QueryDeptBySubApplicationIdRequest request) => Unsupported<IEnumerable<DeptDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptDto>> QueryDeptByOrgIdAsync(QueryDeptByOrgIdRequest request) => Unsupported<IEnumerable<DeptDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptDto>> QueryDeptByHosIdAsync(QueryDeptByHosIdRequest request) => Unsupported<IEnumerable<DeptDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptDto>> QueryDeptByBranchIdAsync(QueryDeptByBranchIdRequest request) => Unsupported<IEnumerable<DeptDto>>();
-
-    /// <inheritdoc/>
-    public Task<DeptDto> GetDeptByBranchIdAndCodeAsync(GetDeptByBranchIdAndCodeRequest request) => Unsupported<DeptDto>();
-
-    /// <inheritdoc/>
-    public Task<DeptDto> GetDeptByIdAsync(GetDeptByIdRequest request) => Unsupported<DeptDto>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptDto>> QueryAllDeptAsync() => Unsupported<IEnumerable<DeptDto>>();
-
-    /// <inheritdoc/>
-    public Task<DeptWardDto> GetDeptWardByIdAsync(GetDeptWardByIdRequest request) => Unsupported<DeptWardDto>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptWardDto>> QueryDeptWardByDeptAsync(QueryDeptWardByDeptRequest request) => Unsupported<IEnumerable<DeptWardDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<DeptWardDto>> QueryDeptWardByWardAsync(QueryDeptWardByWardRequest request) => Unsupported<IEnumerable<DeptWardDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<WardDto>> QueryWardByBranchAsync(QueryWardByBranchRequest request) => Unsupported<IEnumerable<WardDto>>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<WardDto>> QueryWardBySubApplicationIdAsync(QueryWardBySubApplicationIdRequest request) => Unsupported<IEnumerable<WardDto>>();
-
-    /// <inheritdoc/>
-    public Task<WardDto> GetWardByIdAsync(GetWardByIdRequest request) => Unsupported<WardDto>();
-
-    /// <inheritdoc/>
-    public Task<IEnumerable<WardDto>> QueryAllWardAsync() => Unsupported<IEnumerable<WardDto>>();
-
-    /// <inheritdoc/>
-    public Task<string> CreateOrganizationAsync(CreateOrganizationRequest request) => Unsupported<string>();
-
-    /// <inheritdoc/>
-    public Task<int> UpdateOrganizationAsync(UpdateOrganizationRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DeleteOrganizationAsync(DeleteOrganizationRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> EnableOrganizationAsync(EnableOrganizationRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DisableOrganizationAsync(DisableOrganizationRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<string> CreateHospitalAsync(CreateHospitalRequest request) => Unsupported<string>();
-
-    /// <inheritdoc/>
-    public Task<int> UpdateHospitalAsync(UpdateHospitalRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DeleteHospitalAsync(DeleteHospitalRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> EnableHospitalAsync(EnableHospitalRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DisableHospitalAsync(DisableHospitalRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<string> CreateBranchAsync(CreateBranchRequest request) => Unsupported<string>();
-
-    /// <inheritdoc/>
-    public Task<int> UpdateBranchAsync(UpdateBranchRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DeleteBranchAsync(DeleteBranchRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> EnableBranchAsync(EnableBranchRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DisableBranchAsync(DisableBranchRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<Guid> CreateDeptAsync(CreateDeptRequest request) => Unsupported<Guid>();
-
-    /// <inheritdoc/>
-    public Task<int> UpdateDeptAsync(UpdateDeptRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DeleteDeptAsync(DeleteDeptRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> EnableDeptAsync(EnableDeptRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DisableDeptAsync(DisableDeptRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> MoveDeptUpAsync(MoveDeptUpRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> MoveDeptDownAsync(MoveDeptDownRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<Guid> CreateDeptWardAsync(CreateDeptWardRequest request) => Unsupported<Guid>();
-
-    /// <inheritdoc/>
-    public Task<int> UpdateDeptWardAsync(UpdateDeptWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DeleteDeptWardAsync(DeleteDeptWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> EnableDeptWardAsync(EnableDeptWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DisableDeptWardAsync(DisableDeptWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<Guid> CreateWardAsync(CreateWardRequest request) => Unsupported<Guid>();
-
-    /// <inheritdoc/>
-    public Task<int> UpdateWardAsync(UpdateWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DeleteWardAsync(DeleteWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> EnableWardAsync(EnableWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> DisableWardAsync(DisableWardRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> MoveWardUpAsync(MoveWardUpRequest request) => Unsupported<int>();
-
-    /// <inheritdoc/>
-    public Task<int> MoveWardDownAsync(MoveWardDownRequest request) => Unsupported<int>();
-
-    /// <summary>
-    /// 按医院编码反查其所属组织编码，使院区数据的父组织与医院数据一致。
-    /// </summary>
     /// <param name="hospitalCode">医院编码。</param>
     /// <returns>该医院所属的组织编码；找不到时返回可信组织编码。</returns>
     private string FindOrganizationCodeOfHospital(string hospitalCode) =>

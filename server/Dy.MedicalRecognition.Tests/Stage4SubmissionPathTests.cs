@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Text.Json;
-using Dy.Base.Application.Contracts.OrganizationAggregate;
 using Dy.Core.Abstractions.EventBus;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
@@ -26,14 +25,14 @@ namespace Dy.MedicalRecognition.Tests;
 /// </remarks>
 public sealed class Stage4SubmissionPathTests
 {
-  /// <summary>可信组织编码。</summary>
-  private const string TrustedOrganization = "ORG-A";
+  /// <summary>可信组织业务编码：取自当前工作身份组织链上组织节点配置的编码。</summary>
+  private static readonly string TrustedOrganization = FakeIamScope.OrganizationCode;
 
-  /// <summary>可信医院编码。</summary>
-  private const string TrustedHospital = "HOS-A";
+  /// <summary>可信医院业务编码：取自当前工作身份组织链上医院节点配置的编码。</summary>
+  private static readonly string TrustedHospital = FakeIamScope.HospitalCode;
 
-  /// <summary>可信院区编码。</summary>
-  private const string TrustedBranch = "BRH-A";
+  /// <summary>可信院区业务编码：取自当前工作身份组织链上院区节点配置的编码。</summary>
+  private static readonly string TrustedBranch = FakeIamScope.BranchCode;
 
   /// <summary>可信操作人标识。</summary>
   private static readonly Guid TrustedOperId = Guid.Parse("2f7c1c1e-6a2f-4b1a-9c3d-1f0a2b3c4d5e");
@@ -309,6 +308,43 @@ public sealed class Stage4SubmissionPathTests
   }
 
   /// <summary>
+  /// B-03/B-06：下载比对按查询实际返回的业务编码判定，编码与可信范围不一致时拒绝且不读取文件。
+  /// </summary>
+  [Fact]
+  public async Task Download_rejects_file_outside_trusted_scope_by_business_codes()
+  {
+    FakeReportRepository repository = new();
+    Guid reportId = Guid.NewGuid();
+    Guid reportVersionId = Guid.NewGuid();
+    SyntheticReportPorts ports = new()
+    {
+      VersionFile = new MedicalReportVersionFileItem
+      {
+        ReportId = reportId,
+        ReportVersionId = reportVersionId,
+        OrganizationCode = FakeIamScope.OtherOrganizationCode,
+        HospitalCode = FakeIamScope.OtherHospitalCode,
+        BranchCode = FakeIamScope.OtherBranchCode,
+        // 实例标识指向可信链：编码与可信范围不一致时必须在编码比较处被拒绝，不因实例标识相同而放行。
+        PdfFileId = "key/other.pdf",
+        PdfFileName = "其他组织版本.pdf",
+        ReportStatus = MedicalReportLifecycleStatus.Effective
+      }
+    };
+    RecordingReportPdfFileStore fileStore = new(readableFileKeys: ["key/other.pdf"]);
+    MedicalRecognitionReportAppService appService = CreateAppService(repository, fileStore, ports);
+
+    InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+      () => appService.OpenReportVersionPdfAsync(new MedicalReportVersionPdfQueryRequest
+      {
+        ReportId = reportId,
+        ReportVersionId = reportVersionId
+      }));
+
+    Assert.Equal("业务拒绝：报告不在当前可信组织、医院与院区范围内。", error.Message);
+    Assert.Equal(0, fileStore.OpenReadCalls);
+  }
+
   /// 构建提交入口，注入仓储替身、文件存储替身、组织服务替身与可信请求上下文。
   /// </summary>
   /// <param name="repository">报告读写内存替身。</param>
@@ -327,23 +363,9 @@ public sealed class Stage4SubmissionPathTests
   private static MedicalRecognitionReportAppService CreateAppService(
     FakeReportRepository repository, RecordingReportPdfFileStore fileStore, SyntheticReportPorts ports)
   {
-    TrustedRequestContext.Use(TrustedOrganization, TrustedHospital, TrustedBranch, TrustedOperId.ToString());
     return new MedicalRecognitionReportAppService(
-      new MedicalRecognitionReportManager(repository, new FakeMatchQueryRepository()),
-      repository,
-      new StubOrganizationAppService
-      {
-        Organizations =
-        [
-          new OrganizationDto { Id = TrustedOrganization, Name = "示范组织", IsValid = true }
-        ],
-        HospitalsByOrganization = { [TrustedOrganization] = [new HospitalDto { Id = TrustedHospital, Name = "示范医院", OrgId = TrustedOrganization, IsValid = true }] },
-        BranchesByHospital = { [TrustedHospital] = [new BranchDto { Id = TrustedBranch, Name = "示范院区", HosId = TrustedHospital, OrgId = TrustedOrganization, IsValid = true }] }
-      },
-      new StubUserAppService(),
-      fileStore,
-      ports,
-      new StubSystemParameterAppService());
+      new MedicalRecognitionReportManager(repository, new FakeMatchQueryRepository()), repository,
+      fileStore, ports, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default);
   }
 
   /// <summary>

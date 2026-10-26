@@ -23,7 +23,7 @@ import {
   requireStatisticsDate,
   statisticsServerText,
   toItemView,
-  toNodeNumber,
+  toDecimalNumber,
   toScopeView,
   toStatisticsCount,
   toStatisticsDate,
@@ -70,8 +70,8 @@ export type { StatisticsItemView, StatisticsOrganizationScopeView } from './reco
  * 4. 生成契约的固有形态由本层吸收：
  *    a) 后端必填字段在 Kiota 下仍是可选（`string | null`），请求构造逐字段显式赋值；
  *    b) 分页请求内嵌 `page` 对象，响应分页经安全整数与值域校验收敛（非法按契约错误抛出）；
- *    c) `decimal` 字段（同期互认率、预计节省金额、原因占比）生成为 `UntypedNode`，
- *       按 `getValue()` 取值且只接受有限数值；
+ *    c) `decimal` 字段（同期互认率、预计节省金额、原因占比）生成成 `number | null`，
+ *       只接受有限数值，缺失与其它形态一律按无值处理；
  *    d) 日期只按 `YYYY-MM-DD` 构造 `DateOnly` 原样提交，不拼接时分秒、不写时区偏移。
  */
 
@@ -282,7 +282,7 @@ export interface BranchUsageDetailsQuery {
 export type UsageDetailsQuery = PlatformUsageDetailsQuery | BranchUsageDetailsQuery
 
 /**
- * 平台管理员入口的使用方导出条件：两组组织编码同时提交，供服务端做一致性校验；
+ * 平台管理员入口的使用方导出条件：两组组织实例 Id同时提交，供服务端做一致性校验；
  * 不采纳原因代码只在不采纳明细导出（导出类型 4）提交（S6-D19）。
  */
 export interface PlatformUsageExportQuery {
@@ -486,7 +486,7 @@ function toBranchUsageDetailsBody(query: BranchUsageDetailsQuery & StatisticsPag
   return body
 }
 
-/** 平台版导出请求体：接收组与来源组两组组织编码同时提交，供服务端做一致性校验；无分页对象；原因代码只随不采纳明细导出（类型 4）。 */
+/** 平台版导出请求体：接收组与来源组两组组织实例 Id同时提交，供服务端做一致性校验；无分页对象；原因代码只随不采纳明细导出（类型 4）。 */
 function toPlatformUsageExportBody(query: PlatformUsageExportQuery): RecognitionStatisticsExportRequest {
   const body: RecognitionStatisticsExportRequest = {
     exportType: query.exportType,
@@ -593,7 +593,7 @@ export async function exportUsageStatistics(
 /** 不采纳原因集合映射；行内不采纳为零时服务端不计算占比，视图保持 `null`。 */
 function toNonAdoptionReasonViews(
   values:
-    | readonly { reasonCode?: string | null; reasonName?: string | null; count?: number | null; ratio?: unknown }[]
+    | readonly { reasonCode?: string | null; reasonName?: string | null; count?: number | null; ratio?: number | null }[]
     | null
     | undefined,
 ): NonAdoptionReasonView[] {
@@ -601,7 +601,7 @@ function toNonAdoptionReasonViews(
     reasonCode: value.reasonCode ?? '',
     reasonName: value.reasonName ?? '',
     count: toStatisticsCount(value.count),
-    ratio: toNodeNumber(value.ratio),
+    ratio: toDecimalNumber(value.ratio),
   }))
 }
 
@@ -630,8 +630,8 @@ function toUsageSummaryRow(value: RecognitionUsageSummaryReadModel): UsageSummar
     referenceCount: toStatisticsCount(value.referenceCount),
     // 服务端声明未计算（提醒为零）或十进制节点取值失败时保持 null，页面按「—」展示，不伪造成 0。
     samePeriodRecognitionRate:
-      value.samePeriodRecognitionRateCalculated === true ? toNodeNumber(value.samePeriodRecognitionRate) : null,
-    estimatedSavingAmount: toNodeNumber(value.estimatedSavingAmount),
+      value.samePeriodRecognitionRateCalculated === true ? toDecimalNumber(value.samePeriodRecognitionRate) : null,
+    estimatedSavingAmount: toDecimalNumber(value.estimatedSavingAmount),
     nonAdoptionReasons: toNonAdoptionReasonViews(value.nonAdoptionReasons),
   }
 }
@@ -647,7 +647,7 @@ function toProcessingResultView(value: NonNullable<RecognitionUsageDetailReadMod
     nonAdoptionReasonCode: value.nonAdoptionReasonCode ?? null,
     nonAdoptionReasonName: value.nonAdoptionReasonName ?? null,
     nonAdoptionSupplementDescription: value.nonAdoptionSupplementDescription ?? null,
-    estimatedSavingAmount: toNodeNumber(value.estimatedSavingAmount),
+    estimatedSavingAmount: toDecimalNumber(value.estimatedSavingAmount),
   }
 }
 

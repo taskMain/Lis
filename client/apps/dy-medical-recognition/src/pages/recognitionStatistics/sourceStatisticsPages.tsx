@@ -17,7 +17,9 @@
 import { Typography } from 'antd'
 import { useCallback, useMemo, useState } from 'react'
 import { ScopeUnavailablePanel } from '../../components/ScopeUnavailablePanel'
+import { useCurrentOrganizationScope } from '../../components/currentOrganizationScope'
 import { useApiClientContext } from '../../contexts/ApiClientContext'
+import { useHostSession } from '../../session/HostSessionContext'
 import { useTrustedOrganizationScope } from '../recognitionProjects/recognitionProjectsOrganizationScope'
 import { useTrustedHospitalScope } from '../reportManagement/reportsTrustedScope'
 import {
@@ -146,7 +148,13 @@ function toExportQuery(version: StatisticsPageVersion, filters: StatisticsFilter
   }
 }
 
-function SourceStatisticsPage({ version }: { version: StatisticsPageVersion }) {
+/** 本院入口的可信范围名称：只用于承接范围展示，标识由可信范围接缝提供。 */
+type BranchScopeNames = Pick<Extract<StatisticsScopeSpec, { kind: 'branch' }>, 'organizationName' | 'hospitalName' | 'branchName'>
+
+function SourceStatisticsPage({ version, branchScopeNames }: {
+  version: StatisticsPageVersion
+  branchScopeNames?: BranchScopeNames
+}) {
   const client = useApiClientContext()
   const trustedOrganization = useTrustedOrganizationScope()
   const trustedHospital = useTrustedHospitalScope()
@@ -154,6 +162,8 @@ function SourceStatisticsPage({ version }: { version: StatisticsPageVersion }) {
   const [initialFilters] = useState(defaultStatisticsFilters)
 
   const organizationCode = trustedOrganization.kind === 'ready' ? trustedOrganization.organizationCode : null
+  // 可信组织实例标识只交给选择器固定组织，业务请求仍只提交业务编码。
+  const organizationId = trustedOrganization.kind === 'ready' ? trustedOrganization.organizationId : null
   const hospitalCode = trustedHospital.kind === 'ready' ? trustedHospital.hospitalCode : null
   const trustedBranchCode = trustedHospital.kind === 'ready' ? trustedHospital.branchCode : null
 
@@ -212,7 +222,15 @@ function SourceStatisticsPage({ version }: { version: StatisticsPageVersion }) {
 
   const scopeSpec: StatisticsScopeSpec = version === 'platform'
     ? { kind: 'platform' }
-    : { kind: 'branch', organizationCode: organizationCode ?? '', hospitalCode: hospitalCode ?? '' }
+    : {
+        kind: 'branch',
+        organizationCode: organizationCode ?? '',
+        organizationId: organizationId ?? '',
+        hospitalCode: hospitalCode ?? '',
+        organizationName: branchScopeNames?.organizationName ?? null,
+        hospitalName: branchScopeNames?.hospitalName ?? null,
+        branchName: branchScopeNames?.branchName ?? null,
+      }
 
   return <StatisticsBoard
     title={version === 'platform' ? '提供方医院被互认统计' : '本院被互认统计'}
@@ -240,5 +258,16 @@ export function SourceRecognitionStatistics() {
 
 /** 「本院被互认统计」医院管理员页（宿主路径 `/subApps/medical-recognition/branch-source-recognition-statistics`）。 */
 export function BranchSourceRecognitionStatistics() {
-  return <SourceStatisticsPage version='branch' />
+  const client = useApiClientContext()
+  const session = useHostSession()
+  // 页头范围条与承接范围行共用同一份当前组织范围查询：名称按会话版本重算，匿名不发请求。
+  const { scope } = useCurrentOrganizationScope(client, session)
+  return <SourceStatisticsPage
+    version='branch'
+    branchScopeNames={{
+      organizationName: scope.organizationName,
+      hospitalName: scope.hospitalName,
+      branchName: scope.branchName,
+    }}
+  />
 }

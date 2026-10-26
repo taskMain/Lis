@@ -8,6 +8,8 @@ import { MedicalRecognitionReportRequestBuilderNavigationMetadata, type MedicalR
 // @ts-ignore
 import { MedicalRecognitionReportQueryRequestBuilderNavigationMetadata, type MedicalRecognitionReportQueryRequestBuilder } from './medicalRecognitionReportQuery/index.js';
 // @ts-ignore
+import { OrganizationScopeQueryRequestBuilderNavigationMetadata, type OrganizationScopeQueryRequestBuilder } from './organizationScopeQuery/index.js';
+// @ts-ignore
 import { type V1RequestBuilder, V1RequestBuilderNavigationMetadata } from './v1/index.js';
 // @ts-ignore
 import { type BaseRequestBuilder, type KeysToExcludeForNavigationMetadata, type NavigationMetadata } from '@microsoft/kiota-abstractions';
@@ -29,6 +31,10 @@ export interface ApiRequestBuilder extends BaseRequestBuilder<ApiRequestBuilder>
      */
     get medicalRecognitionReportQuery(): MedicalRecognitionReportQueryRequestBuilder;
     /**
+     * The OrganizationScopeQuery property
+     */
+    get organizationScopeQuery(): OrganizationScopeQueryRequestBuilder;
+    /**
      * The v1 property
      */
     get v1(): V1RequestBuilder;
@@ -49,6 +55,9 @@ export const ApiRequestBuilderNavigationMetadata: Record<Exclude<keyof ApiReques
     },
     medicalRecognitionReportQuery: {
         navigationMetadata: MedicalRecognitionReportQueryRequestBuilderNavigationMetadata,
+    },
+    organizationScopeQuery: {
+        navigationMetadata: OrganizationScopeQueryRequestBuilderNavigationMetadata,
     },
     v1: {
         navigationMetadata: V1RequestBuilderNavigationMetadata,

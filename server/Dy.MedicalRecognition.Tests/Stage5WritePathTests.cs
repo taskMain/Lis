@@ -35,20 +35,22 @@ namespace Dy.MedicalRecognition.Tests;
 /// </remarks>
 public sealed class Stage5WritePathTests
 {
-  /// <summary>可信组织编码。</summary>
-  private const string TrustedOrganization = "ORG-A";
+  /// <summary>可信组织编码：当前工作身份所属医共体组织节点上配置的业务编码。</summary>
+  private const string TrustedOrganization = FakeIamScope.OrganizationCode;
 
-  /// <summary>可信医院编码。</summary>
-  private const string TrustedHospital = "HOS-A";
+  /// <summary>可信医院编码：当前工作身份所属医院组织节点上配置的业务编码。</summary>
+  private const string TrustedHospital = FakeIamScope.HospitalCode;
 
-  /// <summary>可信院区编码。</summary>
-  private const string TrustedBranch = "BRH-A";
+  /// <summary>可信院区编码：当前工作身份所属院区组织节点上配置的业务编码。</summary>
+  private const string TrustedBranch = FakeIamScope.BranchCode;
 
   /// <summary>另一家医院编码，用于构造本院报告与他院报告两种来源。</summary>
-  private const string OtherHospital = "HOS-B";
+  /// <summary>另一家医院：与当前工作身份的医院实例标识不同，用于归属不一致的负例。</summary>
+  private const string OtherHospital = FakeIamScope.SecondHospitalCode;
 
   /// <summary>可信操作人标识。</summary>
-  private static readonly Guid TrustedOperId = Guid.Parse("2f7c1c1e-6a2f-4b1a-9c3d-1f0a2b3c4d5e");
+  /// <summary>操作人：票 07 起取 IAM 当前上下文的用户标识，与 <see cref="FakeIamScope.UserId"/> 同一取值。</summary>
+  private static readonly Guid TrustedOperId = FakeIamScope.UserId;
 
   /// <summary>平台患者标识。</summary>
   private static readonly Guid PatientId = Guid.Parse("8b1e6d4a-2c33-4f57-9a10-5d6e7f8a9b0c");
@@ -149,7 +151,7 @@ public sealed class Stage5WritePathTests
     Assert.Equal("LAB-2026-0001", report.ReportNo);
     Assert.Equal("血常规报告", report.ReportName);
     Assert.Equal(TrustedOrganization, report.SourceOrganizationCode);
-    Assert.Equal("示范组织", report.SourceOrganizationName);
+    Assert.Equal("示范医共体", report.SourceOrganizationName);
     Assert.Equal(TrustedHospital, report.SourceHospitalCode);
     Assert.Equal("示范医院", report.SourceHospitalName);
     Assert.Equal(TrustedBranch, report.SourceBranchCode);
@@ -320,7 +322,7 @@ public sealed class Stage5WritePathTests
     MatchFixture fixture = CreateFixture();
     fixture.QueryRepository.AddConfiguration(TrustedOrganization, FirstProjectCode);
     // 该编码只在其他组织建立了互认配置，当前组织读取不到。
-    fixture.QueryRepository.AddConfiguration("ORG-B", ThirdProjectCode);
+    fixture.QueryRepository.AddConfiguration(FakeIamScope.OtherOrganizationCode, ThirdProjectCode);
     AddLaboratoryReportFacts(fixture, FirstProjectCode, TrustedHospital);
 
     (RecordingEventQueue events, InvalidOperationException error) =
@@ -861,16 +863,9 @@ public sealed class Stage5WritePathTests
 
     await ExecuteMatchAsync(fixture, [FirstProjectCode]);
 
-    // 读取请求类型上没有组织、医院与院区属性：读取形态从类型上就不可能携带这三个维度。
-    Type requestType = typeof(Dy.Base.Application.Contracts.SystemParameterAggregate.GetSystemParameterByCodeRequest);
-    Assert.Null(requestType.GetProperty("OrgId"));
-    Assert.Null(requestType.GetProperty("HosId"));
-    Assert.Null(requestType.GetProperty("BranchId"));
-
-    // 两个参数都按平台级编码读取，读取顺序与常量声明一致。
+    // 两个参数都按平台参数编码读取，读取顺序与常量声明一致；读取入口只接收参数编码。
     Assert.Equal([OwnHospitalMatchSwitch, OwnHospitalExcludeHours], fixture.SystemParameterAppService.ReadCodes);
-    // 读取请求形态上不携带组织、医院与院区维度。
-    Assert.Null(fixture.SystemParameterAppService.LastRequest!.GetType().GetProperty("OrgId"));
+    Assert.Equal(OwnHospitalExcludeHours, fixture.SystemParameterAppService.LastCode);
   }
   /// <summary>
   /// V91：项目编码数组为空时整次失败，不创建记录、不登记事件。
@@ -905,16 +900,16 @@ public sealed class Stage5WritePathTests
   [Fact]
   public async Task Unresolvable_trusted_context_fails_the_whole_request_without_writes()
   {
-    MatchFixture fixture = CreateFixture();
+    // 当前工作身份只挂在医共体节点上：组织层可解析，医院与院区层在祖先链上不存在，
+    // 因此匹配入口在进入领域写入之前按医院层文案拒绝。
+    MatchFixture fixture = CreateFixture(iamScope: FakeIamScope.WithoutHospital());
     fixture.QueryRepository.AddConfiguration(TrustedOrganization, FirstProjectCode);
     AddLaboratoryReportFacts(fixture, FirstProjectCode, TrustedHospital);
-    TrustedRequestContext.Use(null, null, null, string.Empty);
 
     (RecordingEventQueue events, InvalidOperationException error) =
       await ExecuteMatchExpectingRejectionAsync(fixture, [FirstProjectCode]);
 
-    // 可信上下文为 null 时三层都视为缺失；拒绝文案由可信范围解析点的通用文案给出。
-    Assert.Contains("无法确定当前", error.Message, StringComparison.Ordinal);
+    Assert.Equal("无法确定当前可信医院。", error.Message);
     AssertNothingWritten(fixture, events);
   }
 
@@ -965,7 +960,7 @@ public sealed class Stage5WritePathTests
     /// <summary>外部组织服务替身，提供组织、医院与院区名称。</summary>
     public StubOrganizationAppService OrganizationAppService { get; init; } = new();
     /// <summary>系统参数服务替身，按编码预置返回值并记录读取过的编码。</summary>
-    public StubSystemParameterAppService SystemParameterAppService { get; init; } = new();
+    public PlatformParameterRepositoryStub SystemParameterAppService { get; init; } = new();
     /// <summary>互认匹配请求入口。</summary>
     public MedicalRecognitionReportAppService AppService { get; init; } = null!;
   }
@@ -980,6 +975,7 @@ public sealed class Stage5WritePathTests
   /// <param name="parameterServiceFailure">非空时表示参数服务读取失败。</param>
   /// <param name="switchParameterMissing">为真时开关参数不预置，用于构造"参数不存在"前置。</param>
   /// <param name="excludeHoursParameterMissing">为真时排除时长参数不预置，用于构造"参数不存在"前置。</param>
+  /// <param name="iamScope">当前工作身份与目录读取的替身；为空时取三层齐全的默认替身。</param>
   /// <returns>可直接调用的互认匹配请求用例夹具。</returns>
   private static MatchFixture CreateFixture(
     bool patientExists = true,
@@ -989,8 +985,10 @@ public sealed class Stage5WritePathTests
     string? excludeHoursValue = null,
     Exception? parameterServiceFailure = null,
     bool switchParameterMissing = false,
-    bool excludeHoursParameterMissing = false)
+    bool excludeHoursParameterMissing = false,
+    FakeIamScope? iamScope = null)
   {
+    FakeIamScope scope = iamScope ?? FakeIamScope.Default;
     FakeReportRepository repository = new();
     FakeMatchQueryRepository queryRepository = new()
     {
@@ -1015,7 +1013,7 @@ public sealed class Stage5WritePathTests
 
     // 参数服务替身按编码预置返回值：显式传入的取值原样预置（含空串与纯空白，用于构造非法取值），
     // 未显式传入时用布尔开关与整数时长换算成平台配置里的字符串形态；不预置的编码按参数不存在返回空值。
-    StubSystemParameterAppService systemParameterAppService = new() { Failure = parameterServiceFailure };
+    PlatformParameterRepositoryStub systemParameterAppService = new() { Failure = parameterServiceFailure };
     if (switchValue is not null) systemParameterAppService.ValuesByCode[OwnHospitalMatchSwitch] = switchValue;
     else if (!switchParameterMissing) systemParameterAppService.ValuesByCode[OwnHospitalMatchSwitch] = ownHospitalMatchEnabled ? "1" : "0";
     if (excludeHoursValue is not null) systemParameterAppService.ValuesByCode[OwnHospitalExcludeHours] = excludeHoursValue;
@@ -1023,23 +1021,21 @@ public sealed class Stage5WritePathTests
 
     StubOrganizationAppService organizationAppService = new()
     {
-      Organizations = [new Dy.Base.Application.Contracts.OrganizationAggregate.OrganizationDto { Id = TrustedOrganization, Name = "示范组织", IsValid = true }],
+      Organizations = [new OrganizationDto { Id = TrustedOrganization, Name = "示范组织", IsValid = true }],
       HospitalsByOrganization =
       {
         [TrustedOrganization] =
         [
-          new Dy.Base.Application.Contracts.OrganizationAggregate.HospitalDto { Id = TrustedHospital, Name = "示范医院", OrgId = TrustedOrganization, IsValid = true },
-          new Dy.Base.Application.Contracts.OrganizationAggregate.HospitalDto { Id = OtherHospital, Name = "他院", OrgId = TrustedOrganization, IsValid = true }
+          new HospitalDto { Id = TrustedHospital, Name = "示范医院", OrgId = TrustedOrganization, IsValid = true },
+          new HospitalDto { Id = OtherHospital, Name = "他院", OrgId = TrustedOrganization, IsValid = true }
         ]
       },
       BranchesByHospital =
       {
-        [TrustedHospital] = [new Dy.Base.Application.Contracts.OrganizationAggregate.BranchDto { Id = TrustedBranch, Name = "示范院区", HosId = TrustedHospital, OrgId = TrustedOrganization, IsValid = true }],
-        [OtherHospital] = [new Dy.Base.Application.Contracts.OrganizationAggregate.BranchDto { Id = TrustedBranch, Name = "他院院区", HosId = OtherHospital, OrgId = TrustedOrganization, IsValid = true }]
+        [TrustedHospital] = [new BranchDto { Id = TrustedBranch, Name = "示范院区", HosId = TrustedHospital, OrgId = TrustedOrganization, IsValid = true }],
+        [OtherHospital] = [new BranchDto { Id = TrustedBranch, Name = "他院院区", HosId = OtherHospital, OrgId = TrustedOrganization, IsValid = true }]
       }
     };
-
-    TrustedRequestContext.Use(TrustedOrganization, TrustedHospital, TrustedBranch, TrustedOperId.ToString());
 
     return new MatchFixture
     {
@@ -1047,14 +1043,7 @@ public sealed class Stage5WritePathTests
       QueryRepository = queryRepository,
       OrganizationAppService = organizationAppService,
       SystemParameterAppService = systemParameterAppService,
-      AppService = new MedicalRecognitionReportAppService(
-        new MedicalRecognitionReportManager(repository, queryRepository),
-        repository,
-        organizationAppService,
-        new StubUserAppService(),
-        new StubReportPdfFileStore(),
-        queryRepository,
-        systemParameterAppService)
+      AppService = new MedicalRecognitionReportAppService(new MedicalRecognitionReportManager(repository, queryRepository), repository, new StubReportPdfFileStore(), queryRepository, systemParameterAppService, scope, scope, scope)
     };
   }
 
@@ -1099,7 +1088,7 @@ public sealed class Stage5WritePathTests
       ReportName = "血常规报告",
       SourceOrganizationCode = TrustedOrganization,
       SourceHospitalCode = sourceHospitalCode,
-      SourceBranchCode = sourceBranchCode ?? TrustedBranch,
+      SourceBranchCode = sourceBranchCode ?? (sourceHospitalCode == OtherHospital ? FakeIamScope.SecondBranchCode : TrustedBranch),
       ClinicalTime = matchBaselineTime ?? ClinicalTime,
       ReportTime = effectiveReportTime,
       PdfFileId = "pdf-key-1",
@@ -2681,7 +2670,7 @@ public sealed class Stage5WritePathTests
     /// <summary>外部用户服务替身；本入口的可信三层由令牌提供，调用次数用于取证零调用。</summary>
     public StubUserAppService UserAppService { get; init; } = new();
     /// <summary>系统参数服务替身；引用结果链不读取参数，调用次数用于取证零调用。</summary>
-    public StubSystemParameterAppService SystemParameterAppService { get; init; } = new();
+    public PlatformParameterRepositoryStub SystemParameterAppService { get; init; } = new();
     /// <summary>引用结果提交入口。</summary>
     public MedicalRecognitionReportAppService AppService { get; init; } = null!;
     /// <summary>领域管理器；用于直接调用公开领域方法取证经公开入口不可达的防御性判定。</summary>
@@ -2698,10 +2687,9 @@ public sealed class Stage5WritePathTests
     FakeMatchQueryRepository queryRepository = new();
     StubOrganizationAppService organizationAppService = new();
     StubUserAppService userAppService = new();
-    StubSystemParameterAppService systemParameterAppService = new();
+    PlatformParameterRepositoryStub systemParameterAppService = new();
 
     // 令牌三层齐全：可信范围解析不读取用户档案，也不向组织服务核对归属。
-    TrustedRequestContext.Use(TrustedOrganization, TrustedHospital, TrustedBranch, TrustedOperId.ToString());
 
     MedicalRecognitionReportManager manager = new(repository, queryRepository);
     return new ReferenceFixture
@@ -2712,14 +2700,7 @@ public sealed class Stage5WritePathTests
       UserAppService = userAppService,
       SystemParameterAppService = systemParameterAppService,
       Manager = manager,
-      AppService = new MedicalRecognitionReportAppService(
-        manager,
-        repository,
-        organizationAppService,
-        userAppService,
-        new StubReportPdfFileStore(),
-        queryRepository,
-        systemParameterAppService)
+      AppService = new MedicalRecognitionReportAppService(manager, repository, new StubReportPdfFileStore(), queryRepository, systemParameterAppService, FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default)
     };
   }
 
@@ -2950,7 +2931,6 @@ public sealed class Stage5WritePathTests
     StubUserAppService userAppService = new();
 
     // 令牌三层齐全：可信范围解析不读取用户档案，也不向组织服务核对归属。
-    TrustedRequestContext.Use(TrustedOrganization, TrustedHospital, TrustedBranch, TrustedOperId.ToString());
 
     return new ProcessingFixture
     {
@@ -2958,14 +2938,7 @@ public sealed class Stage5WritePathTests
       QueryRepository = queryRepository,
       OrganizationAppService = organizationAppService,
       UserAppService = userAppService,
-      AppService = new MedicalRecognitionReportAppService(
-        new MedicalRecognitionReportManager(repository, queryRepository),
-        repository,
-        organizationAppService,
-        userAppService,
-        new StubReportPdfFileStore(),
-        queryRepository,
-        new StubSystemParameterAppService())
+      AppService = new MedicalRecognitionReportAppService(new MedicalRecognitionReportManager(repository, queryRepository), repository, new StubReportPdfFileStore(), queryRepository, new PlatformParameterRepositoryStub(), FakeIamScope.Default, FakeIamScope.Default, FakeIamScope.Default)
     };
   }
 

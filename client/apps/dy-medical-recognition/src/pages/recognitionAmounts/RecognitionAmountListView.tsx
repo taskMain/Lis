@@ -5,7 +5,8 @@
  * 集中承载的内容：页头（标题、副标题与可选右侧插槽）、范围选择器插槽、写后刷新门禁横幅、
  * 查询区（关键字框＋框内查询图标按钮＋金额状态下拉）、待切换提示态插槽、互认配置状态页签
  * （页签行右侧以可选承载放置导出按钮，传入导出参数才渲染）、
- * 四栏层级列表（列集合、列宽、样式覆写与页脚完全一致）、金额行内编辑器、页脚计数、三态空态，
+ * 四栏层级列表（列集合、列宽、样式覆写与页脚完全一致）、金额行内编辑器、页脚计数、四态空态
+ * （范围未解析、读取失败、条件未命中、当前范围零配置，互不混用），
  * 以及关键字与状态筛选、读取与提交状态机、未保存输入的清空时机与写门控。界面口径变化只修改
  * 本文件一处，两个页面不再分叉。
  *
@@ -25,7 +26,9 @@ import {
   AMOUNT_VALIDATION_MESSAGE,
   CONFIGURATION_STATUS_OPTIONS,
   EMPTY_FILTERED_RECOGNITION_AMOUNT_TEXT,
+  EMPTY_LOAD_FAILED_RECOGNITION_AMOUNT_TEXT,
   EMPTY_UNFILTERED_RECOGNITION_AMOUNT_TEXT,
+  RECOGNITION_AMOUNT_COUNT_PLACEHOLDER,
   currentAmountText,
   filterRecognitionAmountRows,
   parseRecognitionAmount,
@@ -452,8 +455,16 @@ export function RecognitionAmountListView<Query>({
 
   /** 生效条件：关键字或任一状态档非默认即视为有条件，用于区分零配置与未命中两种空态。 */
   const hasConditions = keywordApplied !== '' || amountStatus !== 'all' || configurationStatus !== 'all'
+  /**
+   * 读取失败且一行数据都没有：此时**不知道**当前范围有没有配置，与「零配置」「未命中」是三件
+   * 不同的事实。空态文案与页脚计数都必须按这一态改写，否则读取失败会被伪装成零配置空态
+   * （令牌获取或请求发出阶段失败时后端根本没被问到）。失败态的重试沿用既有入口，不新增交互。
+   */
+  const loadFailedWithoutRows = loadFailure !== null && rows.length === 0
   const emptyDescription = () => {
     if (scope === null) return missingScopeText
+    // 范围已解析、读取失败且无数据：先说读取失败，不得说「没有…配置」。
+    if (loadFailedWithoutRows) return EMPTY_LOAD_FAILED_RECOGNITION_AMOUNT_TEXT
     if (hasConditions) return EMPTY_FILTERED_RECOGNITION_AMOUNT_TEXT
     return EMPTY_UNFILTERED_RECOGNITION_AMOUNT_TEXT
   }
@@ -562,13 +573,17 @@ export function RecognitionAmountListView<Query>({
       locale={{
         emptyText: <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          // 范围未解析、范围零配置与条件未命中是三件不同的事实，空态文案必须区分。
+          // 范围未解析、读取失败、条件未命中与范围零配置是四件不同的事实，空态文案必须区分。
           description={emptyDescription()}
         />,
       }}
     />
 
-    <div className='recognition-amounts-count'>共 {tableRows.length} 项</div>
+    {/* 页脚计数：读取失败且无数据时不为 0（失败数据不可信，「共 0 项」会被读成零配置），
+        以占位符呈现；成功读取仍按可见行数计数，两个页面共用同一口径。 */}
+    <div className='recognition-amounts-count'>
+      {loadFailedWithoutRows ? `共 ${RECOGNITION_AMOUNT_COUNT_PLACEHOLDER} 项` : `共 ${tableRows.length} 项`}
+    </div>
   </div>
 }
 

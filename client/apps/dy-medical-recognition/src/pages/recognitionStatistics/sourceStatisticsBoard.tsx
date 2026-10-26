@@ -12,8 +12,6 @@
  */
 import { Button, Card, Empty, Space, Tag, Typography, type TableColumnsType, type TablePaginationConfig } from 'antd'
 import { useMemo } from 'react'
-import { useApiClientContext } from '../../contexts/ApiClientContext'
-import { useScopeNames } from '../../components/scopeNameLookup'
 import type { SourceDetailRow, SourceSummaryRow } from './sourceRecognitionStatisticsApi'
 import type { StatisticsGroupDimensionValue } from './recognitionStatisticsValues'
 import { formatStatisticsDateTime } from './statisticsDisplays'
@@ -64,8 +62,18 @@ export interface SourceStatisticsBoardProps {
   dimensionOptions: { value: StatisticsGroupDimensionValue; label: string }[]
   summary: SourceStatisticsSummaryState
   detail: SourceStatisticsDetailState
-  /** 上下文行承接范围的编码：由统计页主体按已生效筛选派生。 */
-  scopeValues: { organizationCode?: string; hospitalCode?: string; branchCode?: string }
+  /**
+   * 上下文行承接范围的展示值：标识与名称都由统计页主体按已生效筛选派生。
+   * 标识是组织实例 Id；名称缺失时展示层显示「未知」，不回退显示标识。
+   */
+  scopeValues: {
+    organizationCode?: string
+    organizationName?: string | null
+    hospitalCode?: string
+    hospitalName?: string | null
+    branchCode?: string
+    branchName?: string | null
+  }
   /** 承接范围是否包含院区：平台页仅院区维度为真，本院页恒为真。 */
   includeScopeBranch: boolean
   /** 选中分组行；未选中时右卡显示空态。 */
@@ -124,14 +132,16 @@ function sourceDetailTitle(row: SourceSummaryRow, dimension: StatisticsGroupDime
   </div>
 }
 
-/**
- * 承接范围文本：三级名称按包含的层级拼接，名称缺失或反查失败显示「未知」，不回退编码。
- */
-function sourceScopeText(names: { organization: string | null; hospital: string | null; branch: string | null }, includeBranch: boolean): string {
+/** 承接范围文本：三级名称按包含的层级拼接，名称缺失显示「未知」，不回退显示组织实例 Id。 */
+function sourceScopeText(scope: {
+  organizationName?: string | null
+  hospitalName?: string | null
+  branchName?: string | null
+}, includeBranch: boolean): string {
   return joinSummaryParts([
-    names.organization ?? '未知',
-    names.hospital ?? '未知',
-    includeBranch ? names.branch ?? '未知' : null,
+    scope.organizationName ?? '未知',
+    scope.hospitalName ?? '未知',
+    includeBranch ? scope.branchName ?? '未知' : null,
   ])
 }
 
@@ -142,12 +152,6 @@ function sourceScopeText(names: { organization: string | null; hospital: string 
  * 数据源、读取状态与回调全部由统计页主体注入，组件本身不发起请求、不持有选中与分页状态。
  */
 export function SourceStatisticsBoard(props: SourceStatisticsBoardProps) {
-  const client = useApiClientContext()
-  const scopeNames = useScopeNames(client, {
-    organizationCode: props.scopeValues.organizationCode ?? '',
-    hospitalCode: props.scopeValues.hospitalCode ?? '',
-    branchCode: props.scopeValues.branchCode ?? '',
-  })
   const columns = useMemo(
     () => sourceDetailColumns(props.detail.showBranchColumn),
     [props.detail.showBranchColumn],
@@ -162,7 +166,7 @@ export function SourceStatisticsBoard(props: SourceStatisticsBoardProps) {
   const selectedRow = props.selectedRow
   const detailContextText = selectedRow === null
     ? ''
-    : `统计时间 ${props.detail.timeRangeText} · 承接范围 ${sourceScopeText(scopeNames, props.includeScopeBranch)} · 共 ${props.detail.detailTotal} 条`
+    : `统计时间 ${props.detail.timeRangeText} · 承接范围 ${sourceScopeText(props.scopeValues, props.includeScopeBranch)} · 共 ${props.detail.detailTotal} 条`
 
   return <div className='statistics-board-master statistics-board-master--source'>
     <section aria-label='汇总列表'>

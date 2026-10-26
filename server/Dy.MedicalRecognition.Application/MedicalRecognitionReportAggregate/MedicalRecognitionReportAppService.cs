@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
-using Dy.Base.Application.Contracts.OrganizationAggregate;
-using Dy.Base.Application.Contracts.SystemParameterAggregate;
-using Dy.Base.Application.Contracts.UserAggregate;
 using Dy.Core.Abstractions.Http;
+using Dy.IAM.Sdk;
+using Dy.MedicalRecognition.Application.OrganizationScope;
+using Dy.MedicalRecognition.Application.PlatformParameter;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Dtos;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
@@ -12,6 +12,7 @@ using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Commands;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Managers;
 using Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Ports;
+using Dy.MedicalRecognition.Domain.PlatformParameterAggregate.Ports;
 using Dy.MedicalRecognition.Domain.Queries.Ports;
 
 namespace Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate;
@@ -22,16 +23,6 @@ namespace Dy.MedicalRecognition.Application.MedicalRecognitionReportAggregate;
 /// <remarks>新建标准分组、新建标准项目与批量新建互认项目配置声明显式事务；其余标准目录用例、其余四个互认项目配置用例与两个金额保存用例各只有一条写语句，不声明显式事务。</remarks>
 public partial class MedicalRecognitionReportAppService : ApplicationService, IMedicalRecognitionReportAppService
 {
-  /// <summary>
-  /// 本院报告匹配开关的平台系统参数编码；作为布尔语义的字符串，在互认匹配查询入口按平台级读取。
-  /// </summary>
-  private const string OwnHospitalMatchSwitch = "own_hospital_match_switch";
-
-  /// <summary>
-  /// 本院报告排除时长的平台系统参数编码；取值为非负整数小时、允许零，在互认匹配查询入口按平台级读取。
-  /// </summary>
-  private const string OwnHospitalExcludeHours = "own_hospital_exclude_hours";
-
   /// <summary>
   /// 标准目录、互认项目配置与金额的领域管理器。
   /// </summary>
@@ -48,11 +39,17 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   /// <remarks>一次调用只解析一批目标路径，读取次数不随请求条数增长。</remarks>
   private readonly OrganizationPathResolver organizationPathResolver;
 
+
   /// <summary>
-  /// 医院管理员金额保存入口解析可信组织与可信医院所用的解析点。
+  /// 报告链路解析当前工作身份的组织范围所用的解析点。
   /// </summary>
-  /// <remarks>令牌已提供组织与医院两层时不读取用户档案；令牌缺失的层由当前登录用户档案补齐。</remarks>
-  private readonly TrustedScopeResolver trustedScopeResolver;
+  /// <remarks>三层组织范围只取自当前工作身份的组织祖先链，调用方不能通过请求扩大范围；业务列只写组织业务编码。</remarks>
+  private readonly IamReportScopeResolver reportScopeResolver;
+
+  /// <summary>
+  /// 已验证的 IAM 当前上下文，提供报告链路的操作人标识。
+  /// </summary>
+  private readonly ICurrentIamContext currentIamContext;
 
   /// <summary>
   /// 报告 PDF 的本地文件存储端口：提交入口确认文件键可读，下载入口按键读取文件。
@@ -65,10 +62,10 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   private readonly IMedicalRecognitionReportQueryRepository queryReportRepository;
 
   /// <summary>
-  /// 按平台级参数编码读取系统参数的外部系统参数服务：互认匹配查询入口读取本院报告匹配开关与排除时长。
+  /// 平台参数读取入口：互认匹配查询入口读取本院报告匹配开关与排除时长。
   /// </summary>
-  /// <remarks>读取不传组织、医院与院区维度；参数不存在、取值非法或服务失败都由入口就地判定为整次失败。</remarks>
-  private readonly ISystemParameterAppService systemParameterAppService;
+  /// <remarks>每次读取当前参数值；参数不存在、停用或取值非法都由入口就地判定为整次失败。</remarks>
+  private readonly PlatformParameterReader platformParameterReader;
 
   /// <summary>
   /// 初始化写入口。
@@ -79,27 +76,33 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   /// </remarks>
   /// <param name="manager">目录、互认配置、金额与报告采集领域管理器。</param>
   /// <param name="repository">标准目录读取、互认配置归属校验与保存前提校验使用的仓储端口。</param>
-  /// <param name="organizationAppService">提供组织、医院与院区主数据的外部组织服务。</param>
-  /// <param name="userAppService">提供当前登录用户组织与医院归属的外部用户服务，用于补齐令牌缺失的可信层。</param>
   /// <param name="reportPdfFileStore">报告 PDF 的本地文件存储端口。</param>
   /// <param name="queryReportRepository">报告与报告版本的只读查询端口。</param>
-  /// <param name="systemParameterAppService">按平台级参数编码读取系统参数的外部系统参数服务。</param>
+  /// <param name="platformParameterRepository">平台参数持久化入口，读取本院报告匹配开关与排除时长。</param>
+  /// <param name="directoryClient">IAM 共享目录客户端，提供当前工作身份组织链的详情与类型。</param>
+  /// <param name="currentIamContext">已验证的 IAM 当前上下文，提供当前工作身份与租户。</param>
+  /// <param name="businessCodeQueryClient">IAM 组织业务编码查询客户端，按租户读取组织树节点的业务编码。</param>
   public MedicalRecognitionReportAppService(
     MedicalRecognitionReportManager manager,
     IMedicalRecognitionReportRepository repository,
-    IOrganizationAppService organizationAppService,
-    IUserAppService userAppService,
     IReportPdfFileStore reportPdfFileStore,
     IMedicalRecognitionReportQueryRepository queryReportRepository,
-    ISystemParameterAppService systemParameterAppService)
+    IPlatformParameterRepository platformParameterRepository,
+    IIamDirectoryClient directoryClient,
+    ICurrentIamContext currentIamContext,
+    IOrganizationBusinessCodeQueryClient businessCodeQueryClient)
   {
     this.manager = manager;
     this.repository = repository;
-    organizationPathResolver = new OrganizationPathResolver(organizationAppService);
-    trustedScopeResolver = new TrustedScopeResolver(userAppService);
+    IamOrganizationDirectoryReader iamDirectoryReader = new(directoryClient);
+    IamOrganizationBusinessCodeReader businessCodeReader = new(businessCodeQueryClient);
+    organizationPathResolver = new OrganizationPathResolver(iamDirectoryReader, businessCodeReader, currentIamContext);
+    reportScopeResolver = new IamReportScopeResolver(
+      new IamOrganizationScopeResolver(new IamOrganizationDirectoryReader(directoryClient), currentIamContext, businessCodeReader));
+    this.currentIamContext = currentIamContext;
     this.reportPdfFileStore = reportPdfFileStore;
     this.queryReportRepository = queryReportRepository;
-    this.systemParameterAppService = systemParameterAppService;
+    platformParameterReader = new PlatformParameterReader(platformParameterRepository);
   }
 
   /// <summary>
@@ -335,7 +338,7 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   {
     MedicalRecognitionRequestValidator.Validate(request);
     var createMutualRecognitionItemCommand = request.MapToCreateMutualRecognitionItemCommand();
-    createMutualRecognitionItemCommand.OrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定当前可信组织。");
+    createMutualRecognitionItemCommand.OrganizationCode = await ResolveTrustedOrganizationCodeAsync("无法确定当前可信组织。");
     if (!Guid.TryParse(HttpRequestInfo?.UserId, out var userId) || userId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
     createMutualRecognitionItemCommand.OperId = userId;
     createMutualRecognitionItemCommand.OperTime = DateTimeOffset.UtcNow;
@@ -371,7 +374,7 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   {
     MedicalRecognitionRequestValidator.Validate(request);
     var createMutualRecognitionItemsCommand = request.MapToCreateMutualRecognitionItemsCommand();
-    createMutualRecognitionItemsCommand.OrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定当前可信组织。");
+    createMutualRecognitionItemsCommand.OrganizationCode = await ResolveTrustedOrganizationCodeAsync("无法确定当前可信组织。");
     if (!Guid.TryParse(HttpRequestInfo?.UserId, out var userId) || userId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
     createMutualRecognitionItemsCommand.OperId = userId;
     createMutualRecognitionItemsCommand.OperTime = DateTimeOffset.UtcNow;
@@ -393,7 +396,7 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   {
     MedicalRecognitionRequestValidator.Validate(request);
     var updateMutualRecognitionItemConfigurationCommand = request.MapToUpdateMutualRecognitionItemConfigurationCommand();
-    updateMutualRecognitionItemConfigurationCommand.OrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定当前可信组织。");
+    updateMutualRecognitionItemConfigurationCommand.OrganizationCode = await ResolveTrustedOrganizationCodeAsync("无法确定当前可信组织。");
     if (!Guid.TryParse(HttpRequestInfo?.UserId, out var userId) || userId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
     updateMutualRecognitionItemConfigurationCommand.OperId = userId;
     updateMutualRecognitionItemConfigurationCommand.OperTime = DateTimeOffset.UtcNow;
@@ -417,7 +420,7 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   {
     MedicalRecognitionRequestValidator.Validate(request);
     var enableMutualRecognitionItemCommand = request.MapToEnableMutualRecognitionItemCommand();
-    enableMutualRecognitionItemCommand.OrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定当前可信组织。");
+    enableMutualRecognitionItemCommand.OrganizationCode = await ResolveTrustedOrganizationCodeAsync("无法确定当前可信组织。");
     if (!Guid.TryParse(HttpRequestInfo?.UserId, out var userId) || userId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
     enableMutualRecognitionItemCommand.OperId = userId;
     enableMutualRecognitionItemCommand.OperTime = DateTimeOffset.UtcNow;
@@ -440,7 +443,7 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   {
     MedicalRecognitionRequestValidator.Validate(request);
     var disableMutualRecognitionItemCommand = request.MapToDisableMutualRecognitionItemCommand();
-    disableMutualRecognitionItemCommand.OrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定当前可信组织。");
+    disableMutualRecognitionItemCommand.OrganizationCode = await ResolveTrustedOrganizationCodeAsync("无法确定当前可信组织。");
     if (!Guid.TryParse(HttpRequestInfo?.UserId, out var userId) || userId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
     disableMutualRecognitionItemCommand.OperId = userId;
     disableMutualRecognitionItemCommand.OperTime = DateTimeOffset.UtcNow;
@@ -473,7 +476,8 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
     // 金额由两个入口在公共请求校验通过后显式写入，因此请求侧金额不参与自动映射（见 MedicalRecognitionReportDataMaps.cs）：
     // 自动映射对可空金额的缺省值静默写入 0，会把"未提交金额"变成一次真实的零元写入。
     command.CurrentAmount = request.CurrentAmount!.Value;
-    // 平台管理员入口按请求的组织、医院、院区执行，跨组织同样放行：权限由权限系统负责，不在服务端做组织相等校验。
+    // 平台管理员入口按请求的组织、医院、院区业务编码校验归属，跨组织同样放行：权限由权限系统负责，不在服务端做组织相等校验。
+    // 提交值是业务编码，编码到实例标识的解析、存在性、启用与父子归属校验都在组织路径解析点内完成，不在入口内做编码格式解析。
     OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
       [new OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode)],
       "业务拒绝：组织不存在或已停用。",
@@ -486,10 +490,9 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   /// 保存本院区互认项目金额（医院管理员入口）。
   /// </summary>
   /// <remarks>
-  /// 组织与医院只取自可信上下文，请求不提交也不得覆盖；可信上下文的组织层与医院层按同一规则解析：
-  /// 登录令牌该层非空白即取令牌值，令牌该层缺失或空白时用当前登录用户档案的 <c>OrgId</c>/<c>HosId</c> 补齐，
-  /// 令牌与用户档案都提供该层且不一致即拒绝，补齐后该层仍为空即拒绝，不使用默认值、不降级为空值；
-  /// 请求院区必须存在、启用且属于可信医院与可信组织，否则拒绝，院区层不参与可信回落；
+  /// 组织与医院只取自可信上下文，请求不提交也不得覆盖：组织层只取 IAM 上下文的组织标识，医院层与院区层由该组织
+  /// 沿组织祖先链按组织类型编码归类得到；该层缺失或同一类型出现多个祖先即拒绝，不使用默认值、不降级为空值；
+  /// 请求院区必须存在、启用且属于可信医院与可信组织，否则拒绝，院区不从请求值扩大可信范围；
   /// 其余校验与写入与平台管理员入口完全相同，两个入口映射到同一个命令与同一个领域方法。
   /// </remarks>
   /// <param name="request">保存金额请求，只携带院区、标准项目编码与本次金额。</param>
@@ -505,18 +508,18 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   public async Task<bool> SaveBranchRecognitionAmountAsync(SaveBranchRecognitionAmountRequest request)
   {
     // 可信组织与医院的解析先于公共请求校验：可信范围不成立时不需要、也不得读取任何业务数据。
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
+    IamOrganizationScope trustedScope = await reportScopeResolver.ReadRequiredOrganizationHospitalAsync(
+      "无法确定当前可信组织。", "无法确定当前可信医院。");
     MedicalRecognitionRequestValidator.Validate(request);
     SaveOrganizationHospitalBranchRecognitionAmountCommand command = request.MapToSaveOrganizationHospitalBranchRecognitionAmountCommand();
     // 金额来源与写入理由与平台管理员入口相同：自动映射会在金额缺省时静默写入 0，因此该字段不参与自动映射。
     command.CurrentAmount = request.CurrentAmount!.Value;
-    command.OrganizationCode = trustedScope.OrganizationCode;
-    command.HospitalCode = trustedScope.HospitalCode;
+    // 可信组织与医院取自已解析的可信范围（编码与实例标识同源），请求院区按业务编码参与同一路径校验：
+    // 院区编码不是标识，不在入口内做格式解析，院区是否存在、启用并属于可信医院由组织路径解析点判定。
     OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
       [new OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, request.BranchCode)],
-      "业务拒绝：组织不存在或已停用。",
-      "业务拒绝：医院不存在、已停用或不属于所选组织。",
+      "无法确定当前可信组织。",
+      "无法确定当前可信医院。",
       "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
     return await SaveAmountAsync(command, path);
   }
@@ -526,12 +529,13 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   /// </summary>
   /// <remarks>两个入口的差异只体现在组织路径与命令字段的来源，解析完成后交给领域层的数据完全相同。</remarks>
   /// <param name="command">已携带标准项目编码、非空金额与请求取值的保存命令。</param>
-  /// <param name="path">解析校验通过的组织路径，携带去空白后的三层业务编码。</param>
+  /// <param name="path">解析校验通过的组织路径，同时携带三层实例标识与去空白后的三层业务编码。</param>
   /// <returns>是否保存成功。</returns>
   /// <exception cref="InvalidOperationException">用户标识不能解析为非空 Guid 时抛出；其余业务拒绝由领域管理器抛出。</exception>
   private async Task<bool> SaveAmountAsync(SaveOrganizationHospitalBranchRecognitionAmountCommand command, OrganizationPath path)
   {
     if (!Guid.TryParse(HttpRequestInfo?.UserId, out var userId) || userId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
+    // 编码列写业务编码：编码取自 IAM 组织节点，未配置编码时为空串，不用实例标识替代。
     command.OrganizationCode = path.OrganizationCode;
     command.HospitalCode = path.HospitalCode;
     command.BranchCode = path.BranchCode;
@@ -541,26 +545,42 @@ public partial class MedicalRecognitionReportAppService : ApplicationService, IM
   }
 
   /// <summary>
-  /// 解析报告采集链路的三层可信归属与本次请求的接收时间。
+  /// 读取当前工作身份的组织层业务编码，供只按组织归属的业务（互认项目配置）写入编码列。
   /// </summary>
   /// <remarks>
-  /// 组织、医院与院区三层都来自可信上下文：登录令牌该层非空白即取令牌值，令牌缺失该层时用当前登录用户档案的归属补齐，
-  /// 令牌与档案冲突或补齐后仍为空即拒绝。院区不从请求取值，因此调用方不能扩大可信范围；
-  /// 三层都必须存在、启用且父子归属正确。本次请求的接收时间由服务端取，用于校验业务时间与作废时间不晚于平台接收时点。
+  /// 组织层只取自当前工作身份的组织祖先链，不接受调用方提交；取 IAM 组织节点上配置的业务编码，
+  /// 组织层缺失或该节点未配置业务编码时按入口文案拒绝，不返回空串写入业务列。
   /// </remarks>
-  /// <returns>三层可信归属与本次请求的接收时间。</returns>
-  /// <exception cref="InvalidOperationException">可信组织、医院或院区不可解析，或组织、医院、院区不存在、已停用、父子归属不匹配时抛出。</exception>
-  private async Task<(OrganizationPath Path, DateTime ReceivedTime)> ResolveReportScopeAsync()
+  /// <param name="missingOrganizationMessage">组织层缺失或未配置业务编码时对外抛出的业务拒绝文案。</param>
+  /// <returns>组织业务编码。</returns>
+  /// <exception cref="IamAuthenticationException">请求未携带有效 IAM 凭据时抛出。</exception>
+  /// <exception cref="IamWorkIdentityRequiredException">请求未选择工作身份时抛出。</exception>
+  /// <exception cref="InvalidOperationException">组织层缺失或该节点未配置业务编码时抛出。</exception>
+  private async Task<string> ResolveTrustedOrganizationCodeAsync(string missingOrganizationMessage)
   {
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveWithBranchOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。", "无法确定当前可信院区。");
+    IamOrganizationScope scope = await reportScopeResolver.ReadRequiredOrganizationAsync(missingOrganizationMessage);
+    return string.IsNullOrWhiteSpace(scope.OrganizationCode)
+      ? throw new InvalidOperationException(missingOrganizationMessage)
+      : scope.OrganizationCode;
+  }
 
-    OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
-      [new OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, trustedScope.BranchCode)],
-      "业务拒绝：组织不存在或已停用。",
-      "业务拒绝：医院不存在、已停用或不属于所选组织。",
-      "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
+  /// <summary>
+  /// 解析报告采集链路的当前工作身份三层组织范围与本次请求的接收时间。
+  /// </summary>
+  /// <remarks>
+  /// 组织、医院与院区三层都取自当前工作身份的组织祖先链：按组织类型归类为医共体、医院与院区，
+  /// 任一层缺失、节点已停用或同一类型出现多个祖先即按该层文案拒绝，不使用默认值、不按名称或层级深度推断。
+  /// 院区不从请求取值，因此调用方不能扩大可信范围。本次请求的接收时间由服务端取，用于校验业务时间与作废时间不晚于平台接收时点。
+  /// </remarks>
+  /// <returns>三层组织实例标识与本次请求的接收时间。</returns>
+  /// <exception cref="IamAuthenticationException">请求未携带有效 IAM 凭据时抛出。</exception>
+  /// <exception cref="IamWorkIdentityRequiredException">请求未选择工作身份时抛出。</exception>
+  /// <exception cref="InvalidOperationException">任一层缺失或同一类型出现多个祖先时抛出。</exception>
+  private async Task<(IamOrganizationScope Scope, DateTime ReceivedTime)> ResolveReportScopeAsync()
+  {
+    IamOrganizationScope scope = await reportScopeResolver.ReadRequiredScopeAsync(
+      "无法确定当前可信组织。", "无法确定当前可信医院。", "无法确定当前可信院区。");
 
-    return (path, DateTime.Now);
+    return (scope, DateTime.Now);
   }
 }

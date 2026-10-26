@@ -13,33 +13,55 @@ import { MemoryRouter, useRoutes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { routes } from './routes'
 
+/** 稳定的占位 client：平台参数页挂载时会读取列表，空列表按「未配置」呈现，不制造读取失败。 */
+const clientRef = vi.hoisted(() => ({
+  current: { api: { v1: { platformParameters: { get: async () => [] } } } } as unknown,
+}))
+
 vi.mock('../contexts/ApiClientContext', () => ({
   ApiClientProvider: ({ children }: { children: unknown }) => children,
-  // 路由用例只关心页面是否被挂载：这里给一个空 client，页面读取失败即进入阻断态，不伪装成功。
-  useApiClientContext: () => ({}),
+  // 路由用例只关心页面是否被挂载：占位 client 只提供平台参数列表读取。
+  useApiClientContext: () => clientRef.current,
 }))
 
-/**
- * 范围选择器替换成最小替身：`@dy/components-base` 的 ESM 产物内部使用无扩展名相对导入，
- * vitest 默认把 node_modules 依赖交给 Node 解析，测试环境无法加载真实实现
- * （需 `test.server.deps.inline`，不属于本票所有权）。路由用例只验证页面挂载，不验证选择器行为。
- */
-vi.mock('@dy/components-base', () => ({
-  configureBaseComponents: () => {},
-  BaseScopeSelector: () => createElement('div', { className: 'stub-scope-selector' }),
+/** 范围选择器替换成最小替身：路由用例只验证页面挂载，不验证选择器行为与范围查询。 */
+vi.mock('../components/OrganizationScopeSelector', () => ({
+  OrganizationScopeSelector: () => createElement('div', { className: 'stub-scope-selector' }),
 }))
 
-vi.mock('@dy/auth', () => ({
-  LoginUserManager: {
-    getOrgID: () => 'ORG-A',
-    getHosID: () => 'HOS-1',
-    getBranchID: () => 'BRA-1',
-  },
+/** 页头范围条只读宿主会话：按匿名会话渲染，页面挂载不需要真实认证运行时。 */
+vi.mock('../session/HostSessionContext', () => ({
+  useHostSession: () => ({
+    status: 'anonymous',
+    sessionVersion: '',
+    userId: null,
+    account: null,
+    displayName: null,
+    organizationId: null,
+    hospitalId: null,
+    campusId: null,
+  }),
 }))
 
-vi.mock('@dy/auth-react', () => ({
-  useAuth: () => ({ isAuthenticated: true, token: 'token-1', login: () => {}, logout: () => {} }),
-}))
+/** 可信范围接缝只读宿主会话：路由用例给固定已认证会话，页面按正常路径挂载。 */
+vi.mock('../session/hostSession', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../session/hostSession')>()
+  const session = {
+    status: 'authenticated',
+    sessionVersion: 'v1',
+    userId: 'user-1',
+    account: '191617',
+    displayName: '杨康健',
+    organizationId: 'ORG-A',
+    hospitalId: 'HOS-1',
+    campusId: 'BRA-1',
+  }
+  return {
+    ...actual,
+    readCurrentHostSession: () => session,
+    useHostSessionSnapshot: () => session,
+  }
+})
 
 const children = routes[0].children ?? []
 const paths = children.map((route) => route.path)
@@ -55,10 +77,18 @@ describe('子应用路由表', () => {
     expect(children.some((route) => route.index === true)).toBe(true)
     expect(paths).toEqual(expect.arrayContaining([
       'standard-catalog',
+      'platform-parameters',
       'recognition-projects',
       'recognition-amounts',
       'branch-recognition-amounts',
     ]))
+  })
+
+  it('在子应用路径 platform-parameters 下挂载平台参数维护页面（宿主路径 /subApps/medical-recognition/platform-parameters）', async () => {
+    renderPath('/platform-parameters')
+
+    expect(await screen.findByRole('heading', { name: '平台参数维护' })).toBeInTheDocument()
+    expect(document.querySelector('.platform-parameters-page')).not.toBeNull()
   })
 
   it('在子应用路径 recognition-projects 下挂载互认项目页面（宿主路径 /subApps/medical-recognition/recognition-projects）', async () => {

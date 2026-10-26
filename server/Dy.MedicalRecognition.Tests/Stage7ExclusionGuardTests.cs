@@ -61,12 +61,29 @@ public sealed class Stage7ExclusionGuardTests
   private static readonly Regex SyncCapabilityPattern = new("Sync(?=[A-Z])", RegexOptions.Compiled);
 
   /// <summary>排除类能力在 OpenAPI 路径与前端路由文本上的子串集合，判定不区分大小写。</summary>
+  /// <remarks>
+  /// 子串 `parameter` 另按精确放行清单处理：T02 迁移把 Base 系统参数服务整体退出后，
+  /// 本应用自管的 `mrec_platform_parameter` 三项业务参数及维护入口属既定取代，只放行清单内路由，
+  /// 其余含 `parameter` 的路由仍按排除项失败。
+  /// </remarks>
   private static readonly string[] ExcludedRouteSubstrings =
   [
     "trend", "rank", "approv", "import", "retrieval", "sync", "push",
     "download-record", "collection", "non-adoption-reason", "version-management",
     "parameter", "match-export", "performance",
     "nonadoptionreason", "clinicalcontent", "downloadrecord"
+  ];
+
+  /// <summary>
+  /// 平台参数维护的精确放行路由：仅允许本应用自管参数表的列表与单条保存两条 API 路由，
+  /// 以及前端参数维护页的候选页面路由。页面最终路由字符串以前端路由定稿为准，届时同步本清单。
+  /// </summary>
+  private static readonly string[] ApprovedParameterRoutes =
+  [
+    "/api/v1/platform-parameters",
+    "/api/v1/platform-parameters/{parameterCode}",
+    "/platform-parameters",
+    "platform-parameters"
   ];
 
   /// <summary>
@@ -138,9 +155,12 @@ public sealed class Stage7ExclusionGuardTests
   /// </summary>
   /// <remarks>
   /// 路径全量等值已由 <c>Stage2EnumContractTests.Frozen_openapi_keeps_the_expected_path_set_and_no_unnormalized_shapes</c>
-  /// 冻结为阶段 6 交付后的 55 条快照，并随页头范围展示轮的新增范围查询扩为 56 条，再随行集收敛与弹窗发现能力轮的可新增标准项目查询扩为 57 条，并随互认项目页导出能力首端点扩为 58 条，再随平台金额页导出端点扩为 59 条，再随本院区金额页导出端点扩为 60 条；本用例在该清单上按排除子串再扫一遍，
+  /// 冻结为阶段 6 交付后的 55 条快照，并随页头范围展示轮的新增范围查询扩为 56 条，再随行集收敛与弹窗发现能力轮的可新增标准项目查询扩为 57 条，并随互认项目页导出能力首端点扩为 58 条，再随平台金额页导出端点扩为 59 条，再随本院区金额页导出端点扩为 60 条，再随 IAM 认证迁移新增当前会话与组织范围两个查询、移除登录端点后净增 2 条扩为 62 条，再随平台参数维护新增列表与单条保存两个端点扩为 64 条；本用例在该清单上按排除子串再扫一遍，
   /// 让「排除项被实现并新增路由」这一回归即使在新清单断言被同步放行时也会被本用例拦下。
-  /// 路径数量同时复断言 60，防止快照被整体替换后扫描面悄悄缩小。
+  /// 平台参数配置属排除项；本应用自管的 `mrec_platform_parameter` 三项业务参数为 T02 迁移的既定取代，
+  /// 仅放行 <see cref="ApprovedParameterRoutes"/> 中两条精确 API 路由，其余参数路由仍判失败。
+  /// 取代原因：Base 系统参数服务在本次迁移中整体退出，原 DC-10/EX-19 的「复用既有系统参数」前提已消失。
+  /// 路径数量同时复断言 64，防止快照被整体替换后扫描面悄悄缩小。
   /// </remarks>
   [Fact]
   public void V1_frozen_openapi_paths_declare_no_excluded_operation()
@@ -148,13 +168,16 @@ public sealed class Stage7ExclusionGuardTests
     JsonNode document = JsonNode.Parse(File.ReadAllText(OpenApiSnapshotPath()))!;
     IReadOnlyList<string> paths = [.. document["paths"]!.AsObject().Select(property => property.Key)];
 
-    Assert.Equal(60, paths.Count);
+    Assert.Equal(64, paths.Count);
     foreach (string path in paths)
     {
       foreach (string substring in ExcludedRouteSubstrings)
+      {
+        if (substring.Equals("parameter", StringComparison.OrdinalIgnoreCase) && IsApprovedParameterRoute(path)) continue;
         Assert.False(
           path.Contains(substring, StringComparison.OrdinalIgnoreCase),
           $"OpenAPI 路径 {path} 命中排除类能力子串 {substring}。");
+      }
     }
   }
 
@@ -165,8 +188,10 @@ public sealed class Stage7ExclusionGuardTests
   /// 子应用无本地菜单定义（菜单由宿主按授权注入），路由清单即页面全集：
   /// 阶段 1 两界面节合并为同一工作台后共 10 个管理端页面路由，加上仅开发环境挂载的原型路由。
   /// 采集任务管理（EX-16）、调阅状态（EX-02）、逐份审批（EX-07）、版本管理（EX-20/EX-23）、
-  /// 下载记录查询（EX-24）、不采纳原因字典管理（EX-27）、参数配置（EX-19/DC-10）、
-  /// 趋势排名绩效（EX-17/DC-09）、推送记录（EX-06）等页面路由出现即失败。
+  /// 下载记录查询（EX-24）、不采纳原因字典管理（EX-27）、趋势排名绩效（EX-17/DC-09）、
+  /// 推送记录（EX-06）等页面路由出现即失败。平台参数配置属排除项；本应用自管的
+  /// `mrec_platform_parameter` 三项业务参数为 T02 迁移的既定取代，仅放行 <see cref="ApprovedParameterRoutes"/>
+  /// 中精确页面路由，其余参数路由仍判失败；页面路由已按前端定稿的 `platform-parameters` 登记。
   /// </remarks>
   [Fact]
   public void V1_management_router_declares_exactly_the_delivered_pages()
@@ -190,7 +215,7 @@ public sealed class Stage7ExclusionGuardTests
     declaredPaths = declaredPaths.Distinct().ToArray();
     string[] expectedPaths =
     [
-      "/", "standard-catalog", "recognition-projects", "recognition-amounts", "branch-recognition-amounts",
+      "/", "standard-catalog", "platform-parameters", "recognition-projects", "recognition-amounts", "branch-recognition-amounts",
       "report-management", "branch-report-management",
       // 详情子路由（阶段 4 报告详情重构交付的入口子路由，路径参数 reportId）。
       "detail/:reportId", "recognition-usage-statistics",
@@ -204,11 +229,22 @@ public sealed class Stage7ExclusionGuardTests
     foreach (string declaredPath in declaredPaths)
     {
       foreach (string substring in ExcludedRouteSubstrings)
+      {
+        if (substring.Equals("parameter", StringComparison.OrdinalIgnoreCase) && IsApprovedParameterRoute(declaredPath)) continue;
         Assert.False(
           declaredPath.Contains(substring, StringComparison.OrdinalIgnoreCase),
           $"管理端路由 {declaredPath} 命中排除类页面子串 {substring}。");
+      }
     }
   }
+
+  /// <summary>
+  /// 判断一条路径是否属于平台参数维护的精确放行路由。
+  /// </summary>
+  /// <param name="route">OpenAPI 路径或前端页面路由。</param>
+  /// <returns>精确命中放行清单时为 <see langword="true"/>；相似但不相等的参数路由仍返回 <see langword="false"/>。</returns>
+  private static bool IsApprovedParameterRoute(string route) =>
+    ApprovedParameterRoutes.Contains(route, StringComparer.OrdinalIgnoreCase);
 
   /// <summary>
   /// 在路径常量文件中解析路由 path 声明引用的常量字面量；常量无字面量声明即断言失败，
@@ -483,7 +519,7 @@ public sealed class Stage7ExclusionGuardTests
         "mrec_laboratory_report_content.sql", "mrec_laboratory_result_item.sql",
         "mrec_medical_recognition_report.sql", "mrec_medical_report_version.sql",
         "mrec_medical_standard_category.sql", "mrec_medical_standard_group.sql", "mrec_medical_standard_item.sql",
-        "mrec_organization_hospital_branch_recognition_amount.sql", "mrec_platform_patient.sql",
+        "mrec_organization_hospital_branch_recognition_amount.sql", "mrec_platform_parameter.sql", "mrec_platform_patient.sql",
         "mrec_recognition_match_item.sql", "mrec_recognition_match_record.sql",
         "mrec_recognition_processing_result.sql", "mrec_recognition_reference.sql", "mutual_recognition_item.sql"
       ],
@@ -491,14 +527,12 @@ public sealed class Stage7ExclusionGuardTests
   }
 
   /// <summary>
-  /// V4：三项系统参数只经既有系统参数服务的平台级按编码读取，不出现组织级覆盖或其他参数面。
+  /// V4：三项系统参数只经本应用平台参数存储按编码读取，不出现旧 Base 系统参数服务调用与组织级覆盖。
   /// </summary>
   /// <remarks>
-  /// DC-10：引用详情有效时长、本院报告匹配开关与本院报告排除时长复用既有系统参数服务，
-  /// 不建专用参数表、配置页面与组织级覆盖。判定面是外部参数服务接口成员的调用集合：
-  /// 写侧与读侧应用服务全部声明分片中恰好只有平台级按编码读取一项；组织级覆盖成员
-  /// （GetOrg/QueryOrg 前缀）同属该接口，一旦出现即被集合等值拦下。
-  /// 应用服务内部的私有参数读取包装不是服务成员，不参与集合。
+  /// DC-10 的迁移后口径：引用详情有效时长、本院报告匹配开关与本院报告排除时长由本应用
+  /// `mrec_platform_parameter` 提供，读取入口只按参数编码取值；旧 `ISystemParameterAppService` 的成员调用集合必须为空，
+  /// 组织级覆盖成员（GetOrg/QueryOrg 前缀）同样不得出现。三个读取入口的调用名必须同时出现在应用服务声明分片中。
   /// 判别力由合成源码变异证据保证。
   /// </remarks>
   [Fact]
@@ -518,10 +552,11 @@ public sealed class Stage7ExclusionGuardTests
 
     // 判定面是外部参数服务接口成员的调用名集合：应用服务内部的私有包装方法
     // （如 ReadSystemParameterValueAsync）不是服务成员，其内部实现仍走按编码读取。
-    string[] parameterServiceMembers = [..
-      typeof(Dy.Base.Application.Contracts.SystemParameterAggregate.ISystemParameterAppService)
-        .GetMethods()
-        .Select(method => method.Name)];
+    string[] parameterServiceMembers =
+    [
+      "GetSystemParameterByCodeAsync", "GetOrgSystemParameterValueByCodeAsync",
+      "GetSystemParameterValueByCodeAsync", "GetSystemParameterByCodeListAsync"
+    ];
 
     SortedSet<string> parameterMemberCalls = new(StringComparer.Ordinal);
     foreach ((string _, CompilationUnitSyntax root) in entryDeclarations)
@@ -529,7 +564,13 @@ public sealed class Stage7ExclusionGuardTests
       parameterMemberCalls.UnionWith(FindParameterServiceCalls(root, parameterServiceMembers));
     }
 
-    Assert.Equal(["GetSystemParameterByCodeAsync"], parameterMemberCalls.ToArray());
+    Assert.Empty(parameterMemberCalls);
+
+    // 三个参数必须都经本应用读取入口：只断言旧服务归零无法证明读取已改走新存储。
+    string declarations = string.Join("\n", entryDeclarations.Select(declaration => declaration.Root.ToString()));
+    Assert.Contains("ReadOwnHospitalMatchSwitchAsync", declarations, StringComparison.Ordinal);
+    Assert.Contains("ReadOwnHospitalExcludeHoursAsync", declarations, StringComparison.Ordinal);
+    Assert.Contains("ReadCitationDetailValidHoursAsync", declarations, StringComparison.Ordinal);
 
     // 变异证据：组织级覆盖读取必须被同一集合等值判定拦下。
     Assert.Contains(
@@ -539,7 +580,7 @@ public sealed class Stage7ExclusionGuardTests
           """
           class Probe
           {
-            void Read(Dy.Base.Application.Contracts.SystemParameterAggregate.ISystemParameterAppService service)
+            void Read(object service)
             {
               service.GetOrgSystemParameterValueByCodeAsync(null);
             }

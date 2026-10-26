@@ -1,3 +1,4 @@
+using Dy.MedicalRecognition.Application.OrganizationScope;
 using ClosedXML.Excel;
 using Dy.MedicalRecognition.Application.Contracts.Queries.MutualRecognition;
 using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
@@ -47,8 +48,8 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     MedicalRecognitionRequestValidator.Validate(request);
 
     // 组织范围只信服务端可信当前组织：与对应列表查询共用同一解析点，先去除首尾空白再判定，空白组织一律拒绝。
-    string currentOrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定有效的当前组织。");
-    // 请求组织与可信组织同源，两侧都可能带首尾空白：比较与下传统一用去空白后的可信值，口径与列表查询一致。
+    string currentOrganizationCode = await ResolveTrustedOrganizationCodeAsync("无法确定有效的当前组织。");
+    // 请求组织与可信组织同源，两侧都可能带首尾空白：比较与下传统一用去空白后的可信值。
     if (!string.Equals(request.OrganizationCode.Trim(), currentOrganizationCode, StringComparison.Ordinal))
     {
       throw new InvalidOperationException("请求组织与当前登录组织不一致，不能导出该组织的互认配置。");
@@ -100,11 +101,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     MedicalRecognitionRequestValidator.Validate(request);
 
     // 组织范围按请求使用并整批校验：与平台金额列表查询共用同一解析点，三值任一不存在、停用或父子不匹配都整次拒绝。
-    OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
-      [new OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode)],
+    OrganizationPath path = await ResolveSubmittedPlatformPathAsync(
+      new OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode),
       "业务拒绝：组织不存在或已停用。",
       "业务拒绝：医院不存在、已停用或不属于所选组织。",
-      "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
+      "业务拒绝：院区不存在、已停用或不属于所选医院。");
 
     // 标准项目编码参数恒为空：导出契约不承载该字段；关键字先归一再进入查询语句，空白文本不代表过滤条件。
     string? keyword = NullIfBlank(request.Keyword);
@@ -146,15 +147,15 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   public async Task<ConfigurationExportFileReadModel> GetBranchRecognitionAmountExportAsync(BranchRecognitionAmountExportRequest request)
   {
     // 可信组织与医院的解析先于公共请求校验：与本院区金额列表查询同一先后，可信范围不成立时不需要、也不得读取任何业务数据。
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
+    IamOrganizationScope trustedScope = await reportScopeResolver.ReadRequiredOrganizationHospitalAsync(
+      "无法确定当前可信组织。", "无法确定当前可信医院。");
     MedicalRecognitionRequestValidator.Validate(request);
 
-    // 请求院区按请求使用并整批校验：可信组织与医院配合请求院区走同一组织路径解析点，任一层不成立都整次拒绝。
+    // 请求院区按请求使用并整批校验：可信组织与医院用可信范围的业务编码，请求院区编码一并交由组织路径解析点校验归属。
     OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
       [new OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, request.BranchCode)],
-      "业务拒绝：组织不存在或已停用。",
-      "业务拒绝：医院不存在、已停用或不属于所选组织。",
+      "无法确定当前可信组织。",
+      "无法确定当前可信医院。",
       "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
 
     // 标准项目编码参数恒为空：导出契约不承载该字段；关键字先归一再进入查询语句，空白文本不代表过滤条件。

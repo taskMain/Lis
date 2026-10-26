@@ -6,7 +6,7 @@
  * 1. `./reportsApi` 只替换 4 个 I/O 出口，其余纯函数使用真实实现，行夹具经真实适配层 `toReportPage` 归一；
  * 2. `../../contexts/ApiClientContext` 只提供占位 client；
  * 3. 可信组织与可信医院两个接缝被替换为可控值，用于构造「可信范围就绪」与「可信范围不可用」两类场景。
- *    页面无范围选择器（院区恒取登录院区、不提供院区选择），不依赖 `@dy/components-base`，无需替换该包。
+ *    页面无范围选择器（院区恒取会话院区、不提供院区选择），测试不替换任何 Base 包。
  *
  * 仍属 Host 层、不在本文件覆盖：真实宿主菜单进入、宿主统一错误提示与真实后端链路（C27–C31）。
  */
@@ -40,14 +40,23 @@ vi.mock('./reportsApi', async (importOriginal) => {
   return { ...actual, ...api }
 })
 
+/** 页头范围条只读宿主会话：本文件不覆盖宿主链路，按匿名会话渲染「未知」且零业务请求。 */
+vi.mock('../../session/HostSessionContext', () => ({
+  useHostSession: () => ({
+    status: 'anonymous',
+    sessionVersion: '',
+    userId: null,
+    account: null,
+    displayName: null,
+    organizationId: null,
+    hospitalId: null,
+    campusId: null,
+  }),
+}))
+
 vi.mock('../../contexts/ApiClientContext', () => ({
   ApiClientProvider: ({ children }: { children: unknown }) => children,
   useApiClientContext: () => ({}),
-}))
-
-vi.mock('@dy/auth-react', () => ({
-  /** 与真实包同形的最小替身：token 在值（范围条据此读取三级编码）；本文件无 token 变化场景。 */
-  useAuth: () => ({ isAuthenticated: true, token: 'token-1', login: () => {}, logout: () => {} }),
 }))
 
 vi.mock('../recognitionProjects/recognitionProjectsOrganizationScope', () => ({
@@ -154,7 +163,7 @@ beforeEach(() => {
   clearRowSummaries()
 })
 
-/** 本用例环境的真实 LoginUserManager 无登录编码：范围条三级名称按「未知」占位的既定渲染口径。 */
+/** 本用例环境的范围条按匿名会话渲染：三级名称显示「未知」的既定口径。 */
 const SCOPE_BAR_FALLBACK_TEXT = '未知 / 未知 / 未知'
 
 describe('C23 医院管理员页可信范围（院区恒取登录院区）', () => {

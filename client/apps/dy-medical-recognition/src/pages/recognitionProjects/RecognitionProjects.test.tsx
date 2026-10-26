@@ -5,9 +5,8 @@
  * 1. `./recognitionProjectsApi` 只替换 5 个 I/O 出口（页面配置列表读取、弹窗可新增项目读取、三个写入），其余纯函数
  *    （请求适配、读模型映射、列视图合并与裁剪、排除集合、本地筛选、常量与类型）**使用真实实现**；
  * 2. `../../contexts/ApiClientContext` 只提供占位 client——页面把 client 原样透传给适配层出口；
- * 3. 可信组织沿用既有两个包的边界：`@dy/auth` 的 `LoginUserManager.getOrgID()` 与
- *    `@dy/auth-react` 的 `useAuth()`。这里替换这两个包，并用外部 store + `useSyncExternalStore`
- *    模拟宿主重新签发 token，从而以生产同一路径驱动「组织变化」。
+ * 3. 可信组织只来自宿主会话：这里用外部 store 替换会话读取与订阅，
+ *    模拟宿主切换工作身份，从而以生产同一路径驱动「组织变化」。
  *
  * 页面主体是八列列视图（类型｜分类｜分组｜项目｜可互认时间｜互认配置状态｜当前不可用原因｜操作），
  * 列表由 antd Table 承载：列表断言按层级格的可访问名称、表头单元格（`th`）与表格行的 `data-row-key`
@@ -25,7 +24,6 @@ import { ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { useSyncExternalStore } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildFilterSearch, parseFilterSearch } from './recognitionProjectsFilterUrl'
 import {
@@ -53,18 +51,38 @@ const authState = vi.hoisted(() => {
   type State = { organizationCode: string | null; hospitalCode: string | null; branchCode: string | null; token: string | null }
   const listeners = new Set<() => void>()
   const state: State = { organizationCode: 'ORG-A', hospitalCode: null, branchCode: null, token: 'token-1' }
+  let version = 1
+  let current = build()
+  function build() {
+    return {
+      status: state.token === null ? 'anonymous' : 'authenticated',
+      sessionVersion: `v${version}`,
+      userId: state.token === null ? null : 'user-1',
+      account: null,
+      displayName: null,
+      organizationId: state.organizationCode,
+      hospitalId: state.hospitalCode,
+      campusId: state.branchCode,
+    }
+  }
+  function notify() {
+    current = build()
+    for (const listener of [...listeners]) listener()
+  }
   return {
     state,
+    /** 当前会话快照：与宿主订阅推送同一对象，通知前保持引用稳定。 */
+    getSession: () => current,
     subscribe(listener: () => void) {
       listeners.add(listener)
       return () => {
         listeners.delete(listener)
       }
     },
-    getToken: () => state.token,
     change(next: Partial<State>) {
       Object.assign(state, next)
-      for (const listener of [...listeners]) listener()
+      version += 1
+      notify()
     },
     /**
      * 只改组织编码、**不通知订阅者**：用于构造「宿主已换凭证、页面尚未重渲染」这一窗口。
@@ -72,12 +90,67 @@ const authState = vi.hoisted(() => {
      */
     changeOrganizationSilently(organizationCode: string | null) {
       state.organizationCode = organizationCode
+      current = build()
     },
     reset() {
       state.organizationCode = 'ORG-A'
       state.hospitalCode = null
       state.branchCode = null
       state.token = 'token-1'
+      version += 1
+      notify()
+    },
+  }
+})
+
+vi.mock('../../session/hostSession', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../session/hostSession')>()
+  const { useSyncExternalStore } = await import('react')
+  return {
+    ...actual,
+    readCurrentHostSession: () => authState.getSession(),
+    useHostSessionSnapshot: () => {
+      useSyncExternalStore(authState.subscribe, authState.getSession)
+      return authState.getSession()
+    },
+  }
+})
+
+/**
+ * 当前范围接缝替身：本文件已把可信组织表达在宿主会话快照里，业务编码与实例标识同值——
+ * 页面提交的仍是业务编码，标识与编码的区分由 currentOrganizationScope 与 reportsTrustedScope
+ * 的接缝用例承担，这里只固定「可信组织从当前范围来」这一接线。
+ */
+vi.mock('../../components/currentOrganizationScope', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../components/currentOrganizationScope')>()
+  const scope = () => {
+    const session = authState.getSession()
+    return {
+      organizationId: session.organizationId,
+      organizationName: null,
+      organizationCode: session.organizationId,
+      hospitalId: session.hospitalId,
+      hospitalName: null,
+      hospitalCode: session.hospitalId,
+      branchId: session.campusId,
+      branchName: null,
+      branchCode: session.campusId,
+    }
+  }
+  return {
+    ...actual,
+    readCurrentOrganizationScope: () => scope(),
+    useResolvedTrustedScope: () => {
+      const value = scope()
+      return {
+        status: value.organizationCode === null ? 'unavailable' as const : 'ready' as const,
+        organizationId: value.organizationId,
+        hospitalId: value.hospitalId,
+        branchId: value.branchId,
+        organizationCode: value.organizationCode,
+        hospitalCode: value.hospitalCode,
+        branchCode: value.branchCode,
+      }
     },
   }
 })
@@ -125,23 +198,6 @@ vi.mock('../../contexts/ApiClientContext', () => ({
   // 返回当前用例的 client：同一条用例内引用稳定（页面把 client 作为 load 的 useCallback 依赖），
   // 跨用例换新实例以隔离 hook 的按实例缓存。
   useApiClientContext: () => clientRef.current,
-}))
-
-vi.mock('@dy/auth', () => ({
-  LoginUserManager: {
-    getOrgID: () => authState.state.organizationCode,
-    getHosID: () => authState.state.hospitalCode,
-    getBranchID: () => authState.state.branchCode,
-  },
-}))
-
-vi.mock('@dy/auth-react', () => ({
-  useAuth: () => ({
-    isAuthenticated: authState.state.token !== null,
-    token: useSyncExternalStore(authState.subscribe, authState.getToken),
-    login: () => {},
-    logout: () => {},
-  }),
 }))
 
 type Row = RecognitionProjectConfigurationRow

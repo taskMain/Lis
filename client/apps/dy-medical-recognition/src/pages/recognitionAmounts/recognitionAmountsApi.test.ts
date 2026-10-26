@@ -74,12 +74,11 @@ function stubClient(handlers: Record<string, unknown> = {}) {
 const bodyOf = (mock: { mock: { calls: unknown[][] } }): Record<string, unknown> =>
   mock.mock.calls[0][0] as Record<string, unknown>
 
-/** 提交载荷里的金额节点取值；生成端的 `writeObjectValue` 就是按这个取值写出数值的。 */
-const amountOf = (body: Record<string, unknown>): unknown =>
-  (body.currentAmount as { getValue: () => unknown }).getValue()
+/** 提交载荷里的金额取值：`decimal` 字段按 `number | null` 生成，直接写出数值。 */
+const amountOf = (body: Record<string, unknown>): unknown => body.currentAmount
 
-/** 生成端反序列化后的金额形态：`UntypedNode`（`value` + `getValue()`），不是裸数字。 */
-const node = (value: unknown) => ({ value, getValue: () => value })
+/** 生成端反序列化后的金额形态：`number | null`。 */
+const amount = (value: number | null) => value
 
 const readModel = (overrides: Partial<RecognitionAmountReadModelLike> = {}): RecognitionAmountReadModelLike => ({
   standardProjectCode: 'A01',
@@ -92,7 +91,7 @@ const readModel = (overrides: Partial<RecognitionAmountReadModelLike> = {}): Rec
   branchName: '院区一',
   configurationStatus: 1,
   unavailableReason: null,
-  currentAmount: node(12.5),
+  currentAmount: 12.5,
   isAmountConfigured: true,
   ...overrides,
 })
@@ -267,7 +266,7 @@ describe('读模型到行视图模型：可空金额与枚举归一', () => {
   })
 
   it('已配置的零元按数值 0 呈现，不与未配置合并', () => {
-    const [row] = toRecognitionAmountRows([readModel({ currentAmount: node(0), isAmountConfigured: true })])
+    const [row] = toRecognitionAmountRows([readModel({ currentAmount: amount(0), isAmountConfigured: true })])
 
     expect(row.currentAmount).toBe(0)
     expect(row.isAmountConfigured).toBe(true)
@@ -276,15 +275,15 @@ describe('读模型到行视图模型：可空金额与枚举归一', () => {
   })
 
   it('已配置金额按两位小数呈现；金额缺失时按未配置呈现', () => {
-    expect(currentAmountText(toRecognitionAmountRows([readModel({ currentAmount: node(12.5) })])[0])).toBe('12.50')
-    expect(currentAmountText(toRecognitionAmountRows([readModel({ currentAmount: node(1234) })])[0])).toBe('1234.00')
+    expect(currentAmountText(toRecognitionAmountRows([readModel({ currentAmount: amount(12.5) })])[0])).toBe('12.50')
+    expect(currentAmountText(toRecognitionAmountRows([readModel({ currentAmount: amount(1234) })])[0])).toBe('1234.00')
     expect(currentAmountText(toRecognitionAmountRows([readModel({ currentAmount: null })])[0])).toBe('未配置')
   })
 
   it('金额与已配置标记自相矛盾时按未配置归一，不呈现「未配置 + 数字」的混态', () => {
     const [configuredFlagOnly, amountOnly] = toRecognitionAmountRows([
       readModel({ currentAmount: null, isAmountConfigured: true }),
-      readModel({ currentAmount: node(5), isAmountConfigured: false }),
+      readModel({ currentAmount: amount(5), isAmountConfigured: false }),
     ])
 
     expect(configuredFlagOnly.isAmountConfigured).toBe(false)
@@ -293,17 +292,17 @@ describe('读模型到行视图模型：可空金额与枚举归一', () => {
     expect(amountOnly.currentAmount).toBeNull()
   })
 
-  it('生成端把金额生成为未定型节点：接受节点形态，非数值形态不产生伪金额', () => {
-    const [fromNode, fromString, fromObject, fromMissing] = toRecognitionAmountRows([
-      readModel({ currentAmount: node(7.25) }),
+  it('金额按数值合约读取：接受有限数值，非数值与缺失不产生伪金额', () => {
+    const [fromNumber, fromString, fromInfinite, fromMissing] = toRecognitionAmountRows([
+      readModel({ currentAmount: amount(7.25) }),
       readModel({ currentAmount: '7.25' as unknown as RecognitionAmountReadModelLike['currentAmount'] }),
-      readModel({ currentAmount: { value: {} } }),
+      readModel({ currentAmount: Number.POSITIVE_INFINITY }),
       readModel({ currentAmount: undefined }),
     ])
 
-    expect(fromNode.currentAmount).toBe(7.25)
+    expect(fromNumber.currentAmount).toBe(7.25)
     expect(fromString.currentAmount).toBeNull()
-    expect(fromObject.currentAmount).toBeNull()
+    expect(fromInfinite.currentAmount).toBeNull()
     expect(fromMissing.currentAmount).toBeNull()
   })
 
@@ -449,14 +448,12 @@ describe('适配层 I/O 出口的真实请求体形状', () => {
     expect(body).not.toHaveProperty('hospitalCode')
   })
 
-  it('零元以数值 0 提交，且金额按生成端要求的未定型节点形态承载（不是裸数字）', async () => {
+  it('零元以数值 0 提交，金额属性直接承载数值', async () => {
     const client = stubClient()
     await saveBranchRecognitionAmount(client, buildBranchAmountSavePayload({ branchCode: 'B', amountInput: '0' }, 'A01')!)
 
     const body = bodyOf(client.api.medicalRecognitionReport.saveBranchRecognitionAmount.post)
-    // 生成端把该属性交给 `writeObjectValue`：裸数字会被序列化成对象；节点形态才会写成数值。
-    expect(typeof body.currentAmount).not.toBe('number')
-    expect((body.currentAmount as { getValue: () => unknown }).getValue()).toBe(0)
+    expect(body.currentAmount).toBe(0)
   })
 })
 
@@ -646,7 +643,7 @@ describe('四栏层级列视图：类型 → 分类 → 分组 → 项目行', (
 
   it('项目行承载编码、名称、当前金额、已配置标记、配置状态值与其中文、不可用原因', () => {
     const view = toRecognitionAmountColumnView([
-      amountRow({ standardProjectCode: 'A01', currentAmount: node(12.5), isAmountConfigured: true, configurationStatus: 2, unavailableReason: '所属分组已停用' }),
+      amountRow({ standardProjectCode: 'A01', currentAmount: amount(12.5), isAmountConfigured: true, configurationStatus: 2, unavailableReason: '所属分组已停用' }),
     ])
 
     expect(view.types).toHaveLength(1)
@@ -678,9 +675,9 @@ describe('四栏层级列视图：类型 → 分类 → 分组 → 项目行', (
 
 describe('本地状态裁剪：金额状态与互认配置状态取交集，只裁剪不发请求', () => {
   const rows = toRecognitionAmountRows([
-    readModel({ standardProjectCode: 'A01', isAmountConfigured: true, currentAmount: node(10), configurationStatus: 1 }),
+    readModel({ standardProjectCode: 'A01', isAmountConfigured: true, currentAmount: amount(10), configurationStatus: 1 }),
     readModel({ standardProjectCode: 'A02', isAmountConfigured: false, currentAmount: null, configurationStatus: 1 }),
-    readModel({ standardProjectCode: 'A03', isAmountConfigured: true, currentAmount: node(20), configurationStatus: 2 }),
+    readModel({ standardProjectCode: 'A03', isAmountConfigured: true, currentAmount: amount(20), configurationStatus: 2 }),
     readModel({ standardProjectCode: 'A04', isAmountConfigured: false, currentAmount: null, configurationStatus: 2 }),
     readModel({ standardProjectCode: 'A05', isAmountConfigured: false, currentAmount: null, configurationStatus: 9 }),
   ])

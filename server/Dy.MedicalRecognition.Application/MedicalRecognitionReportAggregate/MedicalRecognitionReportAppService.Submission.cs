@@ -2,7 +2,9 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dy.Core.Abstractions.Http;
+using Dy.IAM.Sdk;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate;
+using Dy.MedicalRecognition.Application.OrganizationScope;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
 using Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
@@ -49,7 +51,7 @@ public partial class MedicalRecognitionReportAppService
   {
     MedicalRecognitionRequestValidator.Validate(request);
     LaboratoryReportVersionRequest document = DeserializeReportDocument<LaboratoryReportVersionRequest>(request.ReportJson);
-    (OrganizationPath path, DateTime receivedTime) = await ResolveReportScopeAsync();
+    (IamOrganizationScope scope, DateTime receivedTime) = await ResolveReportScopeAsync();
     Guid operId = ResolveOperatorId();
     await EnsurePdfFileReadableAsync(request.PdfFileId);
 
@@ -60,9 +62,10 @@ public partial class MedicalRecognitionReportAppService
       Content = document.Content,
       Results = document.Results,
       BacteriaResults = document.BacteriaResults,
-      OrganizationCode = path.OrganizationCode,
-      HospitalCode = path.HospitalCode,
-      BranchCode = path.BranchCode,
+      // 编码列写业务编码：取自当前工作身份组织节点的编码，未配置编码时为空串，不用实例标识替代。
+      OrganizationCode = scope.OrganizationCode ?? string.Empty,
+      HospitalCode = scope.HospitalCode ?? string.Empty,
+      BranchCode = scope.BranchCode ?? string.Empty,
       PdfFileId = request.PdfFileId,
       PdfFileName = request.PdfFileName,
       OperId = operId,
@@ -85,7 +88,7 @@ public partial class MedicalRecognitionReportAppService
   {
     MedicalRecognitionRequestValidator.Validate(request);
     ExaminationReportVersionRequest document = DeserializeReportDocument<ExaminationReportVersionRequest>(request.ReportJson);
-    (OrganizationPath path, DateTime receivedTime) = await ResolveReportScopeAsync();
+    (IamOrganizationScope scope, DateTime receivedTime) = await ResolveReportScopeAsync();
     Guid operId = ResolveOperatorId();
     await EnsurePdfFileReadableAsync(request.PdfFileId);
 
@@ -95,9 +98,10 @@ public partial class MedicalRecognitionReportAppService
       Version = document.Version,
       Content = document.Content,
       Items = document.Items,
-      OrganizationCode = path.OrganizationCode,
-      HospitalCode = path.HospitalCode,
-      BranchCode = path.BranchCode,
+      // 编码列写业务编码：取自当前工作身份组织节点的编码，未配置编码时为空串，不用实例标识替代。
+      OrganizationCode = scope.OrganizationCode ?? string.Empty,
+      HospitalCode = scope.HospitalCode ?? string.Empty,
+      BranchCode = scope.BranchCode ?? string.Empty,
       PdfFileId = request.PdfFileId,
       PdfFileName = request.PdfFileName,
       OperId = operId,
@@ -118,16 +122,17 @@ public partial class MedicalRecognitionReportAppService
   public async Task<bool> VoidLaboratoryReportAsync(MedicalReportVoidRequest request)
   {
     MedicalRecognitionRequestValidator.Validate(request);
-    (OrganizationPath path, DateTime receivedTime) = await ResolveReportScopeAsync();
+    (IamOrganizationScope scope, DateTime receivedTime) = await ResolveReportScopeAsync();
 
     VoidLaboratoryReportCommand command = new()
     {
       ReportNo = request.ReportNo,
       VoidedTime = request.VoidedTime,
       VoidReason = request.VoidReason,
-      OrganizationCode = path.OrganizationCode,
-      HospitalCode = path.HospitalCode,
-      BranchCode = path.BranchCode,
+      // 编码列写业务编码：取自当前工作身份组织节点的编码，未配置编码时为空串，不用实例标识替代。
+      OrganizationCode = scope.OrganizationCode ?? string.Empty,
+      HospitalCode = scope.HospitalCode ?? string.Empty,
+      BranchCode = scope.BranchCode ?? string.Empty,
       OperId = ResolveOperatorId(),
       OperTime = DateTimeOffset.UtcNow,
       ReceivedTime = receivedTime
@@ -146,16 +151,17 @@ public partial class MedicalRecognitionReportAppService
   public async Task<bool> VoidExaminationReportAsync(MedicalReportVoidRequest request)
   {
     MedicalRecognitionRequestValidator.Validate(request);
-    (OrganizationPath path, DateTime receivedTime) = await ResolveReportScopeAsync();
+    (IamOrganizationScope scope, DateTime receivedTime) = await ResolveReportScopeAsync();
 
     VoidExaminationReportCommand command = new()
     {
       ReportNo = request.ReportNo,
       VoidedTime = request.VoidedTime,
       VoidReason = request.VoidReason,
-      OrganizationCode = path.OrganizationCode,
-      HospitalCode = path.HospitalCode,
-      BranchCode = path.BranchCode,
+      // 编码列写业务编码：取自当前工作身份组织节点的编码，未配置编码时为空串，不用实例标识替代。
+      OrganizationCode = scope.OrganizationCode ?? string.Empty,
+      HospitalCode = scope.HospitalCode ?? string.Empty,
+      BranchCode = scope.BranchCode ?? string.Empty,
       OperId = ResolveOperatorId(),
       OperTime = DateTimeOffset.UtcNow,
       ReceivedTime = receivedTime
@@ -178,16 +184,17 @@ public partial class MedicalRecognitionReportAppService
   public async Task<ReportPdfDownload> OpenReportVersionPdfAsync(MedicalReportVersionPdfQueryRequest request)
   {
     MedicalRecognitionRequestValidator.Validate(request);
-    (OrganizationPath path, DateTime _) = await ResolveReportScopeAsync();
+    (IamOrganizationScope scope, DateTime _) = await ResolveReportScopeAsync();
 
     IMedicalRecognitionReportQueryRepository queryRepository = queryReportRepository
       ?? throw new InvalidOperationException("无法读取报告版本文件信息。");
     MedicalReportVersionFileItem file = await queryRepository.GetMedicalReportVersionFileAsync(request.ReportId, request.ReportVersionId)
       ?? throw new InvalidOperationException("业务拒绝：报告版本不存在或不属于该报告。");
 
-    bool inTrustedScope = string.Equals(file.OrganizationCode, path.OrganizationCode, StringComparison.Ordinal)
-      && string.Equals(file.HospitalCode, path.HospitalCode, StringComparison.Ordinal)
-      && string.Equals(file.BranchCode, path.BranchCode, StringComparison.Ordinal);
+    // 归属比对按业务编码：报告的编码列与本次解析出的可信编码同口径比较，编码未配置时两侧都按空串比较。
+    bool inTrustedScope = string.Equals(file.OrganizationCode, scope.OrganizationCode ?? string.Empty, StringComparison.Ordinal)
+      && string.Equals(file.HospitalCode, scope.HospitalCode ?? string.Empty, StringComparison.Ordinal)
+      && string.Equals(file.BranchCode, scope.BranchCode ?? string.Empty, StringComparison.Ordinal);
     if (!inTrustedScope) throw new InvalidOperationException("业务拒绝：报告不在当前可信组织、医院与院区范围内。");
 
     Stream content = await reportPdfFileStore.OpenReadAsync(file.PdfFileId);
@@ -234,10 +241,12 @@ public partial class MedicalRecognitionReportAppService
   /// 从登录上下文解析操作人标识。
   /// </summary>
   /// <returns>操作人标识。</returns>
+  /// <exception cref="IamAuthenticationException">请求未携带有效 IAM 凭据时抛出。</exception>
   /// <exception cref="InvalidOperationException">用户标识不能解析为非空 Guid 时抛出。</exception>
   private Guid ResolveOperatorId()
   {
-    if (!Guid.TryParse(HttpRequestInfo?.UserId, out Guid userId) || userId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
-    return userId;
+    IamIdentityContext identity = currentIamContext.RequireCurrent();
+    if (identity.UserId == Guid.Empty) throw new InvalidOperationException("无法确定有效的操作人。");
+    return identity.UserId;
   }
 }

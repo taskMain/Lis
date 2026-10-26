@@ -4,11 +4,12 @@ using Dy.MedicalRecognition.Application.Contracts.Queries.RecognitionAmount;
 using Dy.MedicalRecognition.Application.Contracts.Queries.StandardCatalog;
 using Dy.MedicalRecognition.Application.Contracts.Queries.TrustedScope;
 using Dy.MedicalRecognition.Application.Contracts.Validation;
+using Dy.MedicalRecognition.Application.PlatformParameter;
 using Dy.MedicalRecognition.Application.Validation;
-using Dy.Base.Application.Contracts.OrganizationAggregate;
-using Dy.Base.Application.Contracts.SystemParameterAggregate;
-using Dy.Base.Application.Contracts.UserAggregate;
+using Dy.MedicalRecognition.Application.OrganizationScope;
+using Dy.IAM.Sdk;
 using System.ComponentModel.DataAnnotations;
+using Dy.MedicalRecognition.Domain.PlatformParameterAggregate.Ports;
 using Dy.MedicalRecognition.Domain.Queries;
 using Dy.MedicalRecognition.Domain.Queries.Ports;
 
@@ -20,11 +21,6 @@ namespace Dy.MedicalRecognition.Application.Queries;
 /// <remarks>全部查询都只筛选与投影，不修改数据，也不判断业务状态；查询不产生写入、审计事件或消息。</remarks>
 public sealed partial class MedicalRecognitionReportQueryAppService : ApplicationService, IMedicalRecognitionReportQueryAppService
 {
-  /// <summary>
-  /// 引用详情有效时长的平台系统参数编码；取值为正整数小时，在引用详情查询入口按平台级读取。
-  /// </summary>
-  private const string CitationDetailValidHours = "citation_detail_valid_hours";
-
   /// <summary>
   /// 标准项目目录的只读查询端口。
   /// </summary>
@@ -40,16 +36,15 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
   private readonly OrganizationPathResolver organizationPathResolver;
 
   /// <summary>
-  /// 医院管理员金额查询入口解析可信组织与可信医院所用的解析点。
+  /// 查询侧可信范围的唯一解析点：当前工作身份的三级组织实例来自 IAM 组织祖先链。
   /// </summary>
-  /// <remarks>令牌已提供组织与医院两层时不读取用户档案；令牌缺失的层由当前登录用户档案补齐。</remarks>
-  private readonly TrustedScopeResolver trustedScopeResolver;
+  private readonly IamReportScopeResolver reportScopeResolver;
 
   /// <summary>
-  /// 按平台级参数编码读取系统参数的外部系统参数服务：引用详情查询入口读取引用详情有效时长。
+  /// 平台参数读取入口：引用详情查询入口读取引用详情有效时长。
   /// </summary>
-  /// <remarks>读取不传组织、医院与院区维度；参数不存在、取值非法或服务失败都由入口就地判定为整次失败。</remarks>
-  private readonly ISystemParameterAppService systemParameterAppService;
+  /// <remarks>每次读取当前参数值；参数不存在、停用或取值非法都由入口就地判定为整次失败。</remarks>
+  private readonly PlatformParameterReader platformParameterReader;
 
   /// <summary>
   /// 接收标准项目目录的只读查询端口与外部服务作为数据来源。
@@ -59,20 +54,87 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
   /// 可信范围解析所用的外部用户服务同样只在构造函数内转交内部解析点。
   /// </remarks>
   /// <param name="repository">目录只读查询端口。</param>
-  /// <param name="organizationAppService">提供组织、医院与院区主数据的外部组织服务。</param>
-  /// <param name="userAppService">提供当前登录用户组织与医院归属的外部用户服务，用于补齐令牌缺失的可信层。</param>
-  /// <param name="systemParameterAppService">按平台级参数编码读取系统参数的外部系统参数服务。</param>
+  /// <param name="platformParameterRepository">平台参数持久化入口，读取引用详情有效时长。</param>
+  /// <param name="directoryClient">IAM 共享目录客户端，提供当前工作身份组织链的详情与类型。</param>
+  /// <param name="currentIamContext">已验证的 IAM 当前上下文，提供当前工作身份与租户。</param>
+  /// <param name="businessCodeQueryClient">IAM 组织业务编码查询客户端，按租户读取组织树节点的业务编码。</param>
   public MedicalRecognitionReportQueryAppService(
     IMedicalRecognitionReportQueryRepository repository,
-    IOrganizationAppService organizationAppService,
-    IUserAppService userAppService,
-    ISystemParameterAppService systemParameterAppService)
+    IPlatformParameterRepository platformParameterRepository,
+    IIamDirectoryClient directoryClient,
+    ICurrentIamContext currentIamContext,
+    IOrganizationBusinessCodeQueryClient businessCodeQueryClient)
   {
     this.repository = repository;
-    organizationPathResolver = new OrganizationPathResolver(organizationAppService);
-    trustedScopeResolver = new TrustedScopeResolver(userAppService);
-    this.systemParameterAppService = systemParameterAppService;
+    IamOrganizationDirectoryReader iamDirectoryReader = new(directoryClient);
+    IamOrganizationBusinessCodeReader businessCodeReader = new(businessCodeQueryClient);
+    organizationPathResolver = new OrganizationPathResolver(iamDirectoryReader, businessCodeReader, currentIamContext);
+    reportScopeResolver = new IamReportScopeResolver(
+      new IamOrganizationScopeResolver(new IamOrganizationDirectoryReader(directoryClient), currentIamContext, businessCodeReader));
+    platformParameterReader = new PlatformParameterReader(platformParameterRepository);
   }
+
+  /// <summary>
+  /// 平台入口按 IAM 目录校验提交的三层组织业务编码并返回路径。
+  /// </summary>
+  /// <remarks>提交值就是业务编码，编码到实例标识的解析、存在性与父子归属校验都在组织路径解析点内完成。</remarks>
+  private async Task<OrganizationPath> ResolveSubmittedPlatformPathAsync(
+    OrganizationPathTarget target, string missingOrganizationMessage, string missingHospitalMessage, string missingBranchMessage) =>
+    (await organizationPathResolver.ResolveOrThrow(
+      [target], missingOrganizationMessage, missingHospitalMessage, missingBranchMessage))[0];
+
+  /// <summary>
+  /// 取当前工作身份的组织与医院两层的组织路径；院区层为空，由请求提交并另经归属校验。
+  /// </summary>
+  /// <returns>组织与医院两层的组织编码（实例标识文本）与名称。</returns>
+  private async Task<OrganizationPath> ResolveTrustedOrganizationHospitalPathAsync()
+  {
+    IamOrganizationScope scope = await reportScopeResolver.ReadRequiredOrganizationHospitalAsync(
+      "无法确定当前可信组织。", "无法确定当前可信医院。");
+    return ToPath(scope);
+  }
+
+  /// <summary>
+  /// 取当前工作身份的三级组织路径。
+  /// </summary>
+  /// <returns>三层组织编码（实例标识文本）与名称。</returns>
+  private async Task<OrganizationPath> ResolveTrustedBranchPathAsync()
+  {
+    IamOrganizationScope scope = await reportScopeResolver.ReadRequiredScopeAsync(
+      "无法确定当前可信组织。", "无法确定当前可信医院。", "无法确定当前可信院区。");
+    return ToPath(scope);
+  }
+
+  /// <summary>
+  /// 取当前工作身份的组织业务编码，供按编码列过滤的查询与导出使用。
+  /// </summary>
+  /// <remarks>
+  /// 取 IAM 组织节点上配置的业务编码，不用实例标识、名称或编号替代；
+  /// 组织层缺失或该节点未配置业务编码时按入口文案拒绝，不返回空串参与过滤。
+  /// </remarks>
+  /// <param name="missingOrganizationMessage">组织层缺失或未配置业务编码时对外抛出的业务拒绝文案。</param>
+  /// <returns>组织业务编码。</returns>
+  private async Task<string> ResolveTrustedOrganizationCodeAsync(string missingOrganizationMessage)
+  {
+    IamOrganizationScope scope = await reportScopeResolver.ReadRequiredOrganizationAsync(missingOrganizationMessage);
+    return string.IsNullOrWhiteSpace(scope.OrganizationCode)
+      ? throw new InvalidOperationException(missingOrganizationMessage)
+      : scope.OrganizationCode;
+  }
+
+  /// <summary>
+  /// 取当前工作身份的完整组织范围（含缺失层级），用于只读展示。
+  /// </summary>
+  /// <returns>当前身份的三级组织范围。</returns>
+  private Task<IamOrganizationScope> ReadCurrentScopeAsync() => reportScopeResolver.ReadCurrentScopeAsync();
+
+  /// <summary>
+  /// 把 IAM 组织范围转换为查询侧组织路径：业务编码取组织节点配置的编码，名称取目录当前值，实例标识另存。
+  /// </summary>
+  /// <param name="scope">已解析的组织范围。</param>
+  /// <returns>组织路径。</returns>
+  private static OrganizationPath ToPath(IamOrganizationScope scope) => OrganizationPath.FromScope(scope);
+
 
   /// <summary>
   /// 查询分类列表并映射为只读模型。
@@ -152,7 +214,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
 
     // 组织范围只信服务端可信当前组织：请求组织与之不一致即拒绝，不返回其他组织的数据、也不降级为空集合。
     // 可信组织与写入侧共用统一解析点，先去除首尾空白再判定，空白组织一律拒绝。
-    string currentOrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定有效的当前组织。");
+    string currentOrganizationCode = await ResolveTrustedOrganizationCodeAsync("无法确定有效的当前组织。");
     // 请求组织与可信组织同源，两侧都可能带首尾空白：比较与下传统一用去空白后的可信值，
     // 否则可信组织带空白时会出现"写入成功、查询被误判为越权"的读写不对称。
     if (!string.Equals(request.OrganizationCode.Trim(), currentOrganizationCode, StringComparison.Ordinal))
@@ -180,7 +242,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
   {
     MedicalRecognitionRequestValidator.Validate(request);
 
-    string currentOrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定有效的当前组织。");
+    string currentOrganizationCode = await ResolveTrustedOrganizationCodeAsync("无法确定有效的当前组织。");
     IEnumerable<EffectiveMedicalStandardCatalogItem> items = await repository.QuerySelectableStandardItemListAsync(currentOrganizationCode, request.Keyword);
     return new EffectiveMedicalStandardCatalogReadModel
     {
@@ -193,23 +255,21 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
   /// </summary>
   /// <remarks>
   /// 不接收入参：组织只取自可信上下文，与配置列表查询共用同一解析点与去首尾空白口径，不接受调用方指定组织。
+  /// 编码取 IAM 组织节点的组织业务编码，不取实例标识文本；组织未配置业务编码时按空串返回，不用标识或名称替代。
   /// 名称经组织路径解析点的组织一层取得，与金额查询同一来源；组织不存在、已停用或名称读取失败时按拒绝结束，
   /// 不返回空值、也不降级为只回编码。该查询不访问本平台数据库。
   /// </remarks>
-  /// <returns>可信范围的当前组织编码与名称。</returns>
+  /// <returns>可信范围的当前组织业务编码与名称；未配置业务编码时编码为空串。</returns>
   /// <exception cref="InvalidOperationException">无法解析可信当前组织，或组织不存在、已停用、名称读取失败时抛出。</exception>
   public async Task<TrustedOrganizationScopeReadModel> QueryTrustedOrganizationScopeAsync()
   {
-    string currentOrganizationCode = TrustedOrganizationResolver.ResolveOrThrow(HttpRequestInfo?.OrgId, "无法确定有效的当前组织。");
-
-    OrganizationPath path = (await organizationPathResolver.ResolveOrganizationOrThrow(
-      [new OrganizationPathTarget(currentOrganizationCode, null, null)],
-      "业务拒绝：组织不存在或已停用。"))[0];
+    IamOrganizationScope scope = await ReadCurrentScopeAsync();
+    if (scope.OrganizationId is null) throw new InvalidOperationException("无法确定有效的当前组织。");
 
     return new TrustedOrganizationScopeReadModel
     {
-      OrganizationCode = path.OrganizationCode,
-      OrganizationName = path.OrganizationName
+      OrganizationCode = scope.OrganizationCode ?? string.Empty,
+      OrganizationName = scope.OrganizationName ?? string.Empty
     };
   }
 
@@ -230,11 +290,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
   {
     MedicalRecognitionRequestValidator.Validate(request);
 
-    OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
-      [new OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode)],
+    OrganizationPath path = await ResolveSubmittedPlatformPathAsync(
+      new OrganizationPathTarget(request.OrganizationCode, request.HospitalCode, request.BranchCode),
       "业务拒绝：组织不存在或已停用。",
       "业务拒绝：医院不存在、已停用或不属于所选组织。",
-      "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
+      "业务拒绝：院区不存在、已停用或不属于所选医院。");
 
     // 关键字先归一再进入查询语句：语句的可选过滤只识别空值，收到空白文本会按字面内容匹配。
     string? keyword = NullIfBlank(request.Keyword);
@@ -247,11 +307,10 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
   /// 查询本院区互认项目金额列表并映射为只读模型（医院管理员入口）。
   /// </summary>
   /// <remarks>
-  /// 组织与医院只取自可信上下文，请求不提交也不得覆盖；可信上下文的组织层与医院层按同一规则解析：
-  /// 登录令牌该层非空白即取令牌值，令牌该层缺失或空白时用当前登录用户档案的 <c>OrgId</c>/<c>HosId</c> 补齐，
-  /// 令牌与用户档案都提供该层且不一致即拒绝，补齐后该层仍为空即拒绝，不使用默认值、不降级为空值；
+  /// 组织与医院只取自可信上下文，请求不提交也不得覆盖：组织层只取 IAM 上下文的组织标识，医院层与院区层由该组织
+  /// 沿组织祖先链按组织类型编码归类得到；该层缺失或同一类型出现多个祖先即拒绝，不使用默认值、不降级为空值；
   /// 请求院区必须存在、启用且属于可信医院与可信组织，不属于即拒绝，不返回其他医院的数据、也不降级为空集合；
-  /// 院区层不参与可信回落。其余查询与映射与平台管理员入口完全相同，两个入口共用同一投影与同一原因派生。
+  /// 院区不从请求值扩大可信范围。其余查询与映射与平台管理员入口完全相同，两个入口共用同一投影与同一原因派生。
   /// </remarks>
   /// <param name="request">金额列表查询条件，只携带请求院区与可选的标准项目编码、关键字。</param>
   /// <returns>金额只读模型集合；该组织未建立互认配置时返回空集合。</returns>
@@ -264,14 +323,16 @@ public sealed partial class MedicalRecognitionReportQueryAppService : Applicatio
   public async Task<IEnumerable<RecognitionAmountReadModel>> QueryBranchRecognitionAmountListAsync(BranchRecognitionAmountListQueryRequest request)
   {
     // 可信组织与医院的解析先于公共请求校验：可信范围不成立时不需要、也不得读取任何业务数据。
-    TrustedScope trustedScope = await trustedScopeResolver.ResolveOrThrowAsync(
-      HttpRequestInfo, "无法确定当前可信组织。", "无法确定当前可信医院。");
+    IamOrganizationScope trustedScope = await reportScopeResolver.ReadRequiredOrganizationHospitalAsync(
+      "无法确定当前可信组织。", "无法确定当前可信医院。");
     MedicalRecognitionRequestValidator.Validate(request);
 
+    // 可信组织与医院取自已解析的可信范围（编码与实例标识同源），请求院区按业务编码参与同一路径校验：
+    // 院区编码不是标识，不在入口内做格式解析，院区是否存在、启用并属于可信医院由组织路径解析点判定。
     OrganizationPath path = (await organizationPathResolver.ResolveOrThrow(
       [new OrganizationPathTarget(trustedScope.OrganizationCode, trustedScope.HospitalCode, request.BranchCode)],
-      "业务拒绝：组织不存在或已停用。",
-      "业务拒绝：医院不存在、已停用或不属于所选组织。",
+      "无法确定当前可信组织。",
+      "无法确定当前可信医院。",
       "业务拒绝：院区不存在、已停用或不属于所选医院。"))[0];
 
     // 关键字先归一再进入查询语句，口径与平台管理员入口一致。

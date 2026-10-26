@@ -62,7 +62,7 @@ const summaryPageResponse = {
 }
 
 describe('C4 平台版提供方汇总请求：来源组与接收组三级范围都随请求提交', () => {
-  it('请求体携带两组组织编码、统一关键字、日期原样、维度与内嵌分页', async () => {
+  it('请求体携带两组组织实例 Id、统一关键字、日期原样、维度与内嵌分页', async () => {
     const built = buildSourceSummaryQuery(
       {
         version: 'platform',
@@ -259,7 +259,7 @@ describe('C4 提供方构造拒绝面与导出请求', () => {
     )).not.toBeNull()
   })
 
-  it('提供方导出只接受导出类型 6-7；平台版提交两组组织编码、统一关键字且无分页', async () => {
+  it('提供方导出只接受导出类型 6-7；平台版提交两组组织实例 Id、统一关键字且无分页', async () => {
     const base: PlatformSourceExportQuery = {
       version: 'platform',
       exportType: 6,
@@ -286,7 +286,7 @@ describe('C4 提供方构造拒绝面与导出请求', () => {
     expect(body).not.toHaveProperty('page')
   })
 
-  it('本院版提供方导出走 branch 端点且不提交两组组织编码', async () => {
+  it('本院版提供方导出走 branch 端点且不提交两组组织实例 Id', async () => {
     const built = buildSourceExportQuery({
       version: 'branch',
       exportType: 7,

@@ -1,7 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
-using Dy.Base.Application.Contracts.OrganizationAggregate;
-using Dy.Base.Application.Contracts.UserAggregate;
 using Dy.Core.Abstractions.Domain.Dtos;
 using Dy.Core.Abstractions.EventBus;
 using Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAggregate.Requests;
@@ -38,23 +36,23 @@ namespace Dy.MedicalRecognition.Tests;
 /// </remarks>
 public sealed class Stage3WritePathTests
 {
-  /// <summary>可信组织编码，代表登录令牌携带的当前组织。</summary>
-  private const string TrustedOrganization = "ORG-A";
+  /// <summary>可信组织业务编码，代表当前工作身份所属组织的业务编码。</summary>
+  private const string TrustedOrganization = FakeIamScope.OrganizationCode;
 
-  /// <summary>另一个组织编码，用于验证平台管理员入口按请求组织保存。</summary>
-  private const string OtherOrganization = "ORG-B";
+  /// <summary>另一个组织的业务编码，用于验证平台管理员入口按请求组织保存。</summary>
+  private const string OtherOrganization = FakeIamScope.OtherOrganizationCode;
 
-  /// <summary>可信医院编码，代表登录令牌携带的当前医院。</summary>
-  private const string TrustedHospital = "HOS-1";
+  /// <summary>可信医院业务编码。</summary>
+  private const string TrustedHospital = FakeIamScope.HospitalCode;
 
-  /// <summary>另一家医院编码，用于构造越权院区。</summary>
-  private const string OtherHospital = "HOS-2";
+  /// <summary>同一组织下另一家医院的业务编码，用于构造越权院区。</summary>
+  private const string OtherHospital = FakeIamScope.SecondHospitalCode;
 
-  /// <summary>可信医院下的院区编码。</summary>
-  private const string TrustedBranch = "BRH-1";
+  /// <summary>可信医院下的院区业务编码。</summary>
+  private const string TrustedBranch = FakeIamScope.BranchCode;
 
-  /// <summary>另一家医院下的院区编码，用于构造请求院区不属于可信医院的场景。</summary>
-  private const string OtherHospitalBranch = "BRH-2";
+  /// <summary>另一家医院下的院区业务编码，用于构造请求院区不属于可信医院的场景。</summary>
+  private const string OtherHospitalBranch = FakeIamScope.SecondBranchCode;
 
   /// <summary>可信操作人标识。</summary>
   private static readonly Guid TrustedOperId = Guid.Parse("3a1c7e42-8d55-4c6b-9f21-0b7d5e6a1c34");
@@ -90,9 +88,9 @@ public sealed class Stage3WritePathTests
   /// <param name="repository">承载金额与互认配置数据的最小仓储替身。</param>
   /// <param name="organizationService">提供组织、医院与院区路径的外部组织服务替身。</param>
   /// <returns>可直接调用的写入口。</returns>
-  private static MedicalRecognitionReportAppService CreateAppService(FakeReportRepository repository, FakeOrganizationAppService organizationService)
-    => new(new MedicalRecognitionReportManager(repository, new FakeMatchQueryRepository()), repository, organizationService, new StubUserAppService(),
-      new StubReportPdfFileStore(), new StubReportQueryRepository(), new StubSystemParameterAppService());
+  private static MedicalRecognitionReportAppService CreateAppService(FakeReportRepository repository, FakeOrganizationAppService organizationService, FakeIamScope? scope = null)
+    => new(new MedicalRecognitionReportManager(repository, new FakeMatchQueryRepository()), repository,
+      new StubReportPdfFileStore(), new StubReportQueryRepository(), new PlatformParameterRepositoryStub(), scope ?? FakeIamScope.Default, scope ?? FakeIamScope.Default, scope ?? FakeIamScope.Default);
 
   /// <summary>构建写入口，并指定补齐令牌缺失层所用的外部用户服务替身。</summary>
   /// <param name="repository">承载金额与互认配置数据的最小仓储替身。</param>
@@ -100,9 +98,9 @@ public sealed class Stage3WritePathTests
   /// <param name="userService">提供当前登录用户档案的外部用户服务替身。</param>
   /// <returns>可直接调用的写入口。</returns>
   private static MedicalRecognitionReportAppService CreateAppService(
-    FakeReportRepository repository, FakeOrganizationAppService organizationService, StubUserAppService userService)
-    => new(new MedicalRecognitionReportManager(repository, new FakeMatchQueryRepository()), repository, organizationService, userService,
-      new StubReportPdfFileStore(), new StubReportQueryRepository(), new StubSystemParameterAppService());
+    FakeReportRepository repository, FakeOrganizationAppService organizationService, StubUserAppService userService, FakeIamScope? scope = null)
+    => new(new MedicalRecognitionReportManager(repository, new FakeMatchQueryRepository()), repository,
+      new StubReportPdfFileStore(), new StubReportQueryRepository(), new PlatformParameterRepositoryStub(), scope ?? FakeIamScope.Default, scope ?? FakeIamScope.Default, scope ?? FakeIamScope.Default);
 
   /// <summary>构建领域管理器，用于绕过应用层直接校验领域规则。</summary>
   /// <param name="repository">承载金额与互认配置数据的最小仓储替身。</param>
@@ -162,12 +160,12 @@ public sealed class Stage3WritePathTests
   /// <param name="repository">承载金额与互认配置数据的最小仓储替身。</param>
   /// <param name="amount">已存在的当前金额。</param>
   private static void AddSavedAmount(FakeReportRepository repository, decimal amount) =>
-    repository.Amounts[BusinessKey(TrustedOrganization, TrustedHospital, TrustedBranch, ProjectCode)] = new OrganizationHospitalBranchRecognitionAmount
+    repository.Amounts[BusinessKey(FakeIamScope.OrganizationCode, FakeIamScope.HospitalCode, FakeIamScope.BranchCode, ProjectCode)] = new OrganizationHospitalBranchRecognitionAmount
     {
       Id = Guid.NewGuid(),
-      OrganizationCode = TrustedOrganization,
-      HospitalCode = TrustedHospital,
-      BranchCode = TrustedBranch,
+      OrganizationCode = FakeIamScope.OrganizationCode,
+      HospitalCode = FakeIamScope.HospitalCode,
+      BranchCode = FakeIamScope.BranchCode,
       StandardProjectCode = ProjectCode,
       CurrentAmount = amount,
       OperId = TrustedOperId,
@@ -192,15 +190,15 @@ public sealed class Stage3WritePathTests
   /// <param name="currentAmount">请求金额。</param>
   /// <returns>可直接交给写入口的请求。</returns>
   private static SaveOrganizationHospitalBranchRecognitionAmountRequest PlatformRequest(
-    string organizationCode = TrustedOrganization,
-    string hospitalCode = TrustedHospital,
-    string branchCode = TrustedBranch,
+    string? organizationCode = null,
+    string? hospitalCode = null,
+    string? branchCode = null,
     string standardProjectCode = ProjectCode,
     decimal currentAmount = FirstAmount) => new()
     {
-      OrganizationCode = organizationCode,
-      HospitalCode = hospitalCode,
-      BranchCode = branchCode,
+      OrganizationCode = organizationCode ?? FakeIamScope.OrganizationCode,
+      HospitalCode = hospitalCode ?? FakeIamScope.HospitalCode,
+      BranchCode = branchCode ?? FakeIamScope.BranchCode,
       StandardProjectCode = standardProjectCode,
       CurrentAmount = currentAmount
     };
@@ -211,9 +209,9 @@ public sealed class Stage3WritePathTests
   /// <param name="branchCode">请求院区编码。</param>
   /// <returns>可直接交给写入口的请求。</returns>
   private static SaveBranchRecognitionAmountRequest BranchRequest(
-    string standardProjectCode = ProjectCode, decimal currentAmount = FirstAmount, string branchCode = TrustedBranch) => new()
+    string standardProjectCode = ProjectCode, decimal currentAmount = FirstAmount, string? branchCode = null) => new()
     {
-      BranchCode = branchCode,
+      BranchCode = branchCode ?? FakeIamScope.BranchCode,
       StandardProjectCode = standardProjectCode,
       CurrentAmount = currentAmount
     };
@@ -377,18 +375,18 @@ public sealed class Stage3WritePathTests
     Assert.Equal(0, repository.UpdateCalls);
     Assert.Equal(1, repository.WriteCalls);
     OrganizationHospitalBranchRecognitionAmount saved = Assert.Single(repository.Amounts.Values);
-    Assert.Equal(TrustedOrganization, saved.OrganizationCode);
-    Assert.Equal(TrustedHospital, saved.HospitalCode);
-    Assert.Equal(TrustedBranch, saved.BranchCode);
+    Assert.Equal(FakeIamScope.OrganizationCode, saved.OrganizationCode);
+    Assert.Equal(FakeIamScope.HospitalCode, saved.HospitalCode);
+    Assert.Equal(FakeIamScope.BranchCode, saved.BranchCode);
     Assert.Equal(ProjectCode, saved.StandardProjectCode);
     Assert.Equal(FirstAmount, saved.CurrentAmount);
     Assert.Equal(TrustedOperId, saved.OperId);
     OrganizationHospitalBranchRecognitionAmountSavedEvent savedEvent =
       Assert.Single(events.Events.OfType<OrganizationHospitalBranchRecognitionAmountSavedEvent>());
     Assert.Equal(saved.Id, savedEvent.Id);
-    Assert.Equal(TrustedOrganization, savedEvent.OrganizationCode);
-    Assert.Equal(TrustedHospital, savedEvent.HospitalCode);
-    Assert.Equal(TrustedBranch, savedEvent.BranchCode);
+    Assert.Equal(FakeIamScope.OrganizationCode, savedEvent.OrganizationCode);
+    Assert.Equal(FakeIamScope.HospitalCode, savedEvent.HospitalCode);
+    Assert.Equal(FakeIamScope.BranchCode, savedEvent.BranchCode);
     Assert.Equal(ProjectCode, savedEvent.StandardProjectCode);
     Assert.Equal(FirstAmount, savedEvent.CurrentAmount);
   }
@@ -501,9 +499,9 @@ public sealed class Stage3WritePathTests
   /// <returns>可直接交给领域管理器的命令。</returns>
   private static SaveOrganizationHospitalBranchRecognitionAmountCommand AmountCommand(decimal currentAmount) => new()
   {
-    OrganizationCode = TrustedOrganization,
-    HospitalCode = TrustedHospital,
-    BranchCode = TrustedBranch,
+    OrganizationCode = FakeIamScope.OrganizationCode,
+    HospitalCode = FakeIamScope.HospitalCode,
+    BranchCode = FakeIamScope.BranchCode,
     StandardProjectCode = ProjectCode,
     CurrentAmount = currentAmount,
     OperId = TrustedOperId,
@@ -633,19 +631,18 @@ public sealed class Stage3WritePathTests
     organizationService.HospitalsByOrganization[OtherOrganization] =
       [new HospitalDto { Id = OtherHospital, Name = "另一个组织的医院", OrgId = OtherOrganization, IsValid = true }];
     organizationService.BranchesByHospital[OtherHospital] = [];
-    organizationService.BranchesByHospital[OtherHospital].Add(
-      new BranchDto { Id = OtherHospitalBranch, Name = "另一个组织的院区", HosId = OtherHospital, OrgId = OtherOrganization, IsValid = true });
+    FakeIamScope otherScope = FakeIamScope.WithOtherHospital();
     AddMutualRecognitionConfiguration(repository, OtherOrganization, ProjectCode, isValid: true);
 
     (RecordingEventQueue events, bool result) = await SavePlatformAsync(
-      CreateAppService(repository, organizationService),
-      PlatformRequest(organizationCode: OtherOrganization, hospitalCode: OtherHospital, branchCode: OtherHospitalBranch));
+      CreateAppService(repository, organizationService, otherScope),
+      PlatformRequest(organizationCode: FakeIamScope.OtherOrganizationCode, hospitalCode: FakeIamScope.OtherHospitalCode, branchCode: FakeIamScope.OtherBranchCode));
 
     Assert.True(result);
     OrganizationHospitalBranchRecognitionAmount saved = Assert.Single(repository.Amounts.Values);
-    Assert.Equal(OtherOrganization, saved.OrganizationCode);
-    Assert.Equal(OtherHospital, saved.HospitalCode);
-    Assert.Equal(OtherHospitalBranch, saved.BranchCode);
+    Assert.Equal(FakeIamScope.OtherOrganizationCode, saved.OrganizationCode);
+    Assert.Equal(FakeIamScope.OtherHospitalCode, saved.HospitalCode);
+    Assert.Equal(FakeIamScope.OtherBranchCode, saved.BranchCode);
     Assert.Equal(TrustedOperId, saved.OperId);
 
     // 请求不得提交操作人、操作时间与内部标识。
@@ -667,9 +664,9 @@ public sealed class Stage3WritePathTests
 
     Assert.True(result);
     OrganizationHospitalBranchRecognitionAmount saved = Assert.Single(repository.Amounts.Values);
-    Assert.Equal(TrustedOrganization, saved.OrganizationCode);
-    Assert.Equal(TrustedHospital, saved.HospitalCode);
-    Assert.Equal(TrustedBranch, saved.BranchCode);
+    Assert.Equal(FakeIamScope.OrganizationCode, saved.OrganizationCode);
+    Assert.Equal(FakeIamScope.HospitalCode, saved.HospitalCode);
+    Assert.Equal(FakeIamScope.BranchCode, saved.BranchCode);
     Assert.Equal(FirstAmount, saved.CurrentAmount);
     Assert.Equal(TrustedOperId, saved.OperId);
     Assert.Single(events.Events.OfType<OrganizationHospitalBranchRecognitionAmountSavedEvent>());
@@ -707,34 +704,27 @@ public sealed class Stage3WritePathTests
   {
     FakeReportRepository repository = new();
     FakeOrganizationAppService organizationService = CreateConfiguredOrganization(repository);
+    TrustedRequestContext.Use(TrustedOrganization, TrustedOperId.ToString());
 
-    foreach ((string? organizationCode, string? hospitalCode, string expectedMessage) in new[]
+    // 未选择工作身份：IAM 契约抛出工作身份必需异常，不写入任何数据。
+    FakeIamScope anonymous = new()
     {
-      (null, TrustedHospital, "组织"),
-      ("   ", TrustedHospital, "组织"),
-      (TrustedOrganization, null, "医院"),
-      (TrustedOrganization, "   ", "医院")
-    })
-    {
-      TrustedRequestContext.Use(organizationCode, hospitalCode, TrustedBranch, TrustedOperId.ToString());
+      Identity = new Dy.IAM.Sdk.IamIdentityContext(TrustedOperId, null, null, null, null, "medical-recognition", Guid.NewGuid(), 1, 1, 1)
+    };
+    await Assert.ThrowsAsync<Dy.IAM.Sdk.IamWorkIdentityRequiredException>(
+      () => CreateAppService(repository, organizationService, anonymous).SaveBranchRecognitionAmountAsync(BranchRequest()));
+    Assert.Equal(0, repository.InsertCalls);
+    Assert.Equal(0, repository.UpdateCalls);
 
-      // 情形一：读不到用户档案，令牌缺失层无从补齐。
-      (RecordingEventQueue missingProfileEvents, InvalidOperationException missingProfileError) = await SaveExpectingRejectionAsync(
-        () => CreateAppService(repository, organizationService, new StubUserAppService()).SaveBranchRecognitionAmountAsync(BranchRequest()));
-      Assert.Contains("用户", missingProfileError.Message);
-      AssertNothingWritten(repository, missingProfileEvents);
+    // 组织链只有医共体、没有医院：按医院层文案拒绝，不写入任何数据。
+    FakeIamScope withoutHospital = FakeIamScope.WithoutHospital();
+    (RecordingEventQueue missingHospitalEvents, InvalidOperationException missingHospitalError) = await SaveExpectingRejectionAsync(
+      () => CreateAppService(repository, organizationService, withoutHospital).SaveBranchRecognitionAmountAsync(BranchRequest()));
+    Assert.Contains("医院", missingHospitalError.Message);
+    AssertNothingWritten(repository, missingHospitalEvents);
 
-      // 情形二：档案可读但组织与医院都取不到值，补齐后该层仍为空。
-      StubUserAppService emptyProfileService = new();
-      emptyProfileService.UserById[TrustedOperId] = new UserDto { Id = TrustedOperId, OrgId = "", HosId = "", BranchId = null };
-      (RecordingEventQueue emptyProfileEvents, InvalidOperationException emptyProfileError) = await SaveExpectingRejectionAsync(
-        () => CreateAppService(repository, organizationService, emptyProfileService).SaveBranchRecognitionAmountAsync(BranchRequest()));
-      Assert.Contains(expectedMessage, emptyProfileError.Message);
-      AssertNothingWritten(repository, emptyProfileEvents);
-
-      // 两种情形都必须在读取任何组织路径之前拒绝。
-      Assert.Equal(0, organizationService.OrganizationReadCount);
-    }
+    // 两种情况都在读取组织路径之前拒绝。
+    Assert.Equal(0, organizationService.OrganizationReadCount);
   }
 
   /// <summary>V15：标准目录或互认配置停用后仍可保存金额，保存前提只判配置存在、不判配置有效。</summary>
@@ -873,9 +863,9 @@ public sealed class Stage3WritePathTests
     Assert.Equal(CommandOperTime, savedEvent.EventCreatedTime);
     Assert.Equal(nameof(OrganizationHospitalBranchRecognitionAmountSavedEvent), savedEvent.EventType);
     Assert.Equal(MedicalRecognitionReportConst.AggregateId, savedEvent.AggregateId);
-    Assert.Equal(TrustedOrganization, savedEvent.OrganizationCode);
-    Assert.Equal(TrustedHospital, savedEvent.HospitalCode);
-    Assert.Equal(TrustedBranch, savedEvent.BranchCode);
+    Assert.Equal(FakeIamScope.OrganizationCode, savedEvent.OrganizationCode);
+    Assert.Equal(FakeIamScope.HospitalCode, savedEvent.HospitalCode);
+    Assert.Equal(FakeIamScope.BranchCode, savedEvent.BranchCode);
     Assert.Equal(ProjectCode, savedEvent.StandardProjectCode);
     Assert.Equal(FirstAmount, savedEvent.CurrentAmount);
     Assert.Equal(Assert.Single(repository.Amounts.Values).Id, savedEvent.Id);
@@ -967,13 +957,24 @@ public sealed class Stage3WritePathTests
     {
       string body = ExtractDeclaredMethodBody(source, signature, name);
       int validateIndex = body.IndexOf("MedicalRecognitionRequestValidator.Validate(request)", StringComparison.Ordinal);
-      // 两个入口都先校验、再解析组织路径、最后交给同一个领域方法；以公共校验必须先于后续两个步骤出现为判据。
       int mapIndex = body.IndexOf(".MapToSaveOrganizationHospitalBranchRecognitionAmountCommand()", StringComparison.Ordinal);
-      int resolveIndex = body.IndexOf("organizationPathResolver.ResolveOrThrow(", StringComparison.Ordinal);
+      // 两个入口都按业务编码经组织路径解析点解析三层路径：路径解析是"存在、启用、父子归属"的唯一判定点。
+      int resolveIndex = body.IndexOf("organizationPathResolver.", StringComparison.Ordinal);
+      int trustedResolveIndex = body.IndexOf("reportScopeResolver.", StringComparison.Ordinal);
       int domainIndex = body.IndexOf("SaveAmountAsync(command, path)", StringComparison.Ordinal);
       Assert.True(validateIndex >= 0, $"{name}: 缺少公共请求校验调用");
       Assert.True(mapIndex > validateIndex, $"{name}: 命令映射缺失或早于公共请求校验");
-      Assert.True(resolveIndex > validateIndex, $"{name}: 组织路径解析缺失或早于公共请求校验");
+      Assert.True(resolveIndex >= 0, $"{name}: 缺少组织路径解析调用");
+      // 平台入口先校验请求再解析请求提交的路径；医院入口先解析可信范围，可信范围不成立时不得读取业务数据。
+      if (name.StartsWith("SaveOrganization", StringComparison.Ordinal))
+      {
+        Assert.True(resolveIndex > validateIndex, $"{name}: 组织路径解析缺失或早于公共请求校验");
+      }
+      else
+      {
+        Assert.True(trustedResolveIndex >= 0, $"{name}: 缺少可信范围解析调用");
+        Assert.True(trustedResolveIndex < validateIndex, $"{name}: 可信范围解析缺失或晚于公共请求校验");
+      }
       Assert.True(domainIndex > validateIndex, $"{name}: 未调用金额保存领域步骤或早于公共请求校验");
     }
   }

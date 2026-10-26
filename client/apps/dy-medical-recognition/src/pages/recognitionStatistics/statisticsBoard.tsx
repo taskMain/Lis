@@ -40,7 +40,7 @@ import {
   type TablePaginationConfig,
 } from 'antd'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { BaseScopeSelector, type BaseScopeValue } from '@dy/components-base'
+import { OrganizationScopeSelector, type OrganizationScopeChangeMeta, type OrganizationScopeValue } from '../../components/OrganizationScopeSelector'
 import { CurrentScopeBar } from '../../components/CurrentScopeBar'
 import { useEnumMetadata, type EnumMetadataOption } from '../../hooks/useEnumMetadata'
 import type { MedicalItemTypeValue } from '../../shared/medicalItemType'
@@ -130,12 +130,23 @@ export interface StatisticsFilters {
    * 服务端全院统计契约仅为接口面保留（S6-D1），前端已不按其触发。
    */
   ownBranchCode?: string
+  /**
+   * 范围标识都是 IAM 组织业务编码（字段名沿用后端接口的既有名称），直接作为请求的 Code 字段提交；
+   * 选择器内部的实例标识不进这里，只在选择器受控值里使用。
+   * 名称字段只服务承接范围展示，随选择器选项一并进入已生效条件，不参与请求体。
+   */
   receiverOrganizationCode?: string
+  receiverOrganizationName?: string
   receiverHospitalCode?: string
+  receiverHospitalName?: string
   receiverBranchCode?: string
+  receiverBranchName?: string
   sourceOrganizationCode?: string
+  sourceOrganizationName?: string
   sourceHospitalCode?: string
+  sourceHospitalName?: string
   sourceBranchCode?: string
+  sourceBranchName?: string
   /** 统一关键字：互认科室、互认项目与互认医生条件的单一承载（S6-D19），输入原文经适配层去首尾空白提交。 */
   keyword?: string
   itemType?: MedicalItemTypeValue
@@ -151,12 +162,23 @@ export interface StatisticsFilters {
 
 /**
  * 范围选择区的形态：平台页两组三级可选；本院页不渲染固定侧卡片，对侧组医院/院区可选
- * （本侧组织、医院与院区恒为登录范围）。本院页变体携带可信组织与可信医院编码，
- * 供列表区上下文行表达承接范围。
+ * （本侧组织、医院与院区恒为登录范围）。本院页变体携带可信组织与可信医院的业务编码、名称，
+ * 以及可信组织实例标识（只用于给选择器固定组织），供列表区上下文行表达承接范围。
  */
 export type StatisticsScopeSpec =
   | { kind: 'platform' }
-  | { kind: 'branch'; organizationCode: string; hospitalCode: string }
+  | {
+      kind: 'branch'
+      /** 本院入口的可信组织业务编码；作为本侧组织提交与承接范围展示。 */
+      organizationCode: string
+      /** 本院入口的可信组织实例标识：只交给选择器的固定组织属性。 */
+      organizationId: string
+      /** 本院入口的可信医院业务编码。 */
+      hospitalCode: string
+      organizationName?: string | null
+      hospitalName?: string | null
+      branchName?: string | null
+    }
 
 /** 主体的数据源与装配边界；查询/导出入口返回 `null` 表示条件不完整，主体据此零发请求并阻断。 */
 export interface StatisticsBoardProps {
@@ -744,23 +766,48 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
     submitFilters({ ...draftFilters })
   }, [draftFilters, submitFilters])
 
-  /** 平台页接收组/来源组三级范围选择（改动进草稿）。 */
-  const changeReceiverScope = useCallback((value: BaseScopeValue) => applyDraft({
-    receiverOrganizationCode: value.orgId,
-    receiverHospitalCode: value.hosId,
-    receiverBranchCode: value.branchId,
-  }), [applyDraft])
-  const changeSourceScope = useCallback((value: BaseScopeValue) => applyDraft({
-    sourceOrganizationCode: value.orgId,
-    sourceHospitalCode: value.hosId,
-    sourceBranchCode: value.branchId,
-  }), [applyDraft])
+  /** 范围选项名称：只用于承接范围展示；选项缺失时返回 undefined，展示层显示「未知」。 */
+  const scopeName = useCallback((options: { id: string; name: string }[], id: string | undefined) =>
+    id === undefined ? undefined : options.find((option) => option.id === id)?.name, [])
 
-  /** 本院页对侧组范围选择：对侧组织固定为可信组织，只提交医院与院区（S6-D1；改动进草稿）。 */
-  const changeOppositeScope = useCallback((value: BaseScopeValue) => {
-    if (side === 'usage') applyDraft({ sourceHospitalCode: value.hosId, sourceBranchCode: value.branchId })
-    else applyDraft({ receiverHospitalCode: value.hosId, receiverBranchCode: value.branchId })
-  }, [applyDraft, side])
+  /**
+   * 平台页接收组/来源组三级范围选择（改动进草稿）：范围字段写业务编码（请求的 Code 字段），
+   * 名称随选项一并保存用于承接范围展示；选择器内部的实例标识不进草稿。
+   */
+  const changeReceiverScope = useCallback((value: OrganizationScopeValue, meta: OrganizationScopeChangeMeta) => applyDraft({
+    receiverOrganizationCode: value.orgCode,
+    receiverOrganizationName: scopeName(meta.organizations, value.orgId),
+    receiverHospitalCode: value.hosCode,
+    receiverHospitalName: scopeName(meta.hospitals, value.hosId),
+    receiverBranchCode: value.branchCode,
+    receiverBranchName: scopeName(meta.branches, value.branchId),
+  }), [applyDraft, scopeName])
+  const changeSourceScope = useCallback((value: OrganizationScopeValue, meta: OrganizationScopeChangeMeta) => applyDraft({
+    sourceOrganizationCode: value.orgCode,
+    sourceOrganizationName: scopeName(meta.organizations, value.orgId),
+    sourceHospitalCode: value.hosCode,
+    sourceHospitalName: scopeName(meta.hospitals, value.hosId),
+    sourceBranchCode: value.branchCode,
+    sourceBranchName: scopeName(meta.branches, value.branchId),
+  }), [applyDraft, scopeName])
+
+  /** 本院页对侧组范围选择：对侧组织固定为可信组织，只提交医院与院区的业务编码（S6-D1；改动进草稿）。 */
+  const changeOppositeScope = useCallback((value: OrganizationScopeValue, meta: OrganizationScopeChangeMeta) => {
+    const hospitalName = scopeName(meta.hospitals, value.hosId)
+    const branchName = scopeName(meta.branches, value.branchId)
+    if (side === 'usage') applyDraft({
+      sourceHospitalCode: value.hosCode,
+      sourceHospitalName: hospitalName,
+      sourceBranchCode: value.branchCode,
+      sourceBranchName: branchName,
+    })
+    else applyDraft({
+      receiverHospitalCode: value.hosCode,
+      receiverHospitalName: hospitalName,
+      receiverBranchCode: value.branchCode,
+      receiverBranchName: branchName,
+    })
+  }, [applyDraft, scopeName, side])
 
   /** 左列表选行：切到另一行时只更新选中键（复位由选中标记承担）；重复点击当前行重试当前明细。 */
   const selectSummaryRow = useCallback((rowKey: string) => {
@@ -834,17 +881,18 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
   const dimensionOptions = side === 'usage' ? USAGE_DIMENSION_OPTIONS : SOURCE_DIMENSION_OPTIONS
   // 本院页只保留对侧机构筛选：使用方页筛提供方，提供方页筛使用方；固定侧由页头范围条表达。
   const oppositeScopeLabel = side === 'usage' ? '提供方筛选' : '使用方筛选'
-  // 固定组织必须写入受控值，否则范围选择器的医院与院区会因缺少上级组织保持禁用。
+  // 固定组织必须写入受控值，否则范围选择器的医院与院区会因缺少上级组织保持禁用：
+  // 组织层用可信组织的实例标识（选择器受控值），医院与院区层用草稿里的业务编码（选择器按编码定位）。
   const oppositeScopeValue = side === 'usage'
     ? {
-        orgId: scopeSpec.kind === 'branch' ? scopeSpec.organizationCode : undefined,
-        hosId: draftFilters.sourceHospitalCode,
-        branchId: draftFilters.sourceBranchCode,
+        orgId: scopeSpec.kind === 'branch' ? scopeSpec.organizationId : undefined,
+        hosCode: draftFilters.sourceHospitalCode,
+        branchCode: draftFilters.sourceBranchCode,
       }
     : {
-        orgId: scopeSpec.kind === 'branch' ? scopeSpec.organizationCode : undefined,
-        hosId: draftFilters.receiverHospitalCode,
-        branchId: draftFilters.receiverBranchCode,
+        orgId: scopeSpec.kind === 'branch' ? scopeSpec.organizationId : undefined,
+        hosCode: draftFilters.receiverHospitalCode,
+        branchCode: draftFilters.receiverBranchCode,
       }
 
   /** `as` 收窄依据的主体不变量：数据源由页面按侧注入，行的实际类型与 `side` 一致。 */
@@ -917,13 +965,21 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
   const sourceScopeValues = scopeSpec.kind === 'branch'
     ? {
         organizationCode: scopeSpec.organizationCode,
+        organizationName: scopeSpec.organizationName,
         hospitalCode: scopeSpec.hospitalCode,
+        hospitalName: scopeSpec.hospitalName,
         branchCode: filters.ownBranchCode,
+        branchName: (filters.ownBranchCode ?? '').trim().length > 0 ? scopeSpec.branchName : undefined,
       }
     : {
         organizationCode: filters.sourceOrganizationCode,
+        organizationName: filters.sourceOrganizationName,
         hospitalCode: filters.sourceHospitalCode,
+        hospitalName: filters.sourceHospitalName,
         branchCode: dimension === 2 ? filters.sourceBranchCode : undefined,
+        branchName: dimension === 2 && (filters.sourceBranchCode ?? '').trim().length > 0
+          ? filters.sourceBranchName
+          : undefined,
       }
 
   /** 左列表换页：换页清空选中，新页读取完成后由汇总读取自动选中第 1 行（设计 1.4）。 */
@@ -1013,12 +1069,11 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
                 <span className='statistics-board-party__desc'>调阅并使用他院报告</span>
               </div>
               <div className='statistics-board-party__body'>
-                <BaseScopeSelector
-                  level='branch'
+                <OrganizationScopeSelector
                   value={{
-                    orgId: draftFilters.receiverOrganizationCode,
-                    hosId: draftFilters.receiverHospitalCode,
-                    branchId: draftFilters.receiverBranchCode,
+                    orgCode: draftFilters.receiverOrganizationCode,
+                    hosCode: draftFilters.receiverHospitalCode,
+                    branchCode: draftFilters.receiverBranchCode,
                   }}
                   onChange={changeReceiverScope}
                 />
@@ -1035,12 +1090,11 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
                 <span className='statistics-board-party__desc'>出具并提供报告</span>
               </div>
               <div className='statistics-board-party__body'>
-                <BaseScopeSelector
-                  level='branch'
+                <OrganizationScopeSelector
                   value={{
-                    orgId: draftFilters.sourceOrganizationCode,
-                    hosId: draftFilters.sourceHospitalCode,
-                    branchId: draftFilters.sourceBranchCode,
+                    orgCode: draftFilters.sourceOrganizationCode,
+                    hosCode: draftFilters.sourceHospitalCode,
+                    branchCode: draftFilters.sourceBranchCode,
                   }}
                   onChange={changeSourceScope}
                 />
@@ -1049,9 +1103,8 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
           </div>
         : <section className='statistics-board-opposite-filter' aria-label={oppositeScopeLabel}>
             <span className='statistics-board-opposite-filter__label'>{oppositeScopeLabel}</span>
-            <BaseScopeSelector
-              level='branch'
-              orgId={scopeSpec.organizationCode}
+            <OrganizationScopeSelector
+              orgId={scopeSpec.organizationId}
               value={oppositeScopeValue}
               onChange={changeOppositeScope}
             />

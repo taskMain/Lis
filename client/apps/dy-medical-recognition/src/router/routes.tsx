@@ -17,6 +17,7 @@ import { RecognitionUsageStatistics } from '../pages/recognitionStatistics/usage
 import { BranchRecognitionUsageStatistics } from '../pages/recognitionStatistics/usageStatisticsPages'
 import { SourceRecognitionStatistics } from '../pages/recognitionStatistics/sourceStatisticsPages'
 import { BranchSourceRecognitionStatistics } from '../pages/recognitionStatistics/sourceStatisticsPages'
+import { PlatformParameters } from '../pages/platformParameters/PlatformParameters'
 
 const Prototype = import.meta.env.DEV
   ? lazy(() => import('../pages/prototype/StandardCatalogPrototype').then((module) => ({ default: module.StandardCatalogPrototype })))
@@ -40,6 +41,9 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <Home /> },
       { path: 'standard-catalog', element: <StandardCatalog /> },
+      // 「平台参数维护」平台管理员页：维护本院报告匹配开关、排除时长与引用详情有效时长三项平台参数；
+      // 页面只做取值规则的前端校验，保存校验仍由服务端执行；不实现角色判断，菜单名称与授权由权限系统配置。
+      { path: 'platform-parameters', element: <PlatformParameters /> },
       // 「互认项目」维护页：在**当前可信组织**内展示并维护该组织的标准项目互认配置
       // （新增、修改可互认时间、启用/停用）；供平台管理员与医院管理员使用，数据范围仅限
       // 登录凭证 `org` claim 对应的组织，页面不提供组织输入、不跨组织读取，也不额外过滤响应。

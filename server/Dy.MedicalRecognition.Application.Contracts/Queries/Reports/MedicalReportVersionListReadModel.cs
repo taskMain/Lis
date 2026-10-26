@@ -12,6 +12,15 @@ namespace Dy.MedicalRecognition.Application.Contracts.Queries.Reports;
 /// </remarks>
 public sealed record MedicalReportVersionListReadModel
 {
+  /// <summary>提供方组织名称；取本次已解析的可信范围。</summary>
+  public string? OrganizationName { get; init; }
+
+  /// <summary>提供方医院名称；取本次已解析的可信范围。</summary>
+  public string? HospitalName { get; init; }
+
+  /// <summary>提供方院区名称；取本次已解析的可信范围。</summary>
+  public string? BranchName { get; init; }
+
   /// <summary>报告版本标识。</summary>
   public Guid ReportVersionId { get; init; }
   /// <summary>平台内部版本序号。</summary>

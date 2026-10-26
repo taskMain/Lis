@@ -42,6 +42,15 @@ public sealed class Stage2WritePathTests
   /// <summary>可信组织编码，代表登录令牌携带的当前组织。</summary>
   private const string TrustedOrganization = "ORG-A";
 
+  /// <summary>可信组织实例标识，与 IAM 替身的默认医共体一致。</summary>
+  private static readonly Guid TrustedOrganizationId = FakeIamScope.OrganizationId;
+
+  /// <summary>可信组织业务编码：医共体组织节点上配置的编码，写入组织编码列。</summary>
+  private const string TrustedOrganizationBusinessCode = FakeIamScope.OrganizationCode;
+
+  /// <summary>另一个组织实例标识，用于验证越组织定位被拒绝。</summary>
+  private static readonly Guid OtherOrganizationId = Guid.Parse("a2000000-0000-0000-0000-000000000001");
+
   /// <summary>另一个组织编码，用于验证越组织标识被拒绝。</summary>
   private const string OtherOrganization = "ORG-B";
 
@@ -64,9 +73,8 @@ public sealed class Stage2WritePathTests
   /// <summary>构建写入口，注入领域管理器、互认配置读写仓储端口、外部组织服务与外部用户服务。</summary>
   /// <param name="repository">承载目录与配置数据的最小仓储替身。</param>
   /// <returns>可直接调用的写入口。</returns>
-  private static MedicalRecognitionReportAppService CreateAppService(FakeReportRepository repository)
-    => new(new MedicalRecognitionReportManager(repository, new FakeMatchQueryRepository()), repository, new StubOrganizationAppService(), new StubUserAppService(),
-      new StubReportPdfFileStore(), new StubReportQueryRepository(), new StubSystemParameterAppService());
+  private static MedicalRecognitionReportAppService CreateAppService(FakeReportRepository repository, FakeIamScope? scope = null)
+    => new(new MedicalRecognitionReportManager(repository, new FakeMatchQueryRepository()), repository, new StubReportPdfFileStore(), new StubReportQueryRepository(), new PlatformParameterRepositoryStub(), scope ?? FakeIamScope.Default, scope ?? FakeIamScope.Default, scope ?? FakeIamScope.Default);
 
   /// <summary>构建领域管理器，用于绕过应用层直接校验领域规则。</summary>
   /// <param name="repository">承载目录与配置数据的最小仓储替身。</param>
@@ -157,6 +165,7 @@ public sealed class Stage2WritePathTests
     MutualRecognitionItem configuration = new()
     {
       Id = Guid.NewGuid(),
+      // 夹具按业务编码登记：组织编码列写组织节点配置的编码，组织实例列写实例标识，与写入口口径一致。
       OrganizationCode = organizationCode,
       StandardItemId = item.Id,
       StandardProjectCode = item.Code,
@@ -224,6 +233,14 @@ public sealed class Stage2WritePathTests
       OperId = TrustedOperId,
       OperTime = CommandOperTime
     };
+
+  /// <summary>
+  /// 把测试中的组织编码映射为组织实例标识：可信组织对应 IAM 替身的医共体，其余组织对应固定的另一实例。
+  /// </summary>
+  /// <param name="organizationCode">测试使用的组织编码。</param>
+  /// <returns>对应的组织实例标识。</returns>
+  private static Guid ResolveOrganizationId(string organizationCode) =>
+    organizationCode is TrustedOrganization or TrustedOrganizationBusinessCode ? TrustedOrganizationId : OtherOrganizationId;
 
   /// <summary>
   /// 取标准目录某一层停用时领域层应给出的业务拒绝完整文案。
@@ -1027,9 +1044,9 @@ public sealed class Stage2WritePathTests
         new CreateMutualRecognitionItemsRequest { StandardProjectCodes = ["P1", "P2"], RecognitionDurationDays = ValidDurationDays }));
 
     Assert.True(result);
-    Assert.All(repository.CreatedConfigurations, configuration => Assert.Equal(TrustedOrganization, configuration.OrganizationCode));
+    Assert.All(repository.CreatedConfigurations, configuration => Assert.Equal(TrustedOrganizationBusinessCode, configuration.OrganizationCode));
     Assert.All(repository.CreatedConfigurations, configuration => Assert.Equal(TrustedOperId, configuration.OperId));
-    Assert.Equal(TrustedOrganization, Assert.Single(events.Events.OfType<MutualRecognitionItemsCreatedEvent>()).OrganizationCode);
+    Assert.Equal(TrustedOrganizationBusinessCode, Assert.Single(events.Events.OfType<MutualRecognitionItemsCreatedEvent>()).OrganizationCode);
   }
 
   /// <summary>批量新增入口的可互认时间只允许正整数，空集合与非法天数在请求校验处拒绝。</summary>
@@ -1327,7 +1344,7 @@ public sealed class Stage2WritePathTests
     TrustedRequestContext.Use(TrustedOrganization, TrustedOperId.ToString());
     (FakeReportRepository repository, MedicalStandardItem item) = CreateEnabledCatalog();
     // 前置配置挂在第二个标准项目上：新增入口按组织与标准项目查重，与新增目标同项目会让新增命中重复拒绝。
-    MutualRecognitionItem configuration = AddConfiguration(repository, AddEnabledCatalog(repository, "P2"), TrustedOrganization, isValid: false);
+    MutualRecognitionItem configuration = AddConfiguration(repository, AddEnabledCatalog(repository, "P2"), TrustedOrganizationBusinessCode, isValid: false);
     AddEnabledCatalog(repository, "P3");
     MedicalRecognitionReportAppService appService = CreateAppService(repository);
 
@@ -1341,63 +1358,64 @@ public sealed class Stage2WritePathTests
     {
       Assert.True(await appService.CreateMutualRecognitionItemAsync(
         new CreateMutualRecognitionItemRequest { StandardProjectCode = item.Code, RecognitionDurationDays = ValidDurationDays }));
-      Assert.Equal(TrustedOrganization, repository.LastCreated!.OrganizationCode);
+      Assert.Equal(TrustedOrganizationBusinessCode, repository.LastCreated!.OrganizationCode);
       Assert.Equal(TrustedOperId, repository.LastCreated.OperId);
 
       Assert.True(await appService.UpdateMutualRecognitionItemConfigurationAsync(
         new UpdateMutualRecognitionItemConfigurationRequest { Id = configuration.Id, RecognitionDurationDays = 45 }));
-      Assert.Equal(TrustedOrganization, repository.LastUpdated!.OrganizationCode);
+      Assert.Equal(TrustedOrganizationBusinessCode, repository.LastUpdated!.OrganizationCode);
       Assert.Equal(TrustedOperId, repository.LastUpdated.OperId);
 
       Assert.True(await appService.EnableMutualRecognitionItemAsync(new EnableMutualRecognitionItemRequest { Id = configuration.Id }));
-      Assert.Equal(TrustedOrganization, repository.LastEnableCommand!.OrganizationCode);
+      Assert.Equal(TrustedOrganizationBusinessCode, repository.LastEnableCommand!.OrganizationCode);
       Assert.Equal(TrustedOperId, repository.LastEnableCommand.OperId);
 
       Assert.True(await appService.DisableMutualRecognitionItemAsync(new DisableMutualRecognitionItemRequest { Id = configuration.Id }));
-      Assert.Equal(TrustedOrganization, repository.LastDisableCommand!.OrganizationCode);
+      Assert.Equal(TrustedOrganizationBusinessCode, repository.LastDisableCommand!.OrganizationCode);
       Assert.Equal(TrustedOperId, repository.LastDisableCommand.OperId);
 
       // 批量入口与单条入口同一口径：请求不提供组织字段，命令的组织与操作人只来自可信上下文。
       Assert.True(await appService.CreateMutualRecognitionItemsAsync(
         new CreateMutualRecognitionItemsRequest { StandardProjectCodes = ["P3"], RecognitionDurationDays = ValidDurationDays }));
-      Assert.All(repository.CreatedConfigurations, created => Assert.Equal(TrustedOrganization, created.OrganizationCode));
+      Assert.All(repository.CreatedConfigurations, created => Assert.Equal(TrustedOrganizationBusinessCode, created.OrganizationCode));
       Assert.All(repository.CreatedConfigurations, created => Assert.Equal(TrustedOperId, created.OperId));
     });
   }
 
   /// <summary>
-  /// 可信组织带首尾空白时按去除空白后的编码写入，配置归属与事件都取去除空白后的值；
-  /// 该口径与查询入口共用同一个解析点，避免两侧对同一令牌组织得出不同结论。
+  /// 写入口把当前工作身份的组织业务编码写入组织编码列，同时把组织实例标识写入组织实例列：
+  /// 两列同源但取值不同，编码列不再承载实例标识的字符串形式。
   /// </summary>
   [Fact]
-  public async Task Write_entrypoints_trim_the_trusted_organization()
+  public async Task Write_entrypoints_store_the_organization_business_code_in_the_code_column()
   {
-    TrustedRequestContext.Use($"  {TrustedOrganization}  ", TrustedOperId.ToString());
+    TrustedRequestContext.Use(TrustedOrganization, TrustedOperId.ToString());
     (FakeReportRepository repository, MedicalStandardItem item) = CreateEnabledCatalog();
 
     (RecordingEventQueue events, bool result) = await ExecuteAsync(() => CreateAppService(repository).CreateMutualRecognitionItemAsync(
       new CreateMutualRecognitionItemRequest { StandardProjectCode = item.Code, RecognitionDurationDays = ValidDurationDays }));
 
     Assert.True(result);
-    Assert.Equal(TrustedOrganization, repository.LastCreated!.OrganizationCode);
-    Assert.Equal(TrustedOrganization, Assert.Single(events.Events.OfType<MutualRecognitionItemCreatedEvent>()).OrganizationCode);
+    Assert.Equal(TrustedOrganizationBusinessCode, repository.LastCreated!.OrganizationCode);
+    Assert.Equal(TrustedOrganizationBusinessCode, Assert.Single(events.Events.OfType<MutualRecognitionItemCreatedEvent>()).OrganizationCode);
   }
 
-  /// <summary>V11/V22：登录令牌的组织声明取不到组织编码时写入口拒绝，不写入、不登记事件。</summary>
+  /// <summary>V9：未选择工作身份时写入口按 IAM 契约抛工作身份必需异常，不写入、不登记事件。</summary>
   [Fact]
-  public async Task Write_entrypoints_are_rejected_when_trusted_organization_is_missing()
+  public async Task Write_entrypoints_are_rejected_when_work_identity_is_missing()
   {
-    TrustedRequestContext.Use("   ", TrustedOperId.ToString());
+    TrustedRequestContext.Use(TrustedOrganization, TrustedOperId.ToString());
+    FakeIamScope anonymous = new()
+    {
+      Identity = new Dy.IAM.Sdk.IamIdentityContext(TrustedOperId, null, null, null, null, "medical-recognition", Guid.NewGuid(), 1, 1, 1)
+    };
     (FakeReportRepository repository, MedicalStandardItem item) = CreateEnabledCatalog();
-    MedicalRecognitionReportAppService appService = CreateAppService(repository);
+    MedicalRecognitionReportAppService appService = CreateAppService(repository, anonymous);
 
-    (RecordingEventQueue events, InvalidOperationException error) = await ExecuteExpectingRejectionAsync(
-      () => appService.CreateMutualRecognitionItemAsync(
-        new CreateMutualRecognitionItemRequest { StandardProjectCode = item.Code, RecognitionDurationDays = ValidDurationDays }));
+    await Assert.ThrowsAsync<Dy.IAM.Sdk.IamWorkIdentityRequiredException>(() => appService.CreateMutualRecognitionItemAsync(
+      new CreateMutualRecognitionItemRequest { StandardProjectCode = item.Code, RecognitionDurationDays = ValidDurationDays }));
 
-    Assert.Contains("可信组织", error.Message);
     Assert.Equal(0, repository.CreateCalls);
-    Assert.Empty(events.Events);
   }
 
   /// <summary>V11/V22：操作人不能解析为非空 Guid 时拒绝，不静默沿用默认操作人。</summary>

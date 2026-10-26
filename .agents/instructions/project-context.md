@@ -10,6 +10,9 @@
 | 系统名称 | 检验检查结果互认平台 |
 | 当前分支与跟踪分支 | `main` / `origin/main`；比较前重新核实基线 |
 | 技术架构 | C# / Dy Framework 后端；React / TypeScript / Vite / Ant Design 微前端；OpenAPI / Kiota API Client |
+| 认证与身份 | IAM 基座；后端使用 `Dy.IAM.Apron.OpenApi` 的 `IamApronOpenApiModule`，配置节 `Iam`（Authority、AllowHttp、ApplicationCode、ProfileTimeoutSeconds）；当前人取 `ICurrentIamContext` |
+| 组织口径 | 医共体、医院、院区业务键为 IAM 组织的**业务编码**（String）；请求字段沿用组织编码字段名，值为编码文本。编码不表达层级，父子关系取 `parentOrganizationId`；层级类型按 `OrganizationType.Code` 判定（`CountyMedicalCommunity` / `Hospital` / `Branch`）。编码允许为空，不作为平台拒绝条件；查询以编码为键，但校验只判存在性、层级类型与可定论的父子归属，不要求编码唯一，也不为数据用途挑选节点；展示用名称容错取名，无法定论时留空 |
+| 平台参数 | 本应用表 `mrec_platform_parameter` 承载 `own_hospital_match_switch`、`own_hospital_exclude_hours`、`citation_detail_valid_hours`；菜单 11 项 |
 | 开发模式 | 分阶段设计、实施、测试与真实证据；按需多子代理协作 |
 | 浏览器策略 | 不固定浏览器、Profile 或控制工具，必须满足真实宿主验收条件 |
 | 团队角色 | 8 个职位，按客户端工具分目录存放；目录、格式与职位清单见 [Collaboration](collaboration.md) |
