@@ -124,7 +124,7 @@ IAM 数据回滚与重配（2026-10-24）：回滚后 191617 选择原测试院�
 
 ### 前端票 03/票 11 宿主请求鉴权修正（2026-10-25）
 
-宿主内实测结论：业务请求实际打到 `http://localhost:15014/Api/...`，但 `createRequestAdapter` 使用的 `MicroSDK.auth.authenticateRequest` 返回空 headers，请求以 401 失败；同一会话 `getApplicationToken({ targetAppCode: 'medical-recognition' })` 返回 `issued`，带该令牌的 POST 返回 200。修正为应用令牌适配器后，报告管理、平台参数维护、互认使用统计、本院区互认项目金额四页均能打开且无主线程卡死；范围选择器渲染选项，平台参数列表与统计汇总请求返回 200。报告管理与平台金额列表本次收到后端 500「业务拒绝：组织不存在或已停用」，属后端组织路径解析取值与 IAM 组织业务编码未对齐，记入残余风险；截图存 `.local/walkthrough/shots/`。
+宿主内实测结论：业务请求实际打到 `http://localhost:15014/Api/...`，但 `createRequestAdapter` 使用的 `MicroSDK.auth.authenticateRequest` 返回空 headers，请求以 401 失败；同一会话 `getApplicationToken({ targetAppCode: 'medical-recognition' })` 返回 `issued`，带该令牌的 POST 返回 200。修正为应用令牌适配器后，报告管理、平台参数维护、互认使用统计、本院区互认项目金额四页均能打开且无主线程卡死；范围选择器渲染选项，平台参数列表与统计汇总请求返回 200。报告管理与平台金额列表本次收到后端 500「业务拒绝：组织不存在或已停用」，属后端组织路径解析取值与 IAM 组织业务编码未对齐，记入残余风险。当轮走查方式：在宿主 35009 内逐个打开上述四个页面，记录 Network 面板中业务请求的 Authorization 头与响应码、Console 中无主线程阻塞报错，结论即下表 C8 行。
 
 | 用例编号 | 验证面 | 状态 | 实际命令或操作 | 证据 | 未覆盖面 |
 | --- | --- | --- | --- | --- | --- |
