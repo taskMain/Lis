@@ -3,7 +3,6 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Dy.Base.Application.Contracts" Version="1.0.0.184" />
     <PackageVersion Include="Dy.Core.Abstractions" Version="1.1.0.54" />
     <PackageVersion Include="Dy.Core.Extensions" Version="1.1.0.54" />
     <PackageVersion Include="Dy.Core.SourceGen" Version="1.0.0.66" />
