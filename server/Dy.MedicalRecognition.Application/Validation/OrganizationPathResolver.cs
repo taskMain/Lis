@@ -123,6 +123,48 @@ internal sealed class OrganizationPathResolver
     string missingHospitalMessage) =>
     ValidateAsync(targets, missingOrganizationMessage, missingHospitalMessage, null);
 
+  /// <summary>为展示取名解析一批三层目标路径：只取名，不做归属校验，也不按业务拒绝抛出。</summary>
+  /// <remarks>
+  /// 名称是展示字段：编码未配置、在目录中未命中、没有启用且类型相符的候选，或父子归属不成立时，
+  /// 该层名称一律留空，不把整页打成失败。编码按提交值原样回传，供调用方在诊断位展示；
+  /// 名称字段不回填编码文本，也不为数据用途挑选候选节点。目录读取失败仍按基础设施异常上报。
+  /// </remarks>
+  /// <param name="targets">待取名的目标路径，允许为空集合。</param>
+  /// <returns>与输入等长且同序的路径集合，取不到名称的层为空串。</returns>
+  public async Task<IReadOnlyList<OrganizationPath>> ResolveNamesOrEmptyAsync(IReadOnlyList<OrganizationPathTarget> targets)
+  {
+    ArgumentNullException.ThrowIfNull(targets);
+    if (targets.Count == 0) return [];
+
+    CandidateNodes candidates = await ReadCandidatesAsync(CollectCodes(targets));
+    List<OrganizationPath> paths = [];
+    foreach (OrganizationPathTarget target in targets)
+    {
+      paths.Add(new OrganizationPath(
+        Guid.Empty, NameForLayer(target.OrganizationCode, IamOrganizationTypeCodes.CountyMedicalCommunity, candidates), target.OrganizationCode?.Trim() ?? string.Empty,
+        Guid.Empty, NameForLayer(target.HospitalCode, IamOrganizationTypeCodes.Hospital, candidates), target.HospitalCode?.Trim() ?? string.Empty,
+        Guid.Empty, NameForLayer(target.BranchCode, IamOrganizationTypeCodes.Branch, candidates), target.BranchCode?.Trim() ?? string.Empty));
+    }
+
+    return paths;
+  }
+
+  /// <summary>取某一层的展示名称：编码为空、未命中或没有启用且类型相符的候选时为空串。</summary>
+  /// <param name="code">该层业务编码。</param>
+  /// <param name="typeCode">该层要求的组织类型编码。</param>
+  /// <param name="candidates">本批编码的候选节点。</param>
+  /// <returns>展示名称；无法确定时为空串。</returns>
+  private static string NameForLayer(string? code, string typeCode, CandidateNodes candidates)
+  {
+    string? normalized = NormalizeCode(code);
+    if (normalized is null || !candidates.NodesByCode.TryGetValue(normalized, out IReadOnlyList<CodeCandidate> hits)) return string.Empty;
+
+    bool hasTypedEnabledCandidate = hits.Any(hit =>
+      hit.Detail is { IsEnabled: true } node
+      && string.Equals(node.OrganizationType?.Code, typeCode, StringComparison.Ordinal));
+    return hasTypedEnabledCandidate ? NameOf(candidates, normalized) : string.Empty;
+  }
+
   /// <summary>
   /// 校验一批目标路径并装配返回路径；提供医院文案时校验医院层，提供院区文案时校验院区层。
   /// </summary>

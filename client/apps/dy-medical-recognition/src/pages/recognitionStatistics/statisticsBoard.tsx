@@ -71,6 +71,7 @@ import {
   defaultStatisticsFilters,
   formatStatisticsAmount,
   formatStatisticsPercent,
+  missingScopeNameCodes,
 } from './statisticsDisplays'
 import {
   DeptDoctorCell,
@@ -382,7 +383,7 @@ function usageDetailColumns(
     { title: '提供方', width: 150, render: (_, row) => <PartyCell {...row.source} /> },
   ]
   if (showFixedBranchColumn(dimension, scopeKind, fixedBranchLocked)) {
-    columns.push({ title: '使用方院区', width: 96, render: (_, row) => <TextCell value={row.receiver.branchName} /> })
+    columns.push({ title: '使用方院区', width: 96, render: (_, row) => <TextCell value={row.receiver.branchName} code={row.receiver.branchCode} /> })
   }
   columns.push(
     { title: '科室 / 医生', width: 110, render: (_, row) => <DeptDoctorCell deptName={row.recognitionDeptName} doctorName={row.recognitionDoctorName} /> },
@@ -1014,6 +1015,14 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
 
   // 明细面板主体：只渲染表格与行展开；原因筛选归入上方工具行。
   const renderDetailPanel = () => <StatisticsDetailPanel<UsageDetailRow>
+    missingNameCodes={missingScopeNameCodes((detailRows as UsageDetailRow[]).flatMap((row) => [
+      { code: row.source.organizationCode, name: row.source.organizationName },
+      { code: row.source.hospitalCode, name: row.source.hospitalName },
+      { code: row.source.branchCode, name: row.source.branchName },
+      { code: row.receiver.organizationCode, name: row.receiver.organizationName },
+      { code: row.receiver.hospitalCode, name: row.receiver.hospitalName },
+      { code: row.receiver.branchCode, name: row.receiver.branchName },
+    ]))}
     rows={detailRows as UsageDetailRow[]}
     columns={usageDetailCols}
     loading={detailLoading}

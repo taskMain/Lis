@@ -255,10 +255,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
 
     // 使用方名称按全部分组行涉及的编码批量解析，读取次数只随组织与医院数量增长，不随行数增长。
     Dictionary<(string, string, string), OrganizationPath> receiverNames = await ResolveStatisticsPageNamesAsync(
-      [.. rows.Select(row => (row.ReceiverOrganizationCode, row.ReceiverHospitalCode, row.ReceiverBranchCode))],
-      "业务拒绝：汇总行的使用方组织不存在或已停用。",
-      "业务拒绝：汇总行的使用方医院不存在、已停用或不属于该组织。",
-      "业务拒绝：汇总行的使用方院区不存在、已停用或不属于该医院。");
+      [.. rows.Select(row => (row.ReceiverOrganizationCode, row.ReceiverHospitalCode, row.ReceiverBranchCode))]);
 
     IReadOnlyList<RecognitionUsageSummaryReadModel> models =
       [.. rows.Select(row => MapUsageSummaryRow(row, reasonsByGroup, receiverNames, filter))];
@@ -484,10 +481,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
 
     // 提供方名称按全部分组行涉及的编码批量解析，读取次数只随组织与医院数量增长，不随行数增长。
     Dictionary<(string, string, string), OrganizationPath> sourceNames = await ResolveStatisticsPageNamesAsync(
-      [.. rows.Select(row => (row.SourceOrganizationCode, row.SourceHospitalCode, row.SourceBranchCode))],
-      "业务拒绝：汇总行的提供方组织不存在或已停用。",
-      "业务拒绝：汇总行的提供方医院不存在、已停用或不属于该组织。",
-      "业务拒绝：汇总行的提供方院区不存在、已停用或不属于该医院。");
+      [.. rows.Select(row => (row.SourceOrganizationCode, row.SourceHospitalCode, row.SourceBranchCode))]);
 
     IReadOnlyList<object?[]> sheetRows =
     [
@@ -561,11 +555,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   private static object?[] BuildSourceSummaryRow(SourceRecognitionSummaryReadModel model) =>
   [
     model.SourceOrganizationCode,
-    model.SourceOrganizationName,
+    NameOrDash(model.SourceOrganizationName),
     model.SourceHospitalCode,
-    model.SourceHospitalName,
+    NameOrDash(model.SourceHospitalName),
     model.SourceBranchCode,
-    model.SourceBranchName,
+    NameOrDash(model.SourceBranchName),
     model.ItemTypeText,
     model.StandardProjectCode,
     model.StandardProjectName,
@@ -601,17 +595,17 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     model.RecognitionMatchRecordId.ToString(),
     model.RecognitionMatchItemId.ToString(),
     model.SourceOrganizationCode,
-    model.SourceOrganizationName,
+    NameOrDash(model.SourceOrganizationName),
     model.SourceHospitalCode,
-    model.SourceHospitalName,
+    NameOrDash(model.SourceHospitalName),
     model.SourceBranchCode,
-    model.SourceBranchName,
+    NameOrDash(model.SourceBranchName),
     model.ReceiverOrganizationCode,
-    model.ReceiverOrganizationName,
+    NameOrDash(model.ReceiverOrganizationName),
     model.ReceiverHospitalCode,
-    model.ReceiverHospitalName,
+    NameOrDash(model.ReceiverHospitalName),
     model.ReceiverBranchCode,
-    model.ReceiverBranchName,
+    NameOrDash(model.ReceiverBranchName),
     model.StandardProjectName,
     model.StandardProjectCode,
     model.ItemTypeText,
@@ -786,11 +780,11 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   private static object?[] BuildUsageSummaryRow(RecognitionUsageSummaryReadModel model, NonAdoptionReasonSummaryReadModel? reason) =>
   [
     model.ReceiverOrganizationCode,
-    model.ReceiverOrganizationName,
+    NameOrDash(model.ReceiverOrganizationName),
     model.ReceiverHospitalCode,
-    model.ReceiverHospitalName,
+    NameOrDash(model.ReceiverHospitalName),
     model.ReceiverBranchCode,
-    model.ReceiverBranchName,
+    NameOrDash(model.ReceiverBranchName),
     model.RecognitionDeptId,
     model.RecognitionDeptName,
     model.ItemTypeText,
@@ -811,6 +805,12 @@ public sealed partial class MedicalRecognitionReportQueryAppService
     reason is null ? null : (double)reason.Count,
     reason is null ? null : (double)reason.Ratio
   ];
+
+  /// <summary>名称单元格取值：缺失写「—」，不写空文本，也不回填业务编码。</summary>
+  /// <param name="name">回填得到的组织名称。</param>
+  /// <returns>名称；缺失时为一字线。</returns>
+  private static string NameOrDash(string? name) =>
+    string.IsNullOrWhiteSpace(name) ? "—" : name;
 
   /// <summary>
   /// 用 ClosedXML 把导出行写入单个工作表并组装文件读模型。
@@ -833,6 +833,25 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       for (int columnIndex = 0; columnIndex < cells.Length; columnIndex++)
       {
         WriteExportCell(worksheet.Cell(rowIndex + 1, columnIndex + 1), cells[columnIndex]);
+      }
+    }
+
+    // 名称列出现「—」时在对应表头加批注：导出不阻断，但要让使用者知道名称不完整。
+    int headerCount = sheetRows.Count > 0 ? sheetRows[0].Length : 0;
+    for (int columnIndex = 0; columnIndex < headerCount; columnIndex++)
+    {
+      if (sheetRows[0][columnIndex] is not string header || !header.Contains("名称", StringComparison.Ordinal)) continue;
+
+      bool missing = false;
+      for (int rowIndex = 1; rowIndex < sheetRows.Count && !missing; rowIndex++)
+      {
+        object?[] cells = sheetRows[rowIndex];
+        if (columnIndex < cells.Length && cells[columnIndex] is string text && text == "—") missing = true;
+      }
+
+      if (missing)
+      {
+        worksheet.Cell(1, columnIndex + 1).CreateComment().AddText("本列部分组织名称无法解析，已按「—」输出；可用对应编码核对组织目录。");
       }
     }
 

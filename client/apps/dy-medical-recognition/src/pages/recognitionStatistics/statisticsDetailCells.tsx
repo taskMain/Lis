@@ -14,21 +14,39 @@ import { RECOGNITION_DECISION } from './recognitionStatisticsValues'
 import { partyName, projectCodeText, projectNameText } from './statisticsDetailValues'
 
 /** 归属方三行式单元格：组织名、医院名、院区名各占一行，只显名称不显示编码。 */
-export function PartyCell(props: { organizationName?: string | null; hospitalName?: string | null; branchName?: string | null }) {
+export function PartyCell(props: {
+  organizationName?: string | null
+  hospitalName?: string | null
+  branchName?: string | null
+  organizationCode?: string | null
+  hospitalCode?: string | null
+  branchCode?: string | null
+}) {
   const organization = partyName(props.organizationName)
   const hospital = partyName(props.hospitalName)
   const branch = partyName(props.branchName)
   return <div className='statistics-board-cell'>
-    <span className='statistics-board-party-cell__organization' style={{ fontSize: 12 }} title={organization}>{organization}</span>
-    <span className='statistics-board-party-cell__hospital' style={{ fontSize: 13 }} title={hospital}>{hospital}</span>
-    <span className='statistics-board-party-cell__branch' style={{ fontSize: 12 }} title={branch}>{branch}</span>
+    <span className='statistics-board-party-cell__organization' style={{ fontSize: 12 }} title={nameOrCodeTitle(props.organizationName, props.organizationCode)}>{organization}</span>
+    <span className='statistics-board-party-cell__hospital' style={{ fontSize: 13 }} title={nameOrCodeTitle(props.hospitalName, props.hospitalCode)}>{hospital}</span>
+    <span className='statistics-board-party-cell__branch' style={{ fontSize: 12 }} title={nameOrCodeTitle(props.branchName, props.branchCode)}>{branch}</span>
   </div>
 }
 
-/** 明细单元格的单行文本：超出列宽时省略，并以 `title` 提供全文。 */
-export function TextCell(props: { value: string | null | undefined }) {
+/**
+ * 单元格提示文案：有名称时显示名称，缺名称时显示编码，便于排查历史行的组织漂移。
+ * 名称位仍只放名称，编码只出现在提示里，不回落为名称文本。
+ */
+function nameOrCodeTitle(name: string | null | undefined, code: string | null | undefined): string {
+  const nameText = (name ?? '').trim()
+  if (nameText.length > 0) return nameText
+  const codeText = (code ?? '').trim()
+  return codeText.length > 0 ? `编码：${codeText}` : ''
+}
+
+/** 明细单元格的单行文本：超出列宽时省略，并以 `title` 提供全文；缺名称时提示显示编码。 */
+export function TextCell(props: { value: string | null | undefined; code?: string | null }) {
   const text = statisticsTextOrDash(props.value)
-  return <span className='statistics-board-cell__text' title={text}>{text}</span>
+  return <span className='statistics-board-cell__text' title={nameOrCodeTitle(props.value, props.code)}>{text}</span>
 }
 
 /** 明细单元格的次行文本：12px 次级色；证件号码等数字使用等宽数字。 */

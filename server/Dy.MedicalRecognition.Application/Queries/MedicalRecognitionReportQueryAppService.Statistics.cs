@@ -448,15 +448,9 @@ public sealed partial class MedicalRecognitionReportQueryAppService
 
     // 使用方按组级三值一次解析；提供方按当组匹配项涉及编码批量解析，读取次数不随匹配项数量增长。
     Dictionary<(string, string, string), OrganizationPath> receiverNames = await ResolveStatisticsPageNamesAsync(
-      [(view.ReceiverOrganizationCode, view.ReceiverHospitalCode, view.ReceiverBranchCode)],
-      "业务拒绝：匹配记录的使用方组织不存在或已停用。",
-      "业务拒绝：匹配记录的使用方医院不存在、已停用或不属于该组织。",
-      "业务拒绝：匹配记录的使用方院区不存在、已停用或不属于该医院。");
+      [(view.ReceiverOrganizationCode, view.ReceiverHospitalCode, view.ReceiverBranchCode)]);
     Dictionary<(string, string, string), OrganizationPath> sourceNames = await ResolveStatisticsPageNamesAsync(
-      [.. items.Select(item => (item.SourceOrganizationCode ?? string.Empty, item.SourceHospitalCode ?? string.Empty, item.SourceBranchCode ?? string.Empty))],
-      "业务拒绝：匹配项的提供方组织不存在或已停用。",
-      "业务拒绝：匹配项的提供方医院不存在、已停用或不属于该组织。",
-      "业务拒绝：匹配项的提供方院区不存在、已停用或不属于该医院。");
+      [.. items.Select(item => (item.SourceOrganizationCode ?? string.Empty, item.SourceHospitalCode ?? string.Empty, item.SourceBranchCode ?? string.Empty))]);
 
     return new RecognitionMatchRecordReadModel
     {
@@ -685,10 +679,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
 
     // 使用方名称按当页分组行涉及的编码批量解析，读取次数只随组织与医院数量增长，不随行数增长。
     Dictionary<(string, string, string), OrganizationPath> receiverNames = await ResolveStatisticsPageNamesAsync(
-      [.. rows.Select(row => (row.ReceiverOrganizationCode, row.ReceiverHospitalCode, row.ReceiverBranchCode))],
-      "业务拒绝：汇总行的使用方组织不存在或已停用。",
-      "业务拒绝：汇总行的使用方医院不存在、已停用或不属于该组织。",
-      "业务拒绝：汇总行的使用方院区不存在、已停用或不属于该医院。");
+      [.. rows.Select(row => (row.ReceiverOrganizationCode, row.ReceiverHospitalCode, row.ReceiverBranchCode))]);
 
     return new PageResultDto<RecognitionUsageSummaryReadModel>
     {
@@ -859,15 +850,9 @@ private static NonAdoptionReasonSummaryReadModel MapReasonSummary(RecognitionUsa
     Func<TRow, (string?, string?, string?)> sourceKeyOf)
   {
     Dictionary<(string, string, string), OrganizationPath> receiverNames = await ResolveStatisticsPageNamesAsync(
-      [.. rows.Select(receiverKeyOf)],
-      "业务拒绝：明细行的使用方组织不存在或已停用。",
-      "业务拒绝：明细行的使用方医院不存在、已停用或不属于该组织。",
-      "业务拒绝：明细行的使用方院区不存在、已停用或不属于该医院。");
+      [.. rows.Select(receiverKeyOf)]);
     Dictionary<(string, string, string), OrganizationPath> sourceNames = await ResolveStatisticsPageNamesAsync(
-      [.. rows.Select(sourceKeyOf)],
-      "业务拒绝：明细行的提供方组织不存在或已停用。",
-      "业务拒绝：明细行的提供方医院不存在、已停用或不属于该组织。",
-      "业务拒绝：明细行的提供方院区不存在、已停用或不属于该医院。");
+      [.. rows.Select(sourceKeyOf)]);
     return (receiverNames, sourceNames);
   }
 
@@ -875,22 +860,17 @@ private static NonAdoptionReasonSummaryReadModel MapReasonSummary(RecognitionUsa
   /// 把一批当页行的三层编码去重后批量解析为名称字典。
   /// </summary>
   /// <remarks>
-  /// 编码为空的组织键表示该行缺失归属事实（如未绑定报告的提供方），跳过解析；
-  /// 院区编码为空的目标按组织与医院两层解析，有院区编码的目标按三层解析，两批各自批量读取。
-  /// 名称是展示字段：同一编码在 IAM 目录中命中多个节点时按「宁可留空也不猜」取名，不因歧义把整页打成失败；
-  /// 不含歧义编码的目标仍按归属校验的严格规则拒绝，因此写错的编码不会静默降级为空名称。
+  /// 编码为空的组织键表示该行缺失归属事实（如未绑定报告的提供方），跳过解析。
+  /// 名称是展示字段，只取名不做归属校验：编码未配置、在 IAM 目录中未命中、没有启用且类型相符的候选，
+  /// 或父子归属不成立时，该层名称留空，不把整片明细或导出打成失败。
+  /// 编码按提交值原样返回，供调用方在诊断位展示；名称字段不回填编码文本，也不为数据用途挑选候选节点。
+  /// 名称是展示字段而非归属判据，写入链路的严格归属校验仍在 ResolveOrThrow 一侧保留。
   /// </remarks>
   /// <param name="keys">当页行的三层编码集合，允许为空值。</param>
-  /// <param name="missingOrganizationMessage">组织不存在或已停用时的业务拒绝文案。</param>
-  /// <param name="missingHospitalMessage">医院不存在、已停用或不属于该组织时的业务拒绝文案。</param>
-  /// <param name="missingBranchMessage">院区不存在、已停用或不属于该医院时的业务拒绝文案。</param>
   /// <returns>按去空白三层编码索引的名称路径字典；无有效编码时为空字典。</returns>
-  /// <exception cref="InvalidOperationException">不含歧义编码的目标归属不成立或外部组织服务不可用时抛出。</exception>
+  /// <exception cref="InvalidOperationException">外部组织服务不可用时抛出。</exception>
   private async Task<Dictionary<(string, string, string), OrganizationPath>> ResolveStatisticsPageNamesAsync(
-    IReadOnlyList<(string? OrganizationCode, string? HospitalCode, string? BranchCode)> keys,
-    string missingOrganizationMessage,
-    string missingHospitalMessage,
-    string missingBranchMessage)
+    IReadOnlyList<(string? OrganizationCode, string? HospitalCode, string? BranchCode)> keys)
   {
     List<(string OrganizationCode, string HospitalCode, string BranchCode)> targets =
     [
@@ -904,36 +884,14 @@ private static NonAdoptionReasonSummaryReadModel MapReasonSummary(RecognitionUsa
     ];
     if (targets.Count == 0) return [];
 
-    // 指定了院区的目标三层整体校验；未指定院区的目标按两层解析，名称与编码从两批结果合并。
-    List<(string OrganizationCode, string HospitalCode, string BranchCode)> withBranch =
-      [.. targets.Where(target => target.BranchCode.Length > 0)];
-    List<(string OrganizationCode, string HospitalCode, string BranchCode)> withoutBranch =
-      [.. targets.Where(target => target.BranchCode.Length == 0)];
+    // 只取名不校验：历史行的编码在当前 IAM 树中可能已跨树或失效，取不到名称按层留空，不把整片明细打成失败。
+    IReadOnlyList<OrganizationPath> resolved = await organizationPathResolver.ResolveNamesOrEmptyAsync(
+      [.. targets.Select(target => new OrganizationPathTarget(target.OrganizationCode, target.HospitalCode, target.BranchCode))]);
 
     Dictionary<(string, string, string), OrganizationPath> paths = [];
-    if (withBranch.Count > 0)
+    for (int index = 0; index < targets.Count; index++)
     {
-      IReadOnlyList<OrganizationPath> resolved = await organizationPathResolver.ResolveNamesOrThrow(
-        [.. withBranch.Select(target => new OrganizationPathTarget(target.OrganizationCode, target.HospitalCode, target.BranchCode))],
-        missingOrganizationMessage,
-        missingHospitalMessage,
-        missingBranchMessage);
-      for (int index = 0; index < withBranch.Count; index++)
-      {
-        paths[withBranch[index]] = resolved[index];
-      }
-    }
-
-    if (withoutBranch.Count > 0)
-    {
-      IReadOnlyList<OrganizationPath> resolved = await organizationPathResolver.ResolveOrganizationHospitalNamesOrThrow(
-        [.. withoutBranch.Select(target => new OrganizationPathTarget(target.OrganizationCode, target.HospitalCode, null))],
-        missingOrganizationMessage,
-        missingHospitalMessage);
-      for (int index = 0; index < withoutBranch.Count; index++)
-      {
-        paths[withoutBranch[index]] = resolved[index];
-      }
+      paths[targets[index]] = resolved[index];
     }
 
     return paths;
@@ -975,10 +933,7 @@ private static NonAdoptionReasonSummaryReadModel MapReasonSummary(RecognitionUsa
 
     // 提供方名称按当页分组行涉及的编码批量解析，读取次数只随组织与医院数量增长，不随行数增长。
     Dictionary<(string, string, string), OrganizationPath> sourceNames = await ResolveStatisticsPageNamesAsync(
-      [.. rows.Select(row => (row.SourceOrganizationCode, row.SourceHospitalCode, row.SourceBranchCode))],
-      "业务拒绝：汇总行的提供方组织不存在或已停用。",
-      "业务拒绝：汇总行的提供方医院不存在、已停用或不属于该组织。",
-      "业务拒绝：汇总行的提供方院区不存在、已停用或不属于该医院。");
+      [.. rows.Select(row => (row.SourceOrganizationCode, row.SourceHospitalCode, row.SourceBranchCode))]);
 
     return new PageResultDto<SourceRecognitionSummaryReadModel>
     {

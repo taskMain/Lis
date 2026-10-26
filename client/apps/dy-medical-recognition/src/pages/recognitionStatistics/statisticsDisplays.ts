@@ -43,3 +43,16 @@ export function formatStatisticsAmount(value: number | null): string {
 export function statisticsTextOrDash(value: string | null | undefined): string {
   return value === undefined || value === null || value.length === 0 ? '—' : value
 }
+
+/** 名称缺失的组织维度编码：有名称的跳过，无名称但编码非空的收进去，去重后按出现顺序返回。 */
+export function missingScopeNameCodes(
+  pairs: ReadonlyArray<{ code: string | null | undefined; name: string | null | undefined }>,
+): string[] {
+  const codes = new Set<string>()
+  for (const pair of pairs) {
+    if ((pair.name ?? '').trim().length > 0) continue
+    const code = (pair.code ?? '').trim()
+    if (code.length > 0) codes.add(code)
+  }
+  return [...codes]
+}

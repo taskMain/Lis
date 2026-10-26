@@ -14,7 +14,7 @@ import { Button, Card, Empty, Space, Tag, Typography, type TableColumnsType, typ
 import { useMemo } from 'react'
 import type { SourceDetailRow, SourceSummaryRow } from './sourceRecognitionStatisticsApi'
 import type { StatisticsGroupDimensionValue } from './recognitionStatisticsValues'
-import { formatStatisticsDateTime } from './statisticsDisplays'
+import { formatStatisticsDateTime, missingScopeNameCodes } from './statisticsDisplays'
 import { DeptDoctorCell, ItemCell, OptionalTextCell, PatientCell, PartyCell, TextCell } from './statisticsDetailCells'
 import {
   partyName,
@@ -106,7 +106,7 @@ function sourceDetailColumns(showBranchColumn: boolean): TableColumnsType<Source
     { title: '科室 / 医生', width: 140, render: (_, row) => <DeptDoctorCell deptName={row.recognitionDeptName} doctorName={row.recognitionDoctorName} /> },
   ]
   if (showBranchColumn) {
-    columns.push({ title: '提供方院区', width: 96, render: (_, row) => <TextCell value={row.source.branchName} /> })
+    columns.push({ title: '提供方院区', width: 96, render: (_, row) => <TextCell value={row.source.branchName} code={row.source.branchCode} /> })
   }
   return columns
 }
@@ -224,6 +224,14 @@ export function SourceStatisticsBoard(props: SourceStatisticsBoardProps) {
             <Typography.Text type='secondary' className='statistics-board-detail-context'>{detailContextText}</Typography.Text>
 
             <StatisticsDetailPanel<SourceDetailRow>
+              missingNameCodes={missingScopeNameCodes(props.detail.rows.flatMap((row) => [
+                { code: row.source.organizationCode, name: row.source.organizationName },
+                { code: row.source.hospitalCode, name: row.source.hospitalName },
+                { code: row.source.branchCode, name: row.source.branchName },
+                { code: row.receiver.organizationCode, name: row.receiver.organizationName },
+                { code: row.receiver.hospitalCode, name: row.receiver.hospitalName },
+                { code: row.receiver.branchCode, name: row.receiver.branchName },
+              ]))}
               rows={props.detail.rows}
               columns={columns}
               loading={props.detail.loading}
