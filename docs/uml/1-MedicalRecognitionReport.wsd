@@ -8,6 +8,7 @@
 ' 本文件是全局枚举的唯一正式定义来源；其他 WSD 仅引用 MedicalReportType、VisitType、MedicalItemType、MedicalReportLifecycleStatus 和 SourceImageStatus，不重复定义。
 ' 写请求 DTO 名称登记：F03 使用 LaboratoryReportVersionRequest、MedicalReportVersionRequest、LaboratoryReportContentRequest、LaboratoryResultItemRequest、LaboratoryBacteriaResultRequest、LaboratoryAntimicrobialSusceptibilityRequest、MedicalReportVoidRequest、ExaminationReportVersionRequest、ExaminationReportContentRequest、ExaminationItemRequest、ExaminationSiteRequest；F04 使用 RecognitionMatchProposedItemRequest（匹配记录与匹配项的内部创建请求并入匹配查询命令的内部步骤，不单独登记请求 DTO）；F05 使用 RecognitionProcessingResultItemRequest；F07 使用 RecognitionReferenceItemRequest。
 ' 报告提交的写请求层次：报告业务标识（组织、医院、院区、报告类型、报告单号）与 PDF 文件键、下载名由提交命令的直接属性承载，不单独定义请求类型；MedicalReportVersionRequest 承载公共版本信息，专项内容请求与明细集合由其相邻的专项内容请求类型承载；报告与版本的写入由同一命令在同一步内完成。
+' 取数来源为 IAM：写命令的可信组织范围与操作人取自 IAM 当前上下文，三层组织取自 IAM 组织树；业务表以组织业务编码为业务键，编码不表达层级，父子归属只由组织节点关系给出。
 Person('PlatformAdministrator','平台管理员')
 Person('HospitalAdministrator','医院管理员')
 Person('HospitalCollectionService','医院侧采集服务')

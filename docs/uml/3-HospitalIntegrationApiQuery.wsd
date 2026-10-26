@@ -2,6 +2,7 @@
 !include ddd_lib.puml
 ' 医院 HIS 外部 API 的正式响应模型与引用详情查询；标准项目和院区对照不在本平台范围内。
 ' MedicalReportType、VisitType 和 SourceImageStatus 只引用 1-MedicalRecognitionReport.wsd 的全局正式定义。
+' 取数来源为 IAM：请求中的组织、医院、院区字段为业务编码；平台按 IAM 组织树校验存在、启用、层级类型与父子归属，不要求编码唯一。
 Person('HospitalHisSystem','医院 HIS')
 
 ReadModel('RecognitionMatchesResponseReadModel')[

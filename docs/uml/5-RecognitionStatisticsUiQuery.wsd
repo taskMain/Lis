@@ -8,6 +8,7 @@
 ' 条件，替换原互认科室ID、标准项目编码、互认医生ID 三个独立条件字段；不采纳原因代码字段保留。
 ' 精确分组字段（S6-D22）：四个明细请求与两个导出请求按侧别补充 RecognitionDeptId、StandardProjectCode；
 ' 字段由页面按选中汇总行系统填充，汇总请求不携带，用户关键字独立提交。
+' 取数来源为 IAM：统计与导出的组织、医院、院区维度按业务编码过滤与投影；范围与名称取自 IAM 当前上下文与 IAM 组织树。
 Person('PlatformAdministrator','平台管理员')
 Person('HospitalAdministrator','医院管理员')
 UserInterface('RecognitionStatisticsModule','互认统计分析模块')

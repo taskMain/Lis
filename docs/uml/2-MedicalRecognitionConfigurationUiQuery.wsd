@@ -3,6 +3,7 @@
 ' 管理端 UI 查询：标准目录、互认配置、金额和报告管理。
 ' 所有查询最终读取唯一 MedicalRecognitionReportAggregate 的实体或其只读投影。
 ' MedicalItemType、MedicalReportType 和 MedicalReportLifecycleStatus 只引用 1-MedicalRecognitionReport.wsd 的全局正式定义；本文件不重复定义。
+' 取数来源为 IAM：查询的组织、医院、院区范围与名称取自 IAM 当前上下文与 IAM 组织树；业务数据以组织业务编码为业务键。
 Person('PlatformAdministrator','平台管理员')
 Person('HospitalAdministrator','医院管理员')
 UserInterface('MedicalRecognitionConfigurationModule','互认配置管理模块')
