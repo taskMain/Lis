@@ -414,6 +414,3 @@ var/
 
 # Project-only development credentials
 /.local/
-
-# 技能脚本自动解压的本地 Python（不入版本控制）
-/Python/
