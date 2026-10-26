@@ -484,6 +484,12 @@ export function StandardCatalog() {
   const visibleItems = useMemo(() => filterItems(data, activeScope, filter), [activeScope, data, filter])
   const visibleCategories = useMemo(() => visibleCatalogCategories(data, showDisabledNodes, treeKeyword), [data, showDisabledNodes, treeKeyword])
 
+  /*
+   * 已知边界：目录树按 ITEM_TYPES(0/1) 建根，`itemType` 为未知值的分类在任何作用域下都不上树，
+   * 因而既不可查看也不可编辑。适配层已把非法枚举映射为 null 并保留该行，数据不会丢失，只是无位置呈现。
+   * 该值只能由外部系统或直接写库产生（应用自身保存前校验为 0/1，表上无 CHECK 约束），
+   * 属已登记的已知边界而非待修缺陷；若将来接入其他来源的数据，需在此处补「未知类型」根节点。
+   */
   const treeData = useMemo<TreeDataNode[]>(() => {
     const types = activeScope.itemType === null ? ITEM_TYPES : [activeScope.itemType]
     /*

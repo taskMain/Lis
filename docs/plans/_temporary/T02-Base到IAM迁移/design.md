@@ -83,7 +83,7 @@
 | `.agents/instructions/project-context.md` | 技术事实：IAM 身份与组织来源、参数表 |
 | `.agents/instructions/test-environment.md` | 宿主改 IAM 基座、测试身份与组织范围、应用登记结果 |
 | 阶段 1～7 各 `design.md`/`testReport.md`/`testPlan.md` | 受影响用例的组织维度表述、参数来源表述、双入口口径与证据状态 |
-| `docs/迁移接入.md` | 调用点映射与剩余依赖的实测结果 |
+| `docs/迁移接入.md` | 不单独产出：调用点映射与剩余依赖的实测结果直接记在本阶段 `testReport.md`，迁移完成后无独立维度的文档价值 |
 
 ### 8. 风险
 
