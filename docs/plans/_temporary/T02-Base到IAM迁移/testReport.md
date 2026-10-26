@@ -330,6 +330,55 @@ IAM 数据回滚与重配（2026-10-24）：回滚后 191617 选择原测试院�
 - 金额页曾出现一次「共 0 项」，同请求后端实测返回 302 行，说明失败发生在请求发出或令牌获取阶段；该次失败的网络层根因未取证，修复后同类情况会以失败文案呈现。
 - IAM 同一租户内存在两棵业务编码完全相同的组织树（重复的 `01`、`CSYY1`、`CSYY2`、`CSYQ1-1`、`CSYQ2-1` 等），属目录数据状态；本项目按编码为键、名称容错、校验不挑节点处理，不对此做审计或修正。
 
+## 统计明细名称回填缺陷与修复（2026-10-26）
+
+### 现象与定位
+
+真实链路复现：测试身份打开「互认使用统计」后，汇总正常，明细请求返回 500。
+
+```text
+POST /Api/MedicalRecognitionReportQuery/QueryRecognitionUsageDetails
+{"detailType":1,"organizationCode":"01","hospitalCode":"CSYY2",…}
+→ 500，业务拒绝：明细行的使用方院区不存在、已停用或不属于该医院。
+堆栈：ReadUsageDetailPageAsync → ResolveUsageDetailNamesAsync → ResolveStatisticsPageNamesAsync
+      → OrganizationPathResolver.ValidateAsync → ValidateTarget（父子归属判定处抛出）
+```
+
+根因：名称回填复用了写入口的归属校验。`ResolveNamesOrThrow` 的注释自述「本入口与 `ResolveOrThrow` 行为一致」，
+因此「编码可定论但父子归属不符」的历史行会让整片明细失败。
+
+触发条件来自 IAM 侧编码变更：同租户两棵组织树的编码已不再相同，实测取值——A 树「测试医共体1」为
+`01 / CSYY1 / CSYQ1-1`（医院二院区已改为 `CSYQ2-1-2`），B 树「县医共体」为 `01-2 / CSYY1-2 / CSYQ1-1-2`。
+库内历史行仍保存旧编码：报告 `01/0101/0101001` 65 行、`01/CSYY2/CSYQ2-1` 31 行、`01/CSYY1/CSYQ1-1` 2 行；
+匹配记录 `01/0101/0101001` 79 行、`01/CSYY2/CSYQ2-1` 27 行。其中 `CSYQ2-1` 在 A 树已不存在，只落在 B 树的
+`CSYY2-2` 之下，构成跨树组合。
+
+### 处理
+
+- 新增 `OrganizationPathResolver.ResolveNamesOrEmptyAsync`：批量读候选后按层取名，不做归属校验、不抛业务拒绝；
+  编码未配置、未命中、无启用且类型相符候选时该层名称留空；目录读取失败仍按基础设施异常上报。
+- `ResolveStatisticsPageNamesAsync` 改调该入口，删除三个拒绝文案参数；统计明细与统计导出共 8 个调用点同步收敛。
+- 写入链路的 `ResolveOrThrow`、`ResolveOrganizationHospitalOrThrow` 未改动，严格归属校验保留。
+- 前端：名称为空时单元格显示「—」，`title` 改为显示该层编码；明细表上方在存在缺失名称时给非阻断提示，
+  编码去重后最多列 3 项，其余折叠为「等 N 项」。
+- 导出：名称列缺失写「—」，并在含「名称」的表头列出现「—」时给该表头加批注，说明名称不完整、可用编码核对。
+
+### 证据
+
+| 项 | 结果 |
+| --- | --- |
+| 新增用例 `T02StatisticsNameBackfillTests` | 2 条：跨树组合返回行且名称取唯一候选；编码在目录中不存在时名称留空。修复前第一条以同一异常、同一堆栈位置失败（RED），修复后转绿 |
+| 后端全量 | 970 通过 / 0 失败 / 0 跳过（修复前 968，新增 2） |
+| 前端 lint / test / build | lint 0；32 文件 872 通过 / 2 跳过；build 0 错误 |
+| 真实链路 | `QueryRecognitionUsageDetails` 由 500 转为 200；使用方明细两行正常渲染，提供方与使用方院区名称均取到 |
+| 失败态呈现 | 明细不可得时页面显示「明细加载失败，请切换页签或重试」，未伪装成空态 |
+
+### 验收边界
+
+- 历史行不回填，IAM 编码变更后旧编码行仍按「取不到即可留空」处理，不追平数据。
+- 名称取自编码的唯一候选，可能来自与写入时不同的组织树；这是「按编码取名、不为数据用途挑节点」的直接结果。
+- 导出文件在名称缺失时以「—」占位并附批注，不阻断导出。
+
 ## 交付结论（2026-10-25）
 
 判定：**`ReadyWithAcceptedResiduals`**。
