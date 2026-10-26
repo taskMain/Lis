@@ -90,41 +90,29 @@
 
 `generate` 会覆盖 `src/` 下的手写文件，`src/index.ts` 需在生成后核对；不要添加 `--clean-output`，否则会直接删除该入口。`kiota-lock.json` 的 `descriptionLocation` 指向包内 `openapi/` 稳定文件，`excludePatterns` 必须保留 `/auth/login`。
 
-### 3.4 当前已知阻断（在所属阶段内优先处理）
+### 3.4 历史阻断与处置
 
-以下区分历史实测与用户最新澄清；本轮只修订文档，后续进入阶段开发时按当前设计处理，不要把它们当成已完成能力。
+本节记录两次曾阻断开发的运行问题及其最终处置。两项均已解决，不再作为当前约束；实现与验证结果以对应阶段文档与阶段 `testReport.md` 为准。
 
-**1. SqlMap 语句解析失败，所有生成接口返回 500**
+**1. SqlMap 语句查找失败（已解决）**
 
-实测：带合法宿主 token 调用 `POST /Api/MedicalRecognitionReport/CreateMedicalStandardCategory` 返回 `HTTP 500`，异常为
-`Dy.Earthrace.Exceptions.EarthraceException: Can not find Statement. FullSqlId:MedicalRecognitionReport.CreateMedicalStandardCategory`。
+现象：带合法宿主令牌调用 `POST /Api/MedicalRecognitionReport/CreateMedicalStandardCategory` 返回 `HTTP 500`，异常为 `EarthraceException: Can not find Statement. FullSqlId:MedicalRecognitionReport.CreateMedicalStandardCategory`。框架按 `{作用域}.{语句 ID}` 查找，当时 SqlMap 的 `Scope` 与仓储作用域都传聚合名，多个实体共用同一作用域。
 
-历史取证记录了以下生成物与对照项目的差异；这些差异提供候选根因，不足以证明聚合作用域本身必然导致失败：
+处置：SqlMap `Scope` 改为实体名；仓储在每个 `DataMapper` 调用点显式传 `scope:`；不调用 `SetContext`，不按实体拆仓储类；常规增改继续显式传业务化 `sqlId`，与 XML 的 Statement Id 对齐。实测形态：`<SqlMap Scope="ExaminationItem">` 等按实体名声明，`InsertAsync(value, scope: RecognitionMatchRecordScope)` 逐调用传入，源码中无 `SetContext` 调用（唯一一处是注释，说明不使用它的原因）。
 
-| | 同类可用项目 | 本项目生成物 |
-|---|---|---|
-| Repository 作用域传参 | 显式传**实体名**（如 `MedicalStandardItem`），不调用 `SetContext` | `SetContext` 传聚合名（`MedicalRecognitionReport`） |
-| SqlMap `Scope` | **实体名** | 聚合名 |
-| Repository 文件 | 每个实体一个 | 19 个实体共用一个 `MedicalRecognitionReportRepository.cs` |
-| `InsertAsync`/`UpdateAsync` | 对照调用省略 `sqlId:`，走框架默认语句路径 | 显式传业务化 `sqlId:` |
+结果：标准目录、报告、匹配、处理结果、引用、金额等写入与查询接口均可用；后端全量 968 通过 / 0 失败。
 
-已观测到的事实是查找键 `MedicalRecognitionReport.CreateMedicalStandardCategory` 未找到语句。框架按 `{作用域}.{语句 ID}` 查找；多个实体共用作用域不等于语句必然冲突或缺失。历史“共用聚合作用域是失败的直接原因”推论已被替代，不得据此实施。
+**2. 平台表未建立（已解决）**
 
-**当前选定方案（[阶段 1 设计](../../docs/plans/003-阶段1-标准项目目录维护/design.md)，S1-D1/S1-D2）**：本模块写入 SqlMap 的 `Scope` 改为实体名，仓储在**每个 `DataMapper` 调用点显式传 `scope:`**，**不调用 `SetContext`，不按实体拆仓储类**。常规增改继续显式传业务化 `sqlId`，与 XML 的 Statement Id 对齐，不改成框架短名、不依赖仓储方法名推断。避免 `SetContext` 是为消除共享映射器可变作用域依赖，不表示已证明它就是历史异常的原因。
+原基线：平台自有表按所属阶段独立新建，物理表名为 `mrec_` 加业务基础表名，实体名不带前缀、通过 SqlMap 显式对应；最终 DDL 由负责人执行。
 
-**尚未核实**：本项目运行时的实际作用域来源与语句注册结果尚待探测。阶段 1 实施首批次必须输出**实际查找键与已注册语句键清单**，区分「语句未注册」与「语句注册在别的键下」；探测不支持候选解释时暂停相关修复并修订设计。跨项目（`Dy.MedicalStandardCatalog`、`Dy.LisCenter`）证据不能替代本项目运行验证，选定方案不等于修复已通过。
+结果：目标库 `DysoftHIS` 的 `public` schema 现有 20 张 `mrec_` 表，即各阶段业务的 19 张表加 T02 新增的 `mrec_platform_parameter`。四张业务表的组织维度均为编码列，无迁移期实例列。
 
-**默认语句名的证据边界**：历史 `InsertAsync → Insert` 推导尚未附齐属性位置、参数省略调用点、内部转调及去后缀处理的调用链证据，不能称为仅由元数据确认的事实。本阶段显式传 `scope/sqlId`，不依赖该默认推导；仓储对外方法名无需与显式语句 ID 同名。需要分析默认路径时再补对应证据，不改变既定运行探测闸门。
+保留约束：同库不等于同表；不改名、不复制、不迁移其他系统的对象与数据。各阶段建表与核实结果仍以阶段文档和阶段 `testReport.md` 为准。
 
-阶段 1 进入实施时按上述修法处理；本阶段只处理标准目录相关实体，其余实体随各自阶段处理。
+**3. 鉴权链路（历史结论已按 IAM 接入取代）**
 
-**2. 数据库表缺失**
-
-用户于 2026-09-11 澄清本平台尚未建立数据库表：19 张平台表按所属阶段独立新建，物理表名为 `mrec_` 加已选业务基础表名，不强制与实体名完全一致；实体名不带前缀，物理表通过 SqlMap 显式对应。各阶段新建的表对象与完成状态记录在对应阶段文档与阶段 `testReport.md`，不在本节维护。此为用户确认的基线，不是数据库查询结果。
-
-阶段 0 曾在配置库中观测到不带前缀的 `medical_standard_category`、`medical_standard_group`、`medical_standard_item`，并记录类型差异与 14 个索引。观测证据保留，但这些是归属未确认的既存对象，不是本平台共享或既有资源；旧有“3/19 已建”、整型布尔转换、保留其索引及旧表迁移方案均被本次澄清覆盖，不再执行。连接配置不改，同库不等于同表；初始化前须由负责人确认目标数据库与 schema，并执行最终 DDL，完成确认前暂停依赖新表的集成测试。不得改名、复制、迁移或修改其他系统的表及数据。
-
-**已确认可用的部分**：token 链路正常 —— 不带 token 返回 401，带宿主登录 token 能到达业务层（500 而非 401）。
+历史结论只到「不带令牌返回 401、带令牌能到达业务层」。IAM 接入后的现状：不带令牌 401；未选择工作身份时业务查询返回 409 `work_identity_required`；直连业务接口须使用携带租户与组织上下文的应用令牌，取得方式见 [Test Environment](test-environment.md) 第 2 节。
 
 ## 4. 本项目 DDL 脚本规则
 

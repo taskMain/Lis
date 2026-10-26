@@ -95,7 +95,7 @@
 <!-- proma:memory:start -->
 ## 记忆维护
 
-- 项目记忆索引：[MEMORY.md](<C:\Users\test\.proma\agent-workspaces\dy-medicalrecognition\memory\MEMORY.md>)；详细主题按索引按需读取，新增、移动、归档主题时同步索引。
-- 全局用户画像：[user_profile.md](<C:\Users\test\.proma\memory\user_profile.md>)，跨项目共享；本项目补充偏好存入 C:\Users\test\.proma\agent-workspaces\dy-medicalrecognition\memory\project-preferences.md 并加入项目索引，仅在本项目覆盖全局偏好。
+- 项目记忆索引：会话工作台的记忆目录内 `MEMORY.md`（实际路径由运行环境提供）；详细主题按索引按需读取，新增、移动、归档主题时同步索引。
+- 全局用户画像：Proma 全局记忆目录内 `user_profile.md`，跨项目共享；本项目补充偏好写入会话工作台记忆目录内的 `project-preferences.md` 并加入项目索引，仅在本项目覆盖全局偏好。
 - 在任务中及时修订已确认的偏好、经验和决策，保留来源、适用范围和核验日期；不把临时任务进度写成永久偏好。超过一周的阶段性要求结合本轮证据复查；到期或被替代的内容移出有效入口并可恢复地归档。读取不等于核验，不编造用户事实。
 <!-- proma:memory:end -->

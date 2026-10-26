@@ -8,7 +8,7 @@
 |---|---|---|
 | 子系统业务编码 | 已确认：`medical-recognition` | 由负责人 2026-09-15 确认并登记；与第 4 节宿主拦截命中键取同一值。菜单与路由按所属阶段在宿主侧维护，不登记在本规范 |
 | 宿主地址与登录页 | 已确认：`http://183.224.180.166:35000`，登录页 `/login`，开发设置页 `/dev-settings` | 宿主后端 API 在 `http://183.224.180.166:35001`（登录、菜单、子应用信息） |
-| 平台 Base API / OpenAPI | 本项目自身 OpenAPI 已确认：`http://localhost:15014/openapi/v1.json`；对外依赖的平台 Base API 仍待配置 | 后端启动后可用；Scalar 调试页在 `http://localhost:15014/scalar` |
+| 平台 Base API / OpenAPI | 本项目自身 OpenAPI 已确认：`http://localhost:15014/openapi/v1.json`；对外依赖的平台 Base API 已随 T02 退出，本应用不再调用外部 Base 接口 | 后端启动后可用；Scalar 调试页在 `http://localhost:15014/scalar` |
 | 本地后端端口及 OpenAPI / Scalar 地址 | 已确认：`15014`（2026-09-18 调整）；使用前核实是否已被占用 | 三处启动配置已一致指向 15014：`appsettings.json`、`appsettings.Development.json`、`Properties/launchSettings.json`（后者以 `ASPNETCORE_URLS` 形式生效，改端口时三者必须同步）；`appsettings.Development.json` 的 `HttpConfig.HttpServiceConfigs.Default.Host` 与前端 `config.development.json`、`src/runtimeConfig.ts` 回落地址同步为同一端口。OpenAPI `http://localhost:15014/openapi/v1.json`，Scalar `http://localhost:15014/scalar`。该端口位于 Windows 动态端口范围（1024 至 15000）之外，避免被 WSL 与 Hyper-V 的动态端口预留占用 |
 | 前端开发端口、basename 与拦截命中键 | 已确认：端口 `3008`、basename `/subApps/medical-recognition`、宿主拦截命中键 `medical-recognition` | 端口来源 `apps/dy-medical-recognition/vite.config.ts` 的 `server.port`；`base` 与 `redirectBasePlugin` 均为 `/subApps/medical-recognition/`；拦截配置流程见第 4 节。**宿主菜单结构与各阶段子项/路由属于阶段信息，登记在对应阶段文档，不在本规范维护** |
 | 测试辅助服务端口和公网接收地址（需要时） | 待配置 | 阶段明确用途，负责人确认目标 |
@@ -20,13 +20,13 @@
 | 外部系统地址 | 已按 IAM 迁移更新 | 身份与组织信息 → IAM `http://183.224.180.166:35015`（配置节 `Iam.Authority`）；平台参数 → 本应用表 `mrec_platform_parameter`，不再调用外部参数服务；文件服务 → `localhost:9333`。原 Base 的用户信息、组织信息、系统参数与字典地址 `http://183.224.180.166:35001` 与推送 `35005` 已随迁移退出，运行配置中不再出现 |
 | 不使用的中间件 | 已确认不使用 | 本项目不用 MQ 和 Redis，`appsettings.Development.json` 中不配置 `RabbitMQ`、`DistributedLock`、`Caching` 节 |
 | .NET SDK 版本 | 已确认：`10.0.401` | `server/global.json` 已钉 `10.0.401`（`rollForward: latestPatch`）；早期生成值 `10.0.302` 本机未安装，已按负责人决策替换 |
-| Dy 框架包版本 | 已确认：`Dy.Apron.* 1.1.0.48`、`Dy.Earthrace* 1.0.0.60`、`Dy.Core.SourceGen 1.0.0.66`（负责人后续升级） | 生成器基准版本（`Dy.Apron.* 1.1.0.43`、`Dy.Earthrace* 1.0.0.54`、`Dy.Core.SourceGen 1.0.0.62`）不在本机缓存；先按负责人决策对齐到本机缓存版本使 restore/build 可用，负责人随后自行升级到当前值 |
+| Dy 框架包版本 | 已确认：`Dy.Apron.* 1.1.0.48`、`Dy.Earthrace* 1.0.0.60`、`Dy.Core.SourceGen 1.0.0.66`、`Dy.IAM.Apron.OpenApi 0.2.0.37`、`Dy.IAM.Application.Contracts 0.2.0.37`（负责人后续升级；IAM 两包取自 `server/Directory.Packages.props`） | 生成器基准版本（`Dy.Apron.* 1.1.0.43`、`Dy.Earthrace* 1.0.0.54`、`Dy.Core.SourceGen 1.0.0.62`）不在本机缓存；先按负责人决策对齐到本机缓存版本使 restore/build 可用，负责人随后自行升级到当前值 |
 | 私有 NuGet 源访问 | 有效源可用：`http://49.4.86.145/api/v4/projects/41/packages/nuget/index.json` | `server/NuGet.config` 以 `<clear/>` 屏蔽用户级配置，实际生效的是该地址（HTTP 200，含 `Dy.Base.Application.Contracts 1.0.0.147` 等）；用户级配置里的 `https://dysoft.vip/…` DNS 解析失败但**不参与本项目 restore**。2026-09-16 核实更正：此前登记的「私有 NuGet 源不可达」记的是被屏蔽的地址。依赖仍优先取本机缓存 |
 | 浏览器、Profile、控制工具及可选调试端口 | 执行时选择 | 能完成当前验收并采集必要证据 |
 
 “待配置”不是可执行值。只在某操作确实依赖缺失配置时暂停该操作；不阻止独立的需求、设计、规范或不依赖环境的测试。不得回退到其他项目的地址、端口、编码、账号或组织标识。
 
-当前仍待配置的两项为：对外依赖的平台 Base API（见第 11 行）、按需启用的测试辅助服务（见第 14 行）。测试账号与密码已确认；组织/医院/院区范围按实际登录返回登记，属"使用时核实"的信息，不计入"待配置"。宿主地址、前后端端口、拦截配置、子系统业务编码、登录入口、目标库/schema 与外部系统地址保留已登记值，使用前按本规范核实。
+当前仍待配置的一项为按需启用的测试辅助服务（见第 14 行）；对外依赖的平台 Base API 已随 T02 退出，不再属于待配置项。测试账号与密码已确认；组织/医院/院区范围按实际登录返回登记，属"使用时核实"的信息，不计入"待配置"。宿主地址、前后端端口、拦截配置、子系统业务编码、登录入口、目标库/schema 与外部系统地址保留已登记值，使用前按本规范核实。
 
 2026-09-18 端口再次调整：本地后端端口由 `5014` 调整为 `15014`，原因为 `5014` 落入 Windows 的动态端口预留区间（`netsh interface ipv4 show excludedportrange protocol=tcp` 实测为 4919 至 5018），该区间由 Hyper-V、Host Network Service 与 WSL 在开机与网络栈重排时动态申请，落在其中的端口无法绑定（绑定报 `SocketException 10013`），且区间边界会随每次开机与重排移动，不构成稳定的可用端口。`15014` 位于动态端口范围（1024 至 15000）之外且不在任何预留区间内，实测可绑定。本轮同步点：三处启动配置、`appsettings.Development.json` 的 `HttpConfig` 默认服务地址、前端 `config.development.json` 的 `apiBaseUrl` 与 `src/runtimeConfig.ts` 回落地址、`prepare-openapi.mjs` 的默认 OpenAPI 地址、`medicalRecognitionClient.ts` 的默认基址、生成产物 `openapi/medical-recognition.openapi.json` 的 `servers.url`、`Stage2EnumContractTests.cs` 的样例字面量、`Stage4ConstraintTests.cs` 的三条配置断言，以及各阶段文档与证据文件中该端口的记载。子应用生产配置 `client/apps/dy-medical-recognition/public/config.json` 的 `apiBaseUrl` 仍为部署占位地址 `http://183.224.180.166:35014`，本轮未改动。
 
@@ -68,6 +68,8 @@
 ```
 
 2026-09-10 本轮实际值：全局开关 `"true"`，映射行 `enabled: true`，两级均已启用。
+
+2026-10-26 本轮实测（仅服务侧）：后端监听 `127.0.0.1:15014` 与 `[::1]:15014`，OpenAPI 返回 200、匿名业务接口返回 401；前端开发服务监听 `[::1]:3008`，`http://localhost:3008/subApps/medical-recognition/` 返回 200，而 `http://127.0.0.1:3008` 连接被拒（Vite 默认只监听 IPv6 回环）。宿主侧拦截映射的启用状态在浏览器内核对，不由本节记录。
 
 生效验证（配置后必做，不得凭页面能打开就认定生效）：在 Network 中确认子应用资源来自 `http://localhost:3008`（`@vite/client`、带 HMR 时间戳的 `src/*.tsx`），并在 Console 看到 `[vite] connected.`。只看到宿主 `183.224.180.166:35000/assets/*` 的资源即为拦截未生效。
 
