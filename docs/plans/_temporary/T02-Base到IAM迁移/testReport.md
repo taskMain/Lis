@@ -423,6 +423,58 @@ POST /Api/MedicalRecognitionReportQuery/QueryRecognitionUsageDetails
 - 本轮在开发库写入一条金额造数（`002504030050000-01001` = `12.50`，编码 `01/CSYY2/CSYQ2-1-2`）。
 - 明细行「使用方院区」显示「测试院区2-1」而存储编码为 `CSYQ2-1`、页面范围为 A 树 `CSYY2`：名称按编码唯一候选取自 B 树，属既定取名口径的直接表现。
 
+## 全局 API 异常拦截接入与工具链对齐（2026-10-26）
+
+### 背景
+
+`dy-dev-kiota-api-client` 的默认接入包含三项能力：应用令牌鉴权、目标地址守卫与全局 API 异常拦截（`ErrorHandlerMiddleware` +
+`setHostApiErrorHandler`）。票 11 退出 Base 依赖时把 `@dy/kiota-middleware` 一并移出，导致异常拦截能力缺失：
+后端返回的业务拒绝没有统一呈现，各页面自行 catch，提示口径不一致。
+
+### 依赖与工具链
+
+| 项 | 原值 | 现值 |
+| --- | --- | --- |
+| kiota CLI | 全局工具，且本机另有 1.34.1 副本 | 项目本地清单 `client/dotnet-tools.json` 固定 `1.32.2` |
+| `@microsoft/kiota-*` 六个运行时包 | `1.0.0-preview.103` | `1.0.0-preview.102` |
+| `@dy/kiota-middleware` | 未安装 | `0.1.48` |
+| `@dy/micro-sdk` | `^0.1.46`（实际 0.1.46） | `0.1.48` 精确值 |
+| `client/pnpm-workspace.yaml` overrides | 钉死 preview.103 | 同步 preview.102 |
+
+`pnpm-workspace.yaml` 的 overrides 是版本不生效的直接原因：只改 package.json 时安装结果仍是 103。
+
+### 适配器
+
+`applicationTokenAdapter.ts` 按技能资产 `assets/iam-adapter.ts` 重写，补齐五项行为：目标地址守卫（鉴权与 fetch 两处）、
+逐请求清除自带 Authorization、令牌签发后的会话版本校验、`setHostApiErrorHandler(error => MicroSDK.reportApiError(error))`、
+`redirect: "error"` 与 `credentials: "omit"`。关闭拦截时显式给直通链，避免 preview.102 空链等价默认链带来的重试差异。
+
+### 重生成
+
+原生成产物由 CLI 1.34.1 产出，与 preview.102 不兼容（`Expected 0 arguments, but got 1`，9 处模型错误）。按 `toolchain.json` 用本地 1.32.2 重新生成，
+`excludePatterns` 恢复为 `["/auth/login"]`。生成后 `src/index.ts` 手写入口已恢复，`openapi/medical-recognition.openapi.json` 的 path 数仍为 64。
+
+首次生成时 Git Bash 把 `--exclude-path /auth/login` 改写成 `C:/Program Files/Git/auth/login` 并写入锁文件，
+`Stage5ConstraintTests` 的锁文件守卫失败；加 `MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*"` 后恢复。该注意点已写入 Project Context §3.3。
+
+### 验证
+
+| 项 | 结果 |
+| --- | --- |
+| 客户端包 build / typecheck | 通过 |
+| 子应用 build / lint | 通过；lint 0 |
+| 前端测试 | 32 文件 874 通过 / 2 跳过（新增会话版本切换与目标越界用例） |
+| 后端全量 | 970 通过 / 0 失败，含 OpenAPI 快照与锁文件守卫 |
+| 真实链路 | 重载应用后业务接口全部 200：平台参数、本院报告列表、互认项目配置、统计汇总与明细、报告列表、组织范围查询 |
+| 构建产物静态核对 | `dist/index.js` 含 `setHostApiErrorHandler`、`ErrorHandlerMiddleware`、`reportApiError`、目标越界与会话变化文案 |
+
+### 残余与边界
+
+- 异常拦截的实际提示呈现未做端到端触发：需要一个可控的 4xx/5xx 业务拒绝，当前 UI 校验会先行阻断，未构造该场景。
+- 拦截回调的单元断言不可行：子应用依赖客户端包已构建 dist，测试期 mock 无法拦截打包后的调用；改为构建产物静态核对。
+- 计划编号类注释在生产代码中仍有 119 处（`S3-D22`、`票 07`、`C34` 等），属审查判断项，保留为设计可追溯引用，未批量删除。
+- `NormalizeCode` 在 `Citation.cs`（空值转空串）与 `OrganizationPathResolver.cs`（空值返回 null）语义不同，未合并。
+
 ## 交付结论（2026-10-25）
 
 判定：**`ReadyWithAcceptedResiduals`**。

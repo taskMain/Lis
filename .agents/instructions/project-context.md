@@ -77,18 +77,18 @@
 
 ### 3.3 前端 API Client 生成
 
-`@dy/api-client-medical-recognition` 由 Kiota（.NET 全局工具 `microsoft.openapi.kiota`，当前 1.34.1）从后端 OpenAPI 生成，输入是后端运行时的 `/openapi/v1.json`（Scalar 页面 `sources[].url` 所引用的文档，不是 Scalar 页面地址）。
+`@dy/api-client-medical-recognition` 由 Kiota 从后端 OpenAPI 生成，输入是后端运行时的 `/openapi/v1.json`（Scalar 页面 `sources[].url` 所引用的文档，不是 Scalar 页面地址）。工具链按 `dy-dev-kiota-api-client` 的 `references/toolchain.json` 固定：CLI `1.32.2` 装在项目本地清单 `client/dotnet-tools.json`（`dotnet tool restore` 后用 `dotnet tool run kiota --` 调用），六个 `@microsoft/kiota-*` 运行时包统一 `1.0.0-preview.102`，两者是同一组已验证组合，不得单独升级或改版本范围。`@dy/kiota-middleware` 与 `@dy/micro-sdk` 使用同一精确版本，用于全局 API 异常拦截。
 
 | 步骤 | 命令或事实 |
 |---|---|
 | 取原始文档 | `GET http://localhost:15014/openapi/v1.json`（需后端已启动） |
 | 兼容修正 + 固化输入 | `pnpm -F @dy/api-client-medical-recognition prepare-openapi`，产出 `openapi/medical-recognition.openapi.json`，修正 ASP.NET 的 `["integer","string"]` 联合类型 |
-| 生成源码 | `pnpm -F @dy/api-client-medical-recognition generate`，固定带 `--exclude-path /auth/login` |
+| 生成源码 | 优先用项目本地固定版本：`dotnet tool run kiota -- generate -l typescript -d openapi/medical-recognition.openapi.json -o src --class-name MedicalRecognitionClient --exclude-path /auth/login`；包内 `generate` 脚本调用 PATH 中的 kiota，版本不受本仓库约束，只在确认其版本等于 `1.32.2` 时使用 |
 | 构建与检查 | `pnpm -F @dy/api-client-medical-recognition build` / `typecheck` |
 
 已有生成基线记录为当时后端已暴露的全部接口（`MedicalRecognitionReport` 分组的 16 个写命令，暂无查询接口），不代表这些业务能力均已交付，也不作为后续全量生成指令。同一包后续按“已交付范围 + 本阶段稳定契约”累计生成，保留已交付接口，不提前生成后续功能；阶段中的“本模块生成”受 [Frontend API Client](frontend-api-client.md) 的累计规则约束。
 
-`generate` 会覆盖 `src/` 下的手写文件，`src/index.ts` 需在生成后核对；不要添加 `--clean-output`，否则会直接删除该入口。`kiota-lock.json` 的 `descriptionLocation` 指向包内 `openapi/` 稳定文件，`excludePatterns` 必须保留 `/auth/login`。
+`generate` 会覆盖 `src/` 下的手写文件，`src/index.ts` 需在生成后核对；不要添加 `--clean-output`，否则会直接删除该入口。`kiota-lock.json` 的 `descriptionLocation` 指向包内 `openapi/` 稳定文件，`excludePatterns` 必须恰好为 `["/auth/login"]`。在 Git Bash 下执行生成必须加 `MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*"`，否则 `/auth/login` 会被改写成 `C:/Program Files/Git/auth/login` 并写进锁文件，而生成器仍报 success——`Stage5ConstraintTests` 的锁文件守卫会因此失败。
 
 ### 3.4 历史阻断与处置
 
