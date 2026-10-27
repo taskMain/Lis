@@ -15,7 +15,7 @@ export function missingText(value: string | null | undefined): string {
   return normalized.length > 0 ? normalized : MISSING_TEXT
 }
 
-/** 「空白或『否』视为无」的否定原文：来源保密标识与检验/检查整体异常标识共用同一事实（根 design.md 6.5、6.7、6.8）。 */
+/** 「空白或『否』视为无」的否定原文：来源保密标识与检验、检查的整体异常标识共用同一条否定判定，原文为「否」或空白时按「无」处理。 */
 const NEGATIVE_FLAG = '否'
 
 /** 判定原文是否按「无」处理：空白或等于给定否定原文（默认「否」）。 */

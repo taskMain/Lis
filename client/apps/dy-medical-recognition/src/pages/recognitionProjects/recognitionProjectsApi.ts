@@ -61,11 +61,11 @@ export type {
  *       本模块的本地文案表只是"契约字段缺失或元数据接口不可用"时的兜底出口，页面不得再自拼中文。
  */
 
-/** 项目类型的取值域判定与兜底文案已上移到跨页面共享模块 `src/shared/medicalItemType.ts`（阶段 1、阶段 3 使用同一份事实）。 */
+/** 项目类型的取值域判定与兜底文案已上移到跨页面共享模块 `src/shared/medicalItemType.ts`（各页面共用同一份事实）。 */
 export { isMedicalItemTypeValue, medicalItemTypeText }
 export type { MedicalItemTypeValue }
 
-/** 配置状态的取值域判定与兜底文案已上移到跨页面共享模块 `src/shared/configurationStatus.ts`（阶段 3 使用同一份事实）。 */
+/** 配置状态的取值域判定与兜底文案已上移到跨页面共享模块 `src/shared/configurationStatus.ts`（各页面共用同一份事实）。 */
 export {
   CONFIGURATION_STATUSES,
   DISABLED_CONFIGURATION_STATUS,
@@ -709,7 +709,7 @@ export async function setRecognitionProjectConfigurationEnabled(
   else await client.api.medicalRecognitionReport.disableMutualRecognitionItem.post(body)
 }
 
-// ========== 项目导出（调用形态与阶段 6 统计导出同款：经生成端点取回二进制字节，保存交共享下载模块） ==========
+// ========== 项目导出（调用形态与统计导出一致：经生成端点取回二进制字节，保存交共享下载模块） ==========
 
 /**
  * 项目导出请求载荷：组织编码必填，关键字缺省时不下发（与列表查询同一构造口径）。
@@ -735,7 +735,7 @@ export function buildRecognitionProjectExportPayload(organizationCode: string, k
 
 /**
  * 导出下载名：页面名 + 发起时刻的 14 位时间戳 + `.xlsx`。生成端只透出字节体、不透出响应头，
- * 下载名由调用方（前端）给定，响应头文件名不作权威来源（阶段 6 下载模块同款口径）。
+ * 下载名由调用方（前端）给定，响应头文件名不作权威来源（与其他导出入口同一口径）。
  */
 export function buildRecognitionProjectExportDownloadName(now: Date = new Date()): string {
   return buildExportFileName('互认项目', now)

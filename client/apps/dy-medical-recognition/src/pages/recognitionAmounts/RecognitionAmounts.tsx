@@ -35,8 +35,8 @@ import { RecognitionAmountListView, RecognitionAmountsHeader, type RecognitionAm
 import './RecognitionAmounts.css'
 
 /**
- * C34 提交前现值复核失败时的拦截提示（S3-D28；Client/testPlan.md 第 42 行双场景共用一句，
- * 经 message.error 承载）：一句话覆盖「已变化」与「现读不到」两种情形，随后给出
+ * C34 提交前现值复核失败时的拦截提示（S3-D28 写门控，经 message.error 承载）：
+ * 可信范围已变化与现读不到两种情形共用这一句，一句话覆盖两种情形，随后给出
  * 零写结论与后续动作（切换到新可信范围）。该句由页面书写；适配层交付的原因串服务于复核出口的
  * 用例，不随本页展示。
  */
@@ -226,8 +226,7 @@ export function RecognitionAmounts() {
    * 可信范围变化（C33）的渲染期派生：宿主切换工作身份后，会话可信范围已不同于应用范围时
    * 记录的取值，而页面仍展示已应用范围的列表。匿名与初始化会话不携带可信院区，
    * 不记作已变化；确认框、待切换提示态与写门控都从这一份比对派生，不在 effect 里写入渲染状态
-   * （照阶段 2「互认项目」页先例）；未保存内容的判定口径为行内编辑正在编辑的行仍在当前行集
-   * （Client/design.md 第 34 行）。
+   * （照「互认项目」页的既有做法）；未保存内容的判定口径为：行内编辑正在编辑的行仍在当前行集。
    */
   const trustedScope = useMemo<TrustedScope>(() => ({
     organizationCode: trustedOrganizationCode,
@@ -289,7 +288,7 @@ export function RecognitionAmounts() {
 
   /**
    * 无未保存内容时的直接切换：可信范围变化来自宿主切换工作身份，属于外部系统变化，不在 effect
-   * 内同步级联渲染状态，同样推迟到下一个宏任务（照阶段 2「互认项目」页先例）。有未保存内容时
+   * 内同步级联渲染状态，同样推迟到下一个宏任务（照「互认项目」页的既有做法）。有未保存内容时
    * 等待确认框或待切换提示态，不清理、不加载。
    */
   useEffect(() => {

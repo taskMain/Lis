@@ -63,7 +63,7 @@ export type {
  *       - 提交时直接写数值，零元照常提交。
  */
 
-/** 项目类型的取值域判定与兜底文案已上移到跨页面共享模块（阶段 1/2 使用同一份事实）。 */
+/** 项目类型的取值域判定与兜底文案已上移到跨页面共享模块（各页面共用同一份事实）。 */
 export { isMedicalItemTypeValue, medicalItemTypeText }
 export type { MedicalItemTypeValue }
 export {
@@ -311,7 +311,7 @@ function serverEnumText(value: string | null | undefined): string | null {
  * 只有同时满足「已配置为真」且「金额是有限数值」时才呈现金额，其余一律归为未配置。
  * 这样未配置行不会带着一个残留数字展示，已配置的零元也不会被并成未配置（设计「未配置与零元必须可区分」）。
  * 两个枚举中文以服务端返回的字段为准（S3-D21、总体设计 5.3），服务端未交付时才回退到本模块的兜底出口；
- * 本模块不依赖兄弟页面的模块，使票 07 的页面组件与适配层可以独立演进。
+ * 本模块不依赖兄弟页面的模块，使页面组件与适配层可以独立演进。
  */
 export function toRecognitionAmountRows(
   values: readonly RecognitionAmountReadModelLike[],

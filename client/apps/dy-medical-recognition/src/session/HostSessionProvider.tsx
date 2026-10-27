@@ -1,31 +1,15 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { HostSessionContext } from './HostSessionContext'
-import { INITIAL_HOST_SESSION, readHostSession, subscribeHostSession, type HostSession } from './hostSession'
+import { INITIAL_HOST_SESSION, useHostSessionSnapshot } from './hostSession'
 
 /**
- * 宿主会话 Provider：会话唯一来源是 `MicroSDK.auth.getSession` 与 `subscribe`。
+ * 宿主会话 Provider：会话唯一来源是共享模块的快照。
  *
- * 先订阅再读取初始快照：身份切换事件先到达时丢弃迟到的初始结果，旧身份的响应不覆盖新状态。
- * 订阅在卸载时释放；认证异常由宿主流程处理，本模块不转换为页面文案。
+ * Provider 自身不持有副本、不单独读取：Context 值直接取自 `useHostSessionSnapshot`，
+ * 与不依赖 Provider 的页面读取同一份已接受快照。首次尚无快照时使用稳定的初始值，
+ * 不伪造身份；读取失败由本模块在渲染期抛出原始失败值，依赖上层 React 错误处理。
  */
 export function HostSessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<HostSession>(INITIAL_HOST_SESSION)
-
-  useEffect(() => {
-    let active = true
-    let eventArrived = false
-    const unsubscribe = subscribeHostSession((next) => {
-      eventArrived = true
-      if (active) setSession(next)
-    })
-    void readHostSession().then((initial) => {
-      if (active && !eventArrived) setSession(initial)
-    })
-    return () => {
-      active = false
-      unsubscribe()
-    }
-  }, [])
-
+  const session = useHostSessionSnapshot() ?? INITIAL_HOST_SESSION
   return <HostSessionContext.Provider value={session}>{children}</HostSessionContext.Provider>
 }

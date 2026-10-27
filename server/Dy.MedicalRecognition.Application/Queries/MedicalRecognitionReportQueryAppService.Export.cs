@@ -23,7 +23,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <summary>互认项目导出的工作表名与文件名前缀；与页面名称一致。</summary>
   private const string RecognitionProjectExportSheetName = "互认项目";
 
-  /// <summary>互认项目导出的列头：列集与顺序按阶段设计冻结，序号列为导出行序。</summary>
+  /// <summary>互认项目导出的列头：列集与顺序即导出文件的固定列序，序号列为导出行序。</summary>
   private static readonly string[] RecognitionProjectExportHeaders =
   [
     "序号", "项目类型", "分类", "分组", "标准项目编码", "标准项目名称", "可互认时间（天）", "互认配置状态", "当前不可用原因"
@@ -75,7 +75,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// <summary>平台金额导出的工作表名与文件名前缀；与页面名称一致。</summary>
   private const string RecognitionAmountExportSheetName = "互认项目金额维护";
 
-  /// <summary>平台金额导出的列头：列集与顺序按阶段设计冻结，序号列为导出行序。</summary>
+  /// <summary>平台金额导出的列头：列集与顺序即导出文件的固定列序，序号列为导出行序。</summary>
   private static readonly string[] RecognitionAmountExportHeaders =
   [
     "序号", "项目类型", "分类", "分组", "标准项目编码", "标准项目名称", "当前金额", "金额状态", "互认配置状态", "当前不可用原因"

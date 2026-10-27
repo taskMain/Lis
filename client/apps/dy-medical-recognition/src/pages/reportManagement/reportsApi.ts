@@ -18,7 +18,7 @@ import { MAX_SELECTABLE_PAGE_SIZE } from '../../shared/tablePagination'
 /**
  * 报告管理端的适配层：把生成的 Request 与 ReadModel 转换为稳定视图模型。
  *
- * 边界（遵循 Frontend API Client 第 2、5 节与阶段 4 前端设计）：
+ * 边界（遵循 Frontend API Client 第 2、5 节）：
  * 1. 本模块不创建 Client、不读取 token、不解析平台错误响应、不新增错误拦截器；
  * 2. 页面只依赖本模块导出的稳定类型与函数，不接触 Kiota 生成模型；
  * 3. 请求与响应直接引用生成类型，不存在第二套契约来源；本模块只保留页面专属的视图模型、

@@ -14,7 +14,7 @@ import {
 
 /**
  * 项目类型取值集合、取值域判定与兜底文案：定义已上移到跨页面共享模块 `src/shared/medicalItemType.ts`
- * （阶段 2、阶段 3 适配层使用同一份事实），本模块只按阶段 1 的既有名字转发，调用方与用例无需改变导入位置。
+ * （标准项目页与金额页的适配层共用同一份事实），本模块只按既有名字转发，调用方与用例无需改变导入位置。
  */
 export const ITEM_TYPES = MEDICAL_ITEM_TYPES
 export type ItemTypeValue = MedicalItemTypeValue
@@ -120,7 +120,7 @@ export interface ItemFilter {
   /**
    * 是否显示停用项目：false 时仅保留项目自身启用的记录（按自身 IsValid，不按「当前有效」）。
    * 与树侧 showDisabledNodes 正交——树侧控制节点可见性与选中范围，本字段只过滤右表；
-   * 两侧 UI 文案同为「显示停用」但作用面不同（S1-D36，审查 R2-03）。
+   * 两侧 UI 文案同为「显示停用」但作用面不同（S1-D36）。
    */
   showDisabled: boolean
 }
@@ -339,7 +339,7 @@ export function ineffectiveReasons(data: CatalogData, item: StandardItem): strin
 }
 
 export function filterItems(data: CatalogData, scope: TreeScope, filter: ItemFilter): StandardItem[] {
-  // 分类索引在循环外建一次，保持原 find 的「数组顺序首个命中」语义（审查 R2-13）。
+  // 分类索引在循环外建一次，保持「数组顺序首个命中」语义。
   const categoryById = new Map<string | null, StandardCategory>()
   for (const category of data.categories) {
     if (!categoryById.has(category.id)) categoryById.set(category.id, category)

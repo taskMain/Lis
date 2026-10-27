@@ -62,6 +62,7 @@
 | `MedicalRecognitionReportManager` | 修改既有 Manager | D/Aggregate | 业务键读取、互认配置存在校验、条件写入、影响行数、事件登记 | 控制事务、公共 DTO、外部调用 |
 | `IMedicalRecognitionReportRepository` | 扩展既有仓储接口 | D/Aggregate | 金额按业务键读取、新建与覆盖写入 | Provider 类型 |
 | `MedicalRecognitionReportRepository` | 修改既有仓储 | R/Aggregate | 实现上述接口、影响行数检查、唯一冲突识别 | 决定金额是否可保存 |
+| `OrganizationPath` | 新增应用内部记录 | A/Validation | 一条校验通过的组织、医院、院区路径：九字段按医共体、医院、院区依次给出实例标识、名称与业务组织编码，供归属比对与名称回填使用 | 公共接口、业务表字段、用实例标识代替业务编码比对 |
 | `OrganizationPathResolver` | 新增应用内部服务 | A/Validation | 一次性批量读取组织、医院、院区，内存校验父子归属并返回名称三元组 | 公共契约、角色授权判断、按行查询 |
 | `TrustedOrganizationResolver` | 复用既有内部解析点 | A | 可信**组织**的唯一解析点：既有的同步去空白与取不到即拒绝口径不变，阶段 2 的五个调用点继续使用 | 医院解析、用户档案补齐、判断调用方是否有权 |
 | `TrustedScopeResolver` | 新增应用内部服务 | A/Validation | 阶段 3 四个入口共用的可信组织与医院解析点：令牌优先、缺失层按当前登录用户档案补齐、两者都有且不一致即拒绝，院区层不参与回落 | 公共契约、角色授权判断、按行查询 |
@@ -82,6 +83,16 @@
 **查询链**：Host → 查询 Request → `MedicalRecognitionReportQueryAppService` 解析可信组织（医院管理员入口另解析可信医院）→ `OrganizationPathResolver` 一次性批量读取并校验路径、同时取得组织/医院/院区名称 → 既有 `IMedicalRecognitionReportQueryRepository` 的新增方法 → `MedicalRecognitionReportQueryRepository` / `MedicalRecognitionReportQuery.xml`，以 `mrec_mutual_recognition_item` 为行集、按业务键 LEFT JOIN `mrec_organization_hospital_branch_recognition_amount`、关联标准目录取得名称/类型/分类/分组与三层启用状态，按可选关键字四列过滤（S3-D26），按项目类型、分类名称、分组名称、标准项目名称逐级升序并按标识兜底（S3-D18）→ `RecognitionAmountListItem` → Application 派生 `UnavailableReason`、填充名称与 `IsAmountConfigured`、映射 `RecognitionAmountReadModel`（两个枚举中文由读模型按枚举描述派生）。查询不得产生写入、审计事件或消息。
 
 内部投影携带分类/分组/项目三层启用状态供派生原因，公共返回不泄漏这三层原始字段，只返回派生后的 `UnavailableReason`。金额未配置时 `CurrentAmount` 为 `null`；不以 `0` 冒充未配置。
+
+### 组织路径字段与编码空值口径
+
+**九字段与顺序。** `OrganizationPath`（A/Validation）保留九个字段，顺序固定为医共体、医院、院区三层各自的实例标识、名称与业务组织编码：`OrganizationId`、`OrganizationName`、`OrganizationCode`、`HospitalId`、`HospitalName`、`HospitalCode`、`BranchId`、`BranchName`、`BranchCode`。实例标识只用于 IAM 目录读取与会话范围解析，不进入业务表；业务组织编码是业务表记录归属的业务键，也是保存与查询的比对依据、IAM 节点定位的依据；名称只承担展示口径。节点未配置业务编码时该层编码按空串承载，不用实例标识、名称或层级前缀推导替代。
+
+**三处构造点统一使用命名参数。** 生产代码中共有三处构造点：`OrganizationPath.FromScope`、按会话范围取名装配、按提交编码校验装配。三处全部使用完整命名参数、每个参数独立成行，参数类型、访问范围与传入表达式保持不变。`FromScope` 取 IAM 实例标识与名称，缺失实例标识为 `Guid.Empty`、缺失名称与业务编码为空串；按提交编码解析的两处构造实例标识继续为 `Guid.Empty`，校验、取名与缺失层规则不变：必需层编码缺失或未命中启用且类型相符的节点时按该层文案拒绝，未参与校验的层级允许缺失并按上述空值承载，取名模式对缺失编码返回空名称。
+
+**编码空值的两处口径分别保留。** 组织路径解析侧的私有 `NormalizeCode` 把缺失、空串与纯空白统一转为 `null`；编码收集先按同一口径归一，再排除缺失值并去重，因此空白编码不进入组织树的候选读取。引用详情查询链另有私有 `NormalizeCode`，把缺失值转为空字符串，证件号码在此基础上继续转大写；该链由前置请求校验保证证件类型与号码的缺失、空串、纯空白在读取任何数据之前即被拒绝，因此查询侧「缺失转空串」分支不可由公共入口触发，只以源码静态证据证明，不为该分支新增测试专用入口或绕过请求校验。两处按各自用途分别保留，空值规则不统一，不新增公共接口或共享抽象。
+
+**等价性验证。** 上述字段、构造与空值口径没有改变组织路径的解析、校验与取名行为：组织路径与编码边界的定向用例 101 例、后端全量用例 1005 例全部通过（`Passed`）。
 
 ### 两个金额导出
 

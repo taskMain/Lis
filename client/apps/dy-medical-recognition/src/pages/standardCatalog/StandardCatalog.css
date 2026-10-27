@@ -23,7 +23,7 @@
 .standard-catalog-node-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .standard-catalog-node-side { display: flex; align-items: center; gap: 4px; flex: none; margin-left: auto; padding-left: 4px; }
 .standard-catalog-node-actions { display: flex; flex: none; justify-content: flex-end; }
-/* 按钮尺寸统一挂在槽位上：类型根节点不再有内层 actions 包裹（审查 R2-09）。
+/* 按钮尺寸统一挂在槽位上：类型根节点不再有内层 actions 包裹。
    尺寸规则必须叠加 `.ant-btn-icon-only`：antd 的 `:where(.css-…).ant-btn-sm.ant-btn-icon-only`
    在 micro-app 作用域前缀下与「槽位类 + 单个 .ant-btn」特异性相同，antd 运行时注入的样式
    在 source order 上取胜，只按单个 `.ant-btn` 声明尺寸时宽度会落回 24px（宿主实测 24×28）。 */

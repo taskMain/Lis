@@ -395,7 +395,7 @@ public partial class MedicalRecognitionReportAppService
   };
 
   /// <summary>
-  /// 按阶段 4 已交付的下载动作形态拼出 PDF 下载入口。
+  /// 按既有报告版本 PDF 下载动作的路径形态拼出 PDF 下载入口。
   /// </summary>
   /// <remarks>该入口指向既有下载能力，不新增下载接口；文件内容仍按文件流由该动作返回。</remarks>
   /// <param name="reportId">报告标识。</param>

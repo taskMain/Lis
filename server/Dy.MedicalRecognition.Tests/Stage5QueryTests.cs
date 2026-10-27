@@ -49,6 +49,12 @@ public sealed class Stage5QueryTests
   /// <summary>证件号码；用例内按需要加入首尾空白与小写差异。</summary>
   private const string IdentityDocumentNo = "110101199001011234";
 
+  /// <summary>证件号码：规范化后应为大写形式，用于识别证件号码的转大写口径。</summary>
+  private const string UppercaseLetterDocumentNo = "11010119900101123A";
+
+  /// <summary>证件号码：提交值中的小写字母，规范化后应转换为大写。</summary>
+  private const string LowercaseLetterDocumentNo = "11010119900101123a";
+
   /// <summary>本次来源就诊流水号。</summary>
   private const string VisitSerialNo = "V-2026-0001";
 
@@ -893,6 +899,70 @@ public sealed class Stage5QueryTests
     }
   }
 
+  /// <summary>
+  /// 证件类型或证件号码缺失、空串、纯空白时，每次只让一个必填字段无效：请求校验先于任何读取，参数与候选读取都为零。
+  /// </summary>
+  /// <remarks>
+  /// 查询侧把缺失编码收敛为空串、证件号码再转大写，这两步都在请求校验之后：
+  /// 无效输入在规范化与读取之前就被拒绝，因此规范化分支不会因为非法输入而改变拒绝口径。
+  /// </remarks>
+  /// <param name="identityDocumentTypeCode">证件类型代码；null、空串与纯空白表示该字段无效。</param>
+  /// <param name="identityDocumentNo">证件号码；null、空串与纯空白表示该字段无效。</param>
+  [Theory]
+  [InlineData(null, IdentityDocumentNo)]
+  [InlineData("", IdentityDocumentNo)]
+  [InlineData("   ", IdentityDocumentNo)]
+  [InlineData(IdentityDocumentTypeCode, null)]
+  [InlineData(IdentityDocumentTypeCode, "")]
+  [InlineData(IdentityDocumentTypeCode, "   ")]
+  public async Task Invalid_identity_field_is_rejected_before_parameter_and_candidate_reads(string? identityDocumentTypeCode, string? identityDocumentNo)
+  {
+    CitationFixture fixture = CreateFixture();
+    SeedCitation(
+      fixture,
+      BuildSeed(FirstRecordId, FirstMatchItemId, FirstReportId, FirstReportVersionId, FirstProjectCode, decisionSavedTime: DecisionSavedTime));
+
+    RecognitionCitationDetailRequest request = BuildRequest() with
+    {
+      IdentityDocumentTypeCode = identityDocumentTypeCode!,
+      IdentityDocumentNo = identityDocumentNo!
+    };
+
+    await Assert.ThrowsAsync<ValidationException>(() => fixture.AppService.QueryRecognitionCitationDetailAsync(request));
+
+    // 拒绝发生在参数读取与候选读取之前：两侧计数都必须为零。
+    Assert.Equal(0, fixture.SystemParameterAppService.ReadCount);
+    Assert.Equal(0, fixture.QueryRepository.CitationQueryCalls);
+  }
+
+  /// <summary>
+  /// 有效公共入口输入时，仓储收到去除首尾空白的证件类型与转换大写的证件号码，并据此命中候选记录。
+  /// </summary>
+  /// <remarks>
+  /// 候选记录按规范形式登记：提交值只有经过同一个规范化口径才能命中，
+  /// 因此命中结果与仓储收到的实参同时证明证件类型去空白、证件号码去空白并转大写。
+  /// </remarks>
+  [Fact]
+  public async Task Citation_detail_normalizes_the_identity_values_before_the_candidate_read()
+  {
+    CitationFixture fixture = CreateFixture();
+    SeedCitation(
+      fixture,
+      BuildSeed(FirstRecordId, FirstMatchItemId, FirstReportId, FirstReportVersionId, FirstProjectCode, decisionSavedTime: DecisionSavedTime),
+      identityDocumentNo: UppercaseLetterDocumentNo);
+
+    RecognitionCitationDetailReadModel detail = await fixture.AppService.QueryRecognitionCitationDetailAsync(BuildRequest() with
+    {
+      IdentityDocumentTypeCode = " " + IdentityDocumentTypeCode + " ",
+      IdentityDocumentNo = LowercaseLetterDocumentNo
+    });
+
+    Assert.Single(detail.MatchItems);
+    Assert.Equal(1, fixture.QueryRepository.CitationQueryCalls);
+    Assert.Equal(IdentityDocumentTypeCode, fixture.QueryRepository.CitationQueryIdentityDocumentTypeCode);
+    Assert.Equal(UppercaseLetterDocumentNo, fixture.QueryRepository.CitationQueryIdentityDocumentNo);
+  }
+
   /// <summary>本次请求接收时点的固定参照；相对当前时点构造，使超过有效期的用例不依赖执行耗时。</summary>
   private static DateTime DecisionSavedTime => DateTime.Now.AddHours(-1);
 
@@ -1129,7 +1199,13 @@ public sealed class Stage5QueryTests
   /// 匹配记录、匹配项与处理结果同时登记在夹具的只读集合中，供用例断言调用前后完全一致。  /// </remarks>
   /// <param name="fixture">用例夹具。</param>
   /// <param name="seed">本次登记的一条引用详情素材。</param>
-  private static void SeedCitation(CitationFixture fixture, CitationSeed seed)
+  /// <param name="identityDocumentTypeCode">登记时的证件类型代码；默认取用例固定取值。</param>
+  /// <param name="identityDocumentNo">登记时的证件号码；默认取用例固定取值。</param>
+  private static void SeedCitation(
+    CitationFixture fixture,
+    CitationSeed seed,
+    string identityDocumentTypeCode = IdentityDocumentTypeCode,
+    string identityDocumentNo = IdentityDocumentNo)
   {
     if (!fixture.MatchRecords.ContainsKey(seed.MatchRecordId))
     {
@@ -1139,8 +1215,8 @@ public sealed class Stage5QueryTests
         ReceiverOrganizationCode = TrustedOrganization,
         ReceiverHospitalCode = TrustedHospital,
         ReceiverBranchCode = TrustedBranch,
-        IdentityDocumentTypeCode = IdentityDocumentTypeCode,
-        IdentityDocumentNo = IdentityDocumentNo,
+        IdentityDocumentTypeCode = identityDocumentTypeCode,
+        IdentityDocumentNo = identityDocumentNo,
         VisitType = VisitType.Outpatient,
         VisitSerialNo = VisitSerialNo,
         MatchCreatedTime = ReportTime,
@@ -1188,8 +1264,8 @@ public sealed class Stage5QueryTests
       ReceiverOrganizationCode = TrustedOrganization,
       ReceiverHospitalCode = TrustedHospital,
       ReceiverBranchCode = TrustedBranch,
-      IdentityDocumentTypeCode = IdentityDocumentTypeCode,
-      IdentityDocumentNo = IdentityDocumentNo,
+      IdentityDocumentTypeCode = identityDocumentTypeCode,
+      IdentityDocumentNo = identityDocumentNo,
       VisitType = VisitType.Outpatient,
       VisitSerialNo = VisitSerialNo,
       DecisionSavedTime = seed.DecisionSavedTime,

@@ -350,6 +350,141 @@ public sealed class Stage3OrganizationPathTests
     Assert.Equal(expectedMessage, exception.Message);
   }
 
+  /// <summary>
+  /// 组织与医院两层入口把院区视为非必需层：院区编码缺失、空串或纯空白时照常返回，院区的名称与编码为空串、实例标识为空 Guid。
+  /// </summary>
+  /// <remarks>
+  /// 非必需层的缺失在编码规范化后成为空值，不进入本层校验，也不影响已成立的上级层；
+  /// 返回路径只填写参与本次解析的组织与医院两层。
+  /// </remarks>
+  /// <param name="branchCode">院区编码；null、空串与纯空白表示院区层缺失。</param>
+  [Theory]
+  [InlineData(null)]
+  [InlineData("")]
+  [InlineData("   ")]
+  public async Task Resolve_organization_hospital_entry_allows_a_missing_branch_code(string? branchCode)
+  {
+    OrganizationPath path = Assert.Single(await CreateIamResolver(FakeIamScope.Default).ResolveOrganizationHospitalOrThrow(
+      [new OrganizationPathTarget(FakeIamScope.OrganizationCode, FakeIamScope.HospitalCode, branchCode)],
+      MissingOrganizationMessage, MissingHospitalMessage));
+
+    Assert.Equal(FakeIamScope.OrganizationCode, path.OrganizationCode);
+    Assert.Equal("示范医共体", path.OrganizationName);
+    Assert.Equal(FakeIamScope.HospitalCode, path.HospitalCode);
+    Assert.Equal("示范医院", path.HospitalName);
+    Assert.Equal(string.Empty, path.BranchCode);
+    Assert.Equal(string.Empty, path.BranchName);
+    Assert.Equal(Guid.Empty, path.BranchId);
+  }
+
+  /// <summary>
+  /// 组织与医院两层入口的必需层缺失、空串或纯空白时按该层文案拒绝，判定顺序仍为组织、医院。
+  /// </summary>
+  /// <param name="organizationCode">组织编码；null、空串与纯空白表示组织层缺失。</param>
+  /// <param name="hospitalCode">医院编码；null、空串与纯空白表示医院层缺失。</param>
+  /// <param name="expectedMessage">期望的该层对外拒绝文案。</param>
+  [Theory]
+  [InlineData(null, FakeIamScope.HospitalCode, MissingOrganizationMessage)]
+  [InlineData("", FakeIamScope.HospitalCode, MissingOrganizationMessage)]
+  [InlineData("   ", FakeIamScope.HospitalCode, MissingOrganizationMessage)]
+  [InlineData(FakeIamScope.OrganizationCode, null, MissingHospitalMessage)]
+  [InlineData(FakeIamScope.OrganizationCode, "", MissingHospitalMessage)]
+  [InlineData(FakeIamScope.OrganizationCode, "   ", MissingHospitalMessage)]
+  public async Task Resolve_organization_hospital_entry_rejects_a_missing_required_layer(
+    string? organizationCode, string? hospitalCode, string expectedMessage)
+  {
+    InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+      () => CreateIamResolver(FakeIamScope.Default).ResolveOrganizationHospitalOrThrow(
+        [new OrganizationPathTarget(organizationCode, hospitalCode, null)],
+        MissingOrganizationMessage, MissingHospitalMessage));
+
+    Assert.Equal(expectedMessage, exception.Message);
+  }
+
+  /// <summary>
+  /// 组织单层入口把医院与院区视为非必需层：两者缺失、空串或纯空白时照常返回，医院与院区的名称与编码为空串。
+  /// </summary>
+  /// <param name="hospitalCode">医院编码；null、空串与纯空白表示医院层缺失。</param>
+  /// <param name="branchCode">院区编码；null、空串与纯空白表示院区层缺失。</param>
+  [Theory]
+  [InlineData(null, null)]
+  [InlineData("", "")]
+  [InlineData("   ", "   ")]
+  public async Task Resolve_organization_entry_allows_missing_hospital_and_branch_codes(string? hospitalCode, string? branchCode)
+  {
+    OrganizationPath path = Assert.Single(await CreateIamResolver(FakeIamScope.Default).ResolveOrganizationOrThrow(
+      [new OrganizationPathTarget(FakeIamScope.OrganizationCode, hospitalCode, branchCode)],
+      MissingOrganizationMessage));
+
+    Assert.Equal(FakeIamScope.OrganizationCode, path.OrganizationCode);
+    Assert.Equal("示范医共体", path.OrganizationName);
+    Assert.Equal(string.Empty, path.HospitalCode);
+    Assert.Equal(string.Empty, path.HospitalName);
+    Assert.Equal(Guid.Empty, path.HospitalId);
+    Assert.Equal(string.Empty, path.BranchCode);
+    Assert.Equal(string.Empty, path.BranchName);
+    Assert.Equal(Guid.Empty, path.BranchId);
+  }
+
+  /// <summary>
+  /// 组织单层入口的组织层缺失、空串或纯空白时按组织文案拒绝。
+  /// </summary>
+  /// <param name="organizationCode">组织编码；null、空串与纯空白表示组织层缺失。</param>
+  [Theory]
+  [InlineData(null)]
+  [InlineData("")]
+  [InlineData("   ")]
+  public async Task Resolve_organization_entry_rejects_a_missing_organization_code(string? organizationCode)
+  {
+    InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
+      () => CreateIamResolver(FakeIamScope.Default).ResolveOrganizationOrThrow(
+        [new OrganizationPathTarget(organizationCode, FakeIamScope.HospitalCode, FakeIamScope.BranchCode)],
+        MissingOrganizationMessage));
+
+    Assert.Equal(MissingOrganizationMessage, exception.Message);
+  }
+
+  /// <summary>
+  /// 取名模式按编码是否存在分别取值：带首尾空白的有效编码去空白后取到名称，缺失、空串与纯空白的层名称留空且不抛异常。
+  /// </summary>
+  /// <remarks>
+  /// 缺失值不参与本批候选编码的收集：该层既不取名称，也不影响同一批里有效层的取名结果；
+  /// 名称取自 IAM 目录，实例标识一律为空。
+  /// </remarks>
+  [Fact]
+  public async Task Resolve_names_or_empty_reports_names_only_for_present_codes()
+  {
+    FakeIamScope scope = new();
+    IReadOnlyList<OrganizationPath> paths = await CreateIamResolver(scope).ResolveNamesOrEmptyAsync(
+    [
+      new OrganizationPathTarget($" {FakeIamScope.OrganizationCode} ", $" {FakeIamScope.HospitalCode} ", $" {FakeIamScope.BranchCode} "),
+      new OrganizationPathTarget(null, "", "   ")
+    ]);
+
+    OrganizationPath present = paths[0];
+    Assert.Equal(FakeIamScope.OrganizationCode, present.OrganizationCode);
+    Assert.Equal("示范医共体", present.OrganizationName);
+    Assert.Equal(FakeIamScope.HospitalCode, present.HospitalCode);
+    Assert.Equal("示范医院", present.HospitalName);
+    Assert.Equal(FakeIamScope.BranchCode, present.BranchCode);
+    Assert.Equal("示范院区", present.BranchName);
+
+    OrganizationPath missing = paths[1];
+    Assert.Equal(string.Empty, missing.OrganizationCode);
+    Assert.Equal(string.Empty, missing.OrganizationName);
+    Assert.Equal(string.Empty, missing.HospitalCode);
+    Assert.Equal(string.Empty, missing.HospitalName);
+    Assert.Equal(string.Empty, missing.BranchCode);
+    Assert.Equal(string.Empty, missing.BranchName);
+    Assert.Equal(Guid.Empty, missing.OrganizationId);
+    Assert.Equal(Guid.Empty, missing.HospitalId);
+    Assert.Equal(Guid.Empty, missing.BranchId);
+
+    // 整批只读一次业务编码树与一次目录：缺失层不产生额外读取。
+    Assert.Equal(1, scope.BusinessCodeQueryCount);
+    Assert.Equal(1, scope.BatchReadCount);
+  }
+
   /// <summary>同一批目标路径只读一次组织、按不同组织各读一次医院、按不同医院各读一次院区，10 行与 100 行的读取次数必须相等（V19）。</summary>
   /// <remarks>
   /// 两条目标路径在 10 行与 100 行两组数据里都只涉及 1 个组织、2 家医院、2 个院区，因此读取次数必须与目标行数无关。

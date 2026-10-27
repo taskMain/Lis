@@ -32,17 +32,17 @@
 | V14 | 权限不扩散静态扫描 | Passed | 守卫用例 | 无角色/授权特性 | — |
 | V17 | Base 依赖静态扫描 | Passed | T02IamAuthenticationTests | 包名、配置节与旧认证标识符归零 | — |
 | V5 | 本院入口三层解析 | Passed | `T02OrganizationScopeTests` 院区与医院节点用例；真实 IAM `QueryCurrentOrganizationScope` | 院区1-1、院区2-1 与普通开发三个工作身份的三层归类符合预期；无类型链返回空 | — |
-| V6 | 平台入口归属校验 | Passed（真实 IAM 面已取证） | `T02OrganizationScopeTests` 提交范围用例 | 跨医共体医院、跨医院院区与停用节点均拒绝；另一医院的合法院区路径通过；按新口径校验对象为请求提交的组织业务编码，在 IAM 组织树内比对存在、启用、类型与父子关系 | 真实 IAM 面待业务入口接入，见票 07～09；按编码校验的证据待重新取证 |
+| V6 | 平台入口归属校验 | Passed（真实 IAM 面已取证） | `T02OrganizationScopeTests` 提交范围用例；本报告「真实链路取证（2026-10-26，轮次 B）」的平台入口调用 | 跨医共体医院、跨医院院区与停用节点均拒绝；另一医院的合法院区路径通过；平台入口提交三级业务编码经组织树校验后返回 200 | 真实 IAM 成功路径已取证；非法组合拒绝由自动化用例覆盖 |
 | V7 | 批量读取次数 | Passed | `T02OrganizationScopeTests` 读取次数用例 | 当前节点与祖先各一次；20 条目标只读取一次、去重后 3 个标识；150 个标识切为 100 + 50 两批 | — |
 | V8 | 停用组织节点 | Passed | `T02OrganizationScopeTests` 停用节点用例；真实 IAM 组织树与选择列表 | 停用节点不进入层级与选择列表；916 个树节点中 52 个停用节点（48 个不同名称）未出现在选项 | — |
 | V9 | 未选择工作身份 | Passed | 无工作身份令牌请求 `QueryCurrentOrganizationScope` 与 current-session | 业务查询 409 `work_identity_required`；current-session 200 且三个组织字段为 null | — |
 | V16（统计与导出复核） | 统计四入口与导出按 IAM 组织业务编码投影和过滤 | Passed | `Stage6StatisticsQueryTests` 含 `Export_headers_stay_within_approved_columns_and_never_carry_forbidden_content`，按 exportType 逐列比对表头并断言不含禁止内容；`RecognitionProjectExportApplicationTests`、`RecognitionAmountExportApplicationTests`、`BranchRecognitionAmountExportApplicationTests` 各自断言第 1 行表头序列。本轮定向复跑四组：49 通过 / 0 失败 | 导出表头逐列核对已由自动化用例覆盖，七个导出面（统计四类 + 互认项目 + 平台金额 + 本院区金额）表头均被断言 | 原「导出文件列名未逐列核对」由测试替代人工核对完成 |
-| V16 | 双入口范围口径 | Passed（真实 IAM 面已取证） | `T02OrganizationScopeTests` 提交范围用例；真实 IAM 平台入口 200（QueryMedicalReportList/QueryRecognitionAmountList，院区1-1 身份） | 本院入口不接受请求扩大范围；平台入口按请求提交的组织业务编码在 IAM 组织树内比对存在、启用、类型与父子关系，不缓存、不前置到认证链路；接收组织与来源组织必须一致，跨组织按精确文案拒绝 | 按编码校验的真实 IAM 面证据待重新取证 |
+| V16 | 双入口范围口径 | Passed（真实 IAM 面已取证） | `T02OrganizationScopeTests` 提交范围用例；真实 IAM 平台入口 200（QueryMedicalReportList/QueryRecognitionAmountList，院区1-1 身份）；本报告「真实链路取证（2026-10-26，轮次 B）」 | 本院入口不接受请求扩大范围；平台入口按请求提交的组织业务编码在 IAM 组织树内比对存在、启用、类型与父子关系，不缓存、不前置到认证链路；接收组织与来源组织必须一致，跨组织按精确文案拒绝；真实链路请求与返回均使用业务编码 | 真实链路为抽样，未覆盖全部失败分支 |
 | V10（结构面） | 组织维度列保持编码列、迁移期新增实例列退出 | Passed | `dotnet test Dy.MedicalRecognition.slnx` | 原证据基于旧口径：919 通过 / 0 失败，四表新增组织实例 Id 列与实体属性，DDL 守卫逐项同步；四表编码列为业务键；10 个迁移期实例列已随 up 脚本删除；DDL 守卫按编码列断言；2026-10-26 复跑全量 968 通过 / 0 失败 / 0 跳过 | — |
 | V10（结构面·真实库） | 四张表编码列与参数表结构 | Passed | information_schema.columns / pg_indexes 只读查询（dbx MCP，连 2026-10-26） | 组织维度列共 10 列已全部为 `text` 编码列（报告 3、匹配记录 3、金额 3、互认项目 1），`uuid` 实例列已删除；四张表 `organization_code/hospital_code/branch_code` 编码列仍全部存在并作为业务键；`mrec_platform_parameter` 已存在，7 列（id uuid 非空、parameter_code text 非空、parameter_value text 非空、description text 可空、is_valid boolean 非空、oper_time timestamptz 非空、oper_id uuid 非空），唯一索引 `ux_mrec_platform_parameter_code(parameter_code)`；行数为报告 99 / 匹配记录 106 / 金额 10 / 互认项目 302 / 参数 3（2026-10-26 只读核对）；四条业务表的编码列索引 6 条保留：报告 scope 与业务键唯一索引各 1、匹配记录 2、金额 1、互认项目 1 | 历史行沿用 Base 时代数字编码，按编码过滤时不可见，已定不回填 |
 | V15 | 操作人落库 | Passed | 经 POST /api/v1/report-pdf/laboratory-report 提交检验报告（multipart，报告文档 + PDF 文件，服务端落盘生成文件键）→ 200 true；只读 SELECT：`oper_id` = 568f0fb4…（当前 IAM 用户 191617）、`organization_code`=01、`hospital_code`=CSYY2、`branch_code`=CSYQ2-1-2、`oper_time` = 2026-10-26T22:47:24+08:00 | 操作人取自会话身份，请求不携带操作人；组织维度三列落库为 IAM 组织业务编码，与院区2 身份一致 | 组织维度口径已按编码列重新取证；早前「无上传接口」的判断有误，提交接口本身承担上传 |
-| V10（报告写路径） | 报告、匹配、处理结果与引用按 IAM 组织业务编码读写 | Passed（应用面）；口径已变更，证据待重新取证 | `Stage4SubmissionPathTests`、`Stage5WritePathTests` | 12 + 114 通过 / 0 失败（旧口径：三层实例标识来自当前工作身份组织链）；两批用例均已移除旧可信上下文安装点，来源回退即整片失败 | 真实数据库读写与按业务编码写入的证据待补 |
-| V15（报告写路径） | 报告链路操作人落库 | Passed（应用面） | `Stage5WritePathTests` 操作人断言 | 匹配、处理结果与引用的操作人均等于当前 IAM 用户标识，请求不携带操作人 | 真实库 `oper_id` 落库取证待迁移执行后补 |
+| V10（报告写路径） | 报告、匹配、处理结果与引用按 IAM 组织业务编码读写 | Passed（应用面，真实库抽样） | `Stage4SubmissionPathTests`、`Stage5WritePathTests`；本报告「真实链路验收（2026-10-25）」的数据重建与「全局 API 异常拦截接入与工具链对齐（2026-10-26）」的全量回归 | 全量 970 通过 / 0 失败；经接口新增报告、匹配记录并完成采纳引用与不采纳，回读组织列为业务编码；2026-10-26 报告提交再次取得编码写入证据 | 真实库按业务链路抽样，未逐入口逐分支取证 |
+| V15（报告写路径） | 报告链路操作人落库 | Passed（应用面） | `Stage5WritePathTests` 操作人断言；本节「操作人落库」的报告提交取证 | 匹配、处理结果与引用的操作人均等于当前 IAM 用户标识，请求不携带操作人；报告提交已有真实库操作人证据 | 匹配、处理结果与引用未单独列出逐入口真实库操作人证据 |
 | V11 | 参数缺失与非法值 | N/A（缺失与停用已取证；非法值分支不可达） | 191617/院区1-1 令牌调用 RequestRecognitionMatches：库中无 own_hospital_exclude_hours → 500「业务拒绝：未配置本院报告排除时长。」；PUT switch='2' → 500「业务拒绝：本院报告匹配开关取值非法。」；PUT switch isValid=false → 500「业务拒绝：未配置本院报告匹配开关。」 | 缺失与停用按精确文案拒绝、不使用默认值。非法值由保存侧统一拒绝，库中无法形成非法取值，业务读取的非法值分支在正常运行中不可达，不构造该数据 | 不可达分支，按 N/A 记录；缺失与停用两项已通过 |
 | V12 | 参数维护保存校验与立即生效 | Passed | PUT /api/v1/platform-parameters/own_hospital_match_switch → 200；同一会话内立即调用 POST /Api/MedicalRecognitionReport/RequestRecognitionMatches：停用时 500「业务拒绝：未配置本院报告匹配开关。」，启用后 500 前进到「拟开项目编码 PROBE-V12 在当前组织不是可用互认项目」；随后 PUT 恢复启用 → 200 | 保存后无需重启或清缓存，业务读取点在下一次调用即读到新值；非法值由保存侧拒绝（同 V11） | 原 403 identity 阻塞已消失，本轮以院区2 身份完成 |
 | V13 | 参数停用 | Passed | PUT switch isValid=false → 200；RequestRecognitionMatches → 500「业务拒绝：未配置本院报告匹配开关。」；PUT isValid=true 恢复 → 200；再调用读取通过参数阶段（随后因未修复 SQL 报 m.hospital_id 不存在，与参数无关） | 停用后业务读取按缺失拒绝、恢复后重新读取当前值 | 另发现匹配查询 SQL 引用 m.hospital_id 不存在（42703），属独立缺陷，见回报 |
@@ -146,7 +146,9 @@ IAM 数据回滚与重配（2026-10-24）：回滚后 191617 选择原测试院�
 - 必须外部前置：V10～V13、V15 的真实数据库与真实 WorkUnit（负责人执行迁移期实例列删除）；C1/C2/C3 宿主面、C5、C6 宿主面、C8、C9 宿主面、C11、C13、C14/C15 宿主面、C16 宿主面（IAM 基座登记子应用与地址映射）；V18 需要第二个可登录测试身份。
 - 当前结论依据：上述外部项未补齐，状态只能 `NotReady`；外部项与票 11 残余完成后才可能降为 `ReadyWithAcceptedResiduals`。
 
-## 问题与残余风险
+## 问题与残余风险（早期批次记录）
+
+下表保留早期批次的处理与复测记录；当前残余见文末「交付结论」，后续取证见各日期章节。
 
 | 问题 | 影响 | 责任范围 | 后续动作 | 复测结果 |
 | --- | --- | --- | --- | --- |
@@ -475,25 +477,29 @@ POST /Api/MedicalRecognitionReportQuery/QueryRecognitionUsageDetails
 - 计划编号类注释在生产代码中仍有 119 处（`S3-D22`、`票 07`、`C34` 等），属审查判断项，保留为设计可追溯引用，未批量删除。
 - `NormalizeCode` 在 `Citation.cs`（空值转空串）与 `OrganizationPathResolver.cs`（空值返回 null）语义不同，未合并。
 
-## 交付结论（2026-10-25）
+以上两条残余的最终处理见[收口处理计划](收口处理计划.md)「4. 轮次 C：技术债清理（可选）」的本轮结果表（2026-10-27 技术治理批次）：计划编号类注释已按注释治理范围清理（含以设计文档章节号或行号代替说明的引用），两处 `NormalizeCode` 按不同业务用途保留并以源码静态证据与用例证明。该批次的实测全量为后端 1005、前端 895，取代本文与实施文档中的 970 / 874 记录。
+
+## 交付结论（2026-10-26）
 
 判定：**`ReadyWithAcceptedResiduals`**。
 
-2026-10-26 复跑确认：后端 `dotnet build` 0 错误、`dotnet test` 968 通过 / 0 失败 / 0 跳过；前端 `lint` 0、`test` 32 文件 872 通过 / 2 跳过、`build` 0 错误；`git diff --check` 干净。数据库只读核对：组织维度 10 列均为 `text` 编码列，无 `uuid` 实例列，四条业务表编码列索引 6 条保留，行数为报告 99 / 匹配 106 / 金额 10 / 互认项目 302 / 参数 3；20 个终建脚本与库对象一一对应且无实例列残留。
+最近的全量验证记录见本报告「全局 API 异常拦截接入与工具链对齐（2026-10-26）」：后端 970 通过 / 0 失败，前端 32 文件 874 通过 / 0 跳过，lint 0，客户端包与子应用构建通过。该记录之后另有一轮技术治理批次（2026-10-27）改动代码与注释，其复跑结果为后端 1005 通过 / 0 失败、前端 895 通过，见[收口处理计划](收口处理计划.md) 轮次 C 结果表；本报告结论不因该批次改变。此前各轮测试数量保留在相应日期章节。
 
-依据（本轮实测，非引用历史结论）：
+数据库只读核对记录（2026-10-26）：组织维度 10 列均为 `text` 编码列，无 `uuid` 实例列，四条业务表编码列索引 6 条保留，行数为报告 99 / 匹配 106 / 金额 10 / 互认项目 302 / 参数 3；20 个终建脚本与库对象一一对应且无实例列残留。
 
-- 后端 `dotnet build Dy.MedicalRecognition.slnx --no-restore` → 0 错误；`dotnet test` → 968 通过 / 0 失败 / 0 跳过。
-- 前端 `lint` → 0；`test` → 32 个文件，872 通过 / 2 跳过；`build` → 0 错误。
+依据（本报告各轮实际执行记录）：
+
+- 自动化测试与构建结果见上述最近全量验证记录。
 - 实例标识列回收执行后只读核对：10 个列已删除；四张表编码列齐全；六条编码列索引保留；无索引引用已删列。
 - 真实链路：两套工作身份的范围查询返回组织业务编码；组织树 83 个院区节点中无实例标识文本。
 - 宿主走查：两个身份各 11 个菜单页加载正常，报告、金额、统计、参数数据可见；PDF 下载与金额导出为实物文件核对。
 - 代码审查：规范轴与规格轴完成，2 项硬违规与 4 项规格问题已整改并回归。
+- 失败态页面级复核：标准项目目录维护、互认项目配置与报告管理三处均以提示或阻断呈现失败，见「真实链路取证（2026-10-26，轮次 B）」的「失败态呈现」；其他失败分支未全部覆盖。
+- 上游文档：[SRS](../../../需求规约SRS.md)「F11 平台参数维护」已补充；[报告模型](../../../uml/1-MedicalRecognitionReport.wsd)、[配置查询模型](../../../uml/2-MedicalRecognitionConfigurationUiQuery.wsd)、[医院集成查询模型](../../../uml/3-HospitalIntegrationApiQuery.wsd)与[统计查询模型](../../../uml/5-RecognitionStatisticsUiQuery.wsd)已注明 IAM 取数来源，[全量验收与文档同步工单](迁移-Tickets/12-全量验收与文档同步.md)已登记完成。
 
 接受的残余（明确不在本轮解决）：
 
-- 展示层读取失败口径已在组件面统一：报告列表按「静默保留旧数据、错误由宿主提示」的既定口径处理，互认项目配置停在阻断态并提示可重试读取，标准项目目录给出「目录数据待刷新」警示。三处的页面级走查未单独复跑。
-- SRS 未补 F11 系统参数维护说明；UML 1/2/3/5 未补「取数来源改为 IAM」表述（属票 10 范围）。
+- 全局 API 异常拦截的实际提示尚未端到端触发；已有构建产物静态核对与成功请求链路证据。
 - IAM 目录存在重复业务编码，名称回填在这些编码上按规则留空；本平台不据此猜测，也不审计目录数据。
 - 代码审查中的判断项（重复的取值清洗函数、`OrganizationPath` 参数结构、会话状态双源等）未重构。
 - 历史业务行不再按组织编码可见，未回填（既定决定）。

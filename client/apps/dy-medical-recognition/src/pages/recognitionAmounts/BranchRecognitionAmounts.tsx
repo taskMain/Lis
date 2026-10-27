@@ -51,7 +51,7 @@ interface TrustedBranchScope {
 
 /**
  * 「可信当前范围」的唯一接缝：组织、医院、院区三层都取 IAM 组织业务编码，
- * 会话变化即重新求值（与票 07 的可信范围接缝同一口径）。页面不持有可选组织集合、不提供自由输入，
+ * 会话变化即重新求值（与互认项目页、金额页的可信范围口径一致）。页面不持有可选组织集合、不提供自由输入，
  * 也不从 URL、Storage、表单或列表构造范围；业务编码为空即该层不可用，不回落实例标识。
  */
 function useTrustedBranchScope(): TrustedBranchScope {

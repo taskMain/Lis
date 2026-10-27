@@ -136,13 +136,13 @@ function validTag(value: boolean | null) {
  * 避免扫过即弹与遮挡邻行。截断只是展示层行为，文本原值仍完整参与本地过滤、搜索命中、
  * 选择、写操作与派生判断。
  *
- * `title` 只收非空字符串；空占位（「—」等）不出气泡的判断只在 `ellipsisCell` 表达（审查 R2-07）。
+ * `title` 只收非空字符串；空占位（「—」等）不出气泡的判断只在 `ellipsisCell` 表达。
  * 量宽时机：元素挂接时执行一次、ResizeObserver 在容器尺寸变化时复测、`text` 变化时经
- * measureRef 补测一次——同一挂载实例内改名变长时容器宽度不变、RO 不触发，必须随文本复测
- * （审查 R2-01）。包裹状态切换会重建子树，回调 ref 在每次挂接时重建观测，解挂依赖 React 19
- * 的 ref cleanup 语义断开（react 19.2 已核对，审查 R2-17）。`clientWidth` 为 0 表示元素瞬时
+ * measureRef 补测一次——同一挂载实例内改名变长时容器宽度不变、RO 不触发，必须随文本复测。
+ * 包裹状态切换会重建子树，回调 ref 在每次挂接时重建观测，解挂依赖 React 19
+ * 的 ref cleanup 语义断开（react 19.2 已核对）。`clientWidth` 为 0 表示元素瞬时
  * 不可见（重排、缩放进行中），该次量宽作废，等待 ResizeObserver 的下一次通知。
- * jsdom 无布局引擎，测试环境用宽度替身（见测试文件头；类名改动由 R2-18 守卫用例兜底）。
+ * jsdom 无布局引擎，测试环境用宽度替身（见测试文件头；类名改动由 `StandardCatalog.test.tsx` 的节点骨架用例兜底）。
  */
 function TruncatedText({ text, title, className }: { text: string; title: string; className: string }) {
   const [truncated, setTruncated] = useState(false)
@@ -159,7 +159,7 @@ function TruncatedText({ text, title, className }: { text: string; title: string
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
-  // 文本变化但元素复用时容器宽度往往不变（RO 不触发），这里随 text 补一次复测（审查 R2-01）。
+  // 文本变化但元素复用时容器宽度往往不变（RO 不触发），这里随 text 补一次复测。
   useEffect(() => { measureRef.current() }, [text])
   const span = <span ref={attach} className={className}>{text}</span>
   if (!truncated) return span
@@ -169,7 +169,7 @@ function TruncatedText({ text, title, className }: { text: string; title: string
 /**
  * 超长列的单行省略单元格（S1-D33）：文本按列宽截断省略；
  * 被截断时悬停经 Tooltip 展示完整值、延迟 0.5 秒（S1-D38）。
- * 空值渲染占位「—」且不挂气泡——占位判断只在这一处表达（审查 R2-07）。
+ * 空值渲染占位「—」且不挂气泡——占位判断只在这一处表达。
  */
 function ellipsisCell(value: string | null | undefined) {
   if (value === null || value === undefined || value === '') {
@@ -180,7 +180,7 @@ function ellipsisCell(value: string | null | undefined) {
 
 /**
  * 树节点标题骨架（S1-D33）：名称在左按宽度截断省略（被截断时悬停全文，S1-D38），
- * 状态标记与操作图标作为 `side` 放进最右固定槽位，常显且不随名称长度推移（审查 R2-05）。
+ * 状态标记与操作图标作为 `side` 放进最右固定槽位，常显且不随名称长度推移。
  */
 function catalogNodeTitle(name: string, side: ReactNode) {
   return (
@@ -193,7 +193,7 @@ function catalogNodeTitle(name: string, side: ReactNode) {
 
 /**
  * 列表「状态」合并列（S1-D39）：全链路启用为绿色「有效」；否则「无效」并悬停给出原因；
- * 状态数据不完整为「未知」。派生仍走 isItemEffective，口径不变（审查 R2-06）。
+ * 状态数据不完整为「未知」。派生仍走 isItemEffective，口径不变。
  */
 function renderItemStatus(data: CatalogData, item: StandardItem) {
   const effective = isItemEffective(data, item)
@@ -461,7 +461,7 @@ export function StandardCatalog() {
   const [scope, setScope] = useState<TreeScope>(DEFAULT_SCOPE)
   const [treeKeyword, setTreeKeyword] = useState('')
   // 树侧显示停用：控制节点可见性与选中回退；与列表侧 ItemFilter.showDisabled 正交——
-  // 后者只按项目自身 IsValid 过滤右表。两侧 UI 文案同为「显示停用」（S1-D36），代码层以名字区分（审查 R2-03）。
+  // 后者只按项目自身 IsValid 过滤右表。两侧 UI 文案同为「显示停用」（S1-D36），代码层以名字区分。
   const [showDisabledNodes, setShowDisabledNodes] = useState(true)
   const [collapsedKeys, setCollapsedKeys] = useState<Key[]>([])
   const [filter, setFilter] = useState<ItemFilter>(EMPTY_ITEM_FILTER)
@@ -476,7 +476,7 @@ export function StandardCatalog() {
    */
   const itemTypeOptions = useItemTypeOptions()
   // 与 itemTypeOptions 组合的 options 每次渲染新建会让 Segmented 全量子树重渲染
-  // （见 useItemTypeOptions 返回值注释，审查 R2-15）。
+  // （见 useItemTypeOptions 返回值注释）。
   const typeSegmentedOptions = useMemo<{ value: string | ItemTypeValue; label: string }[]>(() => [{ value: 'all', label: '全部' }, ...itemTypeOptions], [itemTypeOptions])
   const activeScope = useMemo(() => resolveTreeScope(data, scope, showDisabledNodes), [data, scope, showDisabledNodes])
   const selectedCategory = activeScope.categoryId === null ? null : categoryById.get(activeScope.categoryId) ?? null
@@ -512,7 +512,7 @@ export function StandardCatalog() {
   }, [activeScope.itemType, itemTypeOptions, visibleCategories])
 
   // 展开键保留全部类型根（含当前范围未渲染的另一类型根）：键集与 rc-tree 展开动画的对比行为耦合，
-  // 收窄键集会使其产生空的 motion 节点组、子节点在 jsdom 测试环境挂载为空（审查 R2-16 经实测不采纳）。
+  // 收窄键集会使其产生空的 motion 节点组、子节点在 jsdom 测试环境挂载为空。
   const expandedKeys = useMemo(() => [...ITEM_TYPES.map((itemType) => `t:${itemType}`), ...data.categories.map((category) => `c:${category.id ?? `unknown-${category.name ?? 'category'}`}`)].filter((key) => !collapsedKeys.includes(key)), [collapsedKeys, data.categories])
   const reloadAndResolve = useCallback(async () => {
     const nextData = await reload()
@@ -551,7 +551,7 @@ export function StandardCatalog() {
     },
   ], [categoryById, data, groupById])
 
-  // 横向滚动宽度取列宽之和：加列只改列定义一处（审查 R2-10）。
+  // 横向滚动宽度取列宽之和：加列只改列定义一处。
   const tableScrollX = useMemo(() => columns.reduce((total, column) => total + (typeof column.width === 'number' ? column.width : 0), 0), [columns])
 
   const scopeText = [activeScope.itemType === null ? null : itemTypeLabel(activeScope.itemType, null, itemTypeOptions), selectedCategory?.name, selectedGroup?.name].filter((value): value is string => Boolean(value)).join(' / ') || '全部'

@@ -60,7 +60,7 @@ export type { StatisticsItemView, StatisticsOrganizationScopeView } from './reco
 
 /**
  * 使用方互认使用统计的适配层：平台/本院双版本请求分支、分页收敛与读模型映射都收敛在本模块，
- * 页面组件不感知请求形态差异（阶段 6 前端设计「API 与组件」节）。
+ * 页面组件不感知请求形态差异。
  *
  * 边界（遵循 Frontend API Client 第 2、5 节）：
  * 1. 本模块不创建 Client、不读取 token、不解析平台错误响应、不新增错误拦截器；

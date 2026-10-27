@@ -346,7 +346,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// </summary>
   /// <remarks>
   /// 来源医疗机构名称取组织路径解析的批量读取结果，不按编码拼接名称、不查询平台组织表；
-  /// 文件入口不携带独立有效期，也不携带一次性或消费状态，下载入口指向阶段 4 已交付的下载动作。
+  /// 文件入口不携带独立有效期，也不携带一次性或消费状态，下载入口指向既有的报告版本 PDF 下载动作。
   /// </remarks>
   /// <param name="context">本次报告的报告公共上下文行。</param>
   /// <param name="sourcePath">已校验通过的提供方组织路径，提供三层名称。</param>
@@ -384,7 +384,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   };
 
   /// <summary>
-  /// 按阶段 4 已交付的下载动作形态拼出 PDF 下载入口。
+  /// 按既有报告版本 PDF 下载动作的路径形态拼出 PDF 下载入口。
   /// </summary>
   /// <remarks>该入口指向既有下载能力，不新增下载接口；文件内容仍按文件流由该动作返回。</remarks>
   /// <param name="reportId">报告标识。</param>

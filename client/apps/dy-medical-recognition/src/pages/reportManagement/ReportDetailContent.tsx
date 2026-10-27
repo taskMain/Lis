@@ -1,5 +1,5 @@
 /**
- * 「报告详情」共享内容组件（Client/design.md §4；根 design.md 6.1、6.2、6.3、6.4、6.5、6.6、6.7、6.8、6.9、6.10）。
+ * 「报告详情」共享内容组件：概要头部、版本切换控件、版本信息、公共信息、检验内容、检查内容与历史版本各区域的呈现规则集中在本文件。
  *
  * 两个入口的详情路由页共用的纯展示组件；本文件当前承载概要头部（`SummaryHeader`）、
  * 公共信息四组（`PublicInfoGroups`）、版本切换控件（`VersionSegmented`）、版本元信息条
@@ -43,7 +43,7 @@ const VERSION_STATE_TAG: Record<VersionState, { text: string; color: 'success' |
 }
 
 /**
- * PDF 文件名中段截断（根 design.md 6.3「中段截断」）：保留文件名头部与扩展名、中段以「…」占位；
+ * PDF 文件名中段截断：保留文件名头部与扩展名、中段以「…」占位；
  * 全长不超限时原样展示。是否挂 Tooltip 呈现完整名由 `PdfFileName` 按是否发生截断决定。
  */
 const PDF_NAME_MAX_CHARS = 24
@@ -61,7 +61,7 @@ function middleTruncate(fileName: string): string {
 }
 
 /**
- * PDF 文件名（根 design.md 6.3）：中段截断呈现，仅发生截断时包 Tooltip 呈现完整名——
+ * PDF 文件名：中段截断呈现，仅发生截断时包 Tooltip 呈现完整名——
  * 未截断没有隐藏信息，不挂浮层；缺失按占位符呈现，同样不挂浮层。
  */
 function PdfFileName({ fileName }: { fileName: string }) {
@@ -106,7 +106,7 @@ export interface SummaryHeaderProps {
 }
 
 /**
- * 概要标题行的类型与状态 Tag（根 design.md 6.1）：类型 processing；状态有效 success、
+ * 概要标题行的类型与状态 Tag：类型 processing；状态有效 success、
  * 已作废中性灰（红色保留给异常与危急值）。详情顶栏与概要卡标题行共用同一呈现。
  */
 export function SummaryStateTags({ row }: { row: ReportRow }) {
@@ -117,7 +117,7 @@ export function SummaryStateTags({ row }: { row: ReportRow }) {
 }
 
 /**
- * 概要头部两行（根 design.md 6.1）：标题行为报告单号（copyable、`tabular-nums`）与
+ * 概要头部两行：标题行为报告单号（copyable、`tabular-nums`）与
  * 报告类型/状态 Tag（类型 processing、有效 success、已作废中性灰——红色保留给异常与危急值）；
  * 字段行为患者姓名、证件号码、报告时间（YYYY-MM-DD）、提供方（组织与医院主行加院区次行）、
  * 当前版本（「V3」形式）五项。
@@ -152,7 +152,7 @@ function textItem(label: string, value: string | null | undefined): PublicInfoIt
   return { key: label, label, children: missingText(value) }
 }
 
-/** 「名称（ID）」对的降级呈现（根 design.md 6.6）：名称主行 + ID 次行小字；名称缺失沿用「—」，ID 缺失不占次行。 */
+/** 「名称（ID）」对的降级呈现：名称主行 + ID 次行小字；名称缺失沿用「—」，ID 缺失不占次行。 */
 function NameWithId(props: { name: string | null | undefined; id: string | null | undefined }) {
   const id = props.id?.trim() ?? ''
   return <span className='report-management-detail-name-id'>
@@ -161,13 +161,13 @@ function NameWithId(props: { name: string | null | undefined; id: string | null 
   </span>
 }
 
-/** 公共信息的「名称（ID）」对单项：科室与医生六对统一按 6.6 次行小字降级。 */
+/** 公共信息的「名称（ID）」对单项：科室与医生六对统一按名称主行加标识次行小字降级。 */
 function itemWithId(label: string, name: string | null | undefined, id: string | null | undefined): PublicInfoItem {
   return { key: label, label, children: <NameWithId name={name} id={id} /> }
 }
 
 /**
- * 来源保密标识（根 design.md 6.5）：原文非空且非「否」时渲染 warning「保密」Tag 加原文，
+ * 来源保密标识：原文非空且非「否」时渲染 warning「保密」Tag 加原文，
  * 「否」与缺失按常规文本（缺失沿用「—」）。
  */
 function ConfidentialText({ flag }: { flag: string | null | undefined }) {
@@ -192,7 +192,7 @@ export interface PublicInfoGroupsProps {
 }
 
 /**
- * 公共信息四组（根 design.md 6.5）：报告信息、患者信息、就诊信息、申请信息，共 24 字段，
+ * 公共信息四组：报告信息、患者信息、就诊信息、申请信息，共 24 字段，
  * 组内顺序与设计表格一致。每组为 `Descriptions size="small" bordered={false} column=3`；
  * 容器宽度不足 900px 时每组降两列，列数由配套 CSS 的容器查询承载（不感知视口断点）。
  */
@@ -251,7 +251,7 @@ export interface VersionSegmentedProps {
 }
 
 /**
- * 版本切换控件三形态（根 design.md 6.2）：
+ * 版本切换控件三形态：
  * 2～6 版渲染 `Segmented`（当前有效版本选项带圆点、可访问名称携带版本事实）；
  * 超过 6 版退化为 `Select`（选项文本携带版本事实）；单版本渲染静态 Tag，不渲染控件——
  * Tag 文案按版本状态分发（作废显「已作废」、配色同元信息条的中性灰），不与元信息条的作废事实冲突。
@@ -323,7 +323,7 @@ interface VersionDownloadButtonProps {
 }
 
 /**
- * 版本 PDF 下载按钮（根 design.md 6.3、6.4）：版本信息卡元信息条与历史版本时间线节点共用——
+ * 版本 PDF 下载按钮：版本信息卡元信息条与历史版本时间线节点共用——
  * 在途 `loading` 且文案「下载中…」、其余版本在途时禁用（单在途互斥）、`aria-busy` 与中文可访问名称。
  */
 function VersionDownloadButton({ version, downloadingVersionId, onDownload }: VersionDownloadButtonProps) {
@@ -341,7 +341,7 @@ function VersionDownloadButton({ version, downloadingVersionId, onDownload }: Ve
 }
 
 /**
- * 版本元信息条（根 design.md 6.3）：版本状态 Tag、源端修改时间、平台接收时间、报告与审核医生、
+ * 版本元信息条：版本状态 Tag、源端修改时间、平台接收时间、报告与审核医生、
  * PDF 文件名（截断加 Tooltip）与下载按钮；来源报告备注独立次行，两行截断加「展开/收起」。
  */
 export function VersionMetaBar({ version, downloadingVersionId, onDownload }: VersionMetaBarProps) {
@@ -368,7 +368,7 @@ export function VersionMetaBar({ version, downloadingVersionId, onDownload }: Ve
 
 /**
  * 来源报告备注：两行截断（line-clamp 2），溢出时出现「展开/收起」文字按钮（`aria-expanded`）。
- * 溢出按滚动高度测量（根 design.md 6.3「超出显示」）：挂载后测一次，并经 `ResizeObserver`
+ * 溢出按滚动高度测量：挂载后测一次，并经 `ResizeObserver`
  * 随备注行尺寸变化（如窗口收窄引起换行重排）重新测量；无 `ResizeObserver` 的环境（jsdom）
  * 保持挂载单次测量的现行为，不为此新增依赖。无布局环境（clientHeight 为 0）时不测量、
  * 保留展开入口，真实浏览器中的可见性由挂载测量与重测修正。
@@ -423,10 +423,10 @@ type LaboratoryResultItem = NonNullable<LaboratoryReportContentViewReadModel['re
 type LaboratoryBacteriaItem = NonNullable<LaboratoryReportContentViewReadModel['bacteriaResults']>[number]
 type LaboratorySusceptibilityItem = NonNullable<LaboratoryBacteriaItem['susceptibilities']>[number]
 
-/** 结果异常标志的否定原文；空白与「正常」都按 L1 灰「—」呈现（根 design.md 6.7 三级编码）。 */
+/** 结果异常标志的否定原文；空白与「正常」都按 L1 灰「—」呈现（三级视觉编码的第一级）。 */
 const NORMAL_ABNORMAL_FLAG = '正常'
 
-/** 次行小字（根 design.md 6.6）：编码、类型等降级文本，12px tertiary、tabular-nums，空白不占行。 */
+/** 次行小字：编码、类型等降级文本，12px tertiary、tabular-nums，空白不占行。 */
 function LabSub(props: { prefix?: string; text: string | null | undefined }) {
   const text = props.text?.trim() ?? ''
   if (text.length === 0) return null
@@ -441,7 +441,7 @@ function LabField(props: { label: string; children: ReactNode }) {
   </div>
 }
 
-/** 标本信息带的「名称（编码）」字段：名称主行 + 编码次行小字（根 design.md 6.6）。 */
+/** 标本信息带的「名称（编码）」字段：名称主行 + 编码次行小字。 */
 function LabFieldWithCode(props: { label: string; name: string | null | undefined; code: string | null | undefined }) {
   return <LabField label={props.label}>
     {missingText(props.name)}
@@ -450,8 +450,8 @@ function LabFieldWithCode(props: { label: string; name: string | null | undefine
 }
 
 /**
- * 标本信息带（根 design.md 6.7）：浅底信息带，第 1 行院内标本号、标本类型、报告类别、
- * 来源医嘱流水号、检验人（编码与 ID 按次行小字），第 2 行四个时间并列；右上角整体异常标识
+ * 标本信息带：浅底信息带，首行院内标本号、标本类型、报告类别、
+ * 来源医嘱流水号、检验人（编码与 ID 按次行小字），次行四个时间并列；右上角整体异常标识
  * 非「否」且非空时渲染 warning Tag（提示级，红色保留给结果级异常与危急）；报告备注独立行 break-words。
  */
 function SpecimenBand({ content }: { content: LaboratoryReportContentViewReadModel }) {
@@ -478,7 +478,7 @@ function SpecimenBand({ content }: { content: LaboratoryReportContentViewReadMod
   </>
 }
 
-/** 异常列（L1/L2，根 design.md 6.7）：异常标志空或「正常」灰「—」不渲染「否」，其余原文 error Tag。 */
+/** 异常列（L1/L2）：异常标志空或「正常」灰「—」不渲染「否」，其余原文 error Tag。 */
 function AbnormalCell({ flag }: { flag: string | null | undefined }) {
   if (treatedAsNone(flag, NORMAL_ABNORMAL_FLAG)) {
     return <span className='report-management-detail-lab-muted'>{MISSING_TEXT}</span>
@@ -487,7 +487,7 @@ function AbnormalCell({ flag }: { flag: string | null | undefined }) {
 }
 
 /**
- * 危急列（L3，根 design.md 6.7）：危急值标志为 true 呈现实心「危急」Tag（底 colorError、
+ * 危急列（L3）：危急值标志为 true 呈现实心「危急」Tag（底 colorError、
  * 白字、字重 600 由配套 CSS 类承载，ThunderboltFilled 图标、aria-label「危急值」），其余灰「—」。
  */
 function CriticalCell({ flag }: { flag: boolean | null | undefined }) {
@@ -499,7 +499,7 @@ function CriticalCell({ flag }: { flag: boolean | null | undefined }) {
   >危急</Tag>
 }
 
-/** 检测条件单元格：三行 12px 堆叠，每行前置 4px tertiary 小标签（根 design.md 6.7 第 8 列形制）。 */
+/** 检测条件单元格：三行 12px 堆叠，每行前置 4px tertiary 小标签（结果表第 8 列的形制）。 */
 function ConditionCell(props: { lines: Array<{ tag: string; text: string | null | undefined }> }) {
   return <span className='report-management-detail-lab-cond'>
     {props.lines.map((line) => (
@@ -521,7 +521,7 @@ function sourceKeyOf(key: string | null | undefined, fallback: string): string {
   return text.length > 0 ? text : fallback
 }
 
-/** 检验结果表 8 列（根 design.md 6.7）：总宽约 884px，窄容器横向滚动并固定「项目」「结果」两列。 */
+/** 检验结果表 8 列：总宽约 884px，窄容器横向滚动并固定「项目」「结果」两列。 */
 const resultColumns: TableProps<LaboratoryResultItem>['columns'] = [
   { title: '序号', width: 44, align: 'right', className: 'report-management-detail-lab-num', dataIndex: 'displayOrder', render: (value) => value ?? MISSING_TEXT },
   {
@@ -558,7 +558,7 @@ const resultColumns: TableProps<LaboratoryResultItem>['columns'] = [
   },
 ]
 
-/** 检验结果表（根 design.md 6.7）：`size="small"`、无分页，危急行染底与左竖条由 rowClassName 命中。 */
+/** 检验结果表：`size="small"`、无分页，危急行染底与左竖条由 rowClassName 命中。 */
 function ResultTable({ results }: { results: LaboratoryResultItem[] }) {
   return <Table<LaboratoryResultItem>
     size='small'
@@ -579,7 +579,7 @@ function CultureItem(props: { label: string; value: string | null | undefined })
   </span>
 }
 
-/** 药敏结论三色编码（根 design.md 6.7）：含「耐药/R」error、含「敏感/S」success、含「中介/I」warning、未命中中性原文。 */
+/** 药敏结论三色编码：含「耐药/R」error、含「敏感/S」success、含「中介/I」warning、未命中中性原文。 */
 function SusceptibilityConclusionCell({ text }: { text: string | null | undefined }) {
   const value = text?.trim() ?? ''
   if (value.length === 0) return <span className='report-management-detail-lab-muted'>{MISSING_TEXT}</span>
@@ -589,7 +589,7 @@ function SusceptibilityConclusionCell({ text }: { text: string | null | undefine
   return <Tag>{value}</Tag>
 }
 
-/** 药敏表 7 列（根 design.md 6.7）：总宽约 712px，检测条件三行同结果表第 8 列形制。 */
+/** 药敏表 7 列：总宽约 712px，检测条件三行同结果表第 8 列形制。 */
 const susceptibilityColumns: TableProps<LaboratorySusceptibilityItem>['columns'] = [
   { title: '序号', width: 44, align: 'right', className: 'report-management-detail-lab-num', dataIndex: 'displayOrder', render: (value) => value ?? MISSING_TEXT },
   { title: '受试药物', width: 150, render: (_, record) => missingText(record.drugName) },
@@ -615,7 +615,7 @@ const susceptibilityColumns: TableProps<LaboratorySusceptibilityItem>['columns']
   },
 ]
 
-/** 药敏表（根 design.md 6.7）：`size="small"`、无分页，窄容器横向滚动。 */
+/** 药敏表：`size="small"`、无分页，窄容器横向滚动。 */
 function SusceptibilityTable({ susceptibilities }: { susceptibilities: LaboratorySusceptibilityItem[] }) {
   return <Table<LaboratorySusceptibilityItem>
     className='report-management-detail-lab-susceptibility'
@@ -653,7 +653,7 @@ function BacteriaCardBody({ bacteria }: { bacteria: LaboratoryBacteriaItem }) {
 }
 
 /**
- * 菌种卡（根 design.md 6.7）：每菌一张 `Card size="small"`，卡头菌名主行（编码次行）加 colonyCount
+ * 菌种卡：每菌一张 `Card size="small"`，卡头菌名主行（编码次行）加 colonyCount
  * 计数与检测结论；卡头右侧开关控制卡身折叠，默认展开（antd Card 无内建可折叠属性，开关为文字按钮，
  * `aria-expanded` 与含菌名的 `aria-label` 携带状态与对象）。
  */
@@ -694,9 +694,9 @@ export interface LaboratoryContentProps {
 }
 
 /**
- * 检验内容卡内容（根 design.md 6.7）：标本信息带（整体异常标识与报告备注）、普通检验结果表
+ * 检验内容卡内容：标本信息带（整体异常标识与报告备注）、普通检验结果表
  * 三级视觉编码（L1 灰「—」/ L2 异常 error Tag / L3 危急实心 Tag 加整行染底）、细菌鉴定菌种卡
- * 与药敏表；三个层级的子表为空沿用既有空态文案（根 design.md 6.9）。
+ * 与药敏表；三个层级的子表为空沿用既有空态文案。
  */
 export function LaboratoryContent({ content }: LaboratoryContentProps) {
   if (content === null) {
@@ -738,7 +738,7 @@ function ExamSection(props: { title: string; children: ReactNode }) {
 }
 
 /**
- * 第 1 层检查结论 callout（根 design.md 6.8，结论优先置顶）：块头行为「检查结论」节标题加
+ * 第 1 层检查结论 callout（结论优先置顶）：块头行为「检查结论」节标题加
  * 整体异常标识 Tag（非「否」且非空时 warning，与检验整体异常同一提示级），正文为结论原文。
  */
 function ConclusionCallout({ content }: { content: ExaminationReportContentViewReadModel }) {
@@ -752,11 +752,11 @@ function ConclusionCallout({ content }: { content: ExaminationReportContentViewR
   </section>
 }
 
-/** 临床背景卡头的病情描述摘要字数（根 design.md 6.8：前 40 字摘要）。 */
+/** 临床背景卡头的病情描述摘要字数（取病情描述前 40 字作卡头摘要）。 */
 const CLINICAL_SUMMARY_CHARS = 40
 
 /**
- * 第 4 层临床背景（根 design.md 6.8）：`Collapse`「临床背景」默认收起，卡头显示病情描述前 40 字
+ * 第 4 层临床背景：`Collapse`「临床背景」默认收起，卡头显示病情描述前 40 字
  * 摘要（12px tertiary）；展开后为病情描述、检查目的两行（break-words 由配套 CSS 承载）。
  */
 function ClinicalBackground({ content }: { content: ExaminationReportContentViewReadModel }) {
@@ -786,7 +786,7 @@ function ImageStatusTag({ text }: { text: string | null | undefined }) {
 }
 
 /**
- * 影像调阅地址外链（根 design.md 6.8）：新窗口打开、不带 opener 引用、中文可访问名称并带图标；
+ * 影像调阅地址外链：新窗口打开、不带 opener 引用、中文可访问名称并带图标；
  * 地址缺失按缺失占位符呈现。
  */
 function ImageAccessLink({ url }: { url: string | null | undefined }) {
@@ -800,7 +800,7 @@ function ImageAccessLink({ url }: { url: string | null | undefined }) {
   ><FileImageOutlined /> 打开影像</Typography.Link>
 }
 
-/** 检查信息七项（根 design.md 6.8 第 5 层）：字段顺序与降级形态按设计，「名称（编码）」对按 6.6 次行小字。 */
+/** 检查信息七项（第 5 层）：字段顺序为来源检查类型、实际检查时间、检查医生、检查方法、设备、来源影像状态与影像调阅地址，「名称（编码）」对按名称主行加标识次行小字呈现。 */
 function examInfoItems(content: ExaminationReportContentViewReadModel): NonNullable<DescriptionsProps['items']> {
   return [
     itemWithId('来源检查类型', content.sourceExaminationTypeName, content.sourceExaminationTypeCode),
@@ -813,7 +813,7 @@ function examInfoItems(content: ExaminationReportContentViewReadModel): NonNulla
   ]
 }
 
-/** 部位编码次行小字（11px tertiary，根 design.md 6.8 第 6 层）；空白不占位。 */
+/** 部位编码次行小字（11px tertiary，随第 6 层检查项目与部位呈现）；空白不占位。 */
 function SiteCode({ code }: { code: string | null | undefined }) {
   const value = code?.trim() ?? ''
   if (value.length === 0) return null
@@ -821,7 +821,7 @@ function SiteCode({ code }: { code: string | null | undefined }) {
 }
 
 /**
- * 第 6 层单个检查项目块（根 design.md 6.8）：左 2px colorBorderSecondary 竖线 + 左 padding 的
+ * 第 6 层单个检查项目块：左 2px colorBorderSecondary 竖线 + 左 padding 的
  * 轻量块，首行项目名主行加双编码次行小字，次行部位 chips（部位名 13px + 编码 11px）；
  * 无部位沿用既有文案「该项目没有明确检查部位」。
  */
@@ -855,10 +855,10 @@ export interface ExaminationContentProps {
 }
 
 /**
- * 检查内容卡内容（根 design.md 6.8）：六个层次自上而下单列纵排——检查结论 callout、检查所见
+ * 检查内容卡内容：六个层次自上而下单列纵排——检查结论 callout、检查所见
  * 正文（72ch 行宽）、来源诊断（编码次行小字）、临床背景折叠（默认收起）、检查信息 Descriptions
  * （影像调阅外链新窗口打开）与检查项目与部位 chips；子层空态沿用「该项目没有明确检查部位」
- * 「该版本没有检查项目」（根 design.md 6.9）。
+ * 「该版本没有检查项目」。
  */
 export function ExaminationContent({ content }: ExaminationContentProps) {
   if (content === null) {
@@ -893,7 +893,7 @@ export function ExaminationContent({ content }: ExaminationContentProps) {
   </div>
 }
 
-/** 时间线节点圆点的三态类名（根 design.md 6.4）：当前实心、已被替代空心、已作废空心。 */
+/** 时间线节点圆点的三态类名：当前实心、已被替代空心、已作废空心。 */
 const TIMELINE_DOT_CLASS: Record<VersionState, string> = {
   当前有效: 'report-management-detail-timeline-dot-current',
   已被替代: 'report-management-detail-timeline-dot-superseded',
@@ -909,7 +909,7 @@ const TIMELINE_STATE_TAG_COLOR: Record<VersionState, 'success' | 'default'> = {
 
 /**
  * 时间线节点的事实行：「label 值」紧凑同行呈现；完整的 label/值形制由版本信息卡元信息条承载，
- * 节点行保持清单式密度。备注行叠加单行截断（根 design.md 6.4）。
+ * 节点行保持清单式密度。备注行叠加单行截断。
  */
 function TimelineFact(props: { label: string; value: string; remark?: boolean }) {
   return <span
@@ -919,7 +919,7 @@ function TimelineFact(props: { label: string; value: string; remark?: boolean })
   >{props.label} {props.value}</span>
 }
 
-/** 时间线单个节点（根 design.md 6.4）：版本序号 + 版本状态 Tag、事实行、PDF 文件名与两个动作。 */
+/** 时间线单个节点：版本序号 + 版本状态 Tag、事实行、PDF 文件名与两个动作。 */
 function TimelineNode(props: {
   version: ReportVersionRow
   downloadingVersionId: string | null
@@ -949,7 +949,7 @@ function TimelineNode(props: {
         aria-label={`查看第 ${version.versionSequence} 版内容`}
         onClick={() => onView(version.reportVersionId)}
       >查看此版本</Button>
-      {/* 下载接线页面级单在途互斥：在途按钮 loading，其余版本按钮禁用（防重复规则同 6.3）。 */}
+      {/* 下载接线页面级单在途互斥：在途按钮 loading，其余版本按钮禁用（与版本信息卡的下载入口同一防重复规则）。 */}
       <VersionDownloadButton version={version} downloadingVersionId={downloadingVersionId} onDownload={onDownload} />
     </div>
   </div>
@@ -967,7 +967,7 @@ export interface VersionTimelineProps {
 }
 
 /**
- * 历史版本时间线（根 design.md 6.4）：`Collapse` 折叠头「全部版本（N）」默认展开、可手动收起；
+ * 历史版本时间线：`Collapse` 折叠头「全部版本（N）」默认展开、可手动收起；
  * `Timeline` 每节点自上而下呈现版本序号（tabular-nums/600）与版本状态 Tag、源端修改与平台接收
  * 时间、报告与审核医生、来源备注（单行截断、缺失「—」）、PDF 文件名（中段截断加 Tooltip）与
  * 「查看此版本」「下载 PDF」两个动作；节点圆点三态由配套 CSS 按状态类呈现。

@@ -10,7 +10,7 @@
  * + 预设日期区间选择器（今天/近 7 天/近 30 天，不可清空，默认近 30 天）+ 主色查询按钮；不设重置，
  * 关键字与项目类型可清空、清空后经「查询」生效。筛选控件改动只进草稿、零请求；点「查询」把草稿
  * 提交为已生效条件，一次提交同时重读汇总与明细，同条件再次提交等价刷新。明细条件由「已生效条件 +
- * 选中汇总行」派生（T01-D3）：分组键用精确字段补充，用户关键字保持原值，派生不回写已生效条件，
+ * 选中汇总行」派生：分组键用精确字段补充，用户关键字保持原值，派生不回写已生效条件，
  * 左侧汇总不因下钻收窄。汇总维度、明细类型是视图切换，保持即时生效、不进草稿；翻页基于已生效
  * 条件自动读取。本院页页头为左右结构（左侧标题区、右侧登录范围条），平台页页头不承载范围条。
  *
@@ -153,11 +153,11 @@ export interface StatisticsFilters {
   itemType?: MedicalItemTypeValue
   nonAdoptionReasonCode?: string
   /**
-   * 明细专用：选中汇总行的互认科室 ID（T01-D3）。由主体按选中行填充，只进入明细读取与明细导出；
+   * 明细专用：选中汇总行的互认科室 ID。由主体按选中行填充，只进入明细读取与明细导出；
    * 汇总查询与汇总导出不读取这两个字段。页签、原因与分页变化都不改写它。
    */
   recognitionDeptId?: string
-  /** 明细专用：选中汇总行的标准项目编码（T01-D3），口径同 `recognitionDeptId`。 */
+  /** 明细专用：选中汇总行的标准项目编码，口径同 `recognitionDeptId`。 */
   standardProjectCode?: string
 }
 
@@ -302,7 +302,7 @@ function selectedSummaryGroupFields(side: StatisticsSide, row: StatisticsSummary
 }
 
 /**
- * 按选中汇总行派生明细条件（T01-D3）：以已生效筛选为底，按维度把该行的精确分组字段补充进来，
+ * 按选中汇总行派生明细条件：以已生效筛选为底，按维度把该行的精确分组字段补充进来，
  * 范围字段只在对应维度取行值，其余沿用已生效筛选；用户关键字保持原值。
  *
  * 派生结果只进入明细读取与明细导出，不回写已生效筛选，因此左侧汇总不会因下钻而收窄。
@@ -468,7 +468,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
   const [summaryRows, setSummaryRows] = useState<StatisticsSummaryRow[]>([])
   const [summaryTotal, setSummaryTotal] = useState(0)
   const [summaryPage, setSummaryPage] = useState<StatisticsPageInput>({ pageIndex: 1, pageSize: 8 })
-  /** 左列表选中键；汇总重读后按稳定键保留，不存在时自动落到当前页第 1 行。 */
+  /** 左列表选中键；汇总重读后按稳定键保留，不存在时自动落到当前页首行。 */
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [summaryFailure, setSummaryFailure] = useState<null | 'load'>(null)
@@ -573,7 +573,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
     setReasonCode(null)
   }
   /**
-   * 选中行变化：明细类型回提醒、右页回 1 并清空旧明细（设计 1.4）。
+   * 选中行变化：明细类型回提醒、明细页回到第一页并清空旧明细。
    * 以渲染期复位表达，避免 effect 级联；同一行重复点击走重试路径，不经过这里。
    */
   const [selectionMark, setSelectionMark] = useState<string | null>(selectedKey)
@@ -983,7 +983,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
           : undefined,
       }
 
-  /** 左列表换页：换页清空选中，新页读取完成后由汇总读取自动选中第 1 行（设计 1.4）。 */
+  /** 左列表换页：换页清空选中，新页读取完成后由汇总读取自动选中首行。 */
   const changeSummaryPage = (nextPageIndex: number) => {
     setSelectedKey(null)
     setSummaryPage({ pageIndex: nextPageIndex, pageSize: 8 })
@@ -1066,7 +1066,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
       {scopeSpec.kind === 'branch' ? <CurrentScopeBar /> : null}
     </div>
 
-    {/* 范围区（T01-D6、S6-D23）：平台页保留使用方与提供方左右并排、中间方向列；
+    {/* 范围区（S6-D23）：平台页保留使用方与提供方左右并排、中间方向列；
         本院页不渲染固定侧卡片与方向列，只保留一行对侧机构筛选，固定侧由页头范围条表达。
         两页改动都进草稿，点「查询」生效。 */}
     <div className='statistics-board-scope'>
@@ -1184,7 +1184,7 @@ export function StatisticsBoard(props: StatisticsBoardProps) {
       </Form>
     </div>
 
-    {/* 主从区（设计 1.1）：左列表区 + 右明细区。提供方两页由自己的列表区主体承载（S6-D24），
+    {/* 主从区：左列表区 + 右明细区。提供方两页由自己的列表区主体承载（S6-D24），
         使用方两页保留主从双栏的汇总列表与明细卡。 */}
     {side === 'source' ? <SourceStatisticsBoard
       dimension={dimension}

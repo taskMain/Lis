@@ -38,13 +38,13 @@ internal sealed record OrganizationPath(
   /// <param name="scope">已解析的组织范围。</param>
   /// <returns>该范围对应的组织路径。</returns>
   internal static OrganizationPath FromScope(IamOrganizationScope scope) => new(
-    scope.OrganizationId ?? Guid.Empty,
-    scope.OrganizationName ?? string.Empty,
-    scope.OrganizationCode ?? string.Empty,
-    scope.HospitalId ?? Guid.Empty,
-    scope.HospitalName ?? string.Empty,
-    scope.HospitalCode ?? string.Empty,
-    scope.BranchId ?? Guid.Empty,
-    scope.BranchName ?? string.Empty,
-    scope.BranchCode ?? string.Empty);
+    OrganizationId: scope.OrganizationId ?? Guid.Empty,
+    OrganizationName: scope.OrganizationName ?? string.Empty,
+    OrganizationCode: scope.OrganizationCode ?? string.Empty,
+    HospitalId: scope.HospitalId ?? Guid.Empty,
+    HospitalName: scope.HospitalName ?? string.Empty,
+    HospitalCode: scope.HospitalCode ?? string.Empty,
+    BranchId: scope.BranchId ?? Guid.Empty,
+    BranchName: scope.BranchName ?? string.Empty,
+    BranchCode: scope.BranchCode ?? string.Empty);
 }

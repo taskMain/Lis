@@ -1,5 +1,5 @@
 /**
- * 「报告详情」详情路由页（根 design.md 5.1～5.5；D-01 独立详情路由页、D-03 保持挂载、D-05 深链）。
+ * 「报告详情」详情路由页（D-01 独立详情路由页、D-03 保持挂载、D-05 深链）。
  *
  * 两个入口（`report-management`、`branch-report-management`）各挂一个实例，由入口容器在详情子路由
  * 激活时渲染；彼时列表组件保持挂载、仅切换可见性（返回还原由列表主体承担）。
@@ -40,7 +40,7 @@ import { missingText, scrollContainerOf } from './reportDetailShared'
 const CONTENT_PLACEHOLDER_TITLE = '报告内容'
 
 /**
- * 第四卡按报告类型一次分发（根 design.md 5.2、6.7、6.8、6.10）：标题与卡身同源判定——
+ * 第四卡按报告类型一次分发：标题与卡身同源判定——
  * 检验报告为「检验内容」卡、检查报告为「检查内容」卡，两者按类型互斥呈现；
  * 类型未知维持「报告内容」占位标题与 info 级提示（信息蓝，非错误红）。
  */
@@ -114,7 +114,7 @@ export function ReportDetailPage({ reportId, parentPath, parentName, queryVersio
   /** 行概要来自列表主体的会话级缓存（键为路径 reportId）；缓存未命中即深链直开，字段按「—」呈现。 */
   const rowSummary = getRowSummary(reportId)
 
-  // 进入详情页焦点置于页面主标题（根 design.md 6.10），读屏播报单号。
+  // 进入详情页焦点置于页面主标题，读屏播报单号。
   useEffect(() => {
     titleRef.current?.focus()
   }, [])
@@ -164,7 +164,7 @@ export function ReportDetailPage({ reportId, parentPath, parentName, queryVersio
         return
       }
       setPhase('ready')
-      // 初始选中（根 design.md 5.5）：URL `?v=` 序号能匹配则选之，其次当前有效版本，再否则最大序号。
+      // 初始选中：URL `?v=` 序号能匹配则选之，其次当前有效版本，再否则最大序号。
       const matched = requestedSequence !== null
         ? rows.find((row) => row.versionSequence === requestedSequence)
         : undefined
@@ -210,7 +210,7 @@ export function ReportDetailPage({ reportId, parentPath, parentName, queryVersio
   /** 第四卡呈现（按报告类型一次分发）：版本详情未到达时为 `null`，标题退回占位口径。 */
   const contentCardView = versionDetail === null ? null : contentCard(versionDetail)
 
-  /** 详情内容区的在途与完成播报（根 design.md 6.10）；失败不播报错误细节（静默口径的可达性表达）。 */
+  /** 详情内容区的在途与完成播报；失败不播报错误细节（静默口径的可达性表达）。 */
   const detailAnnouncement = detailLoading
     ? '正在加载版本详情…'
     : versionDetail !== null ? `第 ${versionDetail.versionSequence} 版详情已加载` : ''
@@ -238,7 +238,7 @@ export function ReportDetailPage({ reportId, parentPath, parentName, queryVersio
         ]}
       />
       <div className='report-management-detail-heading'>
-        {/* 可访问名称携带页面名：焦点置于主标题时读屏播报「报告详情 + 单号」，深链单号占位时仍播报页面名（根 design.md 6.10）。 */}
+        {/* 可访问名称携带页面名：焦点置于主标题时读屏播报「报告详情 + 单号」，深链单号占位时仍播报页面名。 */}
         <h1
           className='report-management-detail-no'
           tabIndex={-1}
@@ -247,7 +247,7 @@ export function ReportDetailPage({ reportId, parentPath, parentName, queryVersio
         >{missingText(rowSummary?.reportNo)}</h1>
         {rowSummary === undefined ? null : <SummaryStateTags row={rowSummary} />}
       </div>
-      {/* 版本切换控件位（根 design.md 5.2/6.2）：版本列表在途为骨架，到达后由三形态控件承接。 */}
+      {/* 版本切换控件位：版本列表在途为骨架，到达后由三形态控件承接。 */}
       <div className='report-management-detail-version-slot'>
         {phase === 'loading' ? <Skeleton.Button active shape='round' style={{ width: 240, height: 24 }} />
           : selectedVersionId !== null ? (
@@ -255,13 +255,13 @@ export function ReportDetailPage({ reportId, parentPath, parentName, queryVersio
           ) : null}
       </div>
     </div>
-    {/* 在途播报（根 design.md 6.9）：视觉隐藏 + aria-live，加载开始宣告、结束移除。 */}
+    {/* 在途播报：视觉隐藏 + aria-live，加载开始宣告、结束移除。 */}
     <div className='report-management-detail-content'>
       {phase === 'loading' ? <span role='status' className='report-management-detail-visually-hidden'>正在加载版本列表…</span> : null}
-      {/* 详情内容区的在途与完成播报（根 design.md 6.10）：加载开始宣告「正在加载版本详情…」、完成宣告「第 N 版详情已加载」。 */}
+      {/* 详情内容区的在途与完成播报：加载开始宣告「正在加载版本详情…」、完成宣告「第 N 版详情已加载」。 */}
       {detailAnnouncement !== '' ? <span role='status' className='report-management-detail-visually-hidden'>{detailAnnouncement}</span> : null}
 
-      {/* 空版本清单（根 design.md 5.4/6.9）：页面级 Empty 替换五卡壳；「返回列表」与返回动作同口径。 */}
+      {/* 空版本清单：页面级 Empty 替换五卡壳；「返回列表」与返回动作同口径。 */}
       {phase === 'empty' ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description='该报告没有历史版本'>
         <Button type='primary' onClick={goBack}>返回列表</Button>
       </Empty> : <>
@@ -270,7 +270,7 @@ export function ReportDetailPage({ reportId, parentPath, parentName, queryVersio
         </Card>
 
         {/* 版本相关卡（版本信息、公共信息、报告内容、历史版本）：切换在途时整体压暗并居中加载
-            （根 design.md 6.9，布局不跳动）；概要卡与版本无关，不参与压暗。 */}
+            （布局不跳动）；概要卡与版本无关，不参与压暗。 */}
         <div className='report-management-detail-versioned'>
           <div className={detailLoading
             ? 'report-management-detail-versioned-cards report-management-detail-versioned-cards-loading'
@@ -294,7 +294,7 @@ export function ReportDetailPage({ reportId, parentPath, parentName, queryVersio
               {versionDetail === null ? null : <PublicInfoGroups common={versionDetail.common} />}
             </Card>
 
-            {/* 第四卡按报告类型一次分发（根 design.md 5.2、6.7、6.8）：检验内容卡 / 检查内容卡 / 类型未知提示；
+            {/* 第四卡按报告类型一次分发：检验内容卡 / 检查内容卡 / 类型未知提示；
                 版本详情未到达时保持「报告内容」占位标题。 */}
             <Card
               title={contentCardView?.title ?? CONTENT_PLACEHOLDER_TITLE}
@@ -304,7 +304,7 @@ export function ReportDetailPage({ reportId, parentPath, parentName, queryVersio
                 : contentCardView !== null ? contentCardView.body : null}
             </Card>
 
-            {/* 历史版本时间线（根 design.md 6.4）：版本列表在途渲染骨架；到达后折叠头「全部版本（N）」
+            {/* 历史版本时间线：版本列表在途渲染骨架；到达后折叠头「全部版本（N）」
                 默认展开可收起，节点动作分别接线版本切换选择入口与单在途下载互斥。 */}
             <Card title='历史版本' styles={{ body: { padding: 20 } }}>
               {phase === 'loading' ? <Skeleton active title={false} paragraph={{ rows: 4 }} />

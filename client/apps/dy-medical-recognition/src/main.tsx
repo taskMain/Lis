@@ -8,6 +8,7 @@ import { SubAppThemeProvider, setupSubAppDateLocale } from '@dy/micro-sdk/react'
 import { AppRoutes } from './router'
 import { ApiClientProvider } from './contexts/ApiClientProvider'
 import { HostSessionProvider } from './session/HostSessionProvider'
+import { SessionUnavailableBoundary } from './session/SessionUnavailableBoundary'
 import { loadRuntimeConfig, subAppBase } from './runtimeConfig'
 import './index.css'
 
@@ -31,13 +32,15 @@ const initApp = async () => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <SubAppThemeProvider>
-        <HostSessionProvider>
-          <ApiClientProvider baseUrl={runtimeConfig.apiBaseUrl}>
-            <BrowserRouter basename={basename}>
-              <AppRoutes />
-            </BrowserRouter>
-          </ApiClientProvider>
-        </HostSessionProvider>
+        <SessionUnavailableBoundary>
+          <HostSessionProvider>
+            <ApiClientProvider baseUrl={runtimeConfig.apiBaseUrl}>
+              <BrowserRouter basename={basename}>
+                <AppRoutes />
+              </BrowserRouter>
+            </ApiClientProvider>
+          </HostSessionProvider>
+        </SessionUnavailableBoundary>
       </SubAppThemeProvider>
     </StrictMode>,
   )

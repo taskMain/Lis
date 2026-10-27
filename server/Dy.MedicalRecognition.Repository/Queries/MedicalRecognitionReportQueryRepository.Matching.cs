@@ -51,7 +51,7 @@ public sealed partial class MedicalRecognitionReportQueryRepository
   public async Task<IEnumerable<RecognitionValidReportVersionItem>> QueryValidRecognitionReportVersionIdsAsync(IReadOnlyList<Guid> reportVersionIds)
   {
     // 空集合必须在进入映射语句之前短路：该语句用集合参数写法，本平台实测观察到空集合在真实 Provider 上展开为空值列表、
-    // 语句语法不成立（阶段 5 测试报告的票 08 段）。
+    // 语句语法不成立。
     // 处理结果提交与引用详情在部分路径上会传入空版本集合，因此这里不把空集合交给映射器。
     if (reportVersionIds.Count == 0) return [];
 

@@ -42,7 +42,7 @@ public sealed record RecognitionAmountReadModel
   /// <remarks>
   /// 取值由 is_valid 布尔派生、集合封闭，未登记取值按严格解析抛出（解析规则与理由见 <c>EnumDescriptorText.Get</c>），不静默降级。
   /// 注意发布契约的形状差异：本属性是只读计算属性，ASP.NET 生成的 OpenAPI 会把它声明为可空
-  /// （生成端为 <c>string | null</c>），与阶段 2 的 `ConfigurationStatusText` 同构；C# 侧仍是非空声明。
+  /// （生成端为 <c>string | null</c>），与项目配置读模型的 `ConfigurationStatusText` 同构；C# 侧仍是非空声明。
   /// </remarks>
   /// <exception cref="Dy.Core.Extensions.Models.ExtensionException">取值不在枚举描述列表中时由序列化期间抛出。</exception>
   public string ConfigurationStatusText => EnumDescriptorText.Get(ConfigurationStatus, ConfigurationStatusDescriptorList.List);

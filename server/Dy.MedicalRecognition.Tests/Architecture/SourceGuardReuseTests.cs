@@ -58,7 +58,9 @@ public sealed class SourceGuardReuseTests
     // T02 票 10 的平台参数守卫在仓储目录内定位建表脚本与映射文件，登记为共享语法工具的消费方。
     "T02PlatformParameterTests.cs",
     // T02 票 09 的统计投影守卫在仓储目录内定位映射文件并逐条核对实例标识列，登记为共享语法工具的消费方。
-    "T02StatisticsInstanceIdTests.cs"
+    "T02StatisticsInstanceIdTests.cs",
+    // 可选技术治理的组织路径构造守卫按语法节点核对命名参数、两个私有编码规范化方法与编码收集写法，登记为共享语法工具的消费方。
+    "T01TechnicalGovernanceSourceContractTests.cs"
   ];
 
   /// <summary>测试工程内不得重复声明的方法名：这两份私有实现历史上各复制过一次。</summary>

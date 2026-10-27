@@ -2,7 +2,7 @@
  * 互认项目列视图（新增弹窗专用）：类型｜分类｜分组｜项目四栏同时摊开，纵向位置表达从属关系。
  *
  * 版面用 CSS Grid 的显式定位表达：每个单元格自己声明 `gridColumn` 与 `gridRow`，不依赖自动排布。
- * 表头在第 1 行，正文的第一个分组行在第 2 行；一个分组占一行网格，该分组的全部项目行纵向排在
+ * 表头占首行，正文的第一个分组行落在第二行；一个分组占一行网格，该分组的全部项目行纵向排在
  * 第 4 列的项目格里。类型格与分类格只在该层级的第一个分组行渲染，并用 `grid-row: span N`
  * 跨过自己的全部分组行，因此同一层级只有一处层格，页面上也没有折叠或展开控件。
  *
@@ -62,7 +62,7 @@ export interface RecognitionProjectCascadeProps {
   renderLevelExtra?: (target: RecognitionProjectHighlight, levelName: string) => ReactNode
 }
 
-/** 正文第一个分组行所在的行号：第 1 行留给表头。 */
+/** 正文第一个分组行所在的行号：首行留给表头。 */
 const FIRST_BODY_ROW = 2
 
 /** 网格列号：类型、分类、分组、项目，与 CSS 的列宽声明一一对应。 */

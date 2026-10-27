@@ -126,7 +126,7 @@ public sealed class ReportPdfFileController : ControllerBase
       ReportVersionId = reportVersionId
     });
 
-    // 禁止缓存：历史版本文件可能在后续阶段被清理策略影响，响应不得被中间层或浏览器缓存。
+    // 禁止缓存：历史版本文件可能被清理策略回收，响应不得被中间层或浏览器缓存。
     Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
     return File(download.Content, PdfContentType, download.FileName);
   }

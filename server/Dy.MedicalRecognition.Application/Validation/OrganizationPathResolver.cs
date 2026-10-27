@@ -141,9 +141,15 @@ internal sealed class OrganizationPathResolver
     foreach (OrganizationPathTarget target in targets)
     {
       paths.Add(new OrganizationPath(
-        Guid.Empty, NameForLayer(target.OrganizationCode, IamOrganizationTypeCodes.CountyMedicalCommunity, candidates), target.OrganizationCode?.Trim() ?? string.Empty,
-        Guid.Empty, NameForLayer(target.HospitalCode, IamOrganizationTypeCodes.Hospital, candidates), target.HospitalCode?.Trim() ?? string.Empty,
-        Guid.Empty, NameForLayer(target.BranchCode, IamOrganizationTypeCodes.Branch, candidates), target.BranchCode?.Trim() ?? string.Empty));
+        OrganizationId: Guid.Empty,
+        OrganizationName: NameForLayer(target.OrganizationCode, IamOrganizationTypeCodes.CountyMedicalCommunity, candidates),
+        OrganizationCode: target.OrganizationCode?.Trim() ?? string.Empty,
+        HospitalId: Guid.Empty,
+        HospitalName: NameForLayer(target.HospitalCode, IamOrganizationTypeCodes.Hospital, candidates),
+        HospitalCode: target.HospitalCode?.Trim() ?? string.Empty,
+        BranchId: Guid.Empty,
+        BranchName: NameForLayer(target.BranchCode, IamOrganizationTypeCodes.Branch, candidates),
+        BranchCode: target.BranchCode?.Trim() ?? string.Empty));
     }
 
     return paths;
@@ -253,9 +259,15 @@ internal sealed class OrganizationPathResolver
     }
 
     return new OrganizationPath(
-      Guid.Empty, organization.Name, organization.Code,
-      Guid.Empty, hospital?.Name ?? string.Empty, hospital?.Code ?? string.Empty,
-      Guid.Empty, branch?.Name ?? string.Empty, branch?.Code ?? string.Empty);
+      OrganizationId: Guid.Empty,
+      OrganizationName: organization.Name,
+      OrganizationCode: organization.Code,
+      HospitalId: Guid.Empty,
+      HospitalName: hospital?.Name ?? string.Empty,
+      HospitalCode: hospital?.Code ?? string.Empty,
+      BranchId: Guid.Empty,
+      BranchName: branch?.Name ?? string.Empty,
+      BranchCode: branch?.Code ?? string.Empty);
   }
 
   /// <summary>

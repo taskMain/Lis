@@ -291,6 +291,8 @@ internal sealed class FakeMatchQueryRepository : IMedicalRecognitionReportQueryR
     CitationQueryOrganizationCode = organizationCode;
     CitationQueryHospitalCode = hospitalCode;
     CitationQueryBranchCode = branchCode;
+    CitationQueryIdentityDocumentTypeCode = identityDocumentTypeCode;
+    CitationQueryIdentityDocumentNo = identityDocumentNo;
     return Task.FromResult<IEnumerable<RecognitionCitationCandidateItem>>(
     [
       .. CitationCandidates
@@ -333,6 +335,12 @@ internal sealed class FakeMatchQueryRepository : IMedicalRecognitionReportQueryR
         .OrderBy(item => item.StandardProjectCode, StringComparer.Ordinal)
     ]);
   }
+
+  /// <summary>最近一次引用详情候选读取收到的证件类型代码；用于观测查询侧提交值的规范形式。</summary>
+  public string? CitationQueryIdentityDocumentTypeCode { get; private set; }
+
+  /// <summary>最近一次引用详情候选读取收到的证件号码；用于观测查询侧提交值的规范形式。</summary>
+  public string? CitationQueryIdentityDocumentNo { get; private set; }
 
   /// <summary>最近一次引用详情候选读取收到的可信组织编码。</summary>
   public string? CitationQueryOrganizationCode { get; private set; }
