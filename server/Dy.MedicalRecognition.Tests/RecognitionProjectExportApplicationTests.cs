@@ -457,6 +457,9 @@ public sealed class RecognitionProjectExportApplicationTests
     /// <inheritdoc cref="QueryMedicalStandardCategoryListAsync(Domain.Share.Enums.MedicalItemType?)"/>
     public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) => throw new NotSupportedException("本替身只覆盖互认配置列表查询。");
 
+    /// <inheritdoc/>
+    public Task<bool> HasCurrentEffectiveRecognitionMatchAsync(Guid reportVersionId, string organizationCode, string hospitalCode, string branchCode) => throw new NotSupportedException("本替身只覆盖互认配置列表查询。");
+
     /// <inheritdoc cref="QueryMedicalStandardCategoryListAsync(Domain.Share.Enums.MedicalItemType?)"/>
     public Task<IEnumerable<RecognitionCitationCandidateItem>> QueryRecognitionCitationCandidatesAsync(
       string organizationCode, string hospitalCode, string branchCode, string identityDocumentTypeCode,

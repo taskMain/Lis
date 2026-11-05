@@ -112,7 +112,7 @@ public sealed class ReportPdfFileController : ControllerBase
   /// </summary>
   /// <remarks>
   /// 归属校验、版本定位与文件读取都在应用层完成；这里只设置内容类型、下载名与禁止缓存响应头，
-  /// 不返回文件键、物理路径或对外下载地址。已作废报告的历史版本仍可下载。
+  /// 不返回文件键、物理路径或对外下载地址。管理端可下载历史版本，HIS 互认下载仅允许当前有效版本。
   /// </remarks>
   /// <param name="reportId">报告标识，用于归属定位。</param>
   /// <param name="reportVersionId">报告版本标识，用于定位版本。</param>

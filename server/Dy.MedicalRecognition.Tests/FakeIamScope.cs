@@ -135,6 +135,9 @@ internal sealed class FakeIamScope : IIamDirectoryClient, ICurrentIamContext, IO
   public Task<IamOrganizationDirectoryResult> QueryOrganizationDirectoryAsync(IamOrganizationDirectoryRequest request, CancellationToken cancellationToken) =>
     throw new NotSupportedException();
 
+  public Task<IamOrganizationsByCodeResult> QueryOrganizationsByCodeAsync(IamOrganizationsByCodeRequest request, CancellationToken cancellationToken) =>
+    throw new NotSupportedException();
+
   /// <inheritdoc/>
   public Task<OrganizationBusinessCodeTreeResponse> QueryOrganizationByTenantIdAsync(OrganizationBusinessCodeQueryRequest request)
   {
@@ -364,6 +367,6 @@ internal sealed class FakeIamScope : IIamDirectoryClient, ICurrentIamContext, IO
   private static IamDirectoryOrganization Organization(Guid id, string name, Guid? parentId, string typeCode, Guid[] path, bool isEnabled = true) =>
     new(id, name, parentId, isEnabled, [.. path.Select(item => new IamDirectoryPathItem(item, $"组织-{item:N}"))])
     {
-      OrganizationType = new IamDirectoryOrganizationType(Guid.NewGuid(), typeCode, typeCode, true)
+      OrganizationTypes = [new IamDirectoryOrganizationType(Guid.NewGuid(), typeCode, typeCode, true)]
     };
 }

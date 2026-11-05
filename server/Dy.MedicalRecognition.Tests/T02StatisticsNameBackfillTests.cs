@@ -91,7 +91,7 @@ public sealed class T02StatisticsNameBackfillTests
         new IamDirectoryPathItem(branchId, "组织-院区（跨树）")
       ])
     {
-      OrganizationType = new IamDirectoryOrganizationType(Guid.NewGuid(), "Branch", "Branch", true)
+      OrganizationTypes = [new IamDirectoryOrganizationType(Guid.NewGuid(), "Branch", "Branch", true)]
     };
   }
 

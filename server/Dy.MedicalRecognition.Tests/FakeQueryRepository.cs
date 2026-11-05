@@ -191,6 +191,9 @@ internal sealed class FakeQueryRepository : IMedicalRecognitionReportQueryReposi
   public Task<IEnumerable<RecognitionValidReportVersionItem>> QueryValidRecognitionReportVersionIdsAsync(IReadOnlyList<Guid> reportVersionIds) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
+  public Task<bool> HasCurrentEffectiveRecognitionMatchAsync(Guid reportVersionId, string organizationCode, string hospitalCode, string branchCode) => Task.FromResult(false);
+
+  /// <inheritdoc/>
   public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId)
   {
     if (!ReportScopes.TryGetValue(reportId, out MedicalReportScopeItem? scope)) return Task.FromResult<MedicalReportVersionFileItem?>(null);

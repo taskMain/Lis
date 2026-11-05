@@ -337,7 +337,7 @@ public sealed class Stage4SqlMapTests
     "QueryMedicalStandardCategoryList", "QueryMedicalStandardGroupList", "QueryMedicalStandardItemList",
     "QueryEffectiveMedicalStandardCatalog", "QueryRecognitionProjectConfigurationList", "QuerySelectableStandardItemList", "QueryRecognitionAmountList",
     "CountMedicalReportList", "QueryMedicalReportList", "QueryMedicalReportVersionList", "GetMedicalReportVersionDetail",
-    "GetMedicalReportScope", "GetMedicalReportVersionCommon", "GetMedicalReportVersionFile",
+    "GetMedicalReportScope", "GetMedicalReportVersionCommon", "GetMedicalReportVersionFile", "HasCurrentEffectiveRecognitionMatch",
     "GetLaboratoryReportContent", "QueryLaboratoryResultItems", "QueryLaboratoryBacteriaResults",
     "QueryLaboratorySusceptibilities", "GetExaminationReportContent", "QueryExaminationItems",
     "QueryExaminationSites", "QueryLaboratoryResultItemsByVersions", "QueryExaminationItemsByVersions",

@@ -141,4 +141,12 @@ public partial interface IMedicalRecognitionReportQueryRepository
   /// <param name="reportVersionId">报告版本标识。</param>
   /// <returns>文件信息行，含不对外返回的文件键。</returns>
   Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId);
+
+  /// <summary>判断指定版本是否已匹配给可信接收方，且仍为当前有效版本。</summary>
+  /// <param name="reportVersionId">待校验的报告版本标识。</param>
+  /// <param name="organizationCode">可信接收方组织编码。</param>
+  /// <param name="hospitalCode">可信接收方医院编码。</param>
+  /// <param name="branchCode">可信接收方院区编码。</param>
+  /// <returns>存在符合接收方归属的匹配且版本仍有效时返回 <see langword="true"/>；否则返回 <see langword="false"/>。</returns>
+  Task<bool> HasCurrentEffectiveRecognitionMatchAsync(Guid reportVersionId, string organizationCode, string hospitalCode, string branchCode);
 }

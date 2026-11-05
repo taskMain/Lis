@@ -399,6 +399,9 @@ internal sealed class FakeMatchQueryRepository : IMedicalRecognitionReportQueryR
   /// <inheritdoc/>
   public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) => throw new NotSupportedException(UnusedMember);
 
+  /// <inheritdoc/>
+  public Task<bool> HasCurrentEffectiveRecognitionMatchAsync(Guid reportVersionId, string organizationCode, string hospitalCode, string branchCode) => throw new NotSupportedException(UnusedMember);
+
   // 阶段 6 互认统计的查询成员：本替身只覆盖互认匹配路径，统计路径调用即失败。
 
   /// <inheritdoc/>

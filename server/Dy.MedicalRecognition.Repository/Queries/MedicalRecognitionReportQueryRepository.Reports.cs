@@ -112,4 +112,10 @@ public sealed partial class MedicalRecognitionReportQueryRepository
   public async Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) =>
     await dataMapper.QuerySingleAsync<MedicalReportVersionFileItem>(
       new { ReportId = reportId, ReportVersionId = reportVersionId }, scope: SqlScope);
+
+  /// <inheritdoc/>
+  public async Task<bool> HasCurrentEffectiveRecognitionMatchAsync(
+    Guid reportVersionId, string organizationCode, string hospitalCode, string branchCode) =>
+    await dataMapper.QuerySingleAsync<bool>(
+      new { ReportVersionId = reportVersionId, OrganizationCode = organizationCode, HospitalCode = hospitalCode, BranchCode = branchCode }, scope: SqlScope);
 }

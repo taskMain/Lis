@@ -340,6 +340,9 @@ public sealed class W1OrganizationBusinessCodeTests
     public Task<Dy.IAM.Sdk.IamOrganizationDirectoryResult> QueryOrganizationDirectoryAsync(
       Dy.IAM.Sdk.IamOrganizationDirectoryRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+    public Task<Dy.IAM.Sdk.IamOrganizationsByCodeResult> QueryOrganizationsByCodeAsync(
+      Dy.IAM.Sdk.IamOrganizationsByCodeRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
     /// <summary>构造一个组织详情节点。</summary>
     /// <param name="id">组织标识。</param>
     /// <param name="name">组织名称。</param>
@@ -351,7 +354,7 @@ public sealed class W1OrganizationBusinessCodeTests
       Guid id, string name, Guid? parentId, string typeCode, Guid[] path) =>
       new(id, name, parentId, true, [.. path.Select(item => new Dy.IAM.Sdk.IamDirectoryPathItem(item, $"组织-{item:N}"))])
       {
-        OrganizationType = new Dy.IAM.Sdk.IamDirectoryOrganizationType(Guid.NewGuid(), typeCode, typeCode, true)
+        OrganizationTypes = [new Dy.IAM.Sdk.IamDirectoryOrganizationType(Guid.NewGuid(), typeCode, typeCode, true)]
       };
   }
 

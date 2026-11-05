@@ -223,7 +223,7 @@ public sealed class Stage5SqlMapTests
   [
     "QueryLaboratoryResultItemsByVersions", "QueryExaminationItemsByVersions",
     "QueryRecognitionMatchCandidateReports", "QueryRecognitionMatchReportFacts",
-    "QueryValidRecognitionReportVersionIds",
+    "HasCurrentEffectiveRecognitionMatch", "QueryValidRecognitionReportVersionIds",
     "QueryRecognitionCitationCandidates", "QueryRecognitionCitationReportContexts",
     "QueryRecognitionCitationStandardProjectNames"
   ];
@@ -1720,6 +1720,19 @@ public sealed class Stage5SqlMapTests
   /// 语句语法不成立：检查部位语句抛数据库语法错误，按版本筛有效版本的语句在结果反序列化上抛空引用异常。
   /// 检验报告的匹配响应没有检查项目，处理结果提交会传入空版本集合，两条路径都在正常业务上可达，
   /// 因此空集合必须在仓储层短路：既不发起数据库往返，也不改变"没有入参就没有结果"的语义。
+  /// <summary>互认下载按可信接收方、绑定版本、当前版本及有效报告联合授权。</summary>
+  [Fact]
+  public void Recognition_pdf_download_checks_match_scope_and_current_effective_version()
+  {
+    string statement = NormaliseStatement(QueryStatement("HasCurrentEffectiveRecognitionMatch"));
+    Assert.Contains("mi.report_version_id = $ReportVersionId", statement, StringComparison.Ordinal);
+    Assert.Contains("mr.receiver_organization_code = $OrganizationCode", statement, StringComparison.Ordinal);
+    Assert.Contains("mr.receiver_hospital_code = $HospitalCode", statement, StringComparison.Ordinal);
+    Assert.Contains("mr.receiver_branch_code = $BranchCode", statement, StringComparison.Ordinal);
+    Assert.Contains("r.current_version_id = mi.report_version_id", statement, StringComparison.Ordinal);
+    Assert.Contains("r.status = 1", statement, StringComparison.Ordinal);
+  }
+
   /// 判据按语法节点判定，不依赖空白与注释写法：方法体内存在唯一一处「入参集合数量为零即返回空集合」的早返回。
   /// </remarks>
   /// <param name="methodName">按集合读取的映射方法名。</param>

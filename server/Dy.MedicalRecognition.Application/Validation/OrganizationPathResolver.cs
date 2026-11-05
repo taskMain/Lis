@@ -167,7 +167,7 @@ internal sealed class OrganizationPathResolver
 
     bool hasTypedEnabledCandidate = hits.Any(hit =>
       hit.Detail is { IsEnabled: true } node
-      && string.Equals(node.OrganizationType?.Code, typeCode, StringComparison.Ordinal));
+      && node.OrganizationTypes.Any(type => type.IsEnabled && string.Equals(type.Code, typeCode, StringComparison.Ordinal)));
     return hasTypedEnabledCandidate ? NameOf(candidates, normalized) : string.Empty;
   }
 
@@ -297,7 +297,7 @@ internal sealed class OrganizationPathResolver
         .Select(hit => hit.Detail)
         .OfType<IamDirectoryOrganization>()
         .Where(node => node.IsEnabled
-          && string.Equals(node.OrganizationType?.Code, typeCode, StringComparison.Ordinal))
+          && node.OrganizationTypes.Any(type => type.IsEnabled && string.Equals(type.Code, typeCode, StringComparison.Ordinal)))
     ];
     if (typed.Length == 0) throw new InvalidOperationException(missingMessage);
 

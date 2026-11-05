@@ -80,6 +80,27 @@ public sealed class T02OrganizationScopeTests
     Assert.All(directory.Requests, ids => Assert.InRange(ids.Length, 1, 100));
   }
 
+  /// <summary>节点有多个类型时按集合包含关系归类，不依赖数组顺序。</summary>
+  [Fact]
+  public async Task Current_scope_classifies_multi_typed_nodes_independently_of_type_order()
+  {
+    FakeIamDirectoryClient directory = BuildDirectory();
+    IamDirectoryOrganization branch = directory.Organizations[BranchAId];
+    directory.Organizations[BranchAId] = branch with
+    {
+      OrganizationTypes =
+      [
+        new IamDirectoryOrganizationType(Guid.NewGuid(), "Dept", "科室", true),
+        .. branch.OrganizationTypes
+      ]
+    };
+    IamOrganizationScopeResolver resolver = BuildResolver(directory, IdentityAt(BranchAId));
+
+    IamOrganizationScope scope = await resolver.ReadCurrentScopeAsync();
+
+    Assert.Equal(BranchAId, scope.BranchId);
+  }
+
   /// <summary>
   /// V5：当前身份在医院节点时，当前节点与祖先归类出医共体与医院，院区为空。
   /// </summary>
@@ -659,9 +680,9 @@ public sealed class T02OrganizationScopeTests
     bool isTypeEnabled = true) =>
     new(id, name, parentId, isEnabled, path ?? Path(id))
     {
-      OrganizationType = typeCode is null
-        ? null!
-        : new IamDirectoryOrganizationType(Guid.NewGuid(), typeCode, typeCode, isTypeEnabled)
+      OrganizationTypes = typeCode is null
+        ? []
+        : [new IamDirectoryOrganizationType(Guid.NewGuid(), typeCode, typeCode, isTypeEnabled)]
     };
 
   /// <summary>
@@ -720,6 +741,9 @@ public sealed class T02OrganizationScopeTests
 
     /// <inheritdoc/>
     public Task<IamOrganizationDirectoryResult> QueryOrganizationDirectoryAsync(IamOrganizationDirectoryRequest request, CancellationToken cancellationToken) =>
+      throw new NotSupportedException();
+
+    public Task<IamOrganizationsByCodeResult> QueryOrganizationsByCodeAsync(IamOrganizationsByCodeRequest request, CancellationToken cancellationToken) =>
       throw new NotSupportedException();
   }
 

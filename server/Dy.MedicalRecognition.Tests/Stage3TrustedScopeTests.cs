@@ -316,6 +316,10 @@ public sealed class Stage3TrustedScopeTests
       throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
 
     /// <inheritdoc/>
+    public Task<bool> HasCurrentEffectiveRecognitionMatchAsync(Guid reportVersionId, string organizationCode, string hospitalCode, string branchCode) =>
+      throw new NotSupportedException("本替身只覆盖互认项目金额列表查询。");
+
+    /// <inheritdoc/>
     public Task<IEnumerable<RecognitionCitationCandidateItem>> QueryRecognitionCitationCandidatesAsync(
       string organizationCode,
       string hospitalCode,

@@ -432,6 +432,9 @@ internal sealed class FakeStatisticsQueryRepository : IMedicalRecognitionReportQ
   /// <exception cref="NotSupportedException">本替身不覆盖该成员时抛出。</exception>
   public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) => throw new NotSupportedException(UnusedMember);
 
+  /// <inheritdoc/>
+  public Task<bool> HasCurrentEffectiveRecognitionMatchAsync(Guid reportVersionId, string organizationCode, string hospitalCode, string branchCode) => throw new NotSupportedException(UnusedMember);
+
   /// <summary>本替身不覆盖：引用详情候选采纳记录查询。</summary>
   /// <param name="organizationCode">可信使用方组织编码。</param>
   /// <param name="hospitalCode">可信使用方医院编码。</param>

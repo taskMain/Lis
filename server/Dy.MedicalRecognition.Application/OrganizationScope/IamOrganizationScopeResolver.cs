@@ -266,7 +266,7 @@ internal sealed class IamOrganizationScopeResolver
     IamDirectoryOrganization[] matches =
     [
       .. nodes.Where(node => node.IsEnabled
-        && string.Equals(node.OrganizationType?.Code, typeCode, StringComparison.Ordinal))
+        && node.OrganizationTypes.Any(type => type.IsEnabled && string.Equals(type.Code, typeCode, StringComparison.Ordinal)))
     ];
     return matches.Length switch
     {
@@ -293,7 +293,7 @@ internal sealed class IamOrganizationScopeResolver
     if (organizationId == Guid.Empty
       || !organizations.TryGetValue(organizationId, out IamDirectoryOrganization? organization)
       || !organization.IsEnabled
-      || !string.Equals(organization.OrganizationType?.Code, typeCode, StringComparison.Ordinal))
+      || !organization.OrganizationTypes.Any(type => type.IsEnabled && string.Equals(type.Code, typeCode, StringComparison.Ordinal)))
     {
       throw new InvalidOperationException(missingMessage);
     }

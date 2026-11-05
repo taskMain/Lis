@@ -11,7 +11,7 @@
 | 2 | 检验报告完整内容：检验专项内容、普通检验结果、细菌鉴定结果、药敏结果四类实体与其表；完整检验报告提交流程与检验报告作废 | 后端主责 | 同上 | 批次 1；批次二 4 张表由负责人执行建表 | V21-V45 |
 | 3 | 检查报告完整内容：检查专项内容、检查项目、检查部位三类实体与其表；完整检查报告提交流程与检查报告作废 | 后端主责 | 同上 | 批次 1；批次三 3 张表由负责人执行建表 | V46-V60 |
 | 4 | API Client 累计重生成与两个管理端页面 | 前端主责 | `client/packages/api-client-medical-recognition/`、`client/apps/dy-medical-recognition/` | 批次 1-3 后端契约稳定 | C1-C31 |
-| 5 | 真实数据库、真实文件系统与宿主链路验收、阶段报告 | 测试主责 | 阶段 `testReport.md` | 批次 3、4 与三批建表全部完成；菜单配置 | V61-V79、V80b、V90、V91、矩阵全量检查 |
+| 5 | 真实数据库、真实文件系统与宿主链路验收、阶段报告；HIS 下载按实际影响使用真实 IAM 与直接 HTTP 取证，不重复无客户端变更的页面操作 | 测试主责 | 阶段 `testReport.md` | 批次 3、4 与三批建表全部完成；菜单配置；HIS 授权另需阶段 5 匹配表 | V61-V79、V80b、V90、V91、V94、V95、矩阵全量检查 |
 | 6 | 报告管理页查询模块整改（2026-10-15 追加）：两请求契约与 Domain 筛选字段替换、SqlMap 关键字 OR 组与状态过滤、API Client 累计重生成、共用查询区与状态页签、两端测试与宿主复测 | 后端＋前端主责 | `server/` 契约、Domain、Application、Repository 与测试工程；`client/packages/api-client-medical-recognition/`；`client/apps/dy-medical-recognition/src/pages/reportManagement/` | S4-D44 确认 | V64-V66（修订后）、V92、V93、C4/C12/C13（修订后）、C32-C34 |
 | 7 | 默认行为整改（2026-10-15 追加）：平台入口范围初始解析（可信优先、缺失取首项、受控值重载二轮）与报告时间默认近 30 天（不可清空），共用主体的默认条件与预设同源、范围切换复位默认窗 | 前端主责 | `client/apps/dy-medical-recognition/src/pages/reportManagement/` | S4-D44（默认行为段）确认 | C35、C36、C37 |
 | 8 | 报告详情重构（2026-10-16 追加）：详情由列表页追加区域改为独立详情路由页（两个入口子路由、列表保持挂载、行概要会话缓存、确定性返回、返回后列表状态还原），概要头部、版本切换三形态与 `?v=` 深链、公共信息四组、检验与检查结构化内容呈现与三级视觉编码、历史版本时间线、版本详情失败回退；删除原内联详情区域组件并重写关联测试 | 前端主责 | `client/apps/dy-medical-recognition/src/pages/reportManagement/`、`client/apps/dy-medical-recognition/src/router/routes.tsx` | S4-D45 确认 | C18、C20（修订后）、C38-C44 |

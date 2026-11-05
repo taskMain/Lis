@@ -818,7 +818,7 @@ public sealed class Stage3OrganizationPathTests
     new(id, name, parentId, true, [.. (parentId is { } parent ? new[] { parent, id } : new[] { id })
       .Select(item => new IamDirectoryPathItem(item, $"组织-{item:N}"))])
     {
-      OrganizationType = new IamDirectoryOrganizationType(Guid.NewGuid(), typeCode, typeCode, true)
+      OrganizationTypes = [new IamDirectoryOrganizationType(Guid.NewGuid(), typeCode, typeCode, true)]
     };
 
   /// <summary>把旧组织服务替身适配为 IAM 目录客户端，保持原用例的组织、医院、院区数据与读取计数口径。</summary>
@@ -864,6 +864,7 @@ public sealed class Stage3OrganizationPathTests
 
     public Task<IamEmploymentValidationResult> BatchValidateEmploymentsAsync(IamEmploymentValidationRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
     public Task<IamOrganizationDirectoryResult> QueryOrganizationDirectoryAsync(IamOrganizationDirectoryRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+    public Task<IamOrganizationsByCodeResult> QueryOrganizationsByCodeAsync(IamOrganizationsByCodeRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
     public bool IsAuthenticated => true;
     public IamIdentityContext? Current => null;
     public IamIdentityContext RequireCurrent() => throw new NotSupportedException();
@@ -871,7 +872,7 @@ public sealed class Stage3OrganizationPathTests
     private static IamDirectoryOrganization Node(Guid id, string name, Guid? parentId, string typeCode, bool isEnabled) =>
       new(id, name, parentId, isEnabled, [new IamDirectoryPathItem(id, $"组织-{id:N}")])
       {
-        OrganizationType = new IamDirectoryOrganizationType(Guid.NewGuid(), typeCode, typeCode, true)
+        OrganizationTypes = [new IamDirectoryOrganizationType(Guid.NewGuid(), typeCode, typeCode, true)]
       };
   }
 

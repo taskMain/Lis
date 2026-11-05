@@ -173,8 +173,8 @@ public partial class MedicalRecognitionReportAppService
   /// 按报告标识与报告版本标识读取该版本的 PDF 文件流与该版本保存的下载名。
   /// </summary>
   /// <remarks>
-  /// 归属校验复用三层可信范围：报告的组织、医院、院区必须与可信上下文解析出的路径一致，跨医院或跨院区定位不可得；
-  /// 已作废报告的历史版本仍可下载，作废不改变文件键与下载名。
+  /// 提供方三层与可信范围一致时允许管理端下载历史版本；提供方不一致时，必须存在当前接收方的有效互认匹配，
+  /// 且请求版本仍为当前版本、报告有效。互认下载不要求采纳、引用或引用详情仍在有效期内。
   /// </remarks>
   /// <param name="request">下载定位请求，携带报告标识与报告版本标识。</param>
   /// <returns>该版本的只读文件流与下载名；调用方负责释放文件流。</returns>
@@ -195,7 +195,9 @@ public partial class MedicalRecognitionReportAppService
     bool inTrustedScope = string.Equals(file.OrganizationCode, scope.OrganizationCode ?? string.Empty, StringComparison.Ordinal)
       && string.Equals(file.HospitalCode, scope.HospitalCode ?? string.Empty, StringComparison.Ordinal)
       && string.Equals(file.BranchCode, scope.BranchCode ?? string.Empty, StringComparison.Ordinal);
-    if (!inTrustedScope) throw new InvalidOperationException("业务拒绝：报告不在当前可信组织、医院与院区范围内。");
+    if (!inTrustedScope && !await queryRepository.HasCurrentEffectiveRecognitionMatchAsync(
+          request.ReportVersionId, scope.OrganizationCode ?? string.Empty, scope.HospitalCode ?? string.Empty, scope.BranchCode ?? string.Empty))
+      throw new InvalidOperationException("业务拒绝：报告没有当前有效的互认匹配，或不属于当前可信组织、医院与院区。");
 
     Stream content = await reportPdfFileStore.OpenReadAsync(file.PdfFileId);
     return new ReportPdfDownload(content, file.PdfFileName);

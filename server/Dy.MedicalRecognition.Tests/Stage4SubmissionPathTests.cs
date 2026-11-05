@@ -341,11 +341,81 @@ public sealed class Stage4SubmissionPathTests
         ReportVersionId = reportVersionId
       }));
 
-    Assert.Equal("业务拒绝：报告不在当前可信组织、医院与院区范围内。", error.Message);
+    Assert.Equal("业务拒绝：报告没有当前有效的互认匹配，或不属于当前可信组织、医院与院区。", error.Message);
     Assert.Equal(0, fileStore.OpenReadCalls);
   }
 
-  /// 构建提交入口，注入仓储替身、文件存储替身、组织服务替身与可信请求上下文。
+  /// <summary>跨院匹配且版本当前有效时，接收方医院可以下载提供方报告的 PDF。</summary>
+  [Fact]
+  public async Task Download_allows_matched_current_version_across_hospitals()
+  {
+    Guid reportId = Guid.NewGuid();
+    Guid reportVersionId = Guid.NewGuid();
+    const string fileKey = "key/matched.pdf";
+    SyntheticReportPorts ports = new()
+    {
+      VersionFile = new MedicalReportVersionFileItem
+      {
+        ReportId = reportId,
+        ReportVersionId = reportVersionId,
+        OrganizationCode = FakeIamScope.OtherOrganizationCode,
+        HospitalCode = FakeIamScope.OtherHospitalCode,
+        BranchCode = FakeIamScope.OtherBranchCode,
+        PdfFileId = fileKey,
+        PdfFileName = "跨院报告.pdf",
+        ReportStatus = MedicalReportLifecycleStatus.Effective
+      },
+      RecognitionMatchAllowsDownload = true
+    };
+    RecordingReportPdfFileStore fileStore = new(readableFileKeys: [fileKey]);
+    MedicalRecognitionReportAppService appService = CreateAppService(new FakeReportRepository(), fileStore, ports);
+
+    ReportPdfDownload download = await appService.OpenReportVersionPdfAsync(new MedicalReportVersionPdfQueryRequest
+    {
+      ReportId = reportId,
+      ReportVersionId = reportVersionId
+    });
+
+    await using Stream content = download.Content;
+    Assert.Equal("跨院报告.pdf", download.FileName);
+    Assert.Equal(1, fileStore.OpenReadCalls);
+  }
+
+  /// <summary>互认匹配不存在、接收方不符或版本失效时均拒绝且不读取文件。</summary>
+  [Fact]
+  public async Task Download_rejects_when_current_effective_match_is_not_available()
+  {
+    Guid reportId = Guid.NewGuid();
+    Guid reportVersionId = Guid.NewGuid();
+    SyntheticReportPorts ports = new()
+    {
+      VersionFile = new MedicalReportVersionFileItem
+      {
+        ReportId = reportId,
+        ReportVersionId = reportVersionId,
+        OrganizationCode = FakeIamScope.OtherOrganizationCode,
+        HospitalCode = FakeIamScope.OtherHospitalCode,
+        BranchCode = FakeIamScope.OtherBranchCode,
+        PdfFileId = "key/rejected.pdf",
+        PdfFileName = "拒绝.pdf",
+        ReportStatus = MedicalReportLifecycleStatus.Effective
+      }
+    };
+    RecordingReportPdfFileStore fileStore = new(readableFileKeys: ["key/rejected.pdf"]);
+    MedicalRecognitionReportAppService appService = CreateAppService(new FakeReportRepository(), fileStore, ports);
+
+    InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+      () => appService.OpenReportVersionPdfAsync(new MedicalReportVersionPdfQueryRequest
+      {
+        ReportId = reportId,
+        ReportVersionId = reportVersionId
+      }));
+
+    Assert.StartsWith("业务拒绝：", error.Message, StringComparison.Ordinal);
+    Assert.Equal(0, fileStore.OpenReadCalls);
+  }
+
+  /// <summary>构建提交入口，注入仓储替身、文件存储替身、组织服务替身与可信请求上下文。
   /// </summary>
   /// <param name="repository">报告读写内存替身。</param>
   /// <param name="fileStore">报告 PDF 存储替身。</param>

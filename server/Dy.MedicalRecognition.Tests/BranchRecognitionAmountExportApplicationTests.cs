@@ -581,6 +581,9 @@ public sealed class BranchRecognitionAmountExportApplicationTests
     /// <inheritdoc cref="QueryMedicalStandardCategoryListAsync(MedicalItemType?)"/>
     public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) => throw new NotSupportedException("本替身只覆盖本院区金额导出取数。");
 
+    /// <inheritdoc/>
+    public Task<bool> HasCurrentEffectiveRecognitionMatchAsync(Guid reportVersionId, string organizationCode, string hospitalCode, string branchCode) => throw new NotSupportedException("本替身只覆盖本院区金额导出取数。");
+
     /// <inheritdoc cref="QueryMedicalStandardCategoryListAsync(MedicalItemType?)"/>
     public Task<IEnumerable<RecognitionCitationCandidateItem>> QueryRecognitionCitationCandidatesAsync(
       string organizationCode, string hospitalCode, string branchCode, string identityDocumentTypeCode,

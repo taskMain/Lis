@@ -624,6 +624,10 @@ public sealed class Stage2QueryTests
       throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
 
     /// <inheritdoc/>
+    public Task<bool> HasCurrentEffectiveRecognitionMatchAsync(Guid reportVersionId, string organizationCode, string hospitalCode, string branchCode) =>
+      throw new NotSupportedException("本测试只覆盖互认项目配置列表查询。");
+
+    /// <inheritdoc/>
     public Task<IEnumerable<RecognitionCitationCandidateItem>> QueryRecognitionCitationCandidatesAsync(
       string organizationCode,
       string hospitalCode,

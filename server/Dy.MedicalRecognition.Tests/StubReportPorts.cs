@@ -125,6 +125,9 @@ internal sealed class StubReportQueryRepository : IMedicalRecognitionReportQuery
   public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) => throw new NotSupportedException(UnusedMember);
 
   /// <inheritdoc/>
+  public Task<bool> HasCurrentEffectiveRecognitionMatchAsync(Guid reportVersionId, string organizationCode, string hospitalCode, string branchCode) => throw new NotSupportedException(UnusedMember);
+
+  /// <inheritdoc/>
   public Task<IEnumerable<RecognitionCitationCandidateItem>> QueryRecognitionCitationCandidatesAsync(
     string organizationCode,
     string hospitalCode,
@@ -210,6 +213,13 @@ internal sealed class SyntheticReportPorts : IMedicalRecognitionReportQueryRepos
   /// 版本文件信息；为 <see langword="null"/> 时按版本不存在返回。
   /// </summary>
   public MedicalReportVersionFileItem? VersionFile { get; init; }
+
+  /// <summary>是否存在当前可信接收方对该版本的当前有效互认匹配。</summary>
+  public bool RecognitionMatchAllowsDownload { get; init; }
+
+  /// <inheritdoc/>
+  public Task<bool> HasCurrentEffectiveRecognitionMatchAsync(Guid reportVersionId, string organizationCode, string hospitalCode, string branchCode) =>
+    Task.FromResult(RecognitionMatchAllowsDownload);
 
   /// <inheritdoc/>
   public Task<MedicalReportVersionFileItem?> GetMedicalReportVersionFileAsync(Guid reportId, Guid reportVersionId) =>

@@ -33,20 +33,21 @@ internal static class OrganizationScopeOptionsBuilder
 
     List<OrganizationNodeResponse> selectable = [.. candidates.Where(node => node.IsEnabled && node.AncestorChainEnabled)];
 
-    // 类型未配置或类型已停用的节点不进选项；科室、病区等本项目不用的已配置类型静默排除，不计入未配置数量。
-    Dictionary<Guid, string> typeCodes = [];
+    // 一个节点可有多个启用类型；按集合包含关系归类，不取第一个类型。
+    Dictionary<Guid, string[]> typeCodes = [];
     int unconfiguredOrganizationCount = 0;
     foreach (OrganizationNodeResponse node in selectable)
     {
-      IamDirectoryOrganizationType? type =
-        organizations.TryGetValue(node.Id, out IamDirectoryOrganization? organization) ? organization.OrganizationType : null;
-      if (type is null || !type.IsEnabled)
+      IamDirectoryOrganizationType[] types = organizations.TryGetValue(node.Id, out IamDirectoryOrganization? organization)
+        ? [.. organization.OrganizationTypes.Where(type => type.IsEnabled)]
+        : [];
+      if (types.Length == 0)
       {
         unconfiguredOrganizationCount++;
         continue;
       }
 
-      typeCodes[node.Id] = type.Code;
+      typeCodes[node.Id] = [.. types.Select(type => type.Code)];
     }
 
     List<OrganizationNodeResponse> communities = [.. selectable.Where(node => IsType(typeCodes, node.Id, IamOrganizationTypeCodes.CountyMedicalCommunity))];
@@ -126,6 +127,6 @@ internal static class OrganizationScopeOptionsBuilder
   /// <param name="organizationId">待判断的组织标识。</param>
   /// <param name="typeCode">目标组织类型编码。</param>
   /// <returns>类型编码一致时为 <see langword="true"/>。</returns>
-  private static bool IsType(IReadOnlyDictionary<Guid, string> typeCodes, Guid organizationId, string typeCode) =>
-    typeCodes.TryGetValue(organizationId, out string? code) && string.Equals(code, typeCode, StringComparison.Ordinal);
+  private static bool IsType(IReadOnlyDictionary<Guid, string[]> typeCodes, Guid organizationId, string typeCode) =>
+    typeCodes.TryGetValue(organizationId, out string[]? codes) && codes.Contains(typeCode, StringComparer.Ordinal);
 }
