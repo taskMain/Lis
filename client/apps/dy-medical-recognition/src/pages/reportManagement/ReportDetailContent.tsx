@@ -212,7 +212,6 @@ export function PublicInfoGroups({ common }: PublicInfoGroupsProps) {
       textItem('性别代码', common?.patientGenderCode),
       textItem('出生日期', toDisplayDate(common?.patientBirthDate)),
       textItem('报告时年龄', common?.ageAtReport),
-      textItem('证件类型代码', common?.identityDocumentTypeCode),
       { key: '证件号码', label: '证件号码', children: <IdNumberText value={common?.identityDocumentNo} /> },
       textItem('联系电话', common?.patientPhoneNumber),
     ]} />

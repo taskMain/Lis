@@ -336,7 +336,7 @@ public sealed class Stage4ContractTests
     [
       "AgeAtReport", "ApplicationDeptId", "ApplicationDeptName", "ApplicationDoctorId", "ApplicationDoctorName",
       "ApplicationTime", "BedNo", "ExecutionDeptId", "ExecutionDeptName", "IdentityDocumentNo",
-      "IdentityDocumentTypeCode", "InpatientNo", "PatientBirthDate", "PatientGenderCode", "PatientName",
+      "InpatientNo", "PatientBirthDate", "PatientGenderCode", "PatientName",
       "PatientPhoneNumber", "ReportDeptId", "ReportDeptName", "ReportDoctorId", "ReportDoctorName", "ReportTime",
       "ReviewDoctorId", "ReviewDoctorName", "ReviewTime", "RoomName", "SourceConfidentialFlag", "SourceReportName",
       "VisitSerialNo", "VisitType", "VisitTypeText", "WardName"

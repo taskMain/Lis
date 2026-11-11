@@ -710,7 +710,6 @@ public sealed class Stage4QueryTests
       PatientGenderCode = "1",
       PatientBirthDate = new DateTime(1990, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
       PatientPhoneNumber = "13800001234",
-      IdentityDocumentTypeCode = "01",
       IdentityDocumentNo = "110101199001011234",
       VisitType = VisitType.Outpatient,
       VisitSerialNo = "V-1",

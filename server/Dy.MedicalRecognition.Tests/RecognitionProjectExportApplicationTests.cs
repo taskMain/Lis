@@ -445,7 +445,7 @@ public sealed class RecognitionProjectExportApplicationTests
 
     /// <inheritdoc cref="QueryMedicalStandardCategoryListAsync(Domain.Share.Enums.MedicalItemType?)"/>
     public Task<IEnumerable<RecognitionMatchCandidateReportItem>> QueryRecognitionMatchCandidateReportsAsync(
-      string organizationCode, string hospitalCode, string branchCode, Guid patientId, string identityDocumentTypeCode,
+      string organizationCode, string hospitalCode, string branchCode, Guid patientId,
       string identityDocumentNo, Domain.Share.Enums.VisitType visitType, string visitSerialNo, IReadOnlyList<string> standardProjectCodes) => throw new NotSupportedException("本替身只覆盖互认配置列表查询。");
 
     /// <inheritdoc cref="QueryMedicalStandardCategoryListAsync(Domain.Share.Enums.MedicalItemType?)"/>
@@ -462,7 +462,7 @@ public sealed class RecognitionProjectExportApplicationTests
 
     /// <inheritdoc cref="QueryMedicalStandardCategoryListAsync(Domain.Share.Enums.MedicalItemType?)"/>
     public Task<IEnumerable<RecognitionCitationCandidateItem>> QueryRecognitionCitationCandidatesAsync(
-      string organizationCode, string hospitalCode, string branchCode, string identityDocumentTypeCode,
+      string organizationCode, string hospitalCode, string branchCode,
       string identityDocumentNo, Domain.Share.Enums.VisitType visitType, string visitSerialNo) => throw new NotSupportedException("本替身只覆盖互认配置列表查询。");
 
     /// <inheritdoc cref="QueryMedicalStandardCategoryListAsync(Domain.Share.Enums.MedicalItemType?)"/>

@@ -395,7 +395,6 @@ internal sealed class FakeStatisticsQueryRepository : IMedicalRecognitionReportQ
   /// <param name="hospitalCode">可信使用方医院编码。</param>
   /// <param name="branchCode">可信使用方院区编码。</param>
   /// <param name="patientId">平台患者标识。</param>
-  /// <param name="identityDocumentTypeCode">证件类型代码。</param>
   /// <param name="identityDocumentNo">证件号码。</param>
   /// <param name="visitType">就诊类型。</param>
   /// <param name="visitSerialNo">就诊流水号。</param>
@@ -407,7 +406,6 @@ internal sealed class FakeStatisticsQueryRepository : IMedicalRecognitionReportQ
     string hospitalCode,
     string branchCode,
     Guid patientId,
-    string identityDocumentTypeCode,
     string identityDocumentNo,
     VisitType visitType,
     string visitSerialNo,
@@ -439,7 +437,6 @@ internal sealed class FakeStatisticsQueryRepository : IMedicalRecognitionReportQ
   /// <param name="organizationCode">可信使用方组织编码。</param>
   /// <param name="hospitalCode">可信使用方医院编码。</param>
   /// <param name="branchCode">可信使用方院区编码。</param>
-  /// <param name="identityDocumentTypeCode">证件类型代码。</param>
   /// <param name="identityDocumentNo">证件号码。</param>
   /// <param name="visitType">就诊类型。</param>
   /// <param name="visitSerialNo">就诊流水号。</param>
@@ -449,7 +446,6 @@ internal sealed class FakeStatisticsQueryRepository : IMedicalRecognitionReportQ
     string organizationCode,
     string hospitalCode,
     string branchCode,
-    string identityDocumentTypeCode,
     string identityDocumentNo,
     VisitType visitType,
     string visitSerialNo) => throw new NotSupportedException(UnusedMember);

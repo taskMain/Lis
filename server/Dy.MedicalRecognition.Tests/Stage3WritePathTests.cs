@@ -1385,10 +1385,9 @@ public sealed class Stage3WritePathTests
     public Task<int> DisableMedicalStandardItemAsync(DisableMedicalStandardItemCommand disableMedicalStandardItemCommand) => throw new NotSupportedException(UnusedMember);
 
     /// <summary>本测试未使用：按证件键读取平台患者。</summary>
-    /// <param name="identityDocumentTypeCode">证件类型代码。</param>
     /// <param name="identityDocumentNo">证件号码。</param>
     /// <returns>不返回结果。</returns>
-    public Task<PlatformPatient?> GetPlatformPatientByDocumentAsync(string identityDocumentTypeCode, string identityDocumentNo) => throw new NotSupportedException(UnusedMember);
+    public Task<PlatformPatient?> GetPlatformPatientByDocumentAsync(string identityDocumentNo) => throw new NotSupportedException(UnusedMember);
 
     /// <summary>本测试未使用：新增平台患者。</summary>
     /// <param name="platformPatient">平台患者实体。</param>

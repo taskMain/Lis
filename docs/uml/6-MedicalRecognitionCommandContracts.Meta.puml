@@ -10,7 +10,6 @@ class "报告版本公共信息请求" as MedicalReportVersionRequest <<Request>
     PatientName : String
     PatientGenderCode : String
     PatientBirthDate : DateTime
-    IdentityDocumentTypeCode : String
     IdentityDocumentNo : String
     PatientPhoneNumber : String?
     AgeAtReport : String?
@@ -217,7 +216,6 @@ class "互认匹配记录创建请求" as RecognitionMatchRecordCreateRequest <<
     ReceiverOrganizationCode : String
     ReceiverHospitalCode : String
     ReceiverBranchCode : String
-    IdentityDocumentTypeCode : String
     IdentityDocumentNo : String
     VisitType : VisitType
     VisitSerialNo : String

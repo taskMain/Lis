@@ -26,7 +26,6 @@ public sealed class Stage4SqlMapTests
       "mrec_platform_patient.sql", "mrec_platform_patient", "平台患者",
       [
         ("id", "uuid not null"),
-        ("identity_document_type_code", "text not null"),
         ("identity_document_no", "text not null"),
         ("patient_name", "text not null"),
         ("patient_gender_code", "text not null"),
@@ -34,7 +33,7 @@ public sealed class Stage4SqlMapTests
         ("oper_time", "timestamptz not null"),
         ("oper_id", "uuid not null")
       ],
-      ["on mrec_platform_patient (identity_document_type_code, identity_document_no);"]
+      ["on mrec_platform_patient (identity_document_no);"]
     ),
     (
       "mrec_medical_recognition_report.sql", "mrec_medical_recognition_report", "互认报告",
@@ -76,7 +75,6 @@ public sealed class Stage4SqlMapTests
         ("patient_birth_date", "timestamp without time zone not null"),
         ("patient_phone_number", "text"),
         ("age_at_report", "text"),
-        ("identity_document_type_code", "text not null"),
         ("identity_document_no", "text not null"),
         ("visit_type", "integer not null"),
         ("visit_serial_no", "text not null"),

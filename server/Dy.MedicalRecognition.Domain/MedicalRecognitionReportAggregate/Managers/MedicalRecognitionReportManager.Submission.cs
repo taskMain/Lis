@@ -291,12 +291,12 @@ public partial class MedicalRecognitionReportManager
   }
 
   /// <summary>
-  /// 按证件类型代码与证件号码解析平台患者并核对核心身份，必要时创建平台患者。
+  /// 按身份证号码解析平台患者，必要时创建平台患者。
   /// </summary>
   /// <remarks>
   /// 首次版本把报告与该患者关联；后续版本必须解析到报告既有关联患者，解析到其他患者或核心身份不一致时拒绝。
-  /// 首次解析按证件键读取，未命中才创建，因此普通重复提交不会命中唯一索引；并发下两个请求可能同时通过读取，
-  /// 此时由证件键唯一索引拒绝，数据库异常按原样向外传播。
+  /// 首次解析按身份证号码读取，未命中才创建，因此普通重复提交不会命中唯一索引；并发下两个请求可能同时通过读取，
+  /// 此时由身份证号码唯一索引拒绝，数据库异常按原样向外传播。
   /// 患者与报告主体检索列按规范形式保存，报告版本表另按来源原值保存。
   /// </remarks>
   /// <param name="report">本次提交所属报告。</param>
@@ -307,17 +307,15 @@ public partial class MedicalRecognitionReportManager
   /// <exception cref="InvalidOperationException">跨患者迁移或核心身份冲突时抛出。</exception>
   private async Task<PlatformPatient> ResolvePlatformPatientAsync(MedicalRecognitionReport report, MedicalReportVersionRequest version, Guid operId, DateTimeOffset operTime)
   {
-    string documentTypeCode = NormalizeCode(version.IdentityDocumentTypeCode);
     string documentNo = NormalizeDocumentNo(version.IdentityDocumentNo);
     string patientName = NormalizeName(version.PatientName);
 
-    PlatformPatient? patient = await repository.GetPlatformPatientByDocumentAsync(documentTypeCode, documentNo);
+    PlatformPatient? patient = await repository.GetPlatformPatientByDocumentAsync(documentNo);
     if (patient is null)
     {
       PlatformPatient created = new()
       {
         Id = repository.CreateGuid(),
-        IdentityDocumentTypeCode = documentTypeCode,
         IdentityDocumentNo = documentNo,
         PatientName = patientName,
         PatientGenderCode = version.PatientGenderCode,
@@ -331,26 +329,11 @@ public partial class MedicalRecognitionReportManager
       patient = created;
     }
 
-    if (!IsSamePatientIdentity(patient, patientName, version.PatientGenderCode, version.PatientBirthDate))
-      throw new InvalidOperationException("业务拒绝：证件已存在但患者身份信息不一致。");
     if (report.PatientId != Guid.Empty && report.PatientId != patient.Id)
       throw new InvalidOperationException("业务拒绝：本次提交解析到的患者与报告已关联的患者不一致。");
 
     return patient;
   }
-
-  /// <summary>
-  /// 核对平台患者与本次提交的核心身份（姓名规范形式、性别代码、出生日期）是否一致。
-  /// </summary>
-  /// <param name="patient">已存在的平台患者。</param>
-  /// <param name="patientName">本次提交的姓名规范形式。</param>
-  /// <param name="genderCode">本次提交的性别代码。</param>
-  /// <param name="birthDate">本次提交的出生日期。</param>
-  /// <returns>三项全部一致时为 <see langword="true"/>。</returns>
-  private static bool IsSamePatientIdentity(PlatformPatient patient, string patientName, string genderCode, DateTime birthDate) =>
-    string.Equals(patient.PatientName, patientName, StringComparison.Ordinal)
-    && string.Equals(patient.PatientGenderCode, genderCode, StringComparison.Ordinal)
-    && patient.PatientBirthDate == birthDate;
 
   /// <summary>
   /// 追加一个报告版本并把当前版本指向与报告主体检索列更新为本次版本取值。
@@ -380,7 +363,6 @@ public partial class MedicalRecognitionReportManager
       PatientBirthDate = version.PatientBirthDate,
       PatientPhoneNumber = version.PatientPhoneNumber,
       AgeAtReport = version.AgeAtReport,
-      IdentityDocumentTypeCode = version.IdentityDocumentTypeCode,
       IdentityDocumentNo = version.IdentityDocumentNo,
       VisitType = version.VisitType,
       VisitSerialNo = version.VisitSerialNo,

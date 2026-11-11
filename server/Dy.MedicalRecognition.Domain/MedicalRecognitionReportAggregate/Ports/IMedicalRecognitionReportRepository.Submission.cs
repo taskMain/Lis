@@ -12,17 +12,16 @@ namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Ports;
 public partial interface IMedicalRecognitionReportRepository
 {
   /// <summary>
-  /// 按证件类型代码与证件号码读取平台患者。
+  /// 按身份证号码读取平台患者。
   /// </summary>
-  /// <remarks>两个入参都必须是规范形式（去首尾空白，证件号码已统一大写）；不存在时返回 <see langword="null"/>。</remarks>
-  /// <param name="identityDocumentTypeCode">证件类型代码。</param>
+  /// <remarks>号码须去除首尾空白并统一大写；不存在时返回 <see langword="null"/>。</remarks>
   /// <param name="identityDocumentNo">证件号码。</param>
   /// <returns>平台患者实体。</returns>
-  Task<PlatformPatient?> GetPlatformPatientByDocumentAsync(string identityDocumentTypeCode, string identityDocumentNo);
+  Task<PlatformPatient?> GetPlatformPatientByDocumentAsync(string identityDocumentNo);
   /// <summary>
   /// 插入一个平台患者。
   /// </summary>
-  /// <remarks>并发首次解析同一证件时由证件类型代码与证件号码唯一约束拒绝，数据库异常按原样向外传播。</remarks>
+  /// <remarks>并发首次解析同一身份证号码时由号码唯一约束拒绝，数据库异常按原样向外传播。</remarks>
   /// <param name="platformPatient">待插入的患者实体。</param>
   /// <returns>受影响行数。</returns>
   Task<int> CreatePlatformPatientAsync(PlatformPatient platformPatient);

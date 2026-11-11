@@ -8,7 +8,7 @@ namespace Dy.MedicalRecognition.Domain.MedicalRecognitionReportAggregate.Manager
 /// <remarks>
 /// 全部校验在第一次仓储访问之前完成，因此校验失败不会留下任何业务数据；
 /// 校验判定与对外契约声明的填报要求一致，但不暴露字段路径、类型或序列化细节。
-/// 规范形式：证件类型代码、证件号码与患者姓名去首尾空白，证件号码另统一为大写；
+/// 规范形式：身份证号码与患者姓名去首尾空白，身份证号码另统一为大写；
 /// 报告版本表按来源原值保存，规范形式只用于平台患者定位与报告主体检索列。
 /// </remarks>
 public partial class MedicalRecognitionReportManager
@@ -50,7 +50,6 @@ public partial class MedicalRecognitionReportManager
     RequireText(version.PatientName, "患者姓名");
     RequireText(version.PatientGenderCode, "患者性别代码");
     RequireTime(version.PatientBirthDate, "患者出生日期");
-    RequireText(version.IdentityDocumentTypeCode, "证件类型代码");
     RequireText(version.IdentityDocumentNo, "证件号码");
     RequireText(version.VisitSerialNo, "就诊流水号");
 

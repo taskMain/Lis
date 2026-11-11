@@ -223,7 +223,6 @@ public sealed class Stage4WritePathTests
       {
         PatientName = " 张三 ",
         IdentityDocumentNo = " 110101199001011234x ",
-        IdentityDocumentTypeCode = " 01 "
       }
     };
 
@@ -232,7 +231,6 @@ public sealed class Stage4WritePathTests
 
     Assert.True(result);
     PlatformPatient patient = Assert.Single(repository.Patients.Values);
-    Assert.Equal("01", patient.IdentityDocumentTypeCode);
     Assert.Equal("110101199001011234X", patient.IdentityDocumentNo);
     Assert.Equal("张三", patient.PatientName);
 
@@ -242,7 +240,6 @@ public sealed class Stage4WritePathTests
 
     MedicalReportVersion version = Assert.Single(repository.Versions.Values);
     Assert.Equal(" 110101199001011234x ", version.IdentityDocumentNo);
-    Assert.Equal(" 01 ", version.IdentityDocumentTypeCode);
     Assert.Equal(" 张三 ", version.PatientName);
     Assert.Equal(patient.Id, version.PatientId);
     Assert.Single(events.Events.OfType<MedicalRecognitionReportCreatedEvent>());
@@ -273,14 +270,13 @@ public sealed class Stage4WritePathTests
   }
 
   /// <summary>
-  /// V11：证件已存在但姓名、性别或出生日期不一致时按患者身份信息冲突拒绝，不覆盖既有患者、不创建第二个患者。
+  /// V11：身份证号码已存在但姓名、性别或出生日期不一致时继续接收，不覆盖既有患者主档，报告版本保存来源值。
   /// </summary>
-  /// <remarks>三项核心身份各取一组差异，逐项验证拒绝文案与零写入。</remarks>
   [Theory]
   [InlineData("name")]
   [InlineData("gender")]
   [InlineData("birthDate")]
-  public async Task Patient_identity_conflict_is_rejected_without_overwriting_existing_patient(string changedField)
+  public async Task Existing_document_number_reuses_patient_and_preserves_source_identity(string changedField)
   {
     FakeReportRepository repository = new();
     MedicalRecognitionReportManager manager = CreateManager(repository);
@@ -290,8 +286,6 @@ public sealed class Stage4WritePathTests
     string existingName = existing.PatientName;
     string existingGender = existing.PatientGenderCode;
     DateTime existingBirthDate = existing.PatientBirthDate;
-    int versionCountBefore = repository.Versions.Count;
-
     MedicalReportVersionRequest conflicting = changedField switch
     {
       "name" => CommonVersion() with { PatientName = "李四" },
@@ -299,17 +293,48 @@ public sealed class Stage4WritePathTests
       _ => CommonVersion() with { PatientBirthDate = PatientBirthDate.AddDays(1) }
     };
 
-    (RecordingEventQueue events, InvalidOperationException error) = await ExecuteExpectingRejectionAsync(
-      () => manager.SubmitCompleteLaboratoryReportAsync(LaboratoryCommand(document: LaboratoryDocument() with { Version = conflicting })));
+    (RecordingEventQueue _, bool result) = await ExecuteAsync(
+      () => manager.SubmitCompleteLaboratoryReportAsync(
+        LaboratoryCommand(document: LaboratoryDocument() with { Version = conflicting })));
 
-    Assert.Equal("业务拒绝：证件已存在但患者身份信息不一致。", error.Message);
-    Assert.Empty(events.Events);
+    Assert.True(result);
     Assert.Single(repository.Patients);
     Assert.Equal(existingName, existing.PatientName);
     Assert.Equal(existingGender, existing.PatientGenderCode);
     Assert.Equal(existingBirthDate, existing.PatientBirthDate);
-    // 本次提交在患者核对之后已经没有新增版本，因此失败没有留下第二个版本。
-    Assert.Equal(versionCountBefore, repository.Versions.Count);
+    MedicalReportVersion version = repository.Versions.Values.Single(item => item.VersionNumber == 2);
+    Assert.Equal(conflicting.PatientName, version.PatientName);
+    Assert.Equal(conflicting.PatientGenderCode, version.PatientGenderCode);
+    Assert.Equal(conflicting.PatientBirthDate, version.PatientBirthDate);
+  }
+
+  /// <summary>
+  /// V12：后续版本解析到其他患者时拒绝追加，不允许报告跨患者迁移。
+  /// </summary>
+  [Fact]
+  public async Task Same_document_reuses_patient_when_source_identity_fields_differ()
+  {
+    FakeReportRepository repository = new();
+    MedicalRecognitionReportManager manager = CreateManager(repository);
+    await WithCapturedEventsAsync(() => manager.SubmitCompleteLaboratoryReportAsync(LaboratoryCommand()));
+    PlatformPatient patient = Assert.Single(repository.Patients.Values);
+    MedicalReportVersionRequest source = CommonVersion() with
+    {
+      PatientName = "李四",
+      PatientGenderCode = "2",
+      PatientBirthDate = PatientBirthDate.AddDays(1)
+    };
+
+    await WithCapturedEventsAsync(() => manager.SubmitCompleteLaboratoryReportAsync(
+      LaboratoryCommand(document: LaboratoryDocument() with { Version = source })));
+
+    Assert.Single(repository.Patients);
+    Assert.Equal("张三", patient.PatientName);
+    MedicalReportVersion version = repository.Versions.Values.Single(item => item.VersionNumber == 2);
+    Assert.Equal(patient.Id, version.PatientId);
+    Assert.Equal(source.PatientName, version.PatientName);
+    Assert.Equal(source.PatientGenderCode, version.PatientGenderCode);
+    Assert.Equal(source.PatientBirthDate, version.PatientBirthDate);
   }
 
   /// <summary>
@@ -1652,6 +1677,21 @@ public sealed class Stage4WritePathTests
 
   /// <summary>构建公共版本信息。</summary>
   /// <returns>与设计填报要求一致的合法公共版本信息。</returns>
+  [Fact]
+  public async Task Submit_accepts_document_number_without_document_type()
+  {
+    FakeReportRepository repository = new();
+    LaboratoryReportVersionRequest document = LaboratoryDocument() with
+    {
+      Version = CommonVersion() with { IdentityDocumentNo = " id-123x " }
+    };
+
+    await WithCapturedEventsAsync(() => CreateManager(repository).SubmitCompleteLaboratoryReportAsync(LaboratoryCommand(document: document)));
+
+    Assert.Equal("ID-123X", Assert.Single(repository.Patients.Values).IdentityDocumentNo);
+    Assert.Equal(" id-123x ", Assert.Single(repository.Versions.Values).IdentityDocumentNo);
+  }
+
   private static MedicalReportVersionRequest CommonVersion() => new()
   {
     SourceReportName = "报告名称",
@@ -1660,7 +1700,6 @@ public sealed class Stage4WritePathTests
     PatientBirthDate = PatientBirthDate,
     PatientPhoneNumber = "13800000000",
     AgeAtReport = "36岁",
-    IdentityDocumentTypeCode = "01",
     IdentityDocumentNo = IdentityDocumentNo,
     VisitType = VisitType.Outpatient,
     VisitSerialNo = "V-1",

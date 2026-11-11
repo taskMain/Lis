@@ -58,7 +58,6 @@ public partial class MedicalRecognitionReportAppService
       ReceiverOrganizationCode = trustedScope.OrganizationCode ?? string.Empty,
       ReceiverHospitalCode = trustedScope.HospitalCode ?? string.Empty,
       ReceiverBranchCode = trustedScope.BranchCode ?? string.Empty,
-      IdentityDocumentTypeCode = request.IdentityDocumentTypeCode,
       IdentityDocumentNo = request.IdentityDocumentNo,
       VisitType = request.VisitType,
       VisitSerialNo = request.VisitSerialNo,

@@ -43,8 +43,6 @@ public sealed class Stage5QueryTests
   /// <summary>可信操作人标识；本链路不读取操作人，仅用于构造可信请求上下文。</summary>
   private static readonly Guid TrustedOperId = Guid.Parse("2f7c1c1e-6a2f-4b1a-9c3d-1f0a2b3c4d5e");
 
-  /// <summary>证件类型代码。</summary>
-  private const string IdentityDocumentTypeCode = "01";
 
   /// <summary>证件号码；用例内按需要加入首尾空白与小写差异。</summary>
   private const string IdentityDocumentNo = "110101199001011234";
@@ -330,7 +328,6 @@ public sealed class Stage5QueryTests
       fixture,
       new RecognitionCitationDetailRequest
       {
-        IdentityDocumentTypeCode = IdentityDocumentTypeCode,
         IdentityDocumentNo = "110101198001011234",
         VisitType = VisitType.Outpatient,
         VisitSerialNo = VisitSerialNo
@@ -829,8 +826,7 @@ public sealed class Stage5QueryTests
       await Assert.ThrowsAsync<ValidationException>(() => fixture.AppService.QueryRecognitionCitationDetailAsync(
         new RecognitionCitationDetailRequest
         {
-          IdentityDocumentTypeCode = string.Empty,
-          IdentityDocumentNo = IdentityDocumentNo,
+          IdentityDocumentNo = string.Empty,
           VisitType = VisitType.Outpatient,
           VisitSerialNo = VisitSerialNo
         }));
@@ -867,7 +863,7 @@ public sealed class Stage5QueryTests
   }
 
   /// <summary>
-  /// 请求校验先于任何读取与写入：证件类型为空时既不读取参数，也不读取候选记录，更不产生任何写入与事件。
+  /// 请求校验先于任何读取与写入：身份证号码为空时既不读取参数，也不读取候选记录，更不产生任何写入与事件。
   /// </summary>
   [Fact]
   public async Task Request_validation_precedes_parameter_and_candidate_reads()
@@ -883,8 +879,7 @@ public sealed class Stage5QueryTests
       await Assert.ThrowsAsync<ValidationException>(() => fixture.AppService.QueryRecognitionCitationDetailAsync(
         new RecognitionCitationDetailRequest
         {
-          IdentityDocumentTypeCode = "   ",
-          IdentityDocumentNo = IdentityDocumentNo,
+          IdentityDocumentNo = "   ",
           VisitType = VisitType.Outpatient,
           VisitSerialNo = VisitSerialNo
         }));
@@ -900,22 +895,18 @@ public sealed class Stage5QueryTests
   }
 
   /// <summary>
-  /// 证件类型或证件号码缺失、空串、纯空白时，每次只让一个必填字段无效：请求校验先于任何读取，参数与候选读取都为零。
+  /// 身份证号码缺失、空串、纯空白时，请求校验先于任何读取，参数与候选读取都为零。
   /// </summary>
   /// <remarks>
   /// 查询侧把缺失编码收敛为空串、证件号码再转大写，这两步都在请求校验之后：
   /// 无效输入在规范化与读取之前就被拒绝，因此规范化分支不会因为非法输入而改变拒绝口径。
   /// </remarks>
-  /// <param name="identityDocumentTypeCode">证件类型代码；null、空串与纯空白表示该字段无效。</param>
   /// <param name="identityDocumentNo">证件号码；null、空串与纯空白表示该字段无效。</param>
   [Theory]
-  [InlineData(null, IdentityDocumentNo)]
-  [InlineData("", IdentityDocumentNo)]
-  [InlineData("   ", IdentityDocumentNo)]
-  [InlineData(IdentityDocumentTypeCode, null)]
-  [InlineData(IdentityDocumentTypeCode, "")]
-  [InlineData(IdentityDocumentTypeCode, "   ")]
-  public async Task Invalid_identity_field_is_rejected_before_parameter_and_candidate_reads(string? identityDocumentTypeCode, string? identityDocumentNo)
+  [InlineData(null)]
+  [InlineData("")]
+  [InlineData("   ")]
+  public async Task Invalid_identity_field_is_rejected_before_parameter_and_candidate_reads(string? identityDocumentNo)
   {
     CitationFixture fixture = CreateFixture();
     SeedCitation(
@@ -924,7 +915,6 @@ public sealed class Stage5QueryTests
 
     RecognitionCitationDetailRequest request = BuildRequest() with
     {
-      IdentityDocumentTypeCode = identityDocumentTypeCode!,
       IdentityDocumentNo = identityDocumentNo!
     };
 
@@ -953,13 +943,11 @@ public sealed class Stage5QueryTests
 
     RecognitionCitationDetailReadModel detail = await fixture.AppService.QueryRecognitionCitationDetailAsync(BuildRequest() with
     {
-      IdentityDocumentTypeCode = " " + IdentityDocumentTypeCode + " ",
       IdentityDocumentNo = LowercaseLetterDocumentNo
     });
 
     Assert.Single(detail.MatchItems);
     Assert.Equal(1, fixture.QueryRepository.CitationQueryCalls);
-    Assert.Equal(IdentityDocumentTypeCode, fixture.QueryRepository.CitationQueryIdentityDocumentTypeCode);
     Assert.Equal(UppercaseLetterDocumentNo, fixture.QueryRepository.CitationQueryIdentityDocumentNo);
   }
 
@@ -1067,7 +1055,6 @@ public sealed class Stage5QueryTests
   /// <returns>字段齐全的引用详情请求。</returns>
   private static RecognitionCitationDetailRequest BuildRequest() => new()
   {
-    IdentityDocumentTypeCode = IdentityDocumentTypeCode,
     IdentityDocumentNo = IdentityDocumentNo,
     VisitType = VisitType.Outpatient,
     VisitSerialNo = VisitSerialNo
@@ -1199,12 +1186,10 @@ public sealed class Stage5QueryTests
   /// 匹配记录、匹配项与处理结果同时登记在夹具的只读集合中，供用例断言调用前后完全一致。  /// </remarks>
   /// <param name="fixture">用例夹具。</param>
   /// <param name="seed">本次登记的一条引用详情素材。</param>
-  /// <param name="identityDocumentTypeCode">登记时的证件类型代码；默认取用例固定取值。</param>
   /// <param name="identityDocumentNo">登记时的证件号码；默认取用例固定取值。</param>
   private static void SeedCitation(
     CitationFixture fixture,
     CitationSeed seed,
-    string identityDocumentTypeCode = IdentityDocumentTypeCode,
     string identityDocumentNo = IdentityDocumentNo)
   {
     if (!fixture.MatchRecords.ContainsKey(seed.MatchRecordId))
@@ -1215,7 +1200,6 @@ public sealed class Stage5QueryTests
         ReceiverOrganizationCode = TrustedOrganization,
         ReceiverHospitalCode = TrustedHospital,
         ReceiverBranchCode = TrustedBranch,
-        IdentityDocumentTypeCode = identityDocumentTypeCode,
         IdentityDocumentNo = identityDocumentNo,
         VisitType = VisitType.Outpatient,
         VisitSerialNo = VisitSerialNo,
@@ -1264,7 +1248,6 @@ public sealed class Stage5QueryTests
       ReceiverOrganizationCode = TrustedOrganization,
       ReceiverHospitalCode = TrustedHospital,
       ReceiverBranchCode = TrustedBranch,
-      IdentityDocumentTypeCode = identityDocumentTypeCode,
       IdentityDocumentNo = identityDocumentNo,
       VisitType = VisitType.Outpatient,
       VisitSerialNo = VisitSerialNo,

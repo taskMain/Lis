@@ -4,7 +4,7 @@ namespace Dy.MedicalRecognition.Domain.Queries;
 /// 引用详情候选记录的只读投影行：本次就诊下已经明确采纳、且所属匹配记录接收三值与患者证件一致的全部匹配项。
 /// </summary>
 /// <remarks>
-/// 行集由可信接收三值、患者证件类型与号码、就诊类型与流水号共同限定，因此返回的行全部属于本次就诊；
+/// 行集由可信接收三值、患者身份证号码、就诊类型与流水号共同限定，因此返回的行全部属于本次就诊；
 /// **前三项接收三值与后四项患者就诊身份是候选集的限定键**：它们由语句的筛选子句在数据库侧消费，**不作为投影列返回**，
 /// 因此这些属性在真实映射结果上恒为默认值，调用方不得按它们判断归属；需要归属或身份取值时以本次可信上下文与请求为准。
 /// 测试替身按同一组限定键在内存中复现候选范围，使「别家医院、别家院区、别的患者的候选不返回」这一口径在替身上同样成立。
@@ -20,9 +20,7 @@ public sealed record RecognitionCitationCandidateItem
   public string ReceiverHospitalCode { get; init; } = string.Empty;
   /// <summary>所属互认匹配记录的使用方院区编码。限定键，不作为投影列返回。</summary>
   public string ReceiverBranchCode { get; init; } = string.Empty;
-  /// <summary>匹配记录上的患者证件类型代码。限定键，不作为投影列返回。</summary>
-  public string IdentityDocumentTypeCode { get; init; } = string.Empty;
-  /// <summary>匹配记录上的患者证件号码。限定键，不作为投影列返回。</summary>
+  /// <summary>匹配记录上的患者身份证号码。限定键，不作为投影列返回。</summary>
   public string IdentityDocumentNo { get; init; } = string.Empty;
   /// <summary>匹配记录上的本次来源就诊类型。限定键，不作为投影列返回。</summary>
   public VisitType VisitType { get; init; }

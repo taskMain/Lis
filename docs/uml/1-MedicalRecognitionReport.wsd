@@ -384,7 +384,7 @@ Command('AppendMedicalReportVersionCommand')[
     2. 新版本原子保存后立即成为当前版本；报告当前版本指向更新为新版本，报告主体上的报告时间、患者姓名与证件号码三个冗余列随当前版本指向在同一事务内更新为本次版本的对应取值，旧版本不保存“历史”状态字段，并停止参与新的匹配、引用详情和新的引用；本命令不改变报告生命周期状态、作废时间或作废原因。
     3. 源端报告修改时间仅随版本保存用于来源追溯；版本序号按平台成功追加顺序递增。
     4. 申请科室 ID、申请科室名称、申请医生 ID 和申请医生名称均为必填，任一缺失时不得追加报告版本。
-    5. 平台按证件类型和证件号码解析平台患者，并核对姓名、性别代码和出生日期；首次版本将报告及版本关联该患者，后续版本必须解析到报告既有关联患者，任一身份冲突或解析到其他患者时拒绝追加，不允许报告跨患者迁移。
+    5. 平台仅按身份证号码解析平台患者；当前业务范围内身份证号码唯一。已有患者的主档保持原值，报告版本保存来源姓名、性别代码和出生日期；首次版本将报告及版本关联该患者，后续版本必须解析到报告既有关联患者，解析到其他患者时拒绝追加，不允许报告跨患者迁移。
     6. 互认项目编码缺失，或明确提供但不存在、超出组织范围、停用或标准目录不可用时，不拒绝完整报告；编码随版本保存，但只有当前组织内当前启用且标准目录层级有效的编码形成新的匹配资格。
     7. 按组织、医院、院区、报告类型和报告单号定位报告；不存在时创建生命周期状态为当前有效、作废时间与作废原因为空的报告并登记报告已创建事件；存在时仅取得且不重复登记该事件；报告已作废时不得追加版本，完整报告提交失败。
 ]
@@ -443,7 +443,7 @@ DomainEvent('ExaminationReportVoidedEvent','检查报告已作废')
 note bottom of SubmitCompleteLaboratoryReportCommand
   管理器内部步骤（不构成独立命令，同一次提交内串行执行）：
   · 取得或创建互认报告：按组织、医院、院区、报告类型与报告单号定位；不存在时创建当前有效报告并发布报告已创建事件，存在时仅取得且不发布事件；已作废报告不得取得用于追加版本。
-  · 追加报告版本并设为当前版本：每次成功完整上传追加一个完整版本，不比较内容、不判断重试、不依据源端报告修改时间判断顺序；新版本立即成为当前版本，旧版本不保存历史状态字段；版本序号按成功追加顺序递增；证件类型与证件号码解析平台患者并核对姓名、性别代码与出生日期，首次版本关联报告该患者，后续版本必须解析到同一患者。
+  · 追加报告版本并设为当前版本：每次成功完整上传追加一个完整版本，不比较内容、不判断重试、不依据源端报告修改时间判断顺序；新版本立即成为当前版本，旧版本不保存历史状态字段；版本序号按成功追加顺序递增；仅按身份证号码解析平台患者，首次版本关联报告该患者，后续版本必须解析到同一患者，版本保存来源患者信息。
   · 创建检验专项内容：报告类别、备注、整体异常标识、来源医嘱流水号、标本信息、检验时间线与检验人。
   · 创建普通检验结果明细：来源明细标识、来源项目、互认项目编码、结果原文与类型、单位、参考范围、检测方法、仪器、展示序号、收费编码、异常与危急值标志、检测人。
   · 创建细菌鉴定结果及其药敏明细：鉴定结论与来源信息按来源原文保存，药敏归属到具体细菌鉴定结果。
@@ -457,7 +457,6 @@ end note
 FacadeCommand('RequestRecognitionMatchesCommand')[
     请求互认匹配
     --入参--
-    证件类型代码(IdentityDocumentTypeCode String)
     证件号码(IdentityDocumentNo String)
     本次就诊类型(VisitType VisitType)
     本次就诊流水号(VisitSerialNo String)
@@ -466,7 +465,7 @@ FacadeCommand('RequestRecognitionMatchesCommand')[
     匹配结果(Result RecognitionMatchesResponseReadModel)
     --规则--
     1. 同一次查询重复提供相同标准项目编码时只处理一次；任一编码不存在、未纳入当前组织互认范围、停用或标准目录不可用时整次失败，不创建匹配记录、不返回同批其他匹配。
-    2. 平台按证件类型和证件号码解析平台患者；候选报告及其当前版本必须关联该患者。患者不存在或无满足条件的报告时返回成功空集合。
+    2. 平台按身份证号码解析平台患者；候选报告及其当前版本必须关联该患者。患者不存在或无满足条件的报告时返回成功空集合。
     3. MVP 仅匹配提供方组织与使用方组织一致的报告；候选报告必须当前有效，命中项目必须使用该组织当前启用且标准目录层级有效的互认配置。
     4. 候选检查或检验时间不得晚于本次查询时点，且报告时间起经过时间必须处于该互认项目当前可互认时间内。
     5. 提供方医院与使用方医院相同时，按本院报告匹配开关和本院报告排除时长筛选；两个参数均不设默认值，参数缺失、非法或无法取得时整次查询失败。
@@ -574,7 +573,6 @@ Entity('PlatformPatientEntity')[
     平台患者
     --属性--
     ID(Id Guid)
-    证件类型代码(IdentityDocumentTypeCode String)
     证件号码(IdentityDocumentNo String)
     患者姓名(PatientName String)
     患者性别代码(PatientGenderCode String)
@@ -611,7 +609,6 @@ Entity('MedicalReportVersionEntity')[
     患者出生日期(PatientBirthDate DateTime)
     患者联系电话(PatientPhoneNumber String?)
     报告时年龄(AgeAtReport String?)
-    证件类型代码(IdentityDocumentTypeCode String)
     证件号码(IdentityDocumentNo String)
     就诊类型(VisitType VisitType)
     就诊流水号(VisitSerialNo String)
@@ -778,7 +775,6 @@ Entity('RecognitionMatchRecordEntity')[
     使用方组织编码(ReceiverOrganizationCode String)
     使用方医院编码(ReceiverHospitalCode String)
     使用方院区编码(ReceiverBranchCode String)
-    证件类型代码(IdentityDocumentTypeCode String)
     证件号码(IdentityDocumentNo String)
     就诊类型(VisitType VisitType)
     就诊流水号(VisitSerialNo String)

@@ -14,17 +14,16 @@ public partial interface IMedicalRecognitionReportQueryRepository
   /// 按可信接收三值与患者证件、本次来源就诊读取已经采纳的互认匹配项。
   /// </summary>
   /// <remarks>
-  /// 行集由可信使用方组织、医院、院区与匹配记录上的患者证件类型、证件号码、就诊类型、就诊流水号共同严格匹配，
+  /// 行集由可信使用方组织、医院、院区与匹配记录上的患者身份证号码、就诊类型、就诊流水号共同严格匹配，
   /// 因此返回的行全部属于本次就诊，不返回其他医院、院区、患者或就诊的记录；
   /// 只返回已经保存处理结果且决定为采纳的匹配项，未保存处理结果的匹配项不返回；
   /// 排序为处理结果保存时间倒序加互认匹配项标识升序，调用方按该顺序取第一条即可得到同一报告版本与同一互认项目下保存时间最近的一条采纳；
-  /// 证件类型代码与证件号码按去除首尾空白后的规范形式传入；没有匹配记录时返回空集合。
+  /// 身份证号码按去除首尾空白并统一大写后的规范形式传入；没有匹配记录时返回空集合。
   /// </remarks>
   /// <param name="organizationCode">可信使用方组织编码。</param>
   /// <param name="hospitalCode">可信使用方医院编码。</param>
   /// <param name="branchCode">可信使用方院区编码。</param>
-  /// <param name="identityDocumentTypeCode">患者证件类型代码，应为去除首尾空白后的规范形式。</param>
-  /// <param name="identityDocumentNo">患者证件号码，应为去除首尾空白并统一大写后的规范形式。</param>
+  /// <param name="identityDocumentNo">患者身份证号码，应为去除首尾空白并统一大写后的规范形式。</param>
   /// <param name="visitType">本次来源就诊类型。</param>
   /// <param name="visitSerialNo">本次来源就诊流水号。</param>
   /// <returns>候选采纳记录行集合；没有匹配记录时为空集合。</returns>
@@ -32,7 +31,6 @@ public partial interface IMedicalRecognitionReportQueryRepository
     string organizationCode,
     string hospitalCode,
     string branchCode,
-    string identityDocumentTypeCode,
     string identityDocumentNo,
     VisitType visitType,
     string visitSerialNo);

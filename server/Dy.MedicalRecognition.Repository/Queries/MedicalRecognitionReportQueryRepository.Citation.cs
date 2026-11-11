@@ -20,7 +20,6 @@ public sealed partial class MedicalRecognitionReportQueryRepository
     string organizationCode,
     string hospitalCode,
     string branchCode,
-    string identityDocumentTypeCode,
     string identityDocumentNo,
     VisitType visitType,
     string visitSerialNo) =>
@@ -29,7 +28,6 @@ public sealed partial class MedicalRecognitionReportQueryRepository
       OrganizationCode = organizationCode,
       HospitalCode = hospitalCode,
       BranchCode = branchCode,
-      IdentityDocumentTypeCode = identityDocumentTypeCode,
       IdentityDocumentNo = identityDocumentNo,
       VisitType = visitType,
       VisitSerialNo = visitSerialNo

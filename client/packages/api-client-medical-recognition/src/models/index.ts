@@ -2738,7 +2738,6 @@ export function deserializeIntoRecognitionCitationDetailReadModel(recognitionCit
 export function deserializeIntoRecognitionCitationDetailRequest(recognitionCitationDetailRequest: Partial<RecognitionCitationDetailRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "identityDocumentNo": n => { recognitionCitationDetailRequest.identityDocumentNo = n.getStringValue(); },
-        "identityDocumentTypeCode": n => { recognitionCitationDetailRequest.identityDocumentTypeCode = n.getStringValue(); },
         "visitSerialNo": n => { recognitionCitationDetailRequest.visitSerialNo = n.getStringValue(); },
         "visitType": n => { recognitionCitationDetailRequest.visitType = n.getNumberValue(); },
     }
@@ -2856,7 +2855,6 @@ export function deserializeIntoRecognitionMatchProposedItemRequest(recognitionMa
 export function deserializeIntoRecognitionMatchQueryRequest(recognitionMatchQueryRequest: Partial<RecognitionMatchQueryRequest> | undefined = {}) : Record<string, (node: ParseNode) => void> {
     return {
         "identityDocumentNo": n => { recognitionMatchQueryRequest.identityDocumentNo = n.getStringValue(); },
-        "identityDocumentTypeCode": n => { recognitionMatchQueryRequest.identityDocumentTypeCode = n.getStringValue(); },
         "proposedItems": n => { recognitionMatchQueryRequest.proposedItems = n.getCollectionOfObjectValues<RecognitionMatchProposedItemRequest>(createRecognitionMatchProposedItemRequestFromDiscriminatorValue); },
         "visitSerialNo": n => { recognitionMatchQueryRequest.visitSerialNo = n.getStringValue(); },
         "visitType": n => { recognitionMatchQueryRequest.visitType = n.getNumberValue(); },
@@ -3321,7 +3319,6 @@ export function deserializeIntoReportVersionCommonReadModel(reportVersionCommonR
         "executionDeptId": n => { reportVersionCommonReadModel.executionDeptId = n.getStringValue(); },
         "executionDeptName": n => { reportVersionCommonReadModel.executionDeptName = n.getStringValue(); },
         "identityDocumentNo": n => { reportVersionCommonReadModel.identityDocumentNo = n.getStringValue(); },
-        "identityDocumentTypeCode": n => { reportVersionCommonReadModel.identityDocumentTypeCode = n.getStringValue(); },
         "inpatientNo": n => { reportVersionCommonReadModel.inpatientNo = n.getStringValue(); },
         "patientBirthDate": n => { reportVersionCommonReadModel.patientBirthDate = n.getDateValue(); },
         "patientGenderCode": n => { reportVersionCommonReadModel.patientGenderCode = n.getStringValue(); },
@@ -4919,10 +4916,6 @@ export interface RecognitionCitationDetailRequest extends AdditionalDataHolder, 
      */
     identityDocumentNo?: string | null;
     /**
-     * The identityDocumentTypeCode property
-     */
-    identityDocumentTypeCode?: string | null;
-    /**
      * The visitSerialNo property
      */
     visitSerialNo?: string | null;
@@ -5086,10 +5079,6 @@ export interface RecognitionMatchQueryRequest extends AdditionalDataHolder, Pars
      * The identityDocumentNo property
      */
     identityDocumentNo?: string | null;
-    /**
-     * The identityDocumentTypeCode property
-     */
-    identityDocumentTypeCode?: string | null;
     /**
      * The proposedItems property
      */
@@ -6072,10 +6061,6 @@ export interface ReportVersionCommonReadModel extends AdditionalDataHolder, Pars
      * The identityDocumentNo property
      */
     identityDocumentNo?: string | null;
-    /**
-     * The identityDocumentTypeCode property
-     */
-    identityDocumentTypeCode?: string | null;
     /**
      * The inpatientNo property
      */
@@ -7465,7 +7450,6 @@ export function serializeRecognitionCitationDetailReadModel(writer: Serializatio
 export function serializeRecognitionCitationDetailRequest(writer: SerializationWriter, recognitionCitationDetailRequest: Partial<RecognitionCitationDetailRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!recognitionCitationDetailRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("identityDocumentNo", recognitionCitationDetailRequest.identityDocumentNo);
-    writer.writeStringValue("identityDocumentTypeCode", recognitionCitationDetailRequest.identityDocumentTypeCode);
     writer.writeStringValue("visitSerialNo", recognitionCitationDetailRequest.visitSerialNo);
     writer.writeNumberValue("visitType", recognitionCitationDetailRequest.visitType);
     writer.writeAdditionalData(recognitionCitationDetailRequest.additionalData);
@@ -7591,7 +7575,6 @@ export function serializeRecognitionMatchProposedItemRequest(writer: Serializati
 export function serializeRecognitionMatchQueryRequest(writer: SerializationWriter, recognitionMatchQueryRequest: Partial<RecognitionMatchQueryRequest> | undefined | null = {}, isSerializingDerivedType: boolean = false) : void {
     if (!recognitionMatchQueryRequest || isSerializingDerivedType) { return; }
     writer.writeStringValue("identityDocumentNo", recognitionMatchQueryRequest.identityDocumentNo);
-    writer.writeStringValue("identityDocumentTypeCode", recognitionMatchQueryRequest.identityDocumentTypeCode);
     writer.writeCollectionOfObjectValues<RecognitionMatchProposedItemRequest>("proposedItems", recognitionMatchQueryRequest.proposedItems, serializeRecognitionMatchProposedItemRequest);
     writer.writeStringValue("visitSerialNo", recognitionMatchQueryRequest.visitSerialNo);
     writer.writeNumberValue("visitType", recognitionMatchQueryRequest.visitType);
@@ -8079,7 +8062,6 @@ export function serializeReportVersionCommonReadModel(writer: SerializationWrite
     writer.writeStringValue("executionDeptId", reportVersionCommonReadModel.executionDeptId);
     writer.writeStringValue("executionDeptName", reportVersionCommonReadModel.executionDeptName);
     writer.writeStringValue("identityDocumentNo", reportVersionCommonReadModel.identityDocumentNo);
-    writer.writeStringValue("identityDocumentTypeCode", reportVersionCommonReadModel.identityDocumentTypeCode);
     writer.writeStringValue("inpatientNo", reportVersionCommonReadModel.inpatientNo);
     writer.writeDateValue("patientBirthDate", reportVersionCommonReadModel.patientBirthDate);
     writer.writeStringValue("patientGenderCode", reportVersionCommonReadModel.patientGenderCode);

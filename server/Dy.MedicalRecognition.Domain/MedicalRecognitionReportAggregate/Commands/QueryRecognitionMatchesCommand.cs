@@ -30,11 +30,7 @@ public partial record QueryRecognitionMatchesCommand : ICommand
   /// </summary>
   public partial string ReceiverBranchCode { get; set; }
   /// <summary>
-  /// 患者证件类型代码；按规范形式去除首尾空白后用于解析平台患者与筛选候选报告。
-  /// </summary>
-  public partial string IdentityDocumentTypeCode { get; set; }
-  /// <summary>
-  /// 患者证件号码；按规范形式去除首尾空白并统一大写后使用。
+  /// 患者身份证号码；按规范形式去除首尾空白并统一大写后使用。
   /// </summary>
   public partial string IdentityDocumentNo { get; set; }
   /// <summary>

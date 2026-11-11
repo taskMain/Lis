@@ -142,7 +142,6 @@ const commonReadModel = (overrides: Record<string, unknown> = {}): ReportVersion
   patientGenderCode: 'M',
   patientBirthDate: new Date(1980, 0, 1),
   ageAtReport: '46岁',
-  identityDocumentTypeCode: '01',
   identityDocumentNo: '110101199001011234',
   patientPhoneNumber: '13800000000',
   visitType: 1,
@@ -910,7 +909,7 @@ describe('T02 公共信息四组（C05）', () => {
     )
     expect(labelGroups).toEqual([
       ['报告科室', '报告医生', '审核医生', '审核时间', '报告时间', '执行科室', '来源保密标识'],
-      ['患者姓名', '性别代码', '出生日期', '报告时年龄', '证件类型代码', '证件号码', '联系电话'],
+      ['患者姓名', '性别代码', '出生日期', '报告时年龄', '证件号码', '联系电话'],
       ['就诊类型', '就诊流水号', '住院号', '病区名称', '病房名称', '床位号'],
       ['来源报告名称', '申请科室', '申请医生', '申请时间'],
     ])
@@ -933,7 +932,6 @@ describe('T02 公共信息四组（C05）', () => {
     expectTextValue('性别代码', 'M')
     expectTextValue('出生日期', '1980-01-01')
     expectTextValue('报告时年龄', '46岁')
-    expectTextValue('证件类型代码', '01')
     expectTextValue('证件号码', '110101199001011234')
     expectTextValue('联系电话', '13800000000')
     // 就诊信息组。
@@ -1011,9 +1009,9 @@ describe('T02 公共信息四组（C05）', () => {
     const titles = document.querySelectorAll('.report-management-detail-public-group-title')
     expect(Array.from(titles).map((node) => node.textContent)).toEqual(['报告信息', '患者信息', '就诊信息', '申请信息'])
     const labels = document.querySelectorAll('.report-management-detail-public .ant-descriptions-item-label')
-    expect(labels).toHaveLength(24)
+    expect(labels).toHaveLength(23)
     const contents = document.querySelectorAll('.report-management-detail-public .ant-descriptions-item-content')
-    expect(contents).toHaveLength(24)
+    expect(contents).toHaveLength(23)
     for (const content of contents) expect(content.textContent).toBe('—')
   })
 })

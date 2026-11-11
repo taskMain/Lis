@@ -604,7 +604,6 @@ public sealed class Stage2QueryTests
       string hospitalCode,
       string branchCode,
       Guid patientId,
-      string identityDocumentTypeCode,
       string identityDocumentNo,
       VisitType visitType,
       string visitSerialNo,
@@ -632,7 +631,6 @@ public sealed class Stage2QueryTests
       string organizationCode,
       string hospitalCode,
       string branchCode,
-      string identityDocumentTypeCode,
       string identityDocumentNo,
       VisitType visitType,
       string visitSerialNo) =>

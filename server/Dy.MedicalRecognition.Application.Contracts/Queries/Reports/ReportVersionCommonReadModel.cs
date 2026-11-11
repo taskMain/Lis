@@ -17,9 +17,7 @@ public sealed record ReportVersionCommonReadModel
   public string? PatientPhoneNumber { get; init; }
   /// <summary>报告时年龄，以来源文本承载。</summary>
   public string? AgeAtReport { get; init; }
-  /// <summary>证件类型代码。</summary>
-  public string IdentityDocumentTypeCode { get; init; } = string.Empty;
-  /// <summary>证件号码。</summary>
+  /// <summary>身份证号码。</summary>
   public string IdentityDocumentNo { get; init; } = string.Empty;
   /// <summary>就诊类型。</summary>
   public VisitType VisitType { get; init; }

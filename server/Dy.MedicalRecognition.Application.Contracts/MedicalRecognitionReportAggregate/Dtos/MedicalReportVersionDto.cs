@@ -50,11 +50,7 @@ public partial record MedicalReportVersionDto : Dto
   /// </summary>
   public partial string? AgeAtReport { get; set; }
   /// <summary>
-  /// 证件类型代码，按来源受控值保存；与证件号码组合精确识别患者。
-  /// </summary>
-  public partial string IdentityDocumentTypeCode { get; set; }
-  /// <summary>
-  /// 证件号码，按证件类型与号码精确关联跨院患者。
+  /// 身份证号码，按号码精确关联跨院患者。
   /// </summary>
   public partial string IdentityDocumentNo { get; set; }
   /// <summary>

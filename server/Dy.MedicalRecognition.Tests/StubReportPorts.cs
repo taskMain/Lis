@@ -109,7 +109,6 @@ internal sealed class StubReportQueryRepository : IMedicalRecognitionReportQuery
     string hospitalCode,
     string branchCode,
     Guid patientId,
-    string identityDocumentTypeCode,
     string identityDocumentNo,
     VisitType visitType,
     string visitSerialNo,
@@ -132,7 +131,6 @@ internal sealed class StubReportQueryRepository : IMedicalRecognitionReportQuery
     string organizationCode,
     string hospitalCode,
     string branchCode,
-    string identityDocumentTypeCode,
     string identityDocumentNo,
     VisitType visitType,
     string visitSerialNo) => throw new NotSupportedException(UnusedMember);
@@ -269,7 +267,6 @@ internal sealed class SyntheticReportPorts : IMedicalRecognitionReportQueryRepos
     string hospitalCode,
     string branchCode,
     Guid patientId,
-    string identityDocumentTypeCode,
     string identityDocumentNo,
     VisitType visitType,
     string visitSerialNo,
@@ -320,7 +317,6 @@ internal sealed class SyntheticReportPorts : IMedicalRecognitionReportQueryRepos
     string organizationCode,
     string hospitalCode,
     string branchCode,
-    string identityDocumentTypeCode,
     string identityDocumentNo,
     VisitType visitType,
     string visitSerialNo) => throw new NotSupportedException(UnusedMember);

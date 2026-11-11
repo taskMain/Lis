@@ -366,7 +366,6 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       // 患者联系电话按来源原值返回：只把「来源未提供」与「提供空串」归一为空值。
       PatientPhoneNumber = NullIfBlank(common.PatientPhoneNumber),
       AgeAtReport = common.AgeAtReport,
-      IdentityDocumentTypeCode = common.IdentityDocumentTypeCode,
       IdentityDocumentNo = common.IdentityDocumentNo,
       VisitType = common.VisitType,
       VisitSerialNo = common.VisitSerialNo,

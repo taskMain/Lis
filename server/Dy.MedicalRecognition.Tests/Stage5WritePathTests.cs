@@ -55,8 +55,6 @@ public sealed class Stage5WritePathTests
   /// <summary>平台患者标识。</summary>
   private static readonly Guid PatientId = Guid.Parse("8b1e6d4a-2c33-4f57-9a10-5d6e7f8a9b0c");
 
-  /// <summary>证件类型代码。</summary>
-  private const string IdentityDocumentTypeCode = "01";
 
   /// <summary>证件号码；用例内按需要加入首尾空白与小写差异。</summary>
   private const string IdentityDocumentNo = "110101199001011234";
@@ -87,6 +85,20 @@ public sealed class Stage5WritePathTests
   /// <param name="standardProjectCode">该明细的标准项目编码。</param>
   /// <returns>该明细的来源项目名称。</returns>
   private static string SourceProjectNameFor(string standardProjectCode) => $"{standardProjectCode} 结果";
+
+  /// <summary>同一身份证号码的历史患者记录不因证件类型差异而失去匹配。</summary>
+  [Fact]
+  public async Task Match_uses_document_number_when_historical_type_differs()
+  {
+    MatchFixture fixture = CreateFixture();
+    fixture.QueryRepository.AddConfiguration(TrustedOrganization, FirstProjectCode);
+    AddLaboratoryReportFacts(fixture, FirstProjectCode, TrustedHospital, matchBaselineTime: ClinicalTime, reportTime: ReportTime);
+
+    (_, RecognitionMatchesResponseReadModel response) = await ExecuteMatchAsync(fixture, [FirstProjectCode]);
+
+    Assert.True(response.HasMatches);
+    Assert.Single(response.Reports);
+  }
 
   /// <summary>
   /// V1 与 V21：非空匹配生成一条匹配记录与若干匹配项，返回报告公共信息与项目级内容，并登记一次匹配已返回事件。
@@ -125,7 +137,6 @@ public sealed class Stage5WritePathTests
     Assert.Equal(TrustedOrganization, record.ReceiverOrganizationCode);
     Assert.Equal(TrustedHospital, record.ReceiverHospitalCode);
     Assert.Equal(TrustedBranch, record.ReceiverBranchCode);
-    Assert.Equal(IdentityDocumentTypeCode, record.IdentityDocumentTypeCode);
     Assert.Equal(IdentityDocumentNo, record.IdentityDocumentNo);
     Assert.Equal(VisitType.Outpatient, record.VisitType);
     Assert.Equal(VisitSerialNo, record.VisitSerialNo);
@@ -928,8 +939,7 @@ public sealed class Stage5WritePathTests
     await Assert.ThrowsAsync<ValidationException>(() => WithEventQueueAsync(() => fixture.AppService.RequestRecognitionMatchesAsync(
       new RecognitionMatchQueryRequest
       {
-        IdentityDocumentTypeCode = string.Empty,
-        IdentityDocumentNo = IdentityDocumentNo,
+        IdentityDocumentNo = string.Empty,
         VisitType = VisitType.Outpatient,
         VisitSerialNo = VisitSerialNo,
         ProposedItems = [new RecognitionMatchProposedItemRequest { ItemType = MedicalItemType.Laboratory, StandardProjectCode = FirstProjectCode }]
@@ -1001,7 +1011,6 @@ public sealed class Stage5WritePathTests
       repository.Patients[PatientId] = new PlatformPatient
       {
         Id = PatientId,
-        IdentityDocumentTypeCode = IdentityDocumentTypeCode,
         IdentityDocumentNo = IdentityDocumentNo,
         PatientName = "张三",
         PatientGenderCode = "1",
@@ -1137,7 +1146,6 @@ public sealed class Stage5WritePathTests
   /// <returns>字段齐全的互认匹配请求。</returns>
   private static RecognitionMatchQueryRequest BuildRequest(IReadOnlyList<string> projectCodes) => new()
   {
-    IdentityDocumentTypeCode = IdentityDocumentTypeCode,
     IdentityDocumentNo = IdentityDocumentNo,
     VisitType = VisitType.Outpatient,
     VisitSerialNo = VisitSerialNo,
@@ -2729,7 +2737,6 @@ public sealed class Stage5WritePathTests
       ReceiverOrganizationCode = TrustedOrganization,
       ReceiverHospitalCode = TrustedHospital,
       ReceiverBranchCode = TrustedBranch,
-      IdentityDocumentTypeCode = IdentityDocumentTypeCode,
       IdentityDocumentNo = IdentityDocumentNo,
       VisitType = VisitType.Outpatient,
       VisitSerialNo = VisitSerialNo,
@@ -2749,7 +2756,6 @@ public sealed class Stage5WritePathTests
         ReceiverOrganizationCode = TrustedOrganization,
         ReceiverHospitalCode = TrustedHospital,
         ReceiverBranchCode = TrustedBranch,
-        IdentityDocumentTypeCode = IdentityDocumentTypeCode,
         IdentityDocumentNo = IdentityDocumentNo,
         VisitType = VisitType.Outpatient,
         VisitSerialNo = VisitSerialNo,
@@ -2973,7 +2979,6 @@ public sealed class Stage5WritePathTests
       ReceiverOrganizationCode = TrustedOrganization,
       ReceiverHospitalCode = TrustedHospital,
       ReceiverBranchCode = TrustedBranch,
-      IdentityDocumentTypeCode = IdentityDocumentTypeCode,
       IdentityDocumentNo = IdentityDocumentNo,
       VisitType = VisitType.Outpatient,
       VisitSerialNo = VisitSerialNo,
@@ -3015,7 +3020,6 @@ public sealed class Stage5WritePathTests
       ReceiverOrganizationCode = recordOrganization,
       ReceiverHospitalCode = recordHospital,
       ReceiverBranchCode = recordBranch,
-      IdentityDocumentTypeCode = IdentityDocumentTypeCode,
       IdentityDocumentNo = IdentityDocumentNo,
       VisitType = VisitType.Outpatient,
       VisitSerialNo = VisitSerialNo,

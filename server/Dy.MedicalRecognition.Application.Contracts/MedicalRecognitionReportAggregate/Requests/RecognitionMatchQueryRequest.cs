@@ -14,13 +14,7 @@ namespace Dy.MedicalRecognition.Application.Contracts.MedicalRecognitionReportAg
 public sealed record RecognitionMatchQueryRequest
 {
   /// <summary>
-  /// 患者证件类型代码；缺失、空串或纯空白都由请求校验拒绝。
-  /// </summary>
-  [Required(ErrorMessage = "参数校验失败：证件类型代码不能为空。")]
-  [NonEmpty(ErrorMessage = "参数校验失败：证件类型代码不能是空白。")]
-  public string IdentityDocumentTypeCode { get; init; } = string.Empty;
-  /// <summary>
-  /// 患者证件号码；缺失、空串或纯空白都由请求校验拒绝。
+  /// 患者身份证号码；缺失、空串或纯空白都由请求校验拒绝。
   /// </summary>
   [Required(ErrorMessage = "参数校验失败：证件号码不能为空。")]
   [NonEmpty(ErrorMessage = "参数校验失败：证件号码不能是空白。")]

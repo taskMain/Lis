@@ -10,7 +10,6 @@
       receiver_organization_code,   <!-- 使用方组织编码，来自可信调用身份 -->
       receiver_hospital_code,       <!-- 使用方医院编码，来自可信调用身份 -->
       receiver_branch_code,         <!-- 使用方院区编码，来自可信调用身份 -->
-      identity_document_type_code,  <!-- 证件类型代码，取请求提交的患者证件类型 -->
       identity_document_no,         <!-- 证件号码，取规范形式处理后的请求证件号码 -->
       visit_type,                   <!-- 就诊类型，取请求提交的本次来源就诊类型 -->
       visit_serial_no,              <!-- 就诊流水号，取请求提交的院内就诊流水号 -->
@@ -26,10 +25,9 @@
     -->
     <Statement Id="GetRecognitionMatchRecordByBusinessKey">
       select <Include RefId="RecognitionMatchRecordColumns" /> from mrec_recognition_match_record
-      <!-- 定位键：使用方组织、医院、院区与患者证件类型、证件号码同时相等即命中，处理结果保存时间不参与定位 -->
+      <!-- 定位键：使用方组织、医院、院区与患者身份证号码相等即命中，处理结果保存时间不参与定位 -->
       where receiver_organization_code = $ReceiverOrganizationCode and receiver_hospital_code = $ReceiverHospitalCode
-        and receiver_branch_code = $ReceiverBranchCode and identity_document_type_code = $IdentityDocumentTypeCode
-        and identity_document_no = $IdentityDocumentNo
+        and receiver_branch_code = $ReceiverBranchCode and identity_document_no = $IdentityDocumentNo
     </Statement>
     <!--
       功能：按主键读取一条互认匹配记录，供处理结果提交校验提交归属并取得匹配生成时间。
@@ -65,7 +63,6 @@
         receiver_organization_code,   <!-- 使用方组织编码，取自可信调用身份 -->
         receiver_hospital_code,       <!-- 使用方医院编码，取自可信调用身份 -->
         receiver_branch_code,         <!-- 使用方院区编码，取自可信调用身份 -->
-        identity_document_type_code,  <!-- 证件类型代码，取自请求 -->
         identity_document_no,         <!-- 证件号码，取自规范形式处理后的请求 -->
         visit_type,                   <!-- 就诊类型，取自请求提交的本次来源就诊类型 -->
         visit_serial_no,              <!-- 就诊流水号，取自请求提交的院内就诊流水号 -->
@@ -73,7 +70,7 @@
         decision_saved_time,          <!-- 处理结果保存时间，新增写入空值表示尚待处理 -->
         oper_id,                      <!-- 操作人标识，取自可信身份上下文 -->
         oper_time                     <!-- 操作时间，取命令携带的服务端当前时间 -->
-      ) values ($Id, $ReceiverOrganizationCode, $ReceiverHospitalCode, $ReceiverBranchCode, $IdentityDocumentTypeCode,
+      ) values ($Id, $ReceiverOrganizationCode, $ReceiverHospitalCode, $ReceiverBranchCode,
         $IdentityDocumentNo, $VisitType, $VisitSerialNo, $MatchCreatedTime, null, $OperId, $OperTime)
     </Statement>
     <!--

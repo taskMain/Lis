@@ -33,7 +33,7 @@ public sealed partial class MedicalRecognitionReportQueryAppService
   /// 部分项目超期或失效时返回仍可用的部分，全部项目均不可返回时按平台实际确认的原因抛出业务拒绝，不返回成功空集合；
   /// 检查所见与检查结论属于整份报告的公共内容，随报告公共上下文返回。
   /// </remarks>
-  /// <param name="request">引用详情请求，携带患者证件类型、证件号码、本次来源就诊类型与就诊流水号。</param>
+  /// <param name="request">引用详情请求，携带患者身份证号码、本次来源就诊类型与就诊流水号。</param>
   /// <returns>仍可引用的已采纳项目与其所属报告的必要公共上下文。</returns>
   /// <exception cref="ArgumentNullException">请求为 null 时抛出。</exception>
   /// <exception cref="System.ComponentModel.DataAnnotations.ValidationException">请求字段不满足契约声明的必填或值域约束时抛出，此时不读取参数与任何业务数据。</exception>
@@ -58,7 +58,6 @@ public sealed partial class MedicalRecognitionReportQueryAppService
       trustedScope.OrganizationCode,
       trustedScope.HospitalCode,
       trustedScope.BranchCode,
-      NormalizeCode(request.IdentityDocumentTypeCode),
       NormalizeDocumentNo(request.IdentityDocumentNo),
       request.VisitType,
       request.VisitSerialNo)];

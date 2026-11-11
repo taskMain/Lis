@@ -14,7 +14,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   /// </summary>
   /// <remarks>
   /// 只返回当前有效报告，且只取报告的当前版本指向对应的版本；
-  /// 候选范围同时按平台患者标识与当前版本上的证件限定：已解析到的患者是唯一权威的候选归属，证件条件只表达该患者的主数据取值；
+  /// 候选范围同时按平台患者标识与报告主体上的身份证号码限定：已解析到的患者是唯一权威的候选归属；
   /// 排序为匹配基准时间倒序、报告时间倒序、报告版本标识升序，调用方按该顺序逐项目取第一条即可得到最晚出具的一份稳定候选；
   /// 标准项目编码集合为空时返回空集合，由调用方表达为成功的空匹配。
   /// </remarks>
@@ -22,8 +22,7 @@ public partial interface IMedicalRecognitionReportQueryRepository
   /// <param name="hospitalCode">可信使用方医院编码，与提供方医院是否相同决定本院报告是否参与匹配。</param>
   /// <param name="branchCode">可信使用方院区编码。</param>
   /// <param name="patientId">本次按证件解析到的平台患者标识，候选报告主体必须关联该患者。</param>
-  /// <param name="identityDocumentTypeCode">患者证件类型代码，应为去除首尾空白后的规范形式。</param>
-  /// <param name="identityDocumentNo">患者证件号码，应为去除首尾空白并统一大写后的规范形式。</param>
+  /// <param name="identityDocumentNo">患者身份证号码，应为去除首尾空白并统一大写后的规范形式。</param>
   /// <param name="visitType">本次来源就诊类型。</param>
   /// <param name="visitSerialNo">本次来源就诊流水号。</param>
   /// <param name="standardProjectCodes">本次查询的全部标准项目编码，去重后传入。</param>
@@ -33,7 +32,6 @@ public partial interface IMedicalRecognitionReportQueryRepository
     string hospitalCode,
     string branchCode,
     Guid patientId,
-    string identityDocumentTypeCode,
     string identityDocumentNo,
     VisitType visitType,
     string visitSerialNo,

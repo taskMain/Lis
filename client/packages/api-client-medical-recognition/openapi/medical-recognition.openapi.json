@@ -7831,15 +7831,11 @@
       },
       "RecognitionCitationDetailRequest": {
         "required": [
-          "identityDocumentTypeCode",
           "identityDocumentNo",
           "visitSerialNo"
         ],
         "type": "object",
         "properties": {
-          "identityDocumentTypeCode": {
-            "type": "string"
-          },
           "identityDocumentNo": {
             "type": "string"
           },
@@ -8053,16 +8049,12 @@
       },
       "RecognitionMatchQueryRequest": {
         "required": [
-          "identityDocumentTypeCode",
           "identityDocumentNo",
           "visitSerialNo",
           "proposedItems"
         ],
         "type": "object",
         "properties": {
-          "identityDocumentTypeCode": {
-            "type": "string"
-          },
           "identityDocumentNo": {
             "type": "string"
           },
@@ -9365,9 +9357,6 @@
               "null",
               "string"
             ]
-          },
-          "identityDocumentTypeCode": {
-            "type": "string"
           },
           "identityDocumentNo": {
             "type": "string"

@@ -26,11 +26,7 @@ public partial class RecognitionMatchRecord : Dy.Core.Abstractions.Domain.Entity
   /// </summary>
   public partial string ReceiverBranchCode { get; set; }
   /// <summary>
-  /// 证件类型代码
-  /// </summary>
-  public partial string IdentityDocumentTypeCode { get; set; }
-  /// <summary>
-  /// 证件号码
+  /// 身份证号码
   /// </summary>
   public partial string IdentityDocumentNo { get; set; }
   /// <summary>

@@ -423,7 +423,8 @@ public sealed class Stage1ArchitectureTests
   /// 项目声明数据库 Provider 中立，公共类型、DataRequest 与共享 SQL/XML 都不得引入具体 Provider 类型或数据库方言特征。
   /// </summary>
   /// <remarks>
-  /// 扫描范围：<c>server</c> 下五个受治理工程的手写 <c>.cs</c>，以及 <c>Repository</c> 下的 SqlMap <c>.xml</c> 与建表 <c>.sql</c>；
+  /// 扫描范围：<c>server</c> 下五个受治理工程的手写 <c>.cs</c>，以及 <c>Repository</c> 下的 SqlMap <c>.xml</c> 与最终建表 <c>.sql</c>；
+  /// <c>Scripts/Migrations</c> 中的增量迁移按目标数据库执行，不纳入共享 SQL 的 Provider 中立检查。
   /// 排除 <c>bin</c>、<c>obj</c> 与 <c>*.g.cs</c>、<c>*.Designer.cs</c> 生成文件。
   /// <c>Repository/EarthraceConfig.json</c> 不在范围内：该文件的作用正是选择当前 Provider 与连接串，不属于被禁的公共类型与共享语句。
   /// 已登记的覆盖缺口：该文件的 <c>Database.DbProvider.Name</c> 当前为 <c>Oracle</c>，而共享建表脚本 <c>Scripts/mutual_recognition_item.sql</c> 按 PostgreSQL 方言编写，
@@ -510,6 +511,11 @@ public sealed class Stage1ArchitectureTests
     if (filePath.EndsWith(".cs", StringComparison.Ordinal))
     {
       return ProviderNeutralProjects.Any(project => relativePath.StartsWith($"server/{project}/", StringComparison.Ordinal));
+    }
+
+    if (relativePath.StartsWith("server/Dy.MedicalRecognition.Repository/Scripts/Migrations/", StringComparison.Ordinal))
+    {
+      return false;
     }
 
     return relativePath.StartsWith("server/Dy.MedicalRecognition.Repository/", StringComparison.Ordinal) &&

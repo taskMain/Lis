@@ -15,7 +15,6 @@
       patient_birth_date,           <!-- 患者出生日期 -->
       patient_phone_number,         <!-- 患者联系电话 -->
       age_at_report,                <!-- 报告时年龄 -->
-      identity_document_type_code,  <!-- 证件类型代码，来源原值 -->
       identity_document_no,         <!-- 证件号码，来源原值 -->
       visit_type,                   <!-- 就诊类型 -->
       visit_serial_no,              <!-- 就诊流水号 -->
@@ -77,7 +76,6 @@
         v.patient_birth_date,           <!-- 患者出生日期 -->
         v.patient_phone_number,         <!-- 患者联系电话 -->
         v.age_at_report,                <!-- 报告时年龄 -->
-        v.identity_document_type_code,  <!-- 证件类型代码，来源原值 -->
         v.identity_document_no,         <!-- 证件号码，来源原值 -->
         v.visit_type,                   <!-- 就诊类型 -->
         v.visit_serial_no,              <!-- 就诊流水号 -->
@@ -141,7 +139,7 @@
       insert into mrec_medical_report_version (
         id, report_id, patient_id, version_number, source_report_name,
         patient_name, patient_gender_code, patient_birth_date, patient_phone_number, age_at_report,
-        identity_document_type_code, identity_document_no, visit_type, visit_serial_no,
+        identity_document_no, visit_type, visit_serial_no,
         application_dept_id, application_dept_name, application_doctor_id, application_doctor_name,
         execution_dept_id, execution_dept_name, report_dept_id, report_dept_name,
         report_doctor_id, report_doctor_name, review_doctor_id, review_doctor_name, review_time,
@@ -151,7 +149,7 @@
       ) values (
         $Id, $ReportId, $PatientId, $VersionNumber, $SourceReportName,
         $PatientName, $PatientGenderCode, $PatientBirthDate, $PatientPhoneNumber, $AgeAtReport,
-        $IdentityDocumentTypeCode, $IdentityDocumentNo, $VisitType, $VisitSerialNo,
+        $IdentityDocumentNo, $VisitType, $VisitSerialNo,
         $ApplicationDeptId, $ApplicationDeptName, $ApplicationDoctorId, $ApplicationDoctorName,
         $ExecutionDeptId, $ExecutionDeptName, $ReportDeptId, $ReportDeptName,
         $ReportDoctorId, $ReportDoctorName, $ReviewDoctorId, $ReviewDoctorName, $ReviewTime,

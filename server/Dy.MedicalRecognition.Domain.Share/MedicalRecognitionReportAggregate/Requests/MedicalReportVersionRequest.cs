@@ -19,9 +19,7 @@ public sealed record MedicalReportVersionRequest
   public string? PatientPhoneNumber { get; init; }
   /// <summary>报告时年龄，以来源文本承载。应填。</summary>
   public string? AgeAtReport { get; init; }
-  /// <summary>证件类型代码。必填；保存与比较前去除首尾空白。</summary>
-  public string IdentityDocumentTypeCode { get; init; } = string.Empty;
-  /// <summary>证件号码。必填；保存与比较前去除首尾空白并统一大写，报告版本表另按来源原值保存。</summary>
+  /// <summary>身份证号码。必填；保存与比较前去除首尾空白并统一大写，报告版本表另按来源原值保存。</summary>
   public string IdentityDocumentNo { get; init; } = string.Empty;
   /// <summary>就诊类型。必填；仅接受门诊、急诊、住院、体检、其他五值，不接受未知。</summary>
   public VisitType VisitType { get; init; }

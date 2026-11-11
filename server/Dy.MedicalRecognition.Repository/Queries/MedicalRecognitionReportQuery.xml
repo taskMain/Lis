@@ -419,7 +419,6 @@
         v.patient_birth_date,               <!-- 患者出生日期 -->
         v.patient_phone_number,             <!-- 患者联系电话 -->
         v.age_at_report,                    <!-- 报告时年龄 -->
-        v.identity_document_type_code,      <!-- 证件类型代码 -->
         v.identity_document_no,             <!-- 证件号码 -->
         v.visit_type,                       <!-- 就诊类型 -->
         v.visit_serial_no,                  <!-- 就诊流水号 -->
@@ -747,8 +746,7 @@
         left join mrec_examination_report_content ec on ec.report_version_id = v.id
         where r.organization_code = $OrganizationCode      <!-- 来源范围：MVP 只按提供方组织限定（S5-D25），本院报告判定在领域层完成 -->
           and r.patient_id = $PatientId                   <!-- 平台患者：候选报告主体必须关联本次按证件解析到的患者 -->
-          and v.identity_document_type_code = $IdentityDocumentTypeCode  <!-- 患者证件类型：取自当前报告版本，候选范围限定为同一患者 -->
-          and v.identity_document_no = $IdentityDocumentNo                <!-- 证件号码：取自当前报告版本，候选范围限定为同一患者 -->
+          and r.identity_document_no = $IdentityDocumentNo                <!-- 身份证号码：报告主体保存规范形式 -->
           and v.visit_type = $VisitType                   <!-- 就诊类型：取自当前报告版本，与就诊流水号共同限定本次来源就诊 -->
           and v.visit_serial_no = $VisitSerialNo          <!-- 就诊流水号：取自当前报告版本 -->
           and r.status = 1                                <!-- 生命周期状态：只取当前有效报告，已作废报告不参与匹配 -->
@@ -778,8 +776,7 @@
         left join mrec_examination_item e on e.report_version_id = v.id
         where r.organization_code = $OrganizationCode      <!-- 来源范围：与检验分支同一口径，只按提供方组织限定（S5-D25） -->
           and r.patient_id = $PatientId                   <!-- 平台患者：与检验分支同一口径，候选报告主体必须关联本次按证件解析到的患者 -->
-          and v.identity_document_type_code = $IdentityDocumentTypeCode  <!-- 患者证件类型：取自当前报告版本 -->
-          and v.identity_document_no = $IdentityDocumentNo                <!-- 证件号码：取自当前报告版本 -->
+          and r.identity_document_no = $IdentityDocumentNo                <!-- 身份证号码：报告主体保存规范形式 -->
           and v.visit_type = $VisitType                   <!-- 就诊类型：取自当前报告版本 -->
           and v.visit_serial_no = $VisitSerialNo          <!-- 就诊流水号：取自当前报告版本 -->
           and r.status = 1                                <!-- 生命周期状态：只取当前有效报告 -->
@@ -865,7 +862,7 @@
 
     <!--
       功能：按可信接收三值与患者证件、本次来源就诊读取已经采纳的互认匹配项，供获取引用详情定位本次就诊下仍可引用的项目。
-      结果：行集由可信使用方组织、医院、院区与匹配记录上的患者证件类型、证件号码、就诊类型、就诊流水号共同严格匹配，
+      结果：行集由可信使用方组织、医院、院区与匹配记录上的身份证号码、就诊类型、就诊流水号共同严格匹配，
       因此每一行都属于本次就诊，不返回其他医院、院区、患者或就诊的记录；
       只返回已经保存处理结果且决定为采纳的匹配项，未保存处理结果的匹配项不参与；
       每行给出所属匹配记录的处理结果保存时间（引用详情有效期起点）、匹配记录标识、匹配项标识、标准项目编码与匹配项绑定的报告与报告版本标识；
@@ -899,7 +896,6 @@
         and mr.receiver_organization_code = $OrganizationCode  <!-- 使用方组织范围：只返回本次可信组织的匹配记录 -->
         and mr.receiver_hospital_code = $HospitalCode          <!-- 使用方医院范围：只返回本次可信医院的匹配记录 -->
         and mr.receiver_branch_code = $BranchCode              <!-- 使用方院区范围：只返回本次可信院区的匹配记录 -->
-        and mr.identity_document_type_code = $IdentityDocumentTypeCode  <!-- 患者证件类型：与证件号码共同限定本次患者 -->
         and mr.identity_document_no = $IdentityDocumentNo              <!-- 患者证件号码 -->
         and mr.visit_type = $VisitType                         <!-- 就诊类型：与就诊流水号共同限定本次来源就诊 -->
         and mr.visit_serial_no = $VisitSerialNo                <!-- 就诊流水号 -->

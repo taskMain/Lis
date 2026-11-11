@@ -104,10 +104,10 @@ internal sealed class FakeReportRepository : IMedicalRecognitionReportRepository
   public Guid CreateGuid() => Guid.NewGuid();
 
   /// <inheritdoc/>
-  public Task<PlatformPatient?> GetPlatformPatientByDocumentAsync(string identityDocumentTypeCode, string identityDocumentNo)
+  public Task<PlatformPatient?> GetPlatformPatientByDocumentAsync(string identityDocumentNo)
   {
     PlatformPatient? stored = Patients.Values.SingleOrDefault(patient =>
-      patient.IdentityDocumentTypeCode == identityDocumentTypeCode && patient.IdentityDocumentNo == identityDocumentNo);
+      patient.IdentityDocumentNo == identityDocumentNo);
     return Task.FromResult(stored);
   }
 

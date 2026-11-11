@@ -14,11 +14,7 @@ public partial class PlatformPatient : Dy.Core.Abstractions.Domain.Entity
   /// </summary>
   public partial Guid Id { get; set; }
   /// <summary>
-  /// 证件类型代码；与证件号码的组合用于按证件精确关联跨院患者。
-  /// </summary>
-  public partial string IdentityDocumentTypeCode { get; set; }
-  /// <summary>
-  /// 证件号码；同名患者按证件区分，不以电话号码等可变更字段作为识别依据，相同证件下身份信息冲突时拒绝关联且不覆盖既有记录。
+  /// 身份证号码；平台使用该号码精确关联跨院患者，不以电话号码等可变更字段作为识别依据。
   /// </summary>
   public partial string IdentityDocumentNo { get; set; }
   /// <summary>

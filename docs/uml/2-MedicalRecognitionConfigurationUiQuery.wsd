@@ -338,7 +338,6 @@ ReadModel('ReportVersionCommonReadModel')[
     患者出生日期(PatientBirthDate DateTime)
     患者联系电话(PatientPhoneNumber String)
     报告时年龄(AgeAtReport String)
-    证件类型代码(IdentityDocumentTypeCode String)
     证件号码(IdentityDocumentNo String)
     就诊类型(VisitType VisitType)
     就诊流水号(VisitSerialNo String)

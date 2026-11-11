@@ -37,7 +37,6 @@ public sealed class Stage5SqlMapTests
         ("receiver_organization_code", "text not null"),
         ("receiver_hospital_code", "text not null"),
         ("receiver_branch_code", "text not null"),
-        ("identity_document_type_code", "text not null"),
         ("identity_document_no", "text not null"),
         ("visit_type", "integer not null"),
         ("visit_serial_no", "text not null"),
@@ -51,8 +50,7 @@ public sealed class Stage5SqlMapTests
         ("receiver_organization_code", "使用方组织编码"),
         ("receiver_hospital_code", "使用方医院编码"),
         ("receiver_branch_code", "使用方院区编码"),
-        ("identity_document_type_code", "证件类型代码"),
-        ("identity_document_no", "证件号码"),
+        ("identity_document_no", "身份证号码"),
         ("visit_type", "就诊类型"),
         ("visit_serial_no", "就诊流水号"),
         ("match_created_time", "互认匹配生成时间"),
@@ -60,7 +58,7 @@ public sealed class Stage5SqlMapTests
         ("oper_time", "操作时间"),
         ("oper_id", "操作人")
       ],
-      ["on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, identity_document_type_code, identity_document_no, match_created_time);",
+      ["on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, identity_document_no, match_created_time);",
         "on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, match_created_time);"],
       ["ix_mrec_recognition_match_record_business_key", "ix_mrec_recognition_match_record_receiver_time"]
     ),
@@ -161,14 +159,14 @@ public sealed class Stage5SqlMapTests
   ];
 
   /// <summary>
-  /// 八条索引的完整声明与索引名、是否唯一：匹配记录表按接收三值与患者证件、匹配生成时间，
+  /// 八条索引的完整声明与索引名、是否唯一：匹配记录表按接收三值与患者身份证号码、匹配生成时间，
   /// 匹配项表按所属匹配记录、按标准项目编码，处理结果表与引用事实表各按互认匹配项标识唯一，
   /// 以及阶段 6 统计索引的三条时间维度普通索引（接收三值加匹配生成时间、互认时间、实际引用时间）。
   /// </summary>
   private static readonly (string IndexName, bool IsUnique, string Definition)[] ExpectedIndexes =
   [
     ("ix_mrec_recognition_match_record_business_key", false,
-      "on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, identity_document_type_code, identity_document_no, match_created_time);"),
+      "on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, identity_document_no, match_created_time);"),
     ("ix_mrec_recognition_match_record_receiver_time", false,
       "on mrec_recognition_match_record (receiver_organization_code, receiver_hospital_code, receiver_branch_code, match_created_time);"),
     ("ix_mrec_recognition_match_item_record", false,
@@ -804,8 +802,8 @@ public sealed class Stage5SqlMapTests
     // 报告主体 → 当前版本：候选筛选落在当前有效版本上，患者与就诊条件取自当前版本。
     Assert.Contains("from mrec_medical_recognition_report r", statement, StringComparison.Ordinal);
     Assert.Equal(2, Regex.Matches(statement, @"join mrec_medical_report_version v on v\.id = r\.current_version_id", RegexOptions.CultureInvariant).Count);
-    Assert.Contains("and v.identity_document_type_code = $IdentityDocumentTypeCode", statement, StringComparison.Ordinal);
-    Assert.Contains("and v.identity_document_no = $IdentityDocumentNo", statement, StringComparison.Ordinal);
+    Assert.DoesNotContain("identity_document_type_code", statement, StringComparison.Ordinal);
+    Assert.Contains("and r.identity_document_no = $IdentityDocumentNo", statement, StringComparison.Ordinal);
     Assert.Contains("and v.visit_type = $VisitType", statement, StringComparison.Ordinal);
     Assert.Contains("and v.visit_serial_no = $VisitSerialNo", statement, StringComparison.Ordinal);
 
@@ -991,7 +989,7 @@ public sealed class Stage5SqlMapTests
 
     // 变异证据：把只存在于报告版本表的列引用到报告主体上后，列一致性判定必须报出违规。
     (string Alias, string Column)[] crossTable = SplitAliasColumnReferences(
-      "select r.identity_document_type_code, r.visit_type, r.visit_serial_no from mrec_medical_recognition_report r");
+      "select r.nonexistent_document_type_code, r.visit_type, r.visit_serial_no from mrec_medical_recognition_report r");
     Assert.NotEmpty(crossTable);
     Assert.NotEmpty(ColumnReferenceViolations(crossTable, AliasToTables("from mrec_medical_recognition_report r"), columnsByTable));
 
@@ -1851,6 +1849,14 @@ public sealed class Stage5SqlMapTests
   /// 因此候选语句必须按该列的空值筛除。语句功能注释与查询端口 remarks 都声明了这条筛除，
   /// 判据落在语句文本的谓词上，避免注释声明超出实际判据而语句仍可执行、编译与既有用例都不失败。
   /// </remarks>
+  [Fact]
+  public void Citation_candidate_query_uses_document_number_without_document_type()
+  {
+    string statement = QueryStatement("QueryRecognitionCitationCandidates");
+    Assert.Contains("mr.identity_document_no = $IdentityDocumentNo", statement, StringComparison.Ordinal);
+    Assert.DoesNotContain("identity_document_type_code", statement, StringComparison.Ordinal);
+  }
+
   [Fact]
   public void Citation_candidate_query_excludes_records_without_a_saved_decision_time()
   {

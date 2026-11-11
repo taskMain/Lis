@@ -122,7 +122,6 @@ ReadModel('PdfAndImageAccessReadModel')[
 Query('GetRecognitionCitationDetailApi')[
     获取互认引用详情
     --入参--
-    证件类型代码(IdentityDocumentTypeCode String)
     证件号码(IdentityDocumentNo String)
     本次来源就诊类型(VisitType VisitType)
     本次来源就诊流水号(VisitSerialNo String)

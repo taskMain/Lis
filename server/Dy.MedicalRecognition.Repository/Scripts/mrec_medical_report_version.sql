@@ -10,7 +10,6 @@ create table mrec_medical_report_version (
   patient_birth_date timestamp without time zone not null,
   patient_phone_number text,
   age_at_report text,
-  identity_document_type_code text not null,
   identity_document_no text not null,
   visit_type integer not null,
   visit_serial_no text not null,
@@ -54,8 +53,7 @@ comment on column mrec_medical_report_version.patient_gender_code is '患者性�
 comment on column mrec_medical_report_version.patient_birth_date is '患者出生日期';
 comment on column mrec_medical_report_version.patient_phone_number is '患者联系电话';
 comment on column mrec_medical_report_version.age_at_report is '报告时年龄';
-comment on column mrec_medical_report_version.identity_document_type_code is '证件类型代码';
-comment on column mrec_medical_report_version.identity_document_no is '证件号码';
+comment on column mrec_medical_report_version.identity_document_no is '身份证号码';
 comment on column mrec_medical_report_version.visit_type is '就诊类型';
 comment on column mrec_medical_report_version.visit_serial_no is '就诊流水号';
 comment on column mrec_medical_report_version.application_dept_id is '申请科室ID';

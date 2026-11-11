@@ -543,7 +543,6 @@ public sealed class Stage4SubmissionPathTests
         PatientName = "张三",
         PatientGenderCode = "1",
         PatientBirthDate = new DateTime(1990, 1, 1, 0, 0, 0, DateTimeKind.Unspecified),
-        IdentityDocumentTypeCode = "01",
         IdentityDocumentNo = "110101199001011234",
         VisitType = VisitType.Outpatient,
         VisitSerialNo = "V-1",

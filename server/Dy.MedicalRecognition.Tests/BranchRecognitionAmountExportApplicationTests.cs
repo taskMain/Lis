@@ -569,7 +569,7 @@ public sealed class BranchRecognitionAmountExportApplicationTests
 
     /// <inheritdoc cref="QueryMedicalStandardCategoryListAsync(MedicalItemType?)"/>
     public Task<IEnumerable<RecognitionMatchCandidateReportItem>> QueryRecognitionMatchCandidateReportsAsync(
-      string organizationCode, string hospitalCode, string branchCode, Guid patientId, string identityDocumentTypeCode,
+      string organizationCode, string hospitalCode, string branchCode, Guid patientId,
       string identityDocumentNo, VisitType visitType, string visitSerialNo, IReadOnlyList<string> standardProjectCodes) => throw new NotSupportedException("本替身只覆盖本院区金额导出取数。");
 
     /// <inheritdoc cref="QueryMedicalStandardCategoryListAsync(MedicalItemType?)"/>
@@ -586,7 +586,7 @@ public sealed class BranchRecognitionAmountExportApplicationTests
 
     /// <inheritdoc cref="QueryMedicalStandardCategoryListAsync(MedicalItemType?)"/>
     public Task<IEnumerable<RecognitionCitationCandidateItem>> QueryRecognitionCitationCandidatesAsync(
-      string organizationCode, string hospitalCode, string branchCode, string identityDocumentTypeCode,
+      string organizationCode, string hospitalCode, string branchCode,
       string identityDocumentNo, VisitType visitType, string visitSerialNo) => throw new NotSupportedException("本替身只覆盖本院区金额导出取数。");
 
     /// <inheritdoc cref="QueryMedicalStandardCategoryListAsync(MedicalItemType?)"/>

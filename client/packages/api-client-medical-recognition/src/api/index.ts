@@ -42,7 +42,7 @@ export interface ApiRequestBuilder extends BaseRequestBuilder<ApiRequestBuilder>
 /**
  * Uri template for the request builder.
  */
-export const ApiRequestBuilderUriTemplate = "{+baseurl}/Api";
+export const ApiRequestBuilderUriTemplate = "{+baseurl}/api";
 /**
  * Metadata for all the navigation properties in the request builder.
  */

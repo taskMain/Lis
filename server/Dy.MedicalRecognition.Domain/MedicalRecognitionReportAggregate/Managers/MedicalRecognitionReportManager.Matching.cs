@@ -69,12 +69,12 @@ public partial class MedicalRecognitionReportManager
       await ValidateProposedItemsAsync(command.ReceiverOrganizationCode, command.ProposedItems);
     if (invalidProjectCode is not null) throw new InvalidOperationException(BuildUnavailableProjectCodeMessage(invalidProjectCode));
 
-    PlatformPatient? patient = await repository.GetPlatformPatientByDocumentAsync(
-      NormalizeCode(command.IdentityDocumentTypeCode), NormalizeDocumentNo(command.IdentityDocumentNo));
+    PlatformPatient? patient = await repository.GetPlatformPatientByDocumentAsync(NormalizeDocumentNo(command.IdentityDocumentNo));
     if (patient is null) return RecognitionMatchResult.Empty;
 
+    string identityDocumentNo = NormalizeDocumentNo(command.IdentityDocumentNo);
     IReadOnlyList<RecognitionMatchCandidateReportItem> candidates =
-      await ListCandidatesAsync(command, patient.Id, NormalizeCode(command.IdentityDocumentTypeCode), NormalizeDocumentNo(command.IdentityDocumentNo));
+      await ListCandidatesAsync(command, patient.Id, identityDocumentNo);
 
     // 每个互认项目各自按其当前可互认时间判断：可互认时间从报告时间起按连续二十四小时计算，经过时间小于或等于配置值才满足。
     List<(string StandardProjectCode, RecognitionMatchCandidateReportItem Candidate)> selectedCandidates = [];
@@ -93,8 +93,7 @@ public partial class MedicalRecognitionReportManager
       ReceiverOrganizationCode = command.ReceiverOrganizationCode,
       ReceiverHospitalCode = command.ReceiverHospitalCode,
       ReceiverBranchCode = command.ReceiverBranchCode,
-      IdentityDocumentTypeCode = NormalizeCode(command.IdentityDocumentTypeCode),
-      IdentityDocumentNo = NormalizeDocumentNo(command.IdentityDocumentNo),
+      IdentityDocumentNo = identityDocumentNo,
       VisitType = command.VisitType,
       VisitSerialNo = command.VisitSerialNo,
       MatchCreatedTime = command.MatchCreatedTime,
@@ -187,17 +186,15 @@ public partial class MedicalRecognitionReportManager
   /// </summary>
   /// <param name="command">匹配查询命令，提供可信接收三值与本次来源就诊。</param>
   /// <param name="patientId">本次按证件解析到的平台患者标识，候选报告主体必须关联该患者。</param>
-  /// <param name="identityDocumentTypeCode">规范形式处理后的证件类型代码。</param>
-  /// <param name="identityDocumentNo">规范形式处理后的证件号码。</param>
+  /// <param name="identityDocumentNo">规范形式处理后的身份证号码。</param>
   /// <returns>候选报告行集合；没有任何候选时为空集合。</returns>
   private async Task<IReadOnlyList<RecognitionMatchCandidateReportItem>> ListCandidatesAsync(
-    QueryRecognitionMatchesCommand command, Guid patientId, string identityDocumentTypeCode, string identityDocumentNo) =>
+    QueryRecognitionMatchesCommand command, Guid patientId, string identityDocumentNo) =>
     [.. await queryRepository.QueryRecognitionMatchCandidateReportsAsync(
       command.ReceiverOrganizationCode,
       command.ReceiverHospitalCode,
       command.ReceiverBranchCode,
       patientId,
-      identityDocumentTypeCode,
       identityDocumentNo,
       command.VisitType,
       command.VisitSerialNo,

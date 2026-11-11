@@ -255,7 +255,7 @@ public sealed class Stage6SqlMapTests
     // 既有业务键索引的列序保持不变：接收三值之后是两列证件，时间列在最后。
     string[] businessKeyColumns = ExtractIndexColumns(script, "ix_mrec_recognition_match_record_business_key");
     Assert.Equal(
-      ["receiver_organization_code", "receiver_hospital_code", "receiver_branch_code", "identity_document_type_code", "identity_document_no", "match_created_time"],
+      ["receiver_organization_code", "receiver_hospital_code", "receiver_branch_code", "identity_document_no", "match_created_time"],
       businessKeyColumns);
     Assert.NotEqual(
       businessKeyColumns.IndexOf("match_created_time"),

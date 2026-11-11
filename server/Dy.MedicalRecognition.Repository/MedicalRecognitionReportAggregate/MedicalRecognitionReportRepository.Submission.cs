@@ -55,9 +55,9 @@ public partial class MedicalRecognitionReportRepository
   private const string ExaminationSiteScope = "ExaminationSite";
 
   /// <inheritdoc/>
-  public async Task<PlatformPatient?> GetPlatformPatientByDocumentAsync(string identityDocumentTypeCode, string identityDocumentNo) =>
+  public async Task<PlatformPatient?> GetPlatformPatientByDocumentAsync(string identityDocumentNo) =>
     await dataMapper.QuerySingleAsync<PlatformPatient>(
-      new { IdentityDocumentTypeCode = identityDocumentTypeCode, IdentityDocumentNo = identityDocumentNo },
+      new { IdentityDocumentNo = identityDocumentNo },
       scope: PlatformPatientScope);
 
   /// <summary>

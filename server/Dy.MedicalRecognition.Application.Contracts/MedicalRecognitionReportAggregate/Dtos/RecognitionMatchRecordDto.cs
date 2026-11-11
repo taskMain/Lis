@@ -26,11 +26,7 @@ public partial record RecognitionMatchRecordDto : Dto
   /// </summary>
   public partial string ReceiverBranchCode { get; set; }
   /// <summary>
-  /// 查询时提交的患者证件类型代码，与证件号码组合定位患者。
-  /// </summary>
-  public partial string IdentityDocumentTypeCode { get; set; }
-  /// <summary>
-  /// 查询时提交的患者证件号码，按证件类型与号码精确解析患者。
+  /// 查询时提交的患者身份证号码，按号码精确解析患者。
   /// </summary>
   public partial string IdentityDocumentNo { get; set; }
   /// <summary>

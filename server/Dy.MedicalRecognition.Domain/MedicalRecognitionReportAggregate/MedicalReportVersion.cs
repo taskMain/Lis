@@ -50,11 +50,7 @@ public partial class MedicalReportVersion : Dy.Core.Abstractions.Domain.Entity
   /// </summary>
   public partial string? AgeAtReport { get; set; }
   /// <summary>
-  /// 证件类型代码
-  /// </summary>
-  public partial string IdentityDocumentTypeCode { get; set; }
-  /// <summary>
-  /// 证件号码
+  /// 身份证号码；报告版本按来源原值保存。
   /// </summary>
   public partial string IdentityDocumentNo { get; set; }
   /// <summary>

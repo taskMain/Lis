@@ -199,7 +199,6 @@ internal sealed class FakeMatchQueryRepository : IMedicalRecognitionReportQueryR
     string hospitalCode,
     string branchCode,
     Guid patientId,
-    string identityDocumentTypeCode,
     string identityDocumentNo,
     VisitType visitType,
     string visitSerialNo,
@@ -282,7 +281,6 @@ internal sealed class FakeMatchQueryRepository : IMedicalRecognitionReportQueryR
     string organizationCode,
     string hospitalCode,
     string branchCode,
-    string identityDocumentTypeCode,
     string identityDocumentNo,
     VisitType visitType,
     string visitSerialNo)
@@ -291,7 +289,6 @@ internal sealed class FakeMatchQueryRepository : IMedicalRecognitionReportQueryR
     CitationQueryOrganizationCode = organizationCode;
     CitationQueryHospitalCode = hospitalCode;
     CitationQueryBranchCode = branchCode;
-    CitationQueryIdentityDocumentTypeCode = identityDocumentTypeCode;
     CitationQueryIdentityDocumentNo = identityDocumentNo;
     return Task.FromResult<IEnumerable<RecognitionCitationCandidateItem>>(
     [
@@ -300,7 +297,6 @@ internal sealed class FakeMatchQueryRepository : IMedicalRecognitionReportQueryR
         .Where(candidate => string.Equals(candidate.ReceiverOrganizationCode, organizationCode, StringComparison.Ordinal)
           && string.Equals(candidate.ReceiverHospitalCode, hospitalCode, StringComparison.Ordinal)
           && string.Equals(candidate.ReceiverBranchCode, branchCode, StringComparison.Ordinal)
-          && string.Equals(candidate.IdentityDocumentTypeCode, identityDocumentTypeCode, StringComparison.Ordinal)
           && string.Equals(candidate.IdentityDocumentNo, identityDocumentNo, StringComparison.Ordinal)
           && candidate.VisitType == visitType
           && string.Equals(candidate.VisitSerialNo, visitSerialNo, StringComparison.Ordinal))
@@ -335,9 +331,6 @@ internal sealed class FakeMatchQueryRepository : IMedicalRecognitionReportQueryR
         .OrderBy(item => item.StandardProjectCode, StringComparer.Ordinal)
     ]);
   }
-
-  /// <summary>最近一次引用详情候选读取收到的证件类型代码；用于观测查询侧提交值的规范形式。</summary>
-  public string? CitationQueryIdentityDocumentTypeCode { get; private set; }
 
   /// <summary>最近一次引用详情候选读取收到的证件号码；用于观测查询侧提交值的规范形式。</summary>
   public string? CitationQueryIdentityDocumentNo { get; private set; }

@@ -14,11 +14,7 @@ public partial record PlatformPatientDto : Dto
   /// </summary>
   public partial Guid Id { get; set; }
   /// <summary>
-  /// 证件类型代码，按来源受控值保存、不映射平台字典。
-  /// </summary>
-  public partial string IdentityDocumentTypeCode { get; set; }
-  /// <summary>
-  /// 证件号码，不用姓名相似度、联系电话或院内卡替代识别；身份信息冲突时拒绝关联。
+  /// 身份证号码，不用姓名相似度、联系电话或院内卡替代识别。
   /// </summary>
   public partial string IdentityDocumentNo { get; set; }
   /// <summary>

@@ -600,3 +600,58 @@ dotnet test Dy.MedicalRecognition.Tests/Dy.MedicalRecognition.Tests.csproj --no-
 ### IAM 联调前置适配
 
 真实登录后发现旧 IAM SDK 仅识别单值组织类型，而当前 IAM 返回 `organizationTypes` 数组，导致业务请求无法解析当前组织。仅将 `Dy.IAM.Application.Contracts` 与 `Dy.IAM.Apron.OpenApi` 从 `0.2.0.37` 升至 `0.2.0.115`，项目组织范围解析按集合包含关系判断并增加回归测试。该适配与 PDF 业务授权修复分别记录，自动化结果及真实组织查询均已取证。
+
+## 患者身份证号码规则验证（2026-11-12）
+
+### 范围与环境
+
+验证范围为身份证号码识别规则涉及的历史患者归并、报告患者归属、证件类型字段删除、报告详情展示及迁移后的报告上传。数据库迁移由负责人执行；Agent 通过 DBX 对 `DysoftHIS.public` 只读检查，测试数据通过业务接口形成，没有直接执行 SQL 写入。迁移文件为 `server/Dy.MedicalRecognition.Repository/Scripts/Migrations/20261111_remove_identity_document_type_and_merge_patients.sql`。
+
+宿主入口为 `http://183.224.180.166:35009/login`，使用业务测试账号 `10251` 登录，经宿主报告管理页选择“测试医共体 / 测试用-县医院 / 总院”（业务编码 `01 / 0101 / 0101001`）。浏览器为 Chrome `157.0.8103.38`，控制工具为 `dy-dev-browser-debugging` 随附 CDP CLI，隔离会话为 `medrec-detail-final`，调试端口为 `9234`。本地前端为 `localhost:3008`，本地后端为 `localhost:15014`。
+
+### 数据库与运行时结果
+
+| 验证面 | 状态 | 实际证据 |
+|---|---|---|
+| 证件类型字段删除 | `Passed` | `information_schema.columns` 查询 `public` 下 `identity_document_type_code`，返回数量为 0 |
+| 患者号码唯一与患者归并 | `Passed` | 迁移核验时患者记录数 47，身份证号码去重数 47，重复分组数 0；保留患者主档仍存在，被归并患者主档及报告主体、版本对其患者标识的引用数量均为 0；下方接口联调另新增 1 个合成测试患者 |
+| 报告患者归属修复 | `Passed` | 按 `report_id` 连接报告主体与全部版本，患者标识不一致数为 0；患者标识为全零的报告数为 0 |
+| 无版本报告处理 | `Passed` | 全零当前版本标识且没有版本的报告数为 0 |
+| 最终索引 | `Passed` | 患者唯一索引仅含 `identity_document_no`；匹配记录业务索引含接收方三级编码、`identity_document_no`、`match_created_time`，不含证件类型 |
+| 运行时 OpenAPI | `Passed` | `GET /openapi/v1.json` 返回 200；文档保留 `identityDocumentNo`，不含 `IdentityDocumentTypeCode`、`identityDocumentTypeCode` 或 `identity_document_type_code` |
+
+### 宿主报告详情结果
+
+| 验证面 | 状态 | 实际证据 |
+|---|---|---|
+| 本地前端来源 | `Passed` | 宿主 `micro-app` 地址指向 `localhost:3008`；沙箱资源记录包含本地 `@vite/client` 和 `src/pages/reportManagement/ReportDetailContent.tsx` |
+| 已有报告进入详情 | `Passed` | 页面选择上述范围并执行查询，返回 16 份报告；从列表打开合成测试报告 `TEST-EXAM-20261029-001`，第 2 版详情正常呈现 |
+| 版本与详情接口 | `Passed` | 通过浏览器 Network 观测 `QueryMedicalReportVersionList`、`QueryMedicalReportVersionDetail` 的业务响应均为 200，相关预检响应为 204；详情响应包含 `identityDocumentNo`，不含 `identityDocumentTypeCode` |
+| 身份信息呈现 | `Passed` | 页面公共信息保留患者姓名、性别代码、出生日期和证件号码，未显示证件类型；概要、版本信息和检查内容正常呈现 |
+| 详情操作运行时异常 | `Passed` | 从点击列表详情到接口返回期间启用 CDP `Runtime` 观测，`Runtime.exceptionThrown` 事件数为 0 |
+
+### 迁移后报告上传结果
+
+真实 HTTP 联调使用 `10251` 的当前有效工作身份，可信范围为 `01 / 0101 / 0101001`。认证前读取宿主 `/subApps/auth/config.json`，核对 IAM 地址及 `dy-webmicro-dev` 客户端；复用技能的文档票据登录流程，实时查询有效工作身份，再签发 `medical-recognition` 应用令牌。凭据与令牌仅在进程内使用。
+
+起始提交为 `c6dd1c9ad7a781639b28aefbe713ffcb8dc74406`，工作区保留既有未提交修改。后端以 `dotnet run --project server/Dy.MedicalRecognition/Dy.MedicalRecognition.csproj --no-build` 启动，进程 `55496`、业务子进程 `3128`，地址为 `localhost:15014`；日志为 `.local/identity-rule-e2e/backend.stdout.log` 与 `backend.stderr.log`。本轮没有修改生产代码。
+
+| 验证面 | 状态 | 实际证据 |
+|---|---|---|
+| 空白身份证号码拒绝 | `Passed` | 提交 `IDENTITY-20261112015015-LABORATORY-BLANK`，返回 HTTP 500，首行错误为“业务拒绝：证件号码不能为空或空白。”；DBX 回读该报告数量为 0 |
+| 检验报告省略证件类型并规范化号码 | `Passed` | `POST /api/v1/report-pdf/laboratory-report` 返回 200/`true`；报告单号 `IDENTITY-20261112015015-LABORATORY`，来源号码为带首尾空白的小写合成号码；报告主体和患者主档保存 `MREC-ID-20261112015015-X`，第 1 版保留来源号码与姓名原值；该合成号码不符合居民身份证格式，仍被接受 |
+| 同号码、不同姓名性别出生日期追加版本 | `Passed` | 同一报告追加第 2 版返回 200/`true`；来源姓名、性别代码、出生日期分别改为另一组合，两个版本仍关联患者 `3a24dde9-1724-ad4a-7f87-9453d83efc24`；版本保存各自来源值，患者主档保留首次规范化姓名与原性别、出生日期 |
+| 已有报告跨患者变更拒绝 | `Passed` | 同一报告改用以 `-OTHER` 结尾的另一号码，返回 HTTP 500，错误为“业务拒绝：本次提交解析到的患者与报告已关联的患者不一致。”；回读版本仍为 2 个，当前版本未变，另一号码没有残留患者记录 |
+| 检查报告省略证件类型 | `Passed` | `POST /api/v1/report-pdf/examination-report` 返回 200/`true`；报告单号 `IDENTITY-20261112015015-EXAMINATION`，另一个来源姓名、性别和出生日期组合被接受；第 1 版与检验报告关联同一患者，来源信息分别保存 |
+
+检验报告标识为 `3a24dde9-16f8-c8ea-11a6-470790facd60`，当前版本为 `3a24dde9-1921-198f-544a-ea314cd600bd`；检查报告标识为 `3a24dde9-1c41-bdba-c2ca-0aba838ea76c`。最终新增 1 个合成患者、2 份报告、3 个版本，全部经业务接口形成；不直接删除这些数据。DBX 按本次报告单号回读，3 个版本与两个报告主体的患者标识均一致。
+
+本地辅助脚本为 `.local/identity-rule-e2e/run.py`，下游匹配与引用验证脚本为 `continue.py`，非敏感结果为 `results.json`，请求及响应夹具为 `fixture.json`，数据库回读为 `db-readback.md`；这些文件受 Git 忽略规则保护，不作为新增版本控制产物。完整执行命令为 `python .local/identity-rule-e2e/run.py --execute --resume-unwritten` 及 `python .local/identity-rule-e2e/continue.py`；带写入的脚本有夹具状态检查，不得直接重复执行已成功写入的步骤。
+
+### 验证边界与残余项
+
+- 开发 Console 出现详情子路由没有独立 `element` 或 `Component` 的 React Router 警告；详情由父组件呈现，页面与响应均正常。本项作为观察保留，未修改路由实现，不宣称 Console 没有警告。
+- 迁移后上传验证覆盖检验、检查保存路径、号码规范化、来源值保存及后续版本患者归属拒绝；成功响应均为 HTTP 200/`true`，两个拒绝场景按本环境实际返回 HTTP 500 记录，没有修改错误协议。
+- 迁移前自动化结果沿用其原执行记录；本节没有重新执行后端全量测试、前端全量测试或构建，不将历史数字记为新的测试轮次。其他业务页面、下载、导出和统计不属于本次页面验收范围。
+- 宿主详情验收使用已有合成报告；接口联调新增数据范围见上文，未修改已有业务数据。宿主验收的前后端与隔离浏览器页面、接口联调的后端进程均已关闭，`git diff --check` 无差异格式错误。
+- 本节结果仅适用于上述数据库、运行时与报告详情验证面，不改变整个阶段的验收状态。

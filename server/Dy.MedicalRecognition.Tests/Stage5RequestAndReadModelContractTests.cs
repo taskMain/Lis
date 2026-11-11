@@ -104,7 +104,7 @@ public sealed class Stage5RequestAndReadModelContractTests
   public void Four_requests_expose_exactly_the_v81_field_set()
   {
     Assert.Equal(
-      ["IdentityDocumentNo", "IdentityDocumentTypeCode", "ProposedItems", "VisitSerialNo", "VisitType"],
+      ["IdentityDocumentNo", "ProposedItems", "VisitSerialNo", "VisitType"],
       DeclaredPropertyNames(typeof(RecognitionMatchQueryRequest)));
     Assert.Equal(
       [
@@ -113,7 +113,7 @@ public sealed class Stage5RequestAndReadModelContractTests
       ],
       BusinessFieldNames(typeof(RecognitionProcessingResultSubmissionRequest)));
     Assert.Equal(
-      ["IdentityDocumentNo", "IdentityDocumentTypeCode", "VisitSerialNo", "VisitType"],
+      ["IdentityDocumentNo", "VisitSerialNo", "VisitType"],
       DeclaredPropertyNames(typeof(RecognitionCitationDetailRequest)));
     Assert.Equal(
       ["ReferenceItems"],
@@ -188,7 +188,7 @@ public sealed class Stage5RequestAndReadModelContractTests
 
     string[] fields = DeclaredPropertyNames(type);
     Assert.DoesNotContain("RecognitionMatchItemId", fields);
-    Assert.Contains("IdentityDocumentTypeCode", fields);
+    Assert.DoesNotContain("IdentityDocumentTypeCode", fields);
   }
 
   /// <summary>
@@ -661,7 +661,6 @@ public sealed class Stage5RequestAndReadModelContractTests
   /// <returns>字段齐全的匹配查询请求。</returns>
   private static RecognitionMatchQueryRequest ValidMatchQueryRequest() => new()
   {
-    IdentityDocumentTypeCode = "01",
     IdentityDocumentNo = "N-0001",
     VisitType = VisitType.Outpatient,
     VisitSerialNo = "V-0001",
@@ -699,7 +698,6 @@ public sealed class Stage5RequestAndReadModelContractTests
   /// <returns>字段齐全的引用详情请求。</returns>
   private static RecognitionCitationDetailRequest ValidCitationDetailRequest() => new()
   {
-    IdentityDocumentTypeCode = "01",
     IdentityDocumentNo = "N-0001",
     VisitType = VisitType.Outpatient,
     VisitSerialNo = "V-0001"
