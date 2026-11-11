@@ -166,8 +166,8 @@ function resolveInitialScopeSelection(
  * 页头只保留标题与副标题，不展示组织、医院、院区范围（S3-D23 修订：正文自带三级范围
  * 选择器，页头重复展示同一信息属冗余）。
  *
- * 可信组织或医院任一缺失（含匿名与初始化会话）即整页阻断：整页只渲染标题与错误 Alert，
- * 不渲染选择器、不发起任何请求，也不伪造组织或退化为全局查询。
+ * 平台管理员页只在宿主会话不存在时整页阻断。登录组织、医院或院区编码缺失时仍渲染选择器，
+ * 由可选机构清单确定默认范围；范围三值不完整时不构造金额查询、保存或导出请求。
  * 范围值由页面**受控**保存并按默认规则解析：范围选择器以 `selectFirstOption` 在初始
  * 选项加载完成后回调首项组合与选项清单，页面按 S3-D22 完成初始解析——组织、医院、院区各自
  * 缺失或不属于上级清单时取该层第一项，选定组织或医院与交付组合不一致时先留空院区、等选择器
@@ -188,9 +188,8 @@ export function RecognitionAmounts() {
   const trustedOrganizationCode = resolvedScope.status === 'ready' ? resolvedScope.organizationCode : null
   const trustedHospitalCode = resolvedScope.status === 'ready' ? resolvedScope.hospitalCode : null
   const trustedBranch = resolvedScope.status === 'ready' ? resolvedScope.branchCode : null
-  const scopeBlocked = resolvedScope.status !== 'ready'
-    || trustedOrganizationCode === null
-    || trustedHospitalCode === null
+  const scopeBlocked = session === null
+    || (session.status !== 'authenticated' && session.status !== 'refreshing')
 
   const [selection, setSelection] = useState<ScopeSelection | null>(null)
   /**
@@ -456,8 +455,8 @@ export function RecognitionAmounts() {
     }
   }, [appliedScope, client])
 
-  // 可信组织或医院缺失即整页阻断：阻断面板不渲染选择器与列表视图，选择器不装载选项、
-  // 列表视图不挂载，因此零业务请求（早退在全部钩子之后，钩子挂载顺序不随阻断变化）。
+  // 未建立宿主会话时整页阻断；已认证平台管理员的登录机构信息只参与默认范围解析，
+  // 选择器负责提供可管理范围，范围不完整时由查询构造出口拒绝业务请求。
   if (scopeBlocked) {
     return <div className='recognition-amounts-page'>
       <ScopeUnavailablePanel

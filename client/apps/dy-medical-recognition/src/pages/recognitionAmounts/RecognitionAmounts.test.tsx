@@ -651,6 +651,20 @@ describe('C1 范围选择与首次加载', () => {
     await screen.findByText('血常规')
   })
 
+  it('机构选项为空时保留范围选择器且不发起金额查询或导出', async () => {
+    baseClient.api.organization.queryAllOrganization.post.mockResolvedValueOnce([])
+    renderPage()
+
+    expect(scopeSelect('组织')).toBeInTheDocument()
+    await waitFor(() => expect(baseClient.api.organization.queryAllOrganization.post).toHaveBeenCalledOnce())
+    expect(scopeSelect('组织').options).toHaveLength(1)
+    expect(scopeSelect('医院')).toBeInTheDocument()
+    expect(scopeSelect('院区')).toBeInTheDocument()
+    expect(query()).not.toHaveBeenCalled()
+    expect(queryExportButton()).toBeDisabled()
+    await expectNoAmountExportRequest()
+  })
+
   it('C1：依次切换组织、医院、院区都按新范围重载，且不自动发起写请求', async () => {
     const first = armQuery()
     renderPage()
@@ -1303,29 +1317,40 @@ describe('C30 院区恒定单值', () => {
     await settle(first, [amountRow()])
   })
 
-  it('可信组织缺失时整页阻断：只渲染标题与错误 Alert，不进入逐级取首项的解析', async () => {
+  it('可信组织缺失时仍展示范围选择器并按可选范围读取', async () => {
     trustedOrganizationRef.current = null
     trustedBranchRef.current = 'BRA-3'
+    const first = armQuery()
     renderPage()
 
     expect(await screen.findByRole('heading', { name: '互认项目金额维护' })).toBeInTheDocument()
-    const alert = within(document.querySelector('.recognition-amounts-page') as HTMLElement).getByRole('alert')
-    expect(alert).toHaveClass('ant-alert-error')
-    expect(alert.textContent).toBe('无法读取当前登录组织或医院，已阻断本页查询与操作。')
-    // 阻断态零业务请求，也不渲染范围选择器（不伪造组织、不退化为全局查询）。
-    expect(query()).not.toHaveBeenCalled()
+    expect(scopeSelect('组织')).toBeInTheDocument()
+    expect(scopeSelect('医院')).toBeInTheDocument()
+    expect(scopeSelect('院区')).toBeInTheDocument()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
+    expect(query().mock.calls[0][1]).toEqual({
+      organizationCode: 'ORG-A',
+      hospitalCode: 'HOS-1',
+      branchCode: 'BRA-1',
+    })
     expect(save()).not.toHaveBeenCalled()
-    expect(screen.queryByLabelText('范围-组织')).not.toBeInTheDocument()
+    await settle(first, [amountRow()])
   })
 
-  it('可信医院缺失时同样整页阻断', async () => {
+  it('可信医院缺失时仍展示范围选择器并按可选范围读取', async () => {
     trustedHospitalRef.current = null
     trustedBranchRef.current = 'BRA-3'
+    const first = armQuery()
     renderPage()
 
-    expect(await screen.findByText('无法读取当前登录组织或医院，已阻断本页查询与操作。')).toBeInTheDocument()
-    expect(query()).not.toHaveBeenCalled()
-    expect(screen.queryByLabelText('范围-医院')).not.toBeInTheDocument()
+    expect(scopeSelect('医院')).toBeInTheDocument()
+    await waitFor(() => expect(query()).toHaveBeenCalledTimes(1))
+    expect(query().mock.calls[0][1]).toEqual({
+      organizationCode: 'ORG-A',
+      hospitalCode: 'HOS-1',
+      branchCode: 'BRA-1',
+    })
+    await settle(first, [amountRow()])
   })
 
   it('切换组织或医院后院区自动重取：可信院区属于新范围则选中，否则新范围第一项', async () => {
@@ -1406,7 +1431,7 @@ describe('C31 页头范围展示移除', () => {
   })
 })
 
-describe('可信范围不可用（平台页阻断）', () => {
+describe('认证状态不可用（平台页阻断）', () => {
   it('token 缺失时整页只渲染标题与错误 Alert，零业务请求', async () => {
     authState.token = null
     renderPage()
@@ -2478,19 +2503,12 @@ describe('平台金额页导出与页面其他状态的共存', () => {
 })
 
 describe('平台金额页整页阻断态导出不可达', () => {
-  it('可信组织缺失的整页阻断态不渲染导出按钮，医院缺失同样不可达', async () => {
+  it('认证状态不可用时整页阻断态不渲染导出按钮', async () => {
     trustedOrganizationRef.current = null
+    authState.token = null
     renderPage()
     expect(await screen.findByRole('heading', { name: '互认项目金额维护', level: 3 })).toBeInTheDocument()
     expect(queryExportButton()).not.toBeInTheDocument()
     expect(query()).not.toHaveBeenCalled()
-
-    await act(async () => {
-      trustedOrganizationRef.current = 'ORG-A'
-      trustedHospitalRef.current = null
-      authState.notify()
-    })
-    expect(screen.getByRole('heading', { name: '互认项目金额维护', level: 3 })).toBeInTheDocument()
-    expect(queryExportButton()).not.toBeInTheDocument()
   })
 })
