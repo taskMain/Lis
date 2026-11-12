@@ -398,9 +398,8 @@ FodyWeavers.xsd
 !.dsh/skills/
 !.dsh/skills/**
 .local/
-.agents/*
-!.agents/instructions/
-!.agents/instructions/**
+/AGENTS.md
+/.agents/
 参考/
 
 # dy-codegen 生成状态（可由 docs/uml 再生成；如需留存生成证据，删除下一行）
